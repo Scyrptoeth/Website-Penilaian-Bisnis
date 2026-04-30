@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   Banknote,
@@ -20,22 +20,32 @@ import {
 import { accountMappingRules } from "@/lib/valuation/account-taxonomy";
 import { calculateAllMethods } from "@/lib/valuation/calculations";
 import {
+  buildDefaultFixedAssetScheduleRows,
+  buildFixedAssetScheduleSummary,
   buildSampleAssumptions,
   buildSamplePeriods,
   buildSampleRows,
   buildSnapshot,
+  createFixedAssetScheduleRow,
   createRow,
   emptyAssumptions,
+  ensureFixedAssetSchedulePeriods,
+  fixedAssetScheduleValueKeys,
+  getChronologicalPeriods,
   initialPeriods,
   mapRow,
   statementLabels,
   type AccountRow,
   type AssumptionState,
+  type FixedAssetPeriodAmounts,
+  type FixedAssetScheduleRow,
+  type FixedAssetScheduleSummary,
+  type FixedAssetScheduleValueKey,
   type MappedRow,
   type Period,
   type StatementType,
 } from "@/lib/valuation/case-model";
-import { formatDisplayDate, formatEditableNumber, formatIdr, formatPercent, formatScore } from "@/lib/valuation/format";
+import { formatDisplayDate, formatEditableNumber, formatIdr, formatInputNumber, formatPercent, formatScore } from "@/lib/valuation/format";
 import type { AccountCategory, FinancialStatementSnapshot, FormulaTrace } from "@/lib/valuation/types";
 
 const categoryOptions: Array<{ value: AccountCategory; label: string }> = [
@@ -119,6 +129,7 @@ type PersistedWorkbenchState = {
   periods: Period[];
   activePeriodId: string;
   rows: AccountRow[];
+  fixedAssetScheduleRows: FixedAssetScheduleRow[];
   assumptions: AssumptionState;
 };
 
@@ -137,12 +148,20 @@ export function ValuationWorkbench() {
   const [periods, setPeriods] = useState<Period[]>(initialPeriods);
   const [activePeriodId, setActivePeriodId] = useState(initialPeriods[0].id);
   const [rows, setRows] = useState<AccountRow[]>([]);
+  const [fixedAssetScheduleRows, setFixedAssetScheduleRows] = useState<FixedAssetScheduleRow[]>([]);
   const [assumptions, setAssumptions] = useState<AssumptionState>(emptyAssumptions);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isDraftRestored, setIsDraftRestored] = useState(false);
 
   const mappedRows = useMemo(() => rows.map((row) => mapRow(row)), [rows]);
-  const snapshot = useMemo(() => buildSnapshot(periods, activePeriodId, rows, assumptions), [periods, activePeriodId, rows, assumptions]);
+  const fixedAssetSchedule = useMemo(
+    () => buildFixedAssetScheduleSummary(periods, fixedAssetScheduleRows),
+    [fixedAssetScheduleRows, periods],
+  );
+  const snapshot = useMemo(
+    () => buildSnapshot(periods, activePeriodId, rows, assumptions, fixedAssetScheduleRows),
+    [periods, activePeriodId, rows, assumptions, fixedAssetScheduleRows],
+  );
   const results = useMemo(() => calculateAllMethods(snapshot), [snapshot]);
   const methodCards = [results.aam, results.eem, results.dcf];
   const activePeriod = periods.find((period) => period.id === activePeriodId) ?? periods[0];
@@ -154,9 +173,11 @@ export function ValuationWorkbench() {
   const balanceSheetGap = results.adjustedTotalAssets - results.adjustedTotalLiabilities - equityBookComponents;
   const hasAnyInput =
     rows.length > 0 ||
+    fixedAssetScheduleRows.length > 0 ||
+    fixedAssetSchedule.hasInput ||
     periods.some((period) => period.label !== "Tahun 1" || period.valuationDate) ||
     Object.values(assumptions).some((value) => value.trim() !== "");
-  const checks = buildValidationChecks(rows, mappedRows, assumptions, snapshot, balanceSheetGap);
+  const checks = buildValidationChecks(rows, mappedRows, assumptions, snapshot, balanceSheetGap, fixedAssetSchedule);
 
   useEffect(() => {
     const storedState = readPersistedWorkbenchState();
@@ -170,6 +191,7 @@ export function ValuationWorkbench() {
       setPeriods(nextPeriods);
       setActivePeriodId(nextActivePeriodId);
       setRows(storedState.rows);
+      setFixedAssetScheduleRows(storedState.fixedAssetScheduleRows);
       setAssumptions(storedState.assumptions);
     }
 
@@ -188,9 +210,10 @@ export function ValuationWorkbench() {
       periods,
       activePeriodId,
       rows,
+      fixedAssetScheduleRows,
       assumptions,
     });
-  }, [activePeriodId, assumptions, isDraftRestored, periods, rows]);
+  }, [activePeriodId, assumptions, fixedAssetScheduleRows, isDraftRestored, periods, rows]);
 
   useEffect(() => {
     if (!isDraftRestored) {
@@ -250,8 +273,10 @@ export function ValuationWorkbench() {
       label: `Tahun ${periods.length + 1}`,
       valuationDate: "",
     };
+    const nextPeriods = [...periods, period];
 
-    setPeriods((current) => [...current, period]);
+    setPeriods(nextPeriods);
+    setFixedAssetScheduleRows((current) => ensureFixedAssetSchedulePeriods(current, nextPeriods));
     setActivePeriodId(period.id);
   }
 
@@ -272,6 +297,12 @@ export function ValuationWorkbench() {
         return { ...row, values };
       }),
     );
+    setFixedAssetScheduleRows((current) =>
+      current.map((row) => {
+        const { [id]: _removed, ...values } = row.values;
+        return { ...row, values };
+      }),
+    );
 
     if (activePeriodId === id) {
       setActivePeriodId(nextPeriods[nextPeriods.length - 1].id);
@@ -279,7 +310,51 @@ export function ValuationWorkbench() {
   }
 
   function addRow(statement: StatementType = "balance_sheet") {
-    setRows((current) => [...current, createRow(statement, periods)]);
+    setRows((current) => [createRow(statement, periods), ...current]);
+  }
+
+  function loadFixedAssetTemplate() {
+    setFixedAssetScheduleRows((current) => {
+      const existingNames = new Set(current.map((row) => normalizeAssetName(row.assetName)).filter(Boolean));
+      const missingTemplateRows = buildDefaultFixedAssetScheduleRows(periods).filter((row) => !existingNames.has(normalizeAssetName(row.assetName)));
+
+      if (current.length === 0) {
+        return missingTemplateRows;
+      }
+
+      return missingTemplateRows.length > 0 ? [...current, ...missingTemplateRows] : current;
+    });
+  }
+
+  function addFixedAssetScheduleRow() {
+    setFixedAssetScheduleRows((current) => [createFixedAssetScheduleRow(periods), ...current]);
+  }
+
+  function updateFixedAssetScheduleRow(id: string, patch: Partial<FixedAssetScheduleRow>) {
+    setFixedAssetScheduleRows((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)));
+  }
+
+  function updateFixedAssetScheduleValue(rowId: string, periodId: string, key: FixedAssetScheduleValueKey, value: string) {
+    setFixedAssetScheduleRows((current) =>
+      current.map((row) =>
+        row.id === rowId
+          ? {
+              ...row,
+              values: {
+                ...row.values,
+                [periodId]: {
+                  ...(row.values[periodId] ?? emptyFixedAssetInputValues()),
+                  [key]: formatEditableNumber(value),
+                },
+              },
+            }
+          : row,
+      ),
+    );
+  }
+
+  function removeFixedAssetScheduleRow(id: string) {
+    setFixedAssetScheduleRows((current) => current.filter((row) => row.id !== id));
   }
 
   function updateRow(id: string, patch: Partial<AccountRow>) {
@@ -307,6 +382,7 @@ export function ValuationWorkbench() {
     setPeriods(samplePeriods);
     setActivePeriodId("p2021");
     setRows(buildSampleRows());
+    setFixedAssetScheduleRows([]);
     setAssumptions(buildSampleAssumptions());
   }
 
@@ -315,6 +391,7 @@ export function ValuationWorkbench() {
     setPeriods(initialPeriods);
     setActivePeriodId(initialPeriods[0].id);
     setRows([]);
+    setFixedAssetScheduleRows([]);
     setAssumptions(emptyAssumptions);
 
     if (typeof window !== "undefined") {
@@ -443,15 +520,28 @@ export function ValuationWorkbench() {
                 <Plus size={18} />
                 Income Statement
               </button>
-              <button className="button secondary" type="button" onClick={() => addRow("fixed_asset")}>
+              <button className="button secondary" type="button" onClick={loadFixedAssetTemplate}>
                 <Plus size={18} />
-                Fixed Asset
+                Fixed Asset Schedule
               </button>
             </div>
           </div>
 
+          {fixedAssetScheduleRows.length > 0 ? (
+            <FixedAssetScheduleEditor
+              periods={periods}
+              schedule={fixedAssetSchedule}
+              onAddRow={addFixedAssetScheduleRow}
+              onRemoveRow={removeFixedAssetScheduleRow}
+              onUpdateRow={updateFixedAssetScheduleRow}
+              onUpdateValue={updateFixedAssetScheduleValue}
+            />
+          ) : null}
+
           {rows.length === 0 ? (
-            <div className="empty-state">Belum ada akun. Tambahkan baris dari tombol di atas.</div>
+            <div className="empty-state">
+              {fixedAssetScheduleRows.length > 0 ? "Belum ada akun manual tambahan." : "Belum ada akun. Tambahkan baris dari tombol di atas."}
+            </div>
           ) : (
             <div className="table-wrap">
               <table className="account-entry-table">
@@ -714,6 +804,10 @@ export function ValuationWorkbench() {
               <dd>{formatIdr(results.adjustedTotalAssets)}</dd>
             </div>
             <div>
+              <dt>Fixed asset net value</dt>
+              <dd>{formatIdr(snapshot.fixedAssetsNet)}</dd>
+            </div>
+            <div>
               <dt>Adjusted total liabilities</dt>
               <dd>{formatIdr(results.adjustedTotalLiabilities)}</dd>
             </div>
@@ -784,6 +878,7 @@ function readPersistedWorkbenchState(): PersistedWorkbenchState | null {
 
     const periods = sanitizePeriods(parsed.periods);
     const rows = sanitizeRows(parsed.rows);
+    const fixedAssetScheduleRows = ensureFixedAssetSchedulePeriods(sanitizeFixedAssetScheduleRows(parsed.fixedAssetScheduleRows), periods);
     const assumptions = sanitizeAssumptions(parsed.assumptions);
     const activePeriodId = typeof parsed.activePeriodId === "string" ? parsed.activePeriodId : "";
 
@@ -793,6 +888,7 @@ function readPersistedWorkbenchState(): PersistedWorkbenchState | null {
       periods,
       activePeriodId,
       rows,
+      fixedAssetScheduleRows,
       assumptions,
     };
   } catch {
@@ -902,6 +998,45 @@ function sanitizeRows(value: unknown): AccountRow[] {
   });
 }
 
+function sanitizeFixedAssetScheduleRows(value: unknown): FixedAssetScheduleRow[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((row): FixedAssetScheduleRow[] => {
+    if (!isRecord(row) || typeof row.id !== "string") {
+      return [];
+    }
+
+    const values = isRecord(row.values)
+      ? Object.fromEntries(
+          Object.entries(row.values).flatMap(([periodId, periodValues]) => {
+            if (!isRecord(periodValues)) {
+              return [];
+            }
+
+            return [
+              [
+                periodId,
+                Object.fromEntries(
+                  fixedAssetScheduleValueKeys.map((key) => [key, typeof periodValues[key] === "string" ? periodValues[key] : ""]),
+                ) as Record<FixedAssetScheduleValueKey, string>,
+              ],
+            ];
+          }),
+        )
+      : {};
+
+    return [
+      {
+        id: row.id,
+        assetName: typeof row.assetName === "string" ? row.assetName : "",
+        values,
+      },
+    ];
+  });
+}
+
 function sanitizeAssumptions(value: unknown): AssumptionState {
   const source = isRecord(value) ? value : {};
   return Object.fromEntries(
@@ -917,6 +1052,10 @@ function sanitizeStringRecord(value: unknown): Record<string, string> {
   return Object.fromEntries(
     Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === "string"),
   );
+}
+
+function normalizeAssetName(value: string): string {
+  return value.trim().toLowerCase();
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -984,6 +1123,251 @@ function AssumptionInput({ label, value, onChange }: { label: string; value: str
   );
 }
 
+function emptyFixedAssetInputValues(): Record<FixedAssetScheduleValueKey, string> {
+  return {
+    acquisitionBeginning: "",
+    acquisitionAdditions: "",
+    depreciationBeginning: "",
+    depreciationAdditions: "",
+  };
+}
+
+function emptyFixedAssetAmounts(): FixedAssetPeriodAmounts {
+  return {
+    acquisitionBeginning: 0,
+    acquisitionAdditions: 0,
+    acquisitionEnding: 0,
+    depreciationBeginning: 0,
+    depreciationAdditions: 0,
+    depreciationEnding: 0,
+    netValue: 0,
+  };
+}
+
+function FixedAssetScheduleEditor({
+  periods,
+  schedule,
+  onAddRow,
+  onRemoveRow,
+  onUpdateRow,
+  onUpdateValue,
+}: {
+  periods: Period[];
+  schedule: FixedAssetScheduleSummary;
+  onAddRow: () => void;
+  onRemoveRow: (id: string) => void;
+  onUpdateRow: (id: string, patch: Partial<FixedAssetScheduleRow>) => void;
+  onUpdateValue: (rowId: string, periodId: string, key: FixedAssetScheduleValueKey, value: string) => void;
+}) {
+  const chronologicalPeriods = getChronologicalPeriods(periods);
+  const firstPeriodId = chronologicalPeriods[0]?.id ?? periods[0]?.id;
+
+  return (
+    <div className="fixed-asset-editor">
+      <div className="subpanel-heading">
+        <div>
+          <p className="eyebrow">Fixed Asset Schedule</p>
+          <h4>A. Acquisition Costs · B. Depreciation · Net Value</h4>
+        </div>
+        <div className="toolbar">
+          <span className="status-pill muted">Ending dan net value otomatis</span>
+          <button className="button ghost compact-button" type="button" onClick={onAddRow}>
+            <Plus size={16} />
+            Tambah kelas aset
+          </button>
+        </div>
+      </div>
+
+      <FixedAssetSectionTable
+        title="A. Acquisition Costs"
+        beginningKey="acquisitionBeginning"
+        additionsKey="acquisitionAdditions"
+        endingKey="acquisitionEnding"
+        firstPeriodId={firstPeriodId}
+        periods={periods}
+        schedule={schedule}
+        onRemoveRow={onRemoveRow}
+        onUpdateRow={onUpdateRow}
+        onUpdateValue={onUpdateValue}
+      />
+      <FixedAssetSectionTable
+        title="B. Depreciation"
+        beginningKey="depreciationBeginning"
+        additionsKey="depreciationAdditions"
+        endingKey="depreciationEnding"
+        firstPeriodId={firstPeriodId}
+        periods={periods}
+        schedule={schedule}
+        onUpdateRow={onUpdateRow}
+        onUpdateValue={onUpdateValue}
+      />
+      <FixedAssetNetValueTable periods={periods} schedule={schedule} />
+    </div>
+  );
+}
+
+function FixedAssetSectionTable({
+  title,
+  periods,
+  schedule,
+  firstPeriodId,
+  beginningKey,
+  additionsKey,
+  endingKey,
+  onRemoveRow,
+  onUpdateRow,
+  onUpdateValue,
+}: {
+  title: string;
+  periods: Period[];
+  schedule: FixedAssetScheduleSummary;
+  firstPeriodId: string | undefined;
+  beginningKey: "acquisitionBeginning" | "depreciationBeginning";
+  additionsKey: "acquisitionAdditions" | "depreciationAdditions";
+  endingKey: "acquisitionEnding" | "depreciationEnding";
+  onRemoveRow?: (id: string) => void;
+  onUpdateRow: (id: string, patch: Partial<FixedAssetScheduleRow>) => void;
+  onUpdateValue: (rowId: string, periodId: string, key: FixedAssetScheduleValueKey, value: string) => void;
+}) {
+  return (
+    <div className="fixed-asset-section">
+      <h5>{title}</h5>
+      <div className="table-wrap fixed-asset-table-wrap">
+        <table className="fixed-asset-table">
+          <thead>
+            <tr>
+              <th rowSpan={2}>Asset class</th>
+              {periods.map((period) => (
+                <th colSpan={3} key={period.id}>
+                  {period.label || "Periode"}
+                </th>
+              ))}
+            </tr>
+            <tr>
+              {periods.map((period) => (
+                <Fragment key={period.id}>
+                  <th>Beginning</th>
+                  <th>Additions</th>
+                  <th>Ending</th>
+                </Fragment>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {schedule.rows.map(({ row, amounts }) => (
+              <tr key={row.id}>
+                <td>
+                  <div className="asset-name-cell">
+                    <input
+                      value={row.assetName}
+                      onChange={(event) => onUpdateRow(row.id, { assetName: event.target.value })}
+                      placeholder="Nama kelas aset"
+                    />
+                    {onRemoveRow ? (
+                      <button className="icon-button danger" type="button" onClick={() => onRemoveRow(row.id)} title="Hapus kelas aset">
+                        <Trash2 size={16} />
+                      </button>
+                    ) : null}
+                  </div>
+                </td>
+                {periods.map((period) => {
+                  const values = row.values[period.id] ?? emptyFixedAssetInputValues();
+                  const computed = amounts[period.id] ?? emptyFixedAssetAmounts();
+                  const isManualBeginning = period.id === firstPeriodId;
+
+                  return (
+                    <Fragment key={period.id}>
+                      <td>
+                        {isManualBeginning ? (
+                          <input
+                            inputMode="decimal"
+                            value={values[beginningKey] ?? ""}
+                            onChange={(event) => onUpdateValue(row.id, period.id, beginningKey, event.target.value)}
+                            placeholder="0"
+                          />
+                        ) : (
+                          <output>{formatInputNumber(computed[beginningKey])}</output>
+                        )}
+                      </td>
+                      <td>
+                        <input
+                          inputMode="decimal"
+                          value={values[additionsKey] ?? ""}
+                          onChange={(event) => onUpdateValue(row.id, period.id, additionsKey, event.target.value)}
+                          placeholder="0"
+                        />
+                      </td>
+                      <td>
+                        <output>{formatInputNumber(computed[endingKey])}</output>
+                      </td>
+                    </Fragment>
+                  );
+                })}
+              </tr>
+            ))}
+            <tr className="total-row">
+              <td>Total</td>
+              {periods.map((period) => {
+                const totals = schedule.totals[period.id] ?? emptyFixedAssetAmounts();
+
+                return (
+                  <Fragment key={period.id}>
+                    <td>{formatInputNumber(totals[beginningKey])}</td>
+                    <td>{formatInputNumber(totals[additionsKey])}</td>
+                    <td>{formatInputNumber(totals[endingKey])}</td>
+                  </Fragment>
+                );
+              })}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function FixedAssetNetValueTable({ periods, schedule }: { periods: Period[]; schedule: FixedAssetScheduleSummary }) {
+  return (
+    <div className="fixed-asset-section">
+      <h5>Net Value Fixed Assets</h5>
+      <div className="table-wrap fixed-asset-table-wrap">
+        <table className="fixed-asset-table net-value-table">
+          <thead>
+            <tr>
+              <th>Asset class</th>
+              {periods.map((period) => (
+                <th key={period.id}>{period.label || "Periode"}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {schedule.rows.map(({ row, amounts }) => (
+              <tr key={row.id}>
+                <td>{row.assetName || "Belum dinamai"}</td>
+                {periods.map((period) => {
+                  const computed = amounts[period.id] ?? emptyFixedAssetAmounts();
+
+                  return (
+                    <td key={period.id}>
+                      <output>{formatInputNumber(computed.netValue)}</output>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+            <tr className="total-row">
+              <td>Total</td>
+              {periods.map((period) => (
+                <td key={period.id}>{formatInputNumber((schedule.totals[period.id] ?? emptyFixedAssetAmounts()).netValue)}</td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function FormulaList({ traces }: { traces: FormulaTrace[] }) {
   return (
     <div className="formula-list">
@@ -1007,6 +1391,7 @@ function buildValidationChecks(
   assumptions: AssumptionState,
   snapshot: FinancialStatementSnapshot,
   balanceSheetGap: number,
+  fixedAssetSchedule: FixedAssetScheduleSummary,
 ): Array<{ label: string; ok: boolean }> {
   const hasEquityComponents =
     snapshot.paidUpCapital !== 0 ||
@@ -1014,14 +1399,26 @@ function buildValidationChecks(
     snapshot.retainedEarningsSurplus !== 0 ||
     snapshot.retainedEarningsCurrentProfit !== 0;
   const balanceTolerance = Math.max(1, Math.abs(snapshot.totalAssets) * 0.001);
-
-  return [
-    { label: "Akun sudah diinput", ok: rows.length > 0 },
-    { label: "Pemetaan siap ditinjau", ok: mappedRows.some((item) => item.effectiveCategory !== "UNMAPPED") },
+  const hasManualFixedAssetNet = mappedRows.some((item) => item.effectiveCategory === "FIXED_ASSET");
+  const checks = [
+    { label: "Akun sudah diinput", ok: rows.length > 0 || fixedAssetSchedule.hasInput },
+    {
+      label: "Pemetaan siap ditinjau",
+      ok: fixedAssetSchedule.hasInput || mappedRows.some((item) => item.effectiveCategory !== "UNMAPPED"),
+    },
     { label: "Neraca terisi", ok: snapshot.totalAssets !== 0 || snapshot.totalLiabilities !== 0 },
     { label: "Balance check", ok: !hasEquityComponents || Math.abs(balanceSheetGap) <= balanceTolerance },
     { label: "Laba rugi terisi", ok: snapshot.revenue !== 0 || snapshot.ebit !== 0 },
     { label: "Tax rate", ok: assumptions.taxRate.trim() !== "" },
     { label: "WACC", ok: assumptions.wacc.trim() !== "" },
   ];
+
+  if (fixedAssetSchedule.hasInput) {
+    checks.push(
+      { label: "Jadwal aset tetap otomatis", ok: snapshot.fixedAssetsNet !== 0 },
+      { label: "Tidak double count fixed asset", ok: !hasManualFixedAssetNet },
+    );
+  }
+
+  return checks;
 }

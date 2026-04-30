@@ -19,6 +19,39 @@ export type AccountRow = {
   values: Record<string, string>;
 };
 
+export type FixedAssetScheduleValueKey =
+  | "acquisitionBeginning"
+  | "acquisitionAdditions"
+  | "depreciationBeginning"
+  | "depreciationAdditions";
+
+export type FixedAssetScheduleRow = {
+  id: string;
+  assetName: string;
+  values: Record<string, Record<FixedAssetScheduleValueKey, string>>;
+};
+
+export type FixedAssetPeriodAmounts = {
+  acquisitionBeginning: number;
+  acquisitionAdditions: number;
+  acquisitionEnding: number;
+  depreciationBeginning: number;
+  depreciationAdditions: number;
+  depreciationEnding: number;
+  netValue: number;
+};
+
+export type FixedAssetComputedRow = {
+  row: FixedAssetScheduleRow;
+  amounts: Record<string, FixedAssetPeriodAmounts>;
+};
+
+export type FixedAssetScheduleSummary = {
+  rows: FixedAssetComputedRow[];
+  totals: Record<string, FixedAssetPeriodAmounts>;
+  hasInput: boolean;
+};
+
 export type AssumptionState = {
   taxRate: string;
   terminalGrowth: string;
@@ -38,6 +71,22 @@ export type MappedRow = {
 };
 
 export const initialPeriods: Period[] = [{ id: "p1", label: "Tahun 1", valuationDate: "" }];
+
+export const fixedAssetScheduleValueKeys: FixedAssetScheduleValueKey[] = [
+  "acquisitionBeginning",
+  "acquisitionAdditions",
+  "depreciationBeginning",
+  "depreciationAdditions",
+];
+
+export const defaultFixedAssetClasses = [
+  "Land (Tanah Lahan Sawit + Tanah Lahan Sawit (TA))",
+  "Building (Bangunan Mess/Barak + Bangunan Mess/Barak (TA) + Lapangan + Kantor)",
+  "Equipment, Laboratory, & Machinery (Sarana & Prasarana)",
+  "Vehicle & Heavy Equipment (Alat Berat + Kendaraan)",
+  "Office Inventory (Inventaris Tanaman Sawit + Inventaris Tanaman Sawit (TA))",
+  "Electrical",
+];
 
 export const emptyAssumptions: AssumptionState = {
   taxRate: "",
@@ -74,6 +123,124 @@ export function createRow(statement: StatementType, periods: Period[]): AccountR
     categoryOverride: "",
     values: Object.fromEntries(periods.map((period) => [period.id, ""])),
   };
+}
+
+export function createFixedAssetScheduleRow(periods: Period[], assetName = ""): FixedAssetScheduleRow {
+  return {
+    id: `fa${Date.now()}${Math.random().toString(16).slice(2)}`,
+    assetName,
+    values: Object.fromEntries(periods.map((period) => [period.id, createEmptyFixedAssetValues()])),
+  };
+}
+
+export function buildDefaultFixedAssetScheduleRows(periods: Period[]): FixedAssetScheduleRow[] {
+  return defaultFixedAssetClasses.map((assetName) => createFixedAssetScheduleRow(periods, assetName));
+}
+
+export function ensureFixedAssetSchedulePeriods(rows: FixedAssetScheduleRow[], periods: Period[]): FixedAssetScheduleRow[] {
+  return rows.map((row) => ({
+    ...row,
+    values: Object.fromEntries(
+      periods.map((period) => [
+        period.id,
+        {
+          ...createEmptyFixedAssetValues(),
+          ...(row.values[period.id] ?? {}),
+        },
+      ]),
+    ),
+  }));
+}
+
+export function getChronologicalPeriods(periods: Period[]): Period[] {
+  const indexed = periods.map((period, index) => ({ period, index, timestamp: Date.parse(`${period.valuationDate}T00:00:00`) }));
+  const hasUsableDates = indexed.some((item) => Number.isFinite(item.timestamp));
+
+  if (!hasUsableDates) {
+    return periods;
+  }
+
+  return indexed
+    .sort((a, b) => {
+      const firstTime = Number.isFinite(a.timestamp) ? a.timestamp : Number.POSITIVE_INFINITY;
+      const secondTime = Number.isFinite(b.timestamp) ? b.timestamp : Number.POSITIVE_INFINITY;
+
+      if (firstTime !== secondTime) {
+        return firstTime - secondTime;
+      }
+
+      return a.index - b.index;
+    })
+    .map((item) => item.period);
+}
+
+export function buildFixedAssetScheduleSummary(periods: Period[], rows: FixedAssetScheduleRow[]): FixedAssetScheduleSummary {
+  const chronologicalPeriods = getChronologicalPeriods(periods);
+  const totals = Object.fromEntries(
+    periods.map((period) => [
+      period.id,
+      {
+        acquisitionBeginning: 0,
+        acquisitionAdditions: 0,
+        acquisitionEnding: 0,
+        depreciationBeginning: 0,
+        depreciationAdditions: 0,
+        depreciationEnding: 0,
+        netValue: 0,
+      },
+    ]),
+  ) as Record<string, FixedAssetPeriodAmounts>;
+  let hasInput = false;
+
+  const computedRows = rows.map((row): FixedAssetComputedRow => {
+    const amounts: Record<string, FixedAssetPeriodAmounts> = {};
+    let priorAcquisitionEnding = 0;
+    let priorDepreciationEnding = 0;
+
+    chronologicalPeriods.forEach((period, index) => {
+      const periodValues = row.values[period.id] ?? createEmptyFixedAssetValues();
+      const acquisitionBeginning = index === 0 ? parseInputNumber(periodValues.acquisitionBeginning) : priorAcquisitionEnding;
+      const acquisitionAdditions = parseInputNumber(periodValues.acquisitionAdditions);
+      const acquisitionEnding = acquisitionBeginning + acquisitionAdditions;
+      const depreciationBeginning = index === 0 ? parseInputNumber(periodValues.depreciationBeginning) : priorDepreciationEnding;
+      const depreciationAdditions = parseInputNumber(periodValues.depreciationAdditions);
+      const depreciationEnding = depreciationBeginning + depreciationAdditions;
+      const netValue = acquisitionEnding - depreciationEnding;
+
+      if (
+        fixedAssetScheduleValueKeys.some((key) => (periodValues[key] ?? "").trim() !== "") ||
+        acquisitionEnding !== 0 ||
+        depreciationEnding !== 0
+      ) {
+        hasInput = true;
+      }
+
+      amounts[period.id] = {
+        acquisitionBeginning,
+        acquisitionAdditions,
+        acquisitionEnding,
+        depreciationBeginning,
+        depreciationAdditions,
+        depreciationEnding,
+        netValue,
+      };
+
+      totals[period.id].acquisitionBeginning += acquisitionBeginning;
+      totals[period.id].acquisitionAdditions += acquisitionAdditions;
+      totals[period.id].acquisitionEnding += acquisitionEnding;
+      totals[period.id].depreciationBeginning += depreciationBeginning;
+      totals[period.id].depreciationAdditions += depreciationAdditions;
+      totals[period.id].depreciationEnding += depreciationEnding;
+      totals[period.id].netValue += netValue;
+
+      priorAcquisitionEnding = acquisitionEnding;
+      priorDepreciationEnding = depreciationEnding;
+    });
+
+    return { row, amounts };
+  });
+
+  return { rows: computedRows, totals, hasInput };
 }
 
 export function buildSamplePeriods(): Period[] {
@@ -238,9 +405,12 @@ export function buildSnapshot(
   activePeriodId: string,
   rows: AccountRow[],
   assumptions: AssumptionState,
+  fixedAssetScheduleRows: FixedAssetScheduleRow[] = [],
 ): FinancialStatementSnapshot {
   const activePeriod = periods.find((period) => period.id === activePeriodId) ?? periods[0];
   const mappedRows = rows.map(mapRow);
+  const fixedAssetSchedule = buildFixedAssetScheduleSummary(periods, fixedAssetScheduleRows);
+  const fixedAssetScheduleAmounts = fixedAssetSchedule.totals[activePeriodId];
   const aggregate = (periodId: string, ...categories: AccountCategory[]) =>
     aggregateForPeriod(mappedRows, periodId, categories);
   const activeAggregate = (...categories: AccountCategory[]) => aggregate(activePeriodId, ...categories);
@@ -252,9 +422,12 @@ export function buildSnapshot(
   const employeeReceivable = amount(activeAggregate("EMPLOYEE_RECEIVABLE"));
   const inventory = amount(activeAggregate("INVENTORY"));
   const fixedAssetNetDirect = amount(activeAggregate("FIXED_ASSET"));
-  const fixedAssetAcquisition = amount(activeAggregate("FIXED_ASSET_ACQUISITION"));
-  const accumulatedDepreciation = amount(activeAggregate("ACCUMULATED_DEPRECIATION"));
-  const fixedAssetsNet = fixedAssetNetDirect || Math.max(0, fixedAssetAcquisition - accumulatedDepreciation);
+  const fixedAssetScheduleNet = fixedAssetSchedule.hasInput ? amount(fixedAssetScheduleAmounts?.netValue ?? 0) : 0;
+  const fixedAssetAcquisition =
+    amount(activeAggregate("FIXED_ASSET_ACQUISITION")) + (fixedAssetSchedule.hasInput ? amount(fixedAssetScheduleAmounts?.acquisitionEnding ?? 0) : 0);
+  const accumulatedDepreciation =
+    amount(activeAggregate("ACCUMULATED_DEPRECIATION")) + (fixedAssetSchedule.hasInput ? amount(fixedAssetScheduleAmounts?.depreciationEnding ?? 0) : 0);
+  const fixedAssetsNet = fixedAssetNetDirect + fixedAssetScheduleNet || Math.max(0, fixedAssetAcquisition - accumulatedDepreciation);
   const nonOperatingFixedAssets = amount(activeAggregate("NON_OPERATING_FIXED_ASSETS"));
   const intangibleAssets = amount(activeAggregate("INTANGIBLE_ASSETS"));
   const excessCash = amount(activeAggregate("EXCESS_CASH"));
@@ -436,6 +609,15 @@ function parseRate(input: string): number {
 
 function amount(value: number): number {
   return Math.abs(value);
+}
+
+function createEmptyFixedAssetValues(): Record<FixedAssetScheduleValueKey, string> {
+  return {
+    acquisitionBeginning: "",
+    acquisitionAdditions: "",
+    depreciationBeginning: "",
+    depreciationAdditions: "",
+  };
 }
 
 function averageRatio<T>(items: T[], numerator: (item: T) => number, denominator: (item: T) => number): number {

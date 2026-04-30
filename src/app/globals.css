@@ -303,6 +303,12 @@ svg {
   color: var(--ink);
 }
 
+.button.compact-button {
+  min-height: 30px;
+  padding: 0 8px;
+  font-size: 9.2px;
+}
+
 .button:hover,
 .icon-button:hover {
   transform: translateY(-1px);
@@ -515,6 +521,121 @@ select {
   border-radius: var(--radius);
   background: var(--surface-raised);
   color: var(--muted);
+}
+
+.fixed-asset-editor {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-raised);
+}
+
+.subpanel-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.subpanel-heading h4,
+.fixed-asset-section h5 {
+  margin: 0;
+  letter-spacing: 0;
+}
+
+.subpanel-heading h4 {
+  font-size: 10.4px;
+  line-height: 1.25;
+}
+
+.fixed-asset-section {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.fixed-asset-section h5 {
+  color: var(--ink-soft);
+  font-size: 9.6px;
+}
+
+.fixed-asset-table-wrap {
+  background: var(--surface);
+}
+
+.fixed-asset-table {
+  min-width: 980px;
+  table-layout: fixed;
+}
+
+.fixed-asset-table th,
+.fixed-asset-table td {
+  padding: 5px 6px;
+}
+
+.fixed-asset-table th:first-child,
+.fixed-asset-table td:first-child {
+  width: 280px;
+}
+
+.fixed-asset-table th:not(:first-child),
+.fixed-asset-table td:not(:first-child) {
+  width: 104px;
+  text-align: right;
+}
+
+.fixed-asset-table input {
+  width: 100%;
+  height: 30px;
+  min-width: 0;
+  padding: 0 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: #ffffff;
+  color: var(--ink);
+  font: inherit;
+}
+
+.fixed-asset-table td:not(:first-child) input {
+  font-family: var(--font-mono), monospace;
+  font-size: 8.4px;
+  text-align: right;
+}
+
+.fixed-asset-table output {
+  display: block;
+  min-height: 30px;
+  padding: 7px 6px 0;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+  color: var(--ink-soft);
+  font-family: var(--font-mono), monospace;
+  font-size: 8.4px;
+}
+
+.asset-name-cell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px;
+  gap: 6px;
+  align-items: center;
+}
+
+.total-row td {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-family: var(--font-mono), monospace;
+  font-weight: 500;
+}
+
+.net-value-table th:not(:first-child),
+.net-value-table td:not(:first-child) {
+  width: 120px;
 }
 
 .account-entry-table {
