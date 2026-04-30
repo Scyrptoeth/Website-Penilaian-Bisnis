@@ -594,6 +594,10 @@ select {
   line-height: 1.25;
 }
 
+.account-input-heading {
+  margin: 8px 0 6px;
+}
+
 .fixed-asset-section {
   display: grid;
   gap: 6px;

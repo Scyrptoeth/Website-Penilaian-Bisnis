@@ -507,7 +507,7 @@ export function ValuationWorkbench() {
     commitCoreState((current) => ({
       ...current,
       isFixedAssetScheduleEnabled: true,
-      fixedAssetScheduleRows: [createFixedAssetScheduleRow(current.periods), ...current.fixedAssetScheduleRows],
+      fixedAssetScheduleRows: [...current.fixedAssetScheduleRows, createFixedAssetScheduleRow(current.periods)],
     }));
   }
 
@@ -778,10 +778,6 @@ export function ValuationWorkbench() {
               <h3>Neraca dan fixed asset</h3>
             </div>
             <div className="toolbar">
-              <button className="button secondary" type="button" onClick={() => addRow("balance_sheet")}>
-                <Plus size={18} />
-                Balance Sheet
-              </button>
               <button className="button secondary" type="button" onClick={loadFixedAssetTemplate}>
                 <Plus size={18} />
                 Fixed Asset Schedule
@@ -800,8 +796,19 @@ export function ValuationWorkbench() {
             />
           ) : null}
 
+          <div className="subpanel-heading account-input-heading">
+            <div>
+              <p className="eyebrow">Balance Sheet</p>
+              <h4>Akun neraca manual</h4>
+            </div>
+            <button className="button secondary" type="button" onClick={() => addRow("balance_sheet")}>
+              <Plus size={18} />
+              Balance Sheet
+            </button>
+          </div>
+
           <AccountInputTable
-            emptyMessage={shouldShowFixedAssetSchedule ? "Belum ada akun neraca manual tambahan." : "Belum ada akun neraca. Tambahkan baris dari tombol di atas."}
+            emptyMessage="Belum ada akun neraca. Tambahkan baris dari tombol Balance Sheet di atas."
             mappedRows={balanceSheetRows}
             periods={periods}
             onRemoveRow={removeRow}
