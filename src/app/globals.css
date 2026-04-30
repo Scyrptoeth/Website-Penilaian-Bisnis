@@ -202,20 +202,23 @@ svg {
   gap: 2px;
 }
 
-.nav-list a {
+.nav-list button {
   display: flex;
   align-items: center;
   min-height: 30px;
   padding: 0 8px;
   border: 1px solid transparent;
   border-radius: var(--radius);
+  background: transparent;
   color: var(--ink-soft);
   font-size: 9.6px;
   font-weight: 650;
+  text-align: left;
 }
 
-.nav-list a:focus-visible,
-.nav-list a:hover {
+.nav-list button.active,
+.nav-list button:focus-visible,
+.nav-list button:hover {
   border-color: var(--line-strong);
   outline: 2px solid var(--accent-soft);
   outline-offset: 2px;
@@ -223,8 +226,42 @@ svg {
   color: var(--ink);
 }
 
+.workflow-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+}
+
+.workflow-tabs button {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink-soft);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.workflow-tabs button.active,
+.workflow-tabs button:focus-visible,
+.workflow-tabs button:hover {
+  border-color: var(--line-strong);
+  outline: 0;
+  background: var(--surface);
+  color: var(--accent-ink);
+}
+
 .workspace {
   display: grid;
+  align-content: start;
   gap: 12px;
   width: 100%;
   max-width: 100%;
@@ -703,7 +740,7 @@ select {
 }
 
 .account-entry-table {
-  min-width: 760px;
+  min-width: 1040px;
   table-layout: fixed;
 }
 
@@ -714,25 +751,30 @@ select {
 
 .account-entry-table th:first-child,
 .account-entry-table td:first-child {
-  width: 13%;
+  width: 118px;
 }
 
 .account-entry-table th:nth-child(2),
 .account-entry-table td:nth-child(2) {
-  width: 23%;
+  width: 220px;
 }
 
 .account-entry-table th:nth-child(3),
 .account-entry-table td:nth-child(3) {
-  width: 23%;
+  width: 210px;
 }
 
-.account-entry-table th:not(:nth-child(-n + 3)):not(:last-child),
-.account-entry-table td:not(:nth-child(-n + 3)):not(:last-child) {
-  width: 10%;
+.account-entry-table th:nth-child(4),
+.account-entry-table td:nth-child(4) {
+  width: 280px;
 }
 
-.account-entry-table td:not(:nth-child(-n + 3)):not(:last-child) input {
+.account-entry-table th:not(:nth-child(-n + 4)):not(:last-child),
+.account-entry-table td:not(:nth-child(-n + 4)):not(:last-child) {
+  width: 102px;
+}
+
+.account-entry-table td:not(:nth-child(-n + 4)):not(:last-child) input {
   padding-inline: 3px;
   font-family: var(--font-mono), monospace;
   font-size: 8.4px;
@@ -759,6 +801,100 @@ select {
   font-family: var(--font-mono), monospace;
   font-size: 8.4px;
   line-height: 1.28;
+}
+
+.label-impact-cell {
+  display: grid;
+  gap: 5px;
+}
+
+.impact-chip-row,
+.label-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.label-chip-row.compact {
+  gap: 3px;
+}
+
+.impact-chip,
+.label-chip {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 20px;
+  align-items: center;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+  color: var(--ink-soft);
+  font-family: var(--font-mono), monospace;
+  font-size: 7.8px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.impact-chip {
+  border-color: rgba(15, 118, 110, 0.2);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.impact-chip.warning {
+  border-color: rgba(161, 98, 7, 0.24);
+  background: var(--review-soft);
+  color: var(--review);
+}
+
+.label-chip.muted {
+  background: var(--surface-raised);
+  color: var(--muted);
+}
+
+.label-editor {
+  min-width: 0;
+}
+
+.label-editor summary {
+  width: fit-content;
+  cursor: pointer;
+  color: var(--accent-ink);
+  font-family: var(--font-mono), monospace;
+  font-size: 8.4px;
+  font-weight: 600;
+}
+
+.label-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  max-height: 180px;
+  margin-top: 6px;
+  overflow-y: auto;
+}
+
+.label-picker label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  padding: 4px 5px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-raised);
+}
+
+.label-picker input {
+  width: auto;
+  height: auto;
+  flex: 0 0 auto;
+}
+
+.label-picker span {
+  margin: 0;
+  font-size: 8.4px;
 }
 
 .warning-text {

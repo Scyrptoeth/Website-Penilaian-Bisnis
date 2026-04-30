@@ -13,11 +13,21 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
+  Redo2,
   TableProperties,
   Trash2,
+  Undo2,
   Upload,
 } from "lucide-react";
 import { accountMappingRules } from "@/lib/valuation/account-taxonomy";
+import {
+  accountLabelDefinitions,
+  getAccountLabelDefinition,
+  getCategoryLabelProfile,
+  resolveAccountLabels,
+  sanitizeAccountLabels,
+  type AccountLabelId,
+} from "@/lib/valuation/account-labels";
 import { calculateAllMethods } from "@/lib/valuation/calculations";
 import {
   buildFixedAssetScheduleSummary,
@@ -140,6 +150,10 @@ type PersistedWorkbenchState = {
   assumptions: AssumptionState;
 };
 
+type WorkbenchCoreState = Omit<PersistedWorkbenchState, "version" | "savedAt">;
+
+type WorkflowTabId = "periods" | "balance" | "income" | "mapping" | "assumptions" | "valuation" | "audit";
+
 type BalanceSheetLine = {
   label: string;
   categoryId: AccountCategory | "DERIVED_FIXED_ASSET";
@@ -168,16 +182,17 @@ type BalanceSheetView = {
   hasFixedAssetScheduleLines: boolean;
 };
 
-const sectionLinks = [
-  { href: "#periods", label: "Periode" },
-  { href: "#accounts", label: "Akun" },
-  { href: "#mapping", label: "Pemetaan" },
-  { href: "#summary", label: "Ringkasan" },
-  { href: "#aam", label: "AAM" },
-  { href: "#eem", label: "EEM" },
-  { href: "#dcf", label: "DCF" },
-  { href: "#audit", label: "Audit" },
+const workflowTabs: Array<{ id: WorkflowTabId; label: string }> = [
+  { id: "periods", label: "Periode" },
+  { id: "balance", label: "Neraca & Fixed Asset" },
+  { id: "income", label: "Laba Rugi" },
+  { id: "mapping", label: "Mapping & Label" },
+  { id: "assumptions", label: "Asumsi & Driver" },
+  { id: "valuation", label: "Valuasi" },
+  { id: "audit", label: "Audit" },
 ];
+
+const MAX_HISTORY_STEPS = 80;
 
 const assetCategories = new Set<AccountCategory>([
   "CASH_ON_HAND",
@@ -227,8 +242,13 @@ export function ValuationWorkbench() {
   const [assumptions, setAssumptions] = useState<AssumptionState>(emptyAssumptions);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isDraftRestored, setIsDraftRestored] = useState(false);
+  const [activeWorkflowTab, setActiveWorkflowTab] = useState<WorkflowTabId>("periods");
+  const [undoStack, setUndoStack] = useState<WorkbenchCoreState[]>([]);
+  const [redoStack, setRedoStack] = useState<WorkbenchCoreState[]>([]);
 
   const mappedRows = useMemo(() => rows.map((row) => mapRow(row)), [rows]);
+  const balanceSheetRows = useMemo(() => mappedRows.filter((item) => item.row.statement === "balance_sheet"), [mappedRows]);
+  const incomeStatementRows = useMemo(() => mappedRows.filter((item) => item.row.statement === "income_statement"), [mappedRows]);
   const fixedAssetSchedule = useMemo(
     () => buildFixedAssetScheduleSummary(periods, fixedAssetScheduleRows),
     [fixedAssetScheduleRows, periods],
@@ -267,6 +287,63 @@ export function ValuationWorkbench() {
     Object.values(assumptions).some((value) => value.trim() !== "");
   const checks = buildValidationChecks(rows, mappedRows, assumptions, snapshot, balanceSheetGap, fixedAssetSchedule);
 
+  function getCurrentCoreState(): WorkbenchCoreState {
+    return {
+      periods,
+      activePeriodId,
+      rows,
+      isFixedAssetScheduleEnabled,
+      fixedAssetScheduleRows,
+      assumptions,
+    };
+  }
+
+  function applyCoreState(state: WorkbenchCoreState) {
+    setPeriods(state.periods);
+    setActivePeriodId(state.activePeriodId);
+    setRows(state.rows);
+    setIsFixedAssetScheduleEnabled(state.isFixedAssetScheduleEnabled);
+    setFixedAssetScheduleRows(state.fixedAssetScheduleRows);
+    setAssumptions(state.assumptions);
+  }
+
+  function commitCoreState(update: (current: WorkbenchCoreState) => WorkbenchCoreState) {
+    const current = cloneCoreState(getCurrentCoreState());
+    const next = cloneCoreState(update(current));
+
+    if (JSON.stringify(current) === JSON.stringify(next)) {
+      return;
+    }
+
+    setUndoStack((stack) => [...stack.slice(-(MAX_HISTORY_STEPS - 1)), current]);
+    setRedoStack([]);
+    applyCoreState(next);
+  }
+
+  function undoCoreChange() {
+    const previous = undoStack[undoStack.length - 1];
+
+    if (!previous) {
+      return;
+    }
+
+    setUndoStack((stack) => stack.slice(0, -1));
+    setRedoStack((stack) => [cloneCoreState(getCurrentCoreState()), ...stack].slice(0, MAX_HISTORY_STEPS));
+    applyCoreState(cloneCoreState(previous));
+  }
+
+  function redoCoreChange() {
+    const next = redoStack[0];
+
+    if (!next) {
+      return;
+    }
+
+    setRedoStack((stack) => stack.slice(1));
+    setUndoStack((stack) => [...stack.slice(-(MAX_HISTORY_STEPS - 1)), cloneCoreState(getCurrentCoreState())]);
+    applyCoreState(cloneCoreState(next));
+  }
+
   useEffect(() => {
     const storedState = readPersistedWorkbenchState();
 
@@ -283,6 +360,8 @@ export function ValuationWorkbench() {
       setIsFixedAssetScheduleEnabled(storedState.isFixedAssetScheduleEnabled || storedState.fixedAssetScheduleRows.length > 0);
       setFixedAssetScheduleRows(storedState.fixedAssetScheduleRows);
       setAssumptions(storedState.assumptions);
+      setUndoStack([]);
+      setRedoStack([]);
     }
 
     setIsSidebarCollapsed(readStoredSidebarState());
@@ -359,67 +438,90 @@ export function ValuationWorkbench() {
   }, [isDraftRestored]);
 
   function addPeriod() {
-    const period = createHistoricalPeriod(periods);
-    const nextPeriods = normalizePeriods([...periods, period]);
+    commitCoreState((current) => {
+      const period = createHistoricalPeriod(current.periods);
+      const nextPeriods = normalizePeriods([...current.periods, period]);
 
-    setPeriods(nextPeriods);
-    setRows((current) => current.map((row) => ({ ...row, values: { ...row.values, [period.id]: "" } })));
-    setFixedAssetScheduleRows((current) => ensureFixedAssetSchedulePeriods(current, nextPeriods));
-    setActivePeriodId((current) => (nextPeriods.some((item) => item.id === current) ? current : (getDefaultActivePeriod(nextPeriods)?.id ?? period.id)));
+      return {
+        ...current,
+        periods: nextPeriods,
+        rows: current.rows.map((row) => ({ ...row, values: { ...row.values, [period.id]: "" } })),
+        fixedAssetScheduleRows: ensureFixedAssetSchedulePeriods(current.fixedAssetScheduleRows, nextPeriods),
+        activePeriodId: nextPeriods.some((item) => item.id === current.activePeriodId)
+          ? current.activePeriodId
+          : (getDefaultActivePeriod(nextPeriods)?.id ?? period.id),
+      };
+    });
   }
 
   function updatePeriod(id: string, patch: Partial<Period>) {
-    setPeriods((current) => current.map((period) => (period.id === id ? { ...period, ...patch } : period)));
+    commitCoreState((current) => ({
+      ...current,
+      periods: current.periods.map((period) => (period.id === id ? { ...period, ...patch } : period)),
+    }));
   }
 
   function removePeriod(id: string) {
-    const periodToRemove = periods.find((period) => period.id === id);
+    commitCoreState((current) => {
+      const periodToRemove = current.periods.find((period) => period.id === id);
 
-    if (!periodToRemove || periods.length === 1 || getPeriodYearOffset(periodToRemove) === 0) {
-      return;
-    }
+      if (!periodToRemove || current.periods.length === 1 || getPeriodYearOffset(periodToRemove) === 0) {
+        return current;
+      }
 
-    const nextPeriods = normalizePeriods(periods.filter((period) => period.id !== id));
-    const defaultActivePeriod = getDefaultActivePeriod(nextPeriods);
-    setPeriods(nextPeriods);
-    setRows((current) =>
-      current.map((row) => {
+      const nextPeriods = normalizePeriods(current.periods.filter((period) => period.id !== id));
+      const defaultActivePeriod = getDefaultActivePeriod(nextPeriods);
+      const rows = current.rows.map((row) => {
         const { [id]: _removed, ...values } = row.values;
         return { ...row, values };
-      }),
-    );
-    setFixedAssetScheduleRows((current) =>
-      current.map((row) => {
+      });
+      const fixedAssetScheduleRows = current.fixedAssetScheduleRows.map((row) => {
         const { [id]: _removed, ...values } = row.values;
         return { ...row, values };
-      }),
-    );
+      });
 
-    if (activePeriodId === id) {
-      setActivePeriodId(defaultActivePeriod?.id ?? nextPeriods[nextPeriods.length - 1].id);
-    }
+      return {
+        ...current,
+        periods: nextPeriods,
+        rows,
+        fixedAssetScheduleRows,
+        activePeriodId:
+          current.activePeriodId === id ? (defaultActivePeriod?.id ?? nextPeriods[nextPeriods.length - 1].id) : current.activePeriodId,
+      };
+    });
+  }
+
+  function activatePeriod(id: string) {
+    commitCoreState((current) => (current.periods.some((period) => period.id === id) ? { ...current, activePeriodId: id } : current));
   }
 
   function addRow(statement: StatementType = "balance_sheet") {
-    setRows((current) => [createRow(statement, periods), ...current]);
+    commitCoreState((current) => ({ ...current, rows: [createRow(statement, current.periods), ...current.rows] }));
   }
 
   function loadFixedAssetTemplate() {
-    setIsFixedAssetScheduleEnabled(true);
+    commitCoreState((current) => ({ ...current, isFixedAssetScheduleEnabled: true }));
   }
 
   function addFixedAssetScheduleRow() {
-    setIsFixedAssetScheduleEnabled(true);
-    setFixedAssetScheduleRows((current) => [createFixedAssetScheduleRow(periods), ...current]);
+    commitCoreState((current) => ({
+      ...current,
+      isFixedAssetScheduleEnabled: true,
+      fixedAssetScheduleRows: [createFixedAssetScheduleRow(current.periods), ...current.fixedAssetScheduleRows],
+    }));
   }
 
   function updateFixedAssetScheduleRow(id: string, patch: Partial<FixedAssetScheduleRow>) {
-    setFixedAssetScheduleRows((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)));
+    commitCoreState((current) => ({
+      ...current,
+      fixedAssetScheduleRows: current.fixedAssetScheduleRows.map((row) => (row.id === id ? { ...row, ...patch } : row)),
+    }));
   }
 
   function updateFixedAssetScheduleValue(rowId: string, periodId: string, key: FixedAssetScheduleValueKey, value: string) {
-    setFixedAssetScheduleRows((current) =>
-      current.map((row) =>
+    commitCoreState((current) => ({
+      ...current,
+      fixedAssetScheduleRows: current.fixedAssetScheduleRows.map((row) =>
         row.id === rowId
           ? {
               ...row,
@@ -433,51 +535,87 @@ export function ValuationWorkbench() {
             }
           : row,
       ),
-    );
+    }));
   }
 
   function removeFixedAssetScheduleRow(id: string) {
-    setFixedAssetScheduleRows((current) => current.filter((row) => row.id !== id));
+    commitCoreState((current) => ({
+      ...current,
+      fixedAssetScheduleRows: current.fixedAssetScheduleRows.filter((row) => row.id !== id),
+    }));
   }
 
   function updateRow(id: string, patch: Partial<AccountRow>) {
-    setRows((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)));
+    commitCoreState((current) => ({
+      ...current,
+      rows: current.rows.map((row) => (row.id === id ? { ...row, ...patch } : row)),
+    }));
   }
 
   function updateRowValue(rowId: string, periodId: string, value: string) {
-    setRows((current) =>
-      current.map((row) =>
+    commitCoreState((current) => ({
+      ...current,
+      rows: current.rows.map((row) =>
         row.id === rowId ? { ...row, values: { ...row.values, [periodId]: formatEditableNumber(value) } } : row,
       ),
-    );
+    }));
   }
 
   function removeRow(id: string) {
-    setRows((current) => current.filter((row) => row.id !== id));
+    commitCoreState((current) => ({ ...current, rows: current.rows.filter((row) => row.id !== id) }));
+  }
+
+  function toggleRowLabel(rowId: string, labelId: AccountLabelId) {
+    commitCoreState((current) => ({
+      ...current,
+      rows: current.rows.map((row) => {
+        if (row.id !== rowId) {
+          return row;
+        }
+
+        const currentLabels = new Set(row.labelOverrides ?? []);
+
+        if (currentLabels.has(labelId)) {
+          currentLabels.delete(labelId);
+        } else {
+          currentLabels.add(labelId);
+        }
+
+        return { ...row, labelOverrides: Array.from(currentLabels) };
+      }),
+    }));
   }
 
   function updateAssumption(key: keyof AssumptionState, value: string) {
-    setAssumptions((current) => ({ ...current, [key]: formatEditableNumber(value) }));
+    commitCoreState((current) => ({
+      ...current,
+      assumptions: { ...current.assumptions, [key]: formatEditableNumber(value) },
+    }));
   }
 
   function loadSample() {
     const samplePeriods = buildSamplePeriods();
-    setPeriods(samplePeriods);
-    setActivePeriodId("p2021");
-    setRows(buildSampleRows());
-    setIsFixedAssetScheduleEnabled(false);
-    setFixedAssetScheduleRows([]);
-    setAssumptions(buildSampleAssumptions());
+    commitCoreState((current) => ({
+      ...current,
+      periods: samplePeriods,
+      activePeriodId: "p2021",
+      rows: buildSampleRows(),
+      isFixedAssetScheduleEnabled: false,
+      fixedAssetScheduleRows: [],
+      assumptions: buildSampleAssumptions(),
+    }));
   }
 
   function resetForm() {
     clearPersistedWorkbenchState();
-    setPeriods(initialPeriods);
-    setActivePeriodId(initialPeriods[0].id);
-    setRows([]);
-    setIsFixedAssetScheduleEnabled(false);
-    setFixedAssetScheduleRows([]);
-    setAssumptions(emptyAssumptions);
+    commitCoreState(() => ({
+      periods: initialPeriods,
+      activePeriodId: initialPeriods[0].id,
+      rows: [],
+      isFixedAssetScheduleEnabled: false,
+      fixedAssetScheduleRows: [],
+      assumptions: emptyAssumptions,
+    }));
 
     if (typeof window !== "undefined") {
       window.scrollTo({ top: 0 });
@@ -517,10 +655,15 @@ export function ValuationWorkbench() {
             </button>
           </div>
           <nav className="nav-list" aria-label="Bagian model">
-            {sectionLinks.map((item) => (
-              <a href={item.href} key={item.href}>
+            {workflowTabs.map((item) => (
+              <button
+                className={activeWorkflowTab === item.id ? "active" : ""}
+                type="button"
+                onClick={() => setActiveWorkflowTab(item.id)}
+                key={item.id}
+              >
                 {item.label}
-              </a>
+              </button>
             ))}
           </nav>
         </aside>
@@ -533,6 +676,12 @@ export function ValuationWorkbench() {
             <h2>Input Akun Fleksibel</h2>
           </div>
           <div className="toolbar">
+            <button className="icon-button" type="button" onClick={undoCoreChange} disabled={undoStack.length === 0} title="Undo perubahan data">
+              <Undo2 size={18} />
+            </button>
+            <button className="icon-button" type="button" onClick={redoCoreChange} disabled={redoStack.length === 0} title="Redo perubahan data">
+              <Redo2 size={18} />
+            </button>
             <button className="button secondary" type="button" onClick={loadSample}>
               <Upload size={18} />
               Muat contoh workbook
@@ -544,6 +693,22 @@ export function ValuationWorkbench() {
           </div>
         </header>
 
+        <div className="workflow-tabs" role="tablist" aria-label="Workflow valuasi">
+          {workflowTabs.map((tab) => (
+            <button
+              className={activeWorkflowTab === tab.id ? "active" : ""}
+              type="button"
+              role="tab"
+              aria-selected={activeWorkflowTab === tab.id}
+              onClick={() => setActiveWorkflowTab(tab.id)}
+              key={tab.id}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {activeWorkflowTab === "periods" ? (
         <section id="periods" className="panel">
           <div className="panel-heading">
             <div>
@@ -585,7 +750,7 @@ export function ValuationWorkbench() {
                     </label>
                   ) : null}
                   <div className="period-actions">
-                    <button className="icon-button" type="button" onClick={() => setActivePeriodId(period.id)} title="Gunakan periode ini">
+                    <button className="icon-button" type="button" onClick={() => activatePeriod(period.id)} title="Gunakan periode ini">
                       <CheckCircle2 size={18} />
                     </button>
                     <button
@@ -603,21 +768,19 @@ export function ValuationWorkbench() {
             })}
           </div>
         </section>
+        ) : null}
 
+        {activeWorkflowTab === "balance" ? (
         <section id="accounts" className="panel">
           <div className="panel-heading">
             <div>
               <p className="eyebrow">Langkah 2</p>
-              <h3>Akun dan nilai historis</h3>
+              <h3>Neraca dan fixed asset</h3>
             </div>
             <div className="toolbar">
               <button className="button secondary" type="button" onClick={() => addRow("balance_sheet")}>
                 <Plus size={18} />
                 Balance Sheet
-              </button>
-              <button className="button secondary" type="button" onClick={() => addRow("income_statement")}>
-                <Plus size={18} />
-                Income Statement
               </button>
               <button className="button secondary" type="button" onClick={loadFixedAssetTemplate}>
                 <Plus size={18} />
@@ -637,87 +800,45 @@ export function ValuationWorkbench() {
             />
           ) : null}
 
-          {rows.length === 0 ? (
-            <div className="empty-state">
-              {shouldShowFixedAssetSchedule ? "Belum ada akun manual tambahan." : "Belum ada akun. Tambahkan baris dari tombol di atas."}
-            </div>
-          ) : (
-            <div className="table-wrap">
-              <table className="account-entry-table">
-                <thead>
-                  <tr>
-                    <th>Sumber</th>
-                    <th>Nama akun dari laporan</th>
-                    <th>Kategori perhitungan</th>
-                    {periods.map((period) => (
-                      <th key={period.id}>{period.label || "Periode"}</th>
-                    ))}
-                    <th>Aksi</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {mappedRows.map(({ row, mapping, effectiveCategory }) => (
-                    <tr key={row.id}>
-                      <td>
-                        <select
-                          value={row.statement}
-                          onChange={(event) => updateRow(row.id, { statement: event.target.value as StatementType })}
-                        >
-                          {Object.entries(statementLabels).map(([value, label]) => (
-                            <option key={value} value={value}>
-                              {label}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td>
-                        <input
-                          className="account-name-input"
-                          placeholder="Ketik nama akun sesuai laporan"
-                          value={row.accountName}
-                          onChange={(event) => updateRow(row.id, { accountName: event.target.value })}
-                        />
-                        <span className={mapping.needsReview ? "row-hint warning-text" : "row-hint ok-text"}>
-                          {mapping.displayName} · {formatScore(mapping.confidence)}
-                        </span>
-                      </td>
-                      <td>
-                        <select
-                          value={row.categoryOverride || effectiveCategory}
-                          onChange={(event) => updateRow(row.id, { categoryOverride: event.target.value as AccountCategory })}
-                        >
-                          {categoryOptions.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      {periods.map((period) => (
-                        <td key={period.id}>
-                          <input
-                            inputMode="decimal"
-                            placeholder="0"
-                            value={row.values[period.id] ?? ""}
-                            onChange={(event) => updateRowValue(row.id, period.id, event.target.value)}
-                          />
-                        </td>
-                      ))}
-                      <td>
-                        <button className="icon-button danger" type="button" onClick={() => removeRow(row.id)} title="Hapus akun">
-                          <Trash2 size={18} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <AccountInputTable
+            emptyMessage={shouldShowFixedAssetSchedule ? "Belum ada akun neraca manual tambahan." : "Belum ada akun neraca. Tambahkan baris dari tombol di atas."}
+            mappedRows={balanceSheetRows}
+            periods={periods}
+            onRemoveRow={removeRow}
+            onToggleLabel={toggleRowLabel}
+            onUpdateRow={updateRow}
+            onUpdateRowValue={updateRowValue}
+          />
 
           <BalanceSheetPositionTable periods={periods} view={balanceSheetView} />
         </section>
+        ) : null}
 
+        {activeWorkflowTab === "income" ? (
+        <section id="income" className="panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Langkah 2B</p>
+              <h3>Laba rugi dan driver operasi</h3>
+            </div>
+            <button className="button secondary" type="button" onClick={() => addRow("income_statement")}>
+              <Plus size={18} />
+              Income Statement
+            </button>
+          </div>
+          <AccountInputTable
+            emptyMessage="Belum ada akun laba rugi. Tambahkan baris Income Statement."
+            mappedRows={incomeStatementRows}
+            periods={periods}
+            onRemoveRow={removeRow}
+            onToggleLabel={toggleRowLabel}
+            onUpdateRow={updateRow}
+            onUpdateRowValue={updateRowValue}
+          />
+        </section>
+        ) : null}
+
+        {activeWorkflowTab === "mapping" ? (
         <section id="mapping" className="split-panel">
           <article className="panel">
             <div className="panel-heading">
@@ -732,36 +853,41 @@ export function ValuationWorkbench() {
             </div>
             <MappingTable mappedRows={mappedRows} />
           </article>
-
-          <article className="panel">
-            <div className="panel-heading">
-              <div>
-                <p className="eyebrow">Asumsi</p>
-                <h3>Driver model</h3>
-              </div>
-            </div>
-            <div className="assumption-form-grid">
-              <AssumptionInput label="Tax rate" value={assumptions.taxRate} onChange={(value) => updateAssumption("taxRate", value)} />
-              <AssumptionInput label="Revenue growth override" value={assumptions.revenueGrowth} onChange={(value) => updateAssumption("revenueGrowth", value)} />
-              <AssumptionInput label="Terminal growth" value={assumptions.terminalGrowth} onChange={(value) => updateAssumption("terminalGrowth", value)} />
-              <AssumptionInput label="WACC" value={assumptions.wacc} onChange={(value) => updateAssumption("wacc", value)} />
-              <AssumptionInput
-                label="Required return on NTA"
-                value={assumptions.requiredReturnOnNta}
-                onChange={(value) => updateAssumption("requiredReturnOnNta", value)}
-              />
-              <AssumptionInput label="AR days" value={assumptions.arDays} onChange={(value) => updateAssumption("arDays", value)} />
-              <AssumptionInput label="Inventory days" value={assumptions.inventoryDays} onChange={(value) => updateAssumption("inventoryDays", value)} />
-              <AssumptionInput label="AP days" value={assumptions.apDays} onChange={(value) => updateAssumption("apDays", value)} />
-              <AssumptionInput
-                label="Other payable days"
-                value={assumptions.otherPayableDays}
-                onChange={(value) => updateAssumption("otherPayableDays", value)}
-              />
-            </div>
-          </article>
         </section>
+        ) : null}
 
+        {activeWorkflowTab === "assumptions" ? (
+        <section id="assumptions" className="panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Asumsi</p>
+              <h3>Driver model</h3>
+            </div>
+          </div>
+          <div className="assumption-form-grid">
+            <AssumptionInput label="Tax rate" value={assumptions.taxRate} onChange={(value) => updateAssumption("taxRate", value)} />
+            <AssumptionInput label="Revenue growth override" value={assumptions.revenueGrowth} onChange={(value) => updateAssumption("revenueGrowth", value)} />
+            <AssumptionInput label="Terminal growth" value={assumptions.terminalGrowth} onChange={(value) => updateAssumption("terminalGrowth", value)} />
+            <AssumptionInput label="WACC" value={assumptions.wacc} onChange={(value) => updateAssumption("wacc", value)} />
+            <AssumptionInput
+              label="Required return on NTA"
+              value={assumptions.requiredReturnOnNta}
+              onChange={(value) => updateAssumption("requiredReturnOnNta", value)}
+            />
+            <AssumptionInput label="AR days" value={assumptions.arDays} onChange={(value) => updateAssumption("arDays", value)} />
+            <AssumptionInput label="Inventory days" value={assumptions.inventoryDays} onChange={(value) => updateAssumption("inventoryDays", value)} />
+            <AssumptionInput label="AP days" value={assumptions.apDays} onChange={(value) => updateAssumption("apDays", value)} />
+            <AssumptionInput
+              label="Other payable days"
+              value={assumptions.otherPayableDays}
+              onChange={(value) => updateAssumption("otherPayableDays", value)}
+            />
+          </div>
+        </section>
+        ) : null}
+
+        {activeWorkflowTab === "valuation" ? (
+        <>
         <section id="summary" className="section-grid">
           {methodCards.map((method) => (
             <article className="metric-card" key={method.method}>
@@ -879,7 +1005,10 @@ export function ValuationWorkbench() {
             </div>
           </article>
         </section>
+        </>
+        ) : null}
 
+        {activeWorkflowTab === "audit" ? (
         <section id="audit" className="panel">
           <div className="panel-heading">
             <div>
@@ -954,6 +1083,7 @@ export function ValuationWorkbench() {
             </div>
           </dl>
         </section>
+        ) : null}
       </section>
     </main>
   );
@@ -1097,10 +1227,15 @@ function sanitizeRows(value: unknown): AccountRow[] {
         statement,
         accountName: row.accountName,
         categoryOverride,
+        labelOverrides: sanitizeAccountLabels(row.labelOverrides),
         values: sanitizeStringRecord(row.values),
       },
     ];
   });
+}
+
+function cloneCoreState(state: WorkbenchCoreState): WorkbenchCoreState {
+  return JSON.parse(JSON.stringify(state)) as WorkbenchCoreState;
 }
 
 function sanitizeFixedAssetScheduleRows(value: unknown): FixedAssetScheduleRow[] {
@@ -1182,20 +1317,28 @@ function buildBalanceSheetView(periods: Period[], mappedRows: MappedRow[], fixed
       return;
     }
 
-    const values = Object.fromEntries(periods.map((period) => [period.id, parseInputNumber(item.row.values[period.id] ?? "")]));
+    const rawValues = Object.fromEntries(periods.map((period) => [period.id, parseInputNumber(item.row.values[period.id] ?? "")]));
+    const values =
+      item.effectiveCategory === "ACCUMULATED_DEPRECIATION"
+        ? Object.fromEntries(periods.map((period) => [period.id, -Math.abs(rawValues[period.id] ?? 0)]))
+        : rawValues;
 
     if (item.effectiveCategory === "FIXED_ASSET_ACQUISITION") {
-      addPeriodValues(manualFixedAssetAcquisitionValues, values, periods);
+      addPeriodValues(manualFixedAssetAcquisitionValues, rawValues, periods);
       hasManualFixedAssetDetail = true;
     }
 
     if (item.effectiveCategory === "ACCUMULATED_DEPRECIATION") {
-      addPeriodValues(manualAccumulatedDepreciationValues, values, periods);
+      addPeriodValues(
+        manualAccumulatedDepreciationValues,
+        Object.fromEntries(periods.map((period) => [period.id, Math.abs(rawValues[period.id] ?? 0)])),
+        periods,
+      );
       hasManualFixedAssetDetail = true;
     }
 
     if (item.effectiveCategory === "FIXED_ASSET") {
-      addPeriodValues(explicitFixedAssetNetValues, values, periods);
+      addPeriodValues(explicitFixedAssetNetValues, rawValues, periods);
     }
 
     const line: BalanceSheetLine = {
@@ -1440,6 +1583,165 @@ function BalanceSheetPositionTable({ periods, view }: { periods: Period[]; view:
   );
 }
 
+function AccountInputTable({
+  emptyMessage,
+  mappedRows,
+  periods,
+  onRemoveRow,
+  onToggleLabel,
+  onUpdateRow,
+  onUpdateRowValue,
+}: {
+  emptyMessage: string;
+  mappedRows: MappedRow[];
+  periods: Period[];
+  onRemoveRow: (id: string) => void;
+  onToggleLabel: (rowId: string, labelId: AccountLabelId) => void;
+  onUpdateRow: (id: string, patch: Partial<AccountRow>) => void;
+  onUpdateRowValue: (rowId: string, periodId: string, value: string) => void;
+}) {
+  if (mappedRows.length === 0) {
+    return <div className="empty-state">{emptyMessage}</div>;
+  }
+
+  return (
+    <div className="table-wrap">
+      <table className="account-entry-table">
+        <thead>
+          <tr>
+            <th>Sumber</th>
+            <th>Nama akun dari laporan</th>
+            <th>Kategori utama</th>
+            <th>Label & dampak</th>
+            {periods.map((period) => (
+              <th key={period.id}>{period.label || "Periode"}</th>
+            ))}
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {mappedRows.map((item) => {
+            const { row, mapping, effectiveCategory } = item;
+
+            return (
+              <tr key={row.id}>
+                <td>
+                  <select
+                    value={row.statement}
+                    onChange={(event) => onUpdateRow(row.id, { statement: event.target.value as StatementType })}
+                  >
+                    {Object.entries(statementLabels).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td>
+                  <input
+                    className="account-name-input"
+                    placeholder="Ketik nama akun sesuai laporan"
+                    value={row.accountName}
+                    onChange={(event) => onUpdateRow(row.id, { accountName: event.target.value })}
+                  />
+                  <span className={mapping.needsReview || effectiveCategory === "UNMAPPED" ? "row-hint warning-text" : "row-hint ok-text"}>
+                    Saran: {mapping.displayName} · {formatScore(mapping.confidence)}
+                  </span>
+                </td>
+                <td>
+                  <select
+                    value={row.categoryOverride || effectiveCategory}
+                    onChange={(event) => onUpdateRow(row.id, { categoryOverride: event.target.value as AccountCategory })}
+                  >
+                    {categoryOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  {!row.categoryOverride && mapping.category !== effectiveCategory && mapping.category !== "UNMAPPED" ? (
+                    <span className="row-hint warning-text">Belum auto-apply karena perlu ditinjau.</span>
+                  ) : null}
+                </td>
+                <td>
+                  <AccountLabelImpactCell item={item} onToggleLabel={onToggleLabel} />
+                </td>
+                {periods.map((period) => (
+                  <td key={period.id}>
+                    <input
+                      inputMode="decimal"
+                      placeholder="0"
+                      value={row.values[period.id] ?? ""}
+                      onChange={(event) => onUpdateRowValue(row.id, period.id, event.target.value)}
+                    />
+                  </td>
+                ))}
+                <td>
+                  <button className="icon-button danger" type="button" onClick={() => onRemoveRow(row.id)} title="Hapus akun">
+                    <Trash2 size={18} />
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function AccountLabelImpactCell({ item, onToggleLabel }: { item: MappedRow; onToggleLabel: (rowId: string, labelId: AccountLabelId) => void }) {
+  const { row, mapping, effectiveCategory } = item;
+  const profile = getCategoryLabelProfile(effectiveCategory);
+  const labels = resolveAccountLabels(row.statement, effectiveCategory, row.labelOverrides);
+  const defaultLabels = new Set(resolveAccountLabels(row.statement, effectiveCategory));
+  const visibleLabels = labels.slice(0, 7);
+
+  return (
+    <div className="label-impact-cell">
+      <div className="impact-chip-row">
+        <span className="impact-chip">Posisi: {profile.placement}</span>
+        <span className="impact-chip">Treatment: {profile.treatment}</span>
+        <span className="impact-chip">Sign: {profile.signBehavior}</span>
+        {row.categoryOverride ? <span className="impact-chip warning">Manual override</span> : null}
+        {mapping.needsReview || effectiveCategory === "UNMAPPED" ? <span className="impact-chip warning">Perlu ditinjau</span> : null}
+      </div>
+      <div className="label-chip-row">
+        {visibleLabels.map((labelId) => (
+          <span className="label-chip" key={labelId}>
+            {getAccountLabelDefinition(labelId)?.label ?? labelId}
+          </span>
+        ))}
+        {labels.length > visibleLabels.length ? <span className="label-chip muted">+{labels.length - visibleLabels.length}</span> : null}
+      </div>
+      {mapping.alternatives.length > 0 ? (
+        <span className="row-hint">Alternatif: {mapping.alternatives.map((candidate) => `${candidate.displayName} ${formatScore(candidate.confidence)}`).join(", ")}</span>
+      ) : null}
+      <details className="label-editor">
+        <summary>Edit label pendukung</summary>
+        <div className="label-picker">
+          {accountLabelDefinitions.map((definition) => {
+            const checked = labels.includes(definition.id);
+            const disabled = defaultLabels.has(definition.id);
+
+            return (
+              <label key={definition.id}>
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  disabled={disabled}
+                  onChange={() => onToggleLabel(row.id, definition.id)}
+                />
+                <span>{definition.label}</span>
+              </label>
+            );
+          })}
+        </div>
+      </details>
+    </div>
+  );
+}
+
 function MappingTable({ mappedRows }: { mappedRows: MappedRow[] }) {
   if (mappedRows.length === 0) {
     return <div className="empty-state">Belum ada akun untuk ditinjau.</div>;
@@ -1454,6 +1756,7 @@ function MappingTable({ mappedRows }: { mappedRows: MappedRow[] }) {
             <th>Sumber</th>
             <th>Saran pemetaan</th>
             <th>Kategori efektif</th>
+            <th>Label sistem</th>
             <th>Tingkat keyakinan</th>
             <th>Status</th>
           </tr>
@@ -1476,6 +1779,17 @@ function MappingTable({ mappedRows }: { mappedRows: MappedRow[] }) {
                   ) : null}
                 </td>
                 <td>{categoryLabelMap.get(effectiveCategory) ?? effectiveCategory}</td>
+                <td>
+                  <div className="label-chip-row compact">
+                    {resolveAccountLabels(row.statement, effectiveCategory, row.labelOverrides)
+                      .slice(0, 5)
+                      .map((labelId) => (
+                        <span className="label-chip" key={labelId}>
+                          {getAccountLabelDefinition(labelId)?.label ?? labelId}
+                        </span>
+                      ))}
+                  </div>
+                </td>
                 <td>
                   {formatScore(mapping.confidence)}
                   <span>{confidenceBandLabels[mapping.confidenceBand]}</span>

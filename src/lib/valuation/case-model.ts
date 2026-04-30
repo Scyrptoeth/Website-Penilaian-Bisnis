@@ -1,7 +1,8 @@
-import { mapAccount } from "./account-taxonomy";
+import { mapAccount, shouldAutoApplyMapping } from "./account-taxonomy";
 import { formatInputNumber } from "./format";
 import { sampleCase } from "./sample-case";
 import type { AccountCategory, FinancialStatementSnapshot } from "./types";
+import type { AccountLabelId } from "./account-labels";
 
 export type StatementType = "balance_sheet" | "income_statement" | "fixed_asset";
 
@@ -17,6 +18,7 @@ export type AccountRow = {
   statement: StatementType;
   accountName: string;
   categoryOverride: AccountCategory | "";
+  labelOverrides: AccountLabelId[];
   values: Record<string, string>;
 };
 
@@ -102,10 +104,12 @@ export const statementLabels: Record<StatementType, string> = {
 
 export function mapRow(row: AccountRow): MappedRow {
   const mapping = mapAccount(row.accountName, row.statement);
+  const autoAppliedCategory = shouldAutoApplyMapping(mapping) ? mapping.category : "UNMAPPED";
+
   return {
     row,
     mapping,
-    effectiveCategory: row.categoryOverride || mapping.category,
+    effectiveCategory: row.categoryOverride || autoAppliedCategory,
   };
 }
 
@@ -115,6 +119,7 @@ export function createRow(statement: StatementType, periods: Period[]): AccountR
     statement,
     accountName: "",
     categoryOverride: "",
+    labelOverrides: [],
     values: Object.fromEntries(periods.map((period) => [period.id, ""])),
   };
 }
@@ -337,6 +342,7 @@ export function buildSampleRows(): AccountRow[] {
     statement,
     accountName,
     categoryOverride,
+    labelOverrides: [],
     values: Object.fromEntries(Object.entries(values).map(([periodId, value]) => [periodId, formatInputNumber(Math.abs(value))])),
   });
 

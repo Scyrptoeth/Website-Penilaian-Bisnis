@@ -1523,6 +1523,20 @@ export function mapAccount(sourceLabel: string, statement?: StatementContext): A
   };
 }
 
+export function shouldAutoApplyMapping(mapping: AccountMappingResult): boolean {
+  const runnerUp = mapping.alternatives[0];
+  const hasComfortableLead = !runnerUp || mapping.confidence - runnerUp.confidence > 0.12;
+
+  return (
+    mapping.category !== "UNMAPPED" &&
+    mapping.confidenceBand === "high" &&
+    mapping.confidence >= 0.82 &&
+    mapping.statementCompatible !== false &&
+    !mapping.needsReview &&
+    hasComfortableLead
+  );
+}
+
 function containsNormalizedPhrase(label: string, phrase: string): boolean {
   const normalizedPhrase = normalizeAccountLabel(phrase);
 
