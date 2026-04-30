@@ -39,8 +39,8 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font-sans), "Helvetica Neue", Arial, sans-serif;
-  font-size: 16px;
-  line-height: 1.5;
+  font-size: 13px;
+  line-height: 1.42;
 }
 
 a {
@@ -50,7 +50,7 @@ a {
 
 button,
 a {
-  min-height: 44px;
+  min-height: 40px;
 }
 
 button,
@@ -70,7 +70,7 @@ svg {
 
 .app-shell {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
+  grid-template-columns: 196px minmax(0, 1fr);
   width: 100%;
   max-width: 100%;
   min-height: 100dvh;
@@ -82,10 +82,10 @@ svg {
   top: 0;
   display: grid;
   grid-template-rows: auto 1fr;
-  gap: 28px;
+  gap: 18px;
   height: 100dvh;
   min-width: 0;
-  padding: 18px 14px;
+  padding: 12px 10px;
   border-right: 1px solid var(--line);
   background: rgba(251, 251, 248, 0.92);
   backdrop-filter: blur(18px);
@@ -93,24 +93,24 @@ svg {
 
 .brand-block {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
   min-width: 0;
-  padding: 6px 4px 16px;
+  padding: 4px 2px 12px;
   border-bottom: 1px solid var(--line);
 }
 
 .brand-mark {
   display: grid;
-  width: 42px;
-  height: 42px;
+  width: 34px;
+  height: 34px;
   place-items: center;
   border: 1px solid var(--ink);
   border-radius: var(--radius);
   background: var(--ink);
   color: #ffffff;
   font-family: var(--font-mono), monospace;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 500;
 }
 
@@ -124,15 +124,15 @@ svg {
 }
 
 .brand-block h1 {
-  font-size: 17px;
+  font-size: 14px;
   line-height: 1.25;
 }
 
 .eyebrow {
-  margin: 0 0 5px;
+  margin: 0 0 4px;
   color: var(--muted);
   font-family: var(--font-mono), monospace;
-  font-size: 11px;
+  font-size: 9.5px;
   font-weight: 500;
   letter-spacing: 0;
   text-transform: uppercase;
@@ -141,18 +141,18 @@ svg {
 .nav-list {
   display: grid;
   align-content: start;
-  gap: 4px;
+  gap: 2px;
 }
 
 .nav-list a {
   display: flex;
   align-items: center;
-  min-height: 38px;
-  padding: 0 10px;
+  min-height: 30px;
+  padding: 0 8px;
   border: 1px solid transparent;
   border-radius: var(--radius);
   color: var(--ink-soft);
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 650;
 }
 
@@ -167,11 +167,11 @@ svg {
 
 .workspace {
   display: grid;
-  gap: 18px;
+  gap: 12px;
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  padding: 20px clamp(14px, 1.4vw, 22px) 36px;
+  padding: 14px clamp(10px, 1vw, 16px) 24px;
 }
 
 .topbar {
@@ -181,10 +181,10 @@ svg {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
-  gap: 16px;
+  gap: 10px;
   align-items: flex-start;
   min-width: 0;
-  padding: 6px 0 14px;
+  padding: 4px 0 10px;
   background: rgba(245, 246, 244, 0.9);
   backdrop-filter: blur(16px);
 }
@@ -196,14 +196,14 @@ svg {
 }
 
 .topbar h2 {
-  font-size: clamp(28px, 2.55vw, 38px);
-  line-height: 1.04;
+  font-size: clamp(22px, 2vw, 30px);
+  line-height: 1.08;
 }
 
 .toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   justify-content: flex-end;
   min-width: 0;
 }
@@ -222,13 +222,13 @@ svg {
 .button {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  min-height: 40px;
-  padding: 0 12px;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 10px;
   border: 1px solid var(--ink);
   background: var(--ink);
   color: white;
-  font-size: 14px;
+  font-size: 12.5px;
   font-weight: 700;
   white-space: nowrap;
 }
@@ -252,9 +252,9 @@ svg {
 
 .icon-button {
   display: inline-grid;
-  width: 40px;
-  height: 40px;
-  min-height: 40px;
+  width: 34px;
+  height: 34px;
+  min-height: 34px;
   place-items: center;
   border: 1px solid var(--line-strong);
   background: var(--surface);
@@ -277,22 +277,22 @@ input:focus-visible,
 textarea:focus-visible,
 select:focus-visible,
 .icon-button:focus-visible {
-  outline: 3px solid rgba(15, 118, 110, 0.22);
+  outline: 2px solid rgba(15, 118, 110, 0.24);
   outline-offset: 2px;
 }
 
 .status-pill {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  min-height: 36px;
-  padding: 0 10px;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 8px;
   border: 1px solid var(--accent);
   border-radius: var(--radius);
   background: var(--accent-soft);
   color: var(--accent-ink);
   font-family: var(--font-mono), monospace;
-  font-size: 12px;
+  font-size: 10.5px;
   font-weight: 500;
   white-space: nowrap;
 }
@@ -306,7 +306,7 @@ select:focus-visible,
 .section-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -322,35 +322,35 @@ select:focus-visible,
 
 .workflow-grid {
   display: grid;
-  grid-template-columns: minmax(460px, 0.95fr) minmax(0, 1.05fr);
-  gap: 16px;
+  grid-template-columns: minmax(360px, 0.95fr) minmax(0, 1.05fr);
+  gap: 10px;
   align-items: start;
 }
 
 .analysis-stack {
   display: grid;
-  gap: 16px;
+  gap: 10px;
   min-width: 0;
 }
 
 .input-panel,
 .panel {
-  padding: 16px;
+  padding: 12px;
 }
 
 .period-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr));
+  gap: 8px;
 }
 
 .period-card {
   display: grid;
-  grid-template-columns: auto minmax(112px, 1fr) minmax(132px, 1fr) auto;
-  gap: 8px;
+  grid-template-columns: auto minmax(92px, 1fr) minmax(116px, 1fr) auto;
+  gap: 6px;
   align-items: end;
   min-width: 0;
-  padding: 10px;
+  padding: 8px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface-raised);
@@ -364,14 +364,14 @@ select:focus-visible,
 .period-card label,
 .field {
   display: grid;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
 }
 
 .period-card span,
 .field span {
   color: var(--ink-soft);
-  font-size: 13px;
+  font-size: 11.5px;
   font-weight: 700;
 }
 
@@ -394,42 +394,42 @@ select {
 .account-entry-table input,
 .account-entry-table select,
 select {
-  height: 38px;
-  padding: 0 10px;
+  height: 32px;
+  padding: 0 8px;
 }
 
 .period-actions {
   display: flex;
-  gap: 6px;
+  gap: 4px;
 }
 
 .single-field {
-  max-width: 360px;
+  max-width: 300px;
 }
 
 .input-section {
-  margin-top: 18px;
-  padding-top: 16px;
+  margin-top: 12px;
+  padding-top: 12px;
   border-top: 1px solid var(--line);
 }
 
 .input-section-title {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: 6px;
+  margin-bottom: 8px;
   color: var(--accent);
 }
 
 .input-section-title h4 {
   color: var(--ink);
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .input-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 8px;
 }
 
 .field input::placeholder,
@@ -439,19 +439,19 @@ select {
 }
 
 .account-textarea {
-  min-height: 108px;
+  min-height: 84px;
   resize: vertical;
-  padding: 10px;
-  line-height: 1.45;
+  padding: 8px;
+  line-height: 1.38;
 }
 
 .mapping-wrap {
-  margin-top: 12px;
+  margin-top: 8px;
 }
 
 .empty-state {
-  margin-top: 10px;
-  padding: 16px;
+  margin-top: 8px;
+  padding: 12px;
   border: 1px dashed var(--line-strong);
   border-radius: var(--radius);
   background: var(--surface-raised);
@@ -459,7 +459,7 @@ select {
 }
 
 .account-entry-table {
-  min-width: 920px;
+  min-width: 760px;
   table-layout: fixed;
 }
 
@@ -470,51 +470,51 @@ select {
 
 .account-entry-table th:first-child,
 .account-entry-table td:first-child {
-  width: 14%;
+  width: 13%;
 }
 
 .account-entry-table th:nth-child(2),
 .account-entry-table td:nth-child(2) {
-  width: 23.5%;
+  width: 23%;
 }
 
 .account-entry-table th:nth-child(3),
 .account-entry-table td:nth-child(3) {
-  width: 23.5%;
+  width: 23%;
 }
 
 .account-entry-table th:not(:nth-child(-n + 3)):not(:last-child),
 .account-entry-table td:not(:nth-child(-n + 3)):not(:last-child) {
-  width: 10.5%;
+  width: 10%;
 }
 
 .account-entry-table td:not(:nth-child(-n + 3)):not(:last-child) input {
-  padding-inline: 4px;
+  padding-inline: 3px;
   font-family: var(--font-mono), monospace;
-  font-size: 11px;
+  font-size: 10.5px;
   text-align: right;
 }
 
 .account-entry-table th:last-child,
 .account-entry-table td:last-child {
-  width: 56px;
+  width: 44px;
   text-align: center;
 }
 
 .account-entry-table select {
-  padding-inline: 8px 20px;
-  font-size: 13px;
+  padding-inline: 6px 18px;
+  font-size: 11.5px;
 }
 
 .account-name-input {
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .row-hint {
   display: block;
   font-family: var(--font-mono), monospace;
-  font-size: 12px;
-  line-height: 1.35;
+  font-size: 10.5px;
+  line-height: 1.28;
 }
 
 .warning-text {
@@ -528,7 +528,7 @@ select {
 .assumption-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 8px;
 }
 
 .sensitivity-grid {
@@ -543,8 +543,8 @@ select {
 
 .sensitivity-grid div {
   display: grid;
-  gap: 7px;
-  padding: 13px;
+  gap: 5px;
+  padding: 9px;
   background: var(--surface);
 }
 
@@ -555,34 +555,34 @@ select {
 
 .sensitivity-grid span {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 11.5px;
 }
 
 .sensitivity-grid strong {
   overflow-wrap: anywhere;
   font-family: var(--font-mono), monospace;
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 500;
 }
 
 .metric-card {
   display: grid;
-  gap: 12px;
-  padding: 16px;
+  gap: 8px;
+  padding: 12px;
   background: var(--surface);
 }
 
 .metric-card strong {
   overflow-wrap: anywhere;
   font-family: var(--font-mono), monospace;
-  font-size: clamp(18px, 2vw, 26px);
+  font-size: clamp(15px, 1.55vw, 20px);
   font-weight: 500;
 }
 
 .metric-card p {
   margin: 0;
   color: var(--muted);
-  line-height: 1.5;
+  line-height: 1.38;
 }
 
 .card-title,
@@ -591,7 +591,7 @@ select {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
 }
 
 .card-title {
@@ -602,27 +602,27 @@ select {
 
 .review-band {
   display: grid;
-  grid-template-columns: 230px 1fr;
-  gap: 18px;
-  padding: 16px;
+  grid-template-columns: 180px 1fr;
+  gap: 12px;
+  padding: 12px;
 }
 
 .compact-review {
-  grid-template-columns: 180px 1fr;
+  grid-template-columns: 150px 1fr;
 }
 
 .risk-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 6px;
 }
 
 .risk-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-height: 42px;
-  padding: 9px 10px;
+  gap: 8px;
+  min-height: 34px;
+  padding: 7px 8px;
   border: 1px solid rgba(161, 98, 7, 0.24);
   border-radius: var(--radius);
   background: var(--review-soft);
@@ -640,7 +640,7 @@ select {
 }
 
 .panel-heading {
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .table-wrap {
@@ -654,7 +654,7 @@ select {
 
 table {
   width: 100%;
-  min-width: 780px;
+  min-width: 660px;
   table-layout: fixed;
   border-collapse: collapse;
   background: var(--surface);
@@ -662,7 +662,7 @@ table {
 
 th,
 td {
-  padding: 10px 12px;
+  padding: 7px 8px;
   border-top: 1px solid var(--line);
   text-align: left;
   vertical-align: top;
@@ -676,31 +676,31 @@ th {
   background: var(--surface-muted);
   color: var(--ink-soft);
   font-family: var(--font-mono), monospace;
-  font-size: 12px;
+  font-size: 10.5px;
   font-weight: 500;
 }
 
 td {
-  font-size: 14px;
+  font-size: 12px;
   overflow-wrap: anywhere;
 }
 
 td span {
   display: block;
-  margin-top: 4px;
+  margin-top: 3px;
   color: var(--muted);
-  line-height: 1.4;
+  line-height: 1.3;
 }
 
 .badge {
   display: inline-flex;
   width: fit-content;
-  min-height: 28px;
+  min-height: 24px;
   align-items: center;
-  padding: 0 9px;
+  padding: 0 7px;
   border-radius: var(--radius);
   font-family: var(--font-mono), monospace;
-  font-size: 12px;
+  font-size: 10.5px;
   font-weight: 500;
 }
 
@@ -717,20 +717,20 @@ td span {
 .split-panel {
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
-  gap: 12px;
+  gap: 8px;
   min-width: 0;
 }
 
 .formula-list {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .formula-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(150px, 180px);
-  gap: 16px;
-  padding: 12px;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, 150px);
+  gap: 10px;
+  padding: 9px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface-raised);
@@ -740,21 +740,21 @@ td span {
   display: block;
   width: fit-content;
   max-width: 100%;
-  margin-top: 6px;
-  padding: 4px 6px;
+  margin-top: 4px;
+  padding: 3px 5px;
   overflow-wrap: anywhere;
   border: 1px solid var(--line);
   border-radius: 4px;
   background: #ffffff;
   color: var(--accent-ink);
   font-family: var(--font-mono), monospace;
-  font-size: 12px;
+  font-size: 10.5px;
 }
 
 .formula-row p {
-  margin: 6px 0 0;
+  margin: 4px 0 0;
   color: var(--muted);
-  line-height: 1.45;
+  line-height: 1.35;
 }
 
 .formula-row > span {
@@ -766,15 +766,15 @@ td span {
 
 .compact-table {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .forecast-row {
   display: grid;
-  grid-template-columns: 64px 1fr;
-  gap: 8px 12px;
+  grid-template-columns: 50px 1fr;
+  gap: 6px 8px;
   align-items: center;
-  padding: 12px;
+  padding: 9px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface-raised);
@@ -804,17 +804,17 @@ td span {
 
 .assumption-grid div {
   min-width: 0;
-  padding: 12px;
+  padding: 9px;
   background: var(--surface);
 }
 
 .assumption-grid dt {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 11.5px;
 }
 
 .assumption-grid dd {
-  margin: 6px 0 0;
+  margin: 4px 0 0;
   overflow-wrap: anywhere;
   font-family: var(--font-mono), monospace;
   font-weight: 500;

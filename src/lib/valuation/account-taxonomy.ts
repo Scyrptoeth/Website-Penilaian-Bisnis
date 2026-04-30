@@ -11,6 +11,8 @@ const balanceSheetCategories = new Set([
   "EMPLOYEE_RECEIVABLE",
   "INVENTORY",
   "FIXED_ASSET",
+  "FIXED_ASSET_ACQUISITION",
+  "ACCUMULATED_DEPRECIATION",
   "INTANGIBLE_ASSETS",
   "NON_CURRENT_ASSET",
   "TOTAL_LIABILITIES",
@@ -54,7 +56,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     category: "TOTAL_ASSETS",
     displayName: "Total Assets",
     aliases: ["total assets", "jumlah aset", "total aset", "total aktiva", "jumlah aktiva"],
-    includeKeywords: ["total", "jumlah", "aset", "assets", "aktiva"],
+    includeKeywords: ["total assets", "jumlah aset", "total aset", "total aktiva", "jumlah aktiva", "assets", "aktiva"],
     treatment: "review",
     valuationImpact: ["AAM"],
     reviewNote: "Gunakan sebagai override total assets hanya jika rincian komponen asset tidak tersedia atau sudah direkonsiliasi.",
@@ -62,8 +64,8 @@ export const accountMappingRules: AccountMappingRule[] = [
   {
     category: "CURRENT_ASSET",
     displayName: "Current Asset",
-    aliases: ["current asset", "aset lancar", "aktiva lancar"],
-    includeKeywords: ["lancar", "current"],
+    aliases: ["current asset", "aset lancar", "aktiva lancar", "aset lancar lainnya"],
+    includeKeywords: ["current asset", "aset lancar", "aktiva lancar", "lancar", "current"],
     treatment: "review",
     valuationImpact: ["AAM", "working capital support"],
     reviewNote: "Petakan ke kategori current asset yang lebih rinci jika subledger tersedia.",
@@ -71,8 +73,8 @@ export const accountMappingRules: AccountMappingRule[] = [
   {
     category: "CASH_ON_HAND",
     displayName: "Cash on Hand",
-    aliases: ["cash on hand", "cash on hands", "kas", "kas kecil", "uang kas"],
-    includeKeywords: ["cash", "kas"],
+    aliases: ["cash on hand", "cash on hands", "kas", "kas kecil", "uang kas", "kas di tangan", "kas tunai"],
+    includeKeywords: ["cash on hand", "kas kecil", "uang kas", "kas tunai", "cash", "kas"],
     excludeKeywords: ["bank", "deposito", "deposit"],
     treatment: "review",
     valuationImpact: ["AAM", "surplus asset sensitivity", "minimum operating cash"],
@@ -81,8 +83,8 @@ export const accountMappingRules: AccountMappingRule[] = [
   {
     category: "CASH_ON_BANK",
     displayName: "Cash on Bank / Deposit",
-    aliases: ["cash on bank", "bank", "deposito", "deposit", "giro", "rekening bank"],
-    includeKeywords: ["bank", "deposito", "deposit", "giro"],
+    aliases: ["cash on bank", "bank", "deposito", "deposit", "giro", "rekening bank", "kas bank", "bank danamon"],
+    includeKeywords: ["cash on bank", "rekening bank", "kas bank", "bank", "deposito", "deposit", "giro"],
     treatment: "non_operating",
     valuationImpact: ["AAM", "EEM bridge", "DCF bridge", "marketable securities review"],
     reviewNote: "Pisahkan operating bank account dari deposit/investment jika subledger tersedia.",
@@ -109,7 +111,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     category: "MARKETABLE_SECURITIES",
     displayName: "Marketable Securities",
     aliases: ["marketable securities", "surat berharga", "efek", "investasi jangka pendek", "deposito investasi"],
-    includeKeywords: ["surat berharga", "marketable", "securities", "efek", "investasi"],
+    includeKeywords: ["surat berharga", "marketable securities", "marketable", "securities", "efek", "investasi"],
     treatment: "non_operating",
     valuationImpact: ["AAM", "EEM bridge", "DCF bridge"],
     reviewNote: "Umumnya non-operating kecuali dibutuhkan untuk ordinary operations.",
@@ -117,8 +119,8 @@ export const accountMappingRules: AccountMappingRule[] = [
   {
     category: "ACCOUNT_RECEIVABLE",
     displayName: "Account Receivable",
-    aliases: ["account receivable", "piutang usaha", "trade receivable", "receivable"],
-    includeKeywords: ["piutang", "receivable"],
+    aliases: ["account receivable", "piutang usaha", "piutang dagang", "trade receivable", "receivable", "accounts receivable"],
+    includeKeywords: ["account receivable", "accounts receivable", "piutang usaha", "piutang dagang", "trade receivable", "piutang", "receivable"],
     excludeKeywords: ["karyawan", "employee"],
     treatment: "operating",
     valuationImpact: ["AAM", "working capital", "DCF WC days"],
@@ -127,8 +129,8 @@ export const accountMappingRules: AccountMappingRule[] = [
   {
     category: "EMPLOYEE_RECEIVABLE",
     displayName: "Employee Receivable",
-    aliases: ["employee receivable", "piutang karyawan", "piutang pegawai"],
-    includeKeywords: ["piutang", "karyawan", "pegawai", "employee"],
+    aliases: ["employee receivable", "piutang karyawan", "piutang pegawai", "pinjaman karyawan", "pinjaman pegawai"],
+    includeKeywords: ["employee receivable", "piutang karyawan", "piutang pegawai", "pinjaman karyawan", "pinjaman pegawai", "karyawan", "pegawai", "employee"],
     treatment: "non_operating",
     valuationImpact: ["AAM", "non-operating asset bridge"],
     reviewNote: "Umumnya dikeluarkan dari operating working capital dan ditambahkan sebagai non-operating asset.",
@@ -136,8 +138,8 @@ export const accountMappingRules: AccountMappingRule[] = [
   {
     category: "INVENTORY",
     displayName: "Inventory",
-    aliases: ["inventory", "persediaan", "stock", "stok"],
-    includeKeywords: ["inventory", "persediaan", "stock", "stok"],
+    aliases: ["inventory", "persediaan", "stock", "stok", "barang persediaan"],
+    includeKeywords: ["inventory", "persediaan", "stock", "stok", "barang persediaan"],
     treatment: "operating",
     valuationImpact: ["AAM", "working capital", "DCF WC days"],
     reviewNote: "Operating current asset untuk working capital kecuali ada bukti obsolete/non-operating.",
@@ -146,7 +148,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     category: "FIXED_ASSET",
     displayName: "Fixed Asset",
     aliases: ["fixed asset", "aset tetap", "aktiva tetap", "bangunan mess", "inventaris bangunan mess", "invt bangunan mess", "kendaraan", "alat berat", "tanah", "lahan sawit"],
-    includeKeywords: ["asset", "aset", "aktiva", "bangunan", "inventaris", "kendaraan", "tanah", "lahan", "alat berat"],
+    includeKeywords: ["fixed asset", "aset tetap", "aktiva tetap", "asset", "aset", "aktiva", "bangunan", "inventaris", "kendaraan", "tanah", "lahan", "alat berat"],
     excludeKeywords: ["perolehan", "acquisition", "purchase", "pembelian", "harga"],
     treatment: "operating",
     valuationImpact: ["AAM", "EEM NTA", "DCF invested capital"],
@@ -164,8 +166,8 @@ export const accountMappingRules: AccountMappingRule[] = [
   {
     category: "FIXED_ASSET_ACQUISITION",
     displayName: "Fixed Asset Acquisition",
-    aliases: ["harga perolehan", "acquisition cost", "purchase fixed asset", "pembelian aset tetap", "perolehan aset tetap"],
-    includeKeywords: ["perolehan", "acquisition", "purchase", "pembelian"],
+    aliases: ["harga perolehan", "acquisition cost", "purchase fixed asset", "pembelian aset tetap", "perolehan aset tetap", "nilai perolehan aset tetap"],
+    includeKeywords: ["harga perolehan", "acquisition cost", "perolehan aset tetap", "perolehan", "acquisition", "purchase", "pembelian"],
     treatment: "operating",
     valuationImpact: ["fixed asset schedule", "AAM support", "DCF capex support"],
     reviewNote: "Gunakan bersama accumulated depreciation untuk menurunkan fixed asset net value jika net value tidak tersedia.",
@@ -173,8 +175,8 @@ export const accountMappingRules: AccountMappingRule[] = [
   {
     category: "ACCUMULATED_DEPRECIATION",
     displayName: "Accumulated Depreciation",
-    aliases: ["accumulated depreciation", "akumulasi penyusutan", "acc dep", "akm penyusutan"],
-    includeKeywords: ["akumulasi", "accumulated", "penyusutan", "depreciation"],
+    aliases: ["accumulated depreciation", "akumulasi penyusutan", "akumulasi depresiasi", "acc dep", "akm penyusutan"],
+    includeKeywords: ["accumulated depreciation", "akumulasi penyusutan", "akumulasi depresiasi", "akumulasi", "accumulated"],
     treatment: "operating",
     valuationImpact: ["fixed asset schedule", "AAM support", "EEM NTA support"],
     reviewNote: "Kurangkan dari acquisition cost jika fixed asset net value tidak tersedia langsung.",
@@ -182,8 +184,8 @@ export const accountMappingRules: AccountMappingRule[] = [
   {
     category: "DEPRECIATION_EXPENSE",
     displayName: "Depreciation Expense",
-    aliases: ["depreciation expense", "beban penyusutan", "biaya penyusutan", "penyusutan"],
-    includeKeywords: ["penyusutan", "depreciation"],
+    aliases: ["depreciation expense", "depreciation", "depresiasi", "beban penyusutan", "biaya penyusutan", "beban depresiasi", "biaya depresiasi", "penyusutan"],
+    includeKeywords: ["depreciation expense", "beban penyusutan", "biaya penyusutan", "beban depresiasi", "biaya depresiasi", "penyusutan", "depreciation", "depresiasi"],
     excludeKeywords: ["akumulasi", "accumulated"],
     treatment: "operating",
     valuationImpact: ["EBIT", "DCF depreciation margin"],
@@ -202,7 +204,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     category: "TOTAL_LIABILITIES",
     displayName: "Total Liabilities",
     aliases: ["total liabilities", "jumlah kewajiban", "total kewajiban", "total liabilitas", "jumlah liabilitas"],
-    includeKeywords: ["total", "jumlah", "kewajiban", "liabilitas", "liabilities"],
+    includeKeywords: ["total liabilities", "jumlah kewajiban", "total kewajiban", "total liabilitas", "jumlah liabilitas", "liabilities"],
     treatment: "liability",
     valuationImpact: ["AAM"],
     reviewNote: "Gunakan sebagai override total liabilities hanya jika rincian komponen liability tidak tersedia atau sudah direkonsiliasi.",
@@ -211,7 +213,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     category: "CURRENT_LIABILITIES",
     displayName: "Current Liabilities",
     aliases: ["current liabilities", "kewajiban lancar", "liabilitas lancar"],
-    includeKeywords: ["lancar", "liabilitas", "kewajiban"],
+    includeKeywords: ["current liabilities", "kewajiban lancar", "liabilitas lancar"],
     treatment: "liability",
     valuationImpact: ["AAM", "working capital support"],
     reviewNote: "Petakan ke kategori liability yang lebih rinci jika subledger tersedia.",
@@ -219,8 +221,8 @@ export const accountMappingRules: AccountMappingRule[] = [
   {
     category: "ACCOUNT_PAYABLE",
     displayName: "Account Payable",
-    aliases: ["account payable", "utang usaha", "hutang usaha", "trade payable"],
-    includeKeywords: ["utang usaha", "hutang usaha", "payable"],
+    aliases: ["account payable", "accounts payable", "utang usaha", "hutang usaha", "utang dagang", "hutang dagang", "trade payable"],
+    includeKeywords: ["account payable", "accounts payable", "utang usaha", "hutang usaha", "utang dagang", "hutang dagang", "trade payable", "payable"],
     treatment: "operating",
     valuationImpact: ["AAM", "working capital", "DCF WC days"],
     reviewNote: "Operating current liability untuk working capital.",
@@ -228,8 +230,8 @@ export const accountMappingRules: AccountMappingRule[] = [
   {
     category: "TAX_PAYABLE",
     displayName: "Tax Payable",
-    aliases: ["tax payable", "utang pajak", "hutang pajak", "pph pasal 29", "ppn"],
-    includeKeywords: ["pajak", "tax", "pph", "ppn"],
+    aliases: ["tax payable", "utang pajak", "hutang pajak", "pajak terutang", "pph pasal 29", "ppn"],
+    includeKeywords: ["tax payable", "utang pajak", "hutang pajak", "pajak terutang", "pajak", "tax", "pph", "ppn"],
     treatment: "liability",
     valuationImpact: ["AAM", "debt-like sensitivity"],
     reviewNote: "Liability untuk AAM; keluarkan dari operating WC kecuali ada justifikasi khusus.",
@@ -237,8 +239,8 @@ export const accountMappingRules: AccountMappingRule[] = [
   {
     category: "OTHER_PAYABLE",
     displayName: "Other Payable",
-    aliases: ["other payable", "utang lain-lain", "hutang lain-lain", "accrued expense"],
-    includeKeywords: ["utang lain", "hutang lain", "accrued"],
+    aliases: ["other payable", "utang lain-lain", "hutang lain-lain", "utang lainnya", "hutang lainnya", "accrued expense"],
+    includeKeywords: ["other payable", "utang lain", "hutang lain", "utang lainnya", "hutang lainnya", "accrued"],
     treatment: "operating",
     valuationImpact: ["AAM", "working capital", "DCF WC days"],
     reviewNote: "Tinjau apakah merupakan operating payable atau debt-like payable.",
@@ -319,9 +321,41 @@ export const accountMappingRules: AccountMappingRule[] = [
   {
     category: "REVENUE",
     displayName: "Revenue",
-    aliases: ["revenue", "sales", "penjualan", "pendapatan usaha"],
-    includeKeywords: ["revenue", "sales", "penjualan", "pendapatan"],
-    excludeKeywords: ["beban", "biaya", "pokok", "interest", "bunga", "lain"],
+    aliases: [
+      "revenue",
+      "sales",
+      "net sales",
+      "operating revenue",
+      "penjualan",
+      "penjualan bersih",
+      "pendapatan",
+      "pendapatan usaha",
+      "pendapatan operasional",
+      "penghasilan",
+      "penghasilan usaha",
+      "penghasilan operasional",
+      "omzet",
+      "omset",
+      "peredaran usaha",
+    ],
+    includeKeywords: [
+      "revenue",
+      "sales",
+      "net sales",
+      "operating revenue",
+      "penjualan",
+      "penjualan bersih",
+      "pendapatan usaha",
+      "pendapatan operasional",
+      "penghasilan usaha",
+      "penghasilan operasional",
+      "pendapatan",
+      "penghasilan",
+      "omzet",
+      "omset",
+      "peredaran usaha",
+    ],
+    excludeKeywords: ["beban", "biaya", "expense", "cost", "pokok", "interest", "bunga", "lain", "other", "non operating", "jasa giro", "deposito"],
     treatment: "operating",
     valuationImpact: ["DCF forecast driver", "margins"],
     reviewNote: "Gunakan commercial revenue sebagai operating driver.",
@@ -329,8 +363,8 @@ export const accountMappingRules: AccountMappingRule[] = [
   {
     category: "COST_OF_GOOD_SOLD",
     displayName: "Cost of Good Sold",
-    aliases: ["cost of good sold", "cogs", "hpp", "beban pokok", "harga pokok", "pupuk", "obat-obatan", "tbs"],
-    includeKeywords: ["cogs", "hpp", "pokok", "pupuk", "obat", "tbs"],
+    aliases: ["cost of good sold", "cost of goods sold", "cogs", "hpp", "beban pokok penjualan", "beban pokok", "harga pokok penjualan", "harga pokok", "pupuk", "obat-obatan", "tbs"],
+    includeKeywords: ["cost of good sold", "cost of goods sold", "cogs", "hpp", "beban pokok", "harga pokok", "pokok", "pupuk", "obat", "tbs"],
     treatment: "operating",
     valuationImpact: ["EBIT", "DCF margin"],
     reviewNote: "Operating cost; pertahankan sign convention secara konsisten.",
@@ -338,8 +372,8 @@ export const accountMappingRules: AccountMappingRule[] = [
   {
     category: "SELLING_EXPENSE",
     displayName: "Selling Expense",
-    aliases: ["selling expense", "beban penjualan", "biaya penjualan", "selling"],
-    includeKeywords: ["selling", "penjualan"],
+    aliases: ["selling expense", "sales expense", "beban penjualan", "biaya penjualan", "selling"],
+    includeKeywords: ["selling expense", "sales expense", "beban penjualan", "biaya penjualan", "selling"],
     excludeKeywords: ["revenue", "sales", "pendapatan"],
     treatment: "operating",
     valuationImpact: ["EBIT", "DCF margin"],
@@ -348,8 +382,8 @@ export const accountMappingRules: AccountMappingRule[] = [
   {
     category: "GENERAL_ADMINISTRATIVE_OVERHEADS",
     displayName: "General & Administrative Overheads",
-    aliases: ["general administrative overheads", "g&a", "administrasi", "overheads", "bbm", "stnk", "pbb", "notaris"],
-    includeKeywords: ["administrasi", "overhead", "bbm", "stnk", "pbb", "notaris", "listrik", "kantor"],
+    aliases: ["general administrative overheads", "general and administrative", "g&a", "administrasi", "beban administrasi", "biaya administrasi", "beban umum", "biaya umum", "overheads", "bbm", "stnk", "pbb", "notaris"],
+    includeKeywords: ["general administrative", "general and administrative", "beban administrasi", "biaya administrasi", "beban umum", "biaya umum", "administrasi", "overhead", "bbm", "stnk", "pbb", "notaris", "listrik", "kantor"],
     treatment: "operating",
     valuationImpact: ["EBIT", "DCF margin"],
     reviewNote: "Operating expense yang mengecualikan financing dan non-operating items.",
@@ -366,8 +400,8 @@ export const accountMappingRules: AccountMappingRule[] = [
   {
     category: "COMMERCIAL_NPAT",
     displayName: "Commercial NPAT",
-    aliases: ["laba bersih komersial", "commercial npat", "net profit after tax", "laba setelah pajak"],
-    includeKeywords: ["laba bersih", "npat", "net profit"],
+    aliases: ["laba bersih komersial", "commercial npat", "net profit after tax", "laba setelah pajak", "laba bersih", "net income"],
+    includeKeywords: ["laba bersih komersial", "commercial npat", "net profit after tax", "laba setelah pajak", "laba bersih", "npat", "net profit", "net income"],
     treatment: "operating",
     valuationImpact: ["earning power support", "retained earnings support"],
     reviewNote: "Gunakan commercial profit saja; jangan gunakan fiscal reconciliation sebagai earning power.",
@@ -375,8 +409,8 @@ export const accountMappingRules: AccountMappingRule[] = [
   {
     category: "INTEREST_INCOME",
     displayName: "Interest Income",
-    aliases: ["interest income", "pendapatan bunga", "jasa giro", "bunga deposito", "bagi hasil bank"],
-    includeKeywords: ["interest income", "bunga", "jasa giro", "deposito", "bagi hasil"],
+    aliases: ["interest income", "pendapatan bunga", "penghasilan bunga", "jasa giro", "bunga deposito", "pendapatan deposito", "penghasilan deposito", "bagi hasil bank"],
+    includeKeywords: ["interest income", "pendapatan bunga", "penghasilan bunga", "jasa giro", "bunga deposito", "pendapatan deposito", "penghasilan deposito", "bagi hasil"],
     excludeKeywords: ["beban", "expense", "biaya"],
     treatment: "non_operating",
     valuationImpact: ["NOPLAT exclusion", "surplus asset support"],
@@ -385,8 +419,8 @@ export const accountMappingRules: AccountMappingRule[] = [
   {
     category: "INTEREST_EXPENSE",
     displayName: "Interest Expense",
-    aliases: ["interest expense", "beban bunga", "beban jasa giro", "beban pinjaman"],
-    includeKeywords: ["interest expense", "beban bunga", "jasa giro", "pinjaman"],
+    aliases: ["interest expense", "beban bunga", "biaya bunga", "beban jasa giro", "beban pinjaman", "biaya pinjaman"],
+    includeKeywords: ["interest expense", "beban bunga", "biaya bunga", "beban pinjaman", "biaya pinjaman"],
     treatment: "financing",
     valuationImpact: ["NOPLAT exclusion", "debt review"],
     reviewNote: "Keluarkan dari operating NOPLAT dan tinjau apakah related debt tersedia.",
@@ -394,8 +428,8 @@ export const accountMappingRules: AccountMappingRule[] = [
   {
     category: "NON_OPERATING_INCOME",
     displayName: "Non Operating Income",
-    aliases: ["non operating income", "pendapatan lain-lain", "beban lain-lain", "other income", "other expense"],
-    includeKeywords: ["lain", "other", "non operating"],
+    aliases: ["non operating income", "non-operating income", "pendapatan lain-lain", "penghasilan lain-lain", "pendapatan lainnya", "penghasilan lainnya", "beban lain-lain", "biaya lain-lain", "other income", "other expense"],
+    includeKeywords: ["non operating income", "non-operating income", "pendapatan lain", "penghasilan lain", "beban lain", "biaya lain", "other income", "other expense", "non operating"],
     treatment: "non_operating",
     valuationImpact: ["NOPLAT exclusion", "CFI review"],
     reviewNote: "Keluarkan dari operating earning power.",
@@ -431,32 +465,43 @@ export function mapAccount(sourceLabel: string, statement?: StatementContext): A
   }
 
   const scored = accountMappingRules.map((rule) => {
-    const aliasHit = rule.aliases.some((alias) => normalizedLabel.includes(normalizeAccountLabel(alias)));
-    const includeHits = rule.includeKeywords.filter((keyword) => normalizedLabel.includes(normalizeAccountLabel(keyword))).length;
-    const excluded = rule.excludeKeywords?.some((keyword) => normalizedLabel.includes(normalizeAccountLabel(keyword))) ?? false;
+    const aliasMatches = rule.aliases.map(normalizeAccountLabel).filter((alias) => containsNormalizedPhrase(normalizedLabel, alias));
+    const exactAliasHit = rule.aliases.some((alias) => normalizedLabel === normalizeAccountLabel(alias));
+    const aliasHit = aliasMatches.length > 0;
+    const includeHits = rule.includeKeywords.filter((keyword) => containsNormalizedPhrase(normalizedLabel, keyword)).length;
+    const excluded = rule.excludeKeywords?.some((keyword) => containsNormalizedPhrase(normalizedLabel, keyword)) ?? false;
     const statementCompatible = isStatementCompatible(rule.category, statement);
-    const rawScore =
-      (aliasHit ? 0.55 : 0) +
-      Math.min(includeHits * 0.16, 0.4) -
-      (excluded ? 0.45 : 0) +
-      (statementCompatible === true ? 0.08 : 0) -
-      (statementCompatible === false ? 0.65 : 0);
+    const lexicalMatch = aliasHit || includeHits > 0;
+    const specificityBoost = Math.min(longestPhraseLength(aliasMatches) * 0.04, 0.16);
+    const rawScore = lexicalMatch
+      ? (exactAliasHit ? 0.82 : aliasHit ? 0.56 : 0) +
+        Math.min(includeHits * 0.11, 0.28) +
+        specificityBoost -
+        (excluded ? 0.52 : 0) +
+        (statementCompatible === true ? 0.06 : 0) -
+        (statementCompatible === false ? 0.55 : 0)
+      : 0;
 
     return {
       rule,
       confidence: Math.max(0, Math.min(0.99, rawScore)),
+      exactAliasHit,
       aliasHit,
       includeHits,
       excluded,
+      lexicalMatch,
       statementCompatible,
     };
   });
 
-  const best = scored.sort((a, b) => b.confidence - a.confidence)[0];
+  const ranked = scored.sort((a, b) => b.confidence - a.confidence);
+  const best = ranked[0];
+  const runnerUp = ranked.find((candidate) => candidate.rule.category !== best?.rule.category && candidate.confidence > 0);
   const confidence = best?.confidence ?? 0;
   const rule = best?.rule ?? accountMappingRules[0];
+  const ambiguousMatch = Boolean(runnerUp && confidence >= 0.45 && confidence - runnerUp.confidence <= 0.12);
 
-  if (!best || confidence === 0) {
+  if (!best || !best.lexicalMatch || confidence === 0) {
     return {
       sourceLabel,
       normalizedLabel,
@@ -478,9 +523,25 @@ export function mapAccount(sourceLabel: string, statement?: StatementContext): A
     confidence,
     treatment: rule.treatment,
     valuationImpact: rule.valuationImpact,
-    reason: `${best?.aliasHit ? "Alias cocok" : "Keyword cocok"} dengan ${best?.includeHits ?? 0} keyword hit. ${rule.reviewNote}`,
-    needsReview: confidence < 0.72 || (best?.excluded ?? false) || best?.statementCompatible === false,
+    reason: `${best.exactAliasHit ? "Alias persis cocok" : best.aliasHit ? "Alias cocok" : "Keyword cocok"} dengan ${best.includeHits} keyword hit.${
+      ambiguousMatch ? ` Kandidat lain dekat: ${runnerUp?.rule.displayName}.` : ""
+    } ${rule.reviewNote}`,
+    needsReview: confidence < 0.72 || best.excluded || best.statementCompatible === false || ambiguousMatch,
   };
+}
+
+function containsNormalizedPhrase(label: string, phrase: string): boolean {
+  const normalizedPhrase = normalizeAccountLabel(phrase);
+
+  if (!normalizedPhrase) {
+    return false;
+  }
+
+  return ` ${label} `.includes(` ${normalizedPhrase} `);
+}
+
+function longestPhraseLength(phrases: string[]): number {
+  return phrases.reduce((longest, phrase) => Math.max(longest, phrase.split(" ").length - 1), 0);
 }
 
 function isStatementCompatible(category: string, statement?: StatementContext): boolean | null {
