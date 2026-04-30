@@ -82,15 +82,6 @@ export const fixedAssetScheduleValueKeys: FixedAssetScheduleValueKey[] = [
   "depreciationAdditions",
 ];
 
-export const defaultFixedAssetClasses = [
-  "Land (Tanah Lahan Sawit + Tanah Lahan Sawit (TA))",
-  "Building (Bangunan Mess/Barak + Bangunan Mess/Barak (TA) + Lapangan + Kantor)",
-  "Equipment, Laboratory, & Machinery (Sarana & Prasarana)",
-  "Vehicle & Heavy Equipment (Alat Berat + Kendaraan)",
-  "Office Inventory (Inventaris Tanaman Sawit + Inventaris Tanaman Sawit (TA))",
-  "Electrical",
-];
-
 export const emptyAssumptions: AssumptionState = {
   taxRate: "",
   terminalGrowth: "",
@@ -134,10 +125,6 @@ export function createFixedAssetScheduleRow(periods: Period[], assetName = ""): 
     assetName,
     values: Object.fromEntries(periods.map((period) => [period.id, createEmptyFixedAssetValues()])),
   };
-}
-
-export function buildDefaultFixedAssetScheduleRows(periods: Period[]): FixedAssetScheduleRow[] {
-  return defaultFixedAssetClasses.map((assetName) => createFixedAssetScheduleRow(periods, assetName));
 }
 
 export function ensureFixedAssetSchedulePeriods(rows: FixedAssetScheduleRow[], periods: Period[]): FixedAssetScheduleRow[] {

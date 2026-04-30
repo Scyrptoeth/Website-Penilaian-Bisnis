@@ -643,6 +643,65 @@ select {
   width: 120px;
 }
 
+.balance-sheet-position {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.balance-sheet-table {
+  min-width: 920px;
+  table-layout: fixed;
+}
+
+.balance-sheet-table th:first-child,
+.balance-sheet-table td:first-child {
+  width: 94px;
+}
+
+.balance-sheet-table th:nth-child(2),
+.balance-sheet-table td:nth-child(2) {
+  width: 240px;
+}
+
+.balance-sheet-table th:nth-child(3),
+.balance-sheet-table td:nth-child(3) {
+  width: 132px;
+}
+
+.balance-sheet-table th:last-child,
+.balance-sheet-table td:last-child {
+  width: 86px;
+}
+
+.balance-section-row td {
+  border-top-color: var(--line-strong);
+  background: var(--surface-muted);
+  color: var(--accent-ink);
+  font-family: var(--font-mono), monospace;
+  font-size: 8.4px;
+  font-weight: 600;
+}
+
+.balance-sheet-table .total-row td {
+  background: var(--accent-soft);
+}
+
+.balance-check-row td {
+  border-top-color: var(--line-strong);
+  background: #fffdf4;
+  font-weight: 600;
+}
+
+.numeric-cell {
+  font-family: var(--font-mono), monospace;
+  font-size: 8.4px;
+  text-align: right;
+  white-space: nowrap;
+}
+
 .account-entry-table {
   min-width: 760px;
   table-layout: fixed;
@@ -897,6 +956,11 @@ td span {
 .badge.ok {
   background: var(--ok-soft);
   color: var(--ok);
+}
+
+.badge.muted {
+  background: var(--surface-muted);
+  color: var(--ink-soft);
 }
 
 .split-panel {

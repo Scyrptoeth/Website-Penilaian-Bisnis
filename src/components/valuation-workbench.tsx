@@ -20,7 +20,6 @@ import {
 import { accountMappingRules } from "@/lib/valuation/account-taxonomy";
 import { calculateAllMethods } from "@/lib/valuation/calculations";
 import {
-  buildDefaultFixedAssetScheduleRows,
   buildFixedAssetScheduleSummary,
   buildSampleAssumptions,
   buildSamplePeriods,
@@ -40,6 +39,7 @@ import {
   initialPeriods,
   mapRow,
   normalizePeriods,
+  parseInputNumber,
   statementLabels,
   type AccountRow,
   type AssumptionState,
@@ -135,8 +135,37 @@ type PersistedWorkbenchState = {
   periods: Period[];
   activePeriodId: string;
   rows: AccountRow[];
+  isFixedAssetScheduleEnabled: boolean;
   fixedAssetScheduleRows: FixedAssetScheduleRow[];
   assumptions: AssumptionState;
+};
+
+type BalanceSheetLine = {
+  label: string;
+  categoryId: AccountCategory | "DERIVED_FIXED_ASSET";
+  category: string;
+  source: string;
+  values: Record<string, number>;
+  affectsTotal?: boolean;
+  isDerived?: boolean;
+  isOverride?: boolean;
+};
+
+type BalanceSheetSection = {
+  title: string;
+  lines: BalanceSheetLine[];
+  totalLabel: string;
+  totalValues: Record<string, number>;
+};
+
+type BalanceSheetView = {
+  sections: BalanceSheetSection[];
+  totalAssets: Record<string, number>;
+  totalLiabilities: Record<string, number>;
+  totalEquity: Record<string, number>;
+  balanceGap: Record<string, number>;
+  hasRows: boolean;
+  hasFixedAssetScheduleLines: boolean;
 };
 
 const sectionLinks = [
@@ -150,10 +179,50 @@ const sectionLinks = [
   { href: "#audit", label: "Audit" },
 ];
 
+const assetCategories = new Set<AccountCategory>([
+  "CASH_ON_HAND",
+  "CASH_ON_BANK",
+  "ACCOUNT_RECEIVABLE",
+  "EMPLOYEE_RECEIVABLE",
+  "INVENTORY",
+  "CURRENT_ASSET",
+  "FIXED_ASSET",
+  "FIXED_ASSET_ACQUISITION",
+  "ACCUMULATED_DEPRECIATION",
+  "NON_CURRENT_ASSET",
+  "NON_OPERATING_FIXED_ASSETS",
+  "INTANGIBLE_ASSETS",
+  "EXCESS_CASH",
+  "MARKETABLE_SECURITIES",
+  "SURPLUS_ASSET_CASH",
+  "TOTAL_ASSETS",
+]);
+
+const liabilityCategories = new Set<AccountCategory>([
+  "BANK_LOAN_SHORT_TERM",
+  "ACCOUNT_PAYABLE",
+  "TAX_PAYABLE",
+  "OTHER_PAYABLE",
+  "CURRENT_LIABILITIES",
+  "BANK_LOAN_LONG_TERM",
+  "NON_CURRENT_LIABILITIES",
+  "INTEREST_PAYABLE",
+  "INTEREST_BEARING_DEBT",
+  "TOTAL_LIABILITIES",
+]);
+
+const equityCategories = new Set<AccountCategory>([
+  "MODAL_DISETOR",
+  "PENAMBAHAN_MODAL_DISETOR",
+  "RETAINED_EARNINGS_SURPLUS",
+  "RETAINED_EARNINGS_CURRENT_PROFIT",
+]);
+
 export function ValuationWorkbench() {
   const [periods, setPeriods] = useState<Period[]>(initialPeriods);
   const [activePeriodId, setActivePeriodId] = useState(initialPeriods[0].id);
   const [rows, setRows] = useState<AccountRow[]>([]);
+  const [isFixedAssetScheduleEnabled, setIsFixedAssetScheduleEnabled] = useState(false);
   const [fixedAssetScheduleRows, setFixedAssetScheduleRows] = useState<FixedAssetScheduleRow[]>([]);
   const [assumptions, setAssumptions] = useState<AssumptionState>(emptyAssumptions);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -164,11 +233,16 @@ export function ValuationWorkbench() {
     () => buildFixedAssetScheduleSummary(periods, fixedAssetScheduleRows),
     [fixedAssetScheduleRows, periods],
   );
+  const shouldShowFixedAssetSchedule = isFixedAssetScheduleEnabled || fixedAssetScheduleRows.length > 0;
   const snapshot = useMemo(
     () => buildSnapshot(periods, activePeriodId, rows, assumptions, fixedAssetScheduleRows),
     [periods, activePeriodId, rows, assumptions, fixedAssetScheduleRows],
   );
   const results = useMemo(() => calculateAllMethods(snapshot), [snapshot]);
+  const balanceSheetView = useMemo(
+    () => buildBalanceSheetView(periods, mappedRows, fixedAssetSchedule),
+    [fixedAssetSchedule, mappedRows, periods],
+  );
   const methodCards = [results.aam, results.eem, results.dcf];
   const activePeriod = periods.find((period) => period.id === activePeriodId) ?? getDefaultActivePeriod(periods);
   const nextHistoricalPeriodLabel = getPeriodLabel(getNextHistoricalPeriodOffset(periods)).replace("Tahun ", "");
@@ -180,6 +254,7 @@ export function ValuationWorkbench() {
   const balanceSheetGap = results.adjustedTotalAssets - results.adjustedTotalLiabilities - equityBookComponents;
   const hasAnyInput =
     rows.length > 0 ||
+    isFixedAssetScheduleEnabled ||
     fixedAssetScheduleRows.length > 0 ||
     fixedAssetSchedule.hasInput ||
     periods.length !== 1 ||
@@ -205,6 +280,7 @@ export function ValuationWorkbench() {
       setPeriods(nextPeriods);
       setActivePeriodId(nextActivePeriodId);
       setRows(storedState.rows);
+      setIsFixedAssetScheduleEnabled(storedState.isFixedAssetScheduleEnabled || storedState.fixedAssetScheduleRows.length > 0);
       setFixedAssetScheduleRows(storedState.fixedAssetScheduleRows);
       setAssumptions(storedState.assumptions);
     }
@@ -224,10 +300,11 @@ export function ValuationWorkbench() {
       periods,
       activePeriodId,
       rows,
+      isFixedAssetScheduleEnabled,
       fixedAssetScheduleRows,
       assumptions,
     });
-  }, [activePeriodId, assumptions, fixedAssetScheduleRows, isDraftRestored, periods, rows]);
+  }, [activePeriodId, assumptions, fixedAssetScheduleRows, isDraftRestored, isFixedAssetScheduleEnabled, periods, rows]);
 
   useEffect(() => {
     if (!isDraftRestored) {
@@ -328,19 +405,11 @@ export function ValuationWorkbench() {
   }
 
   function loadFixedAssetTemplate() {
-    setFixedAssetScheduleRows((current) => {
-      const existingNames = new Set(current.map((row) => normalizeAssetName(row.assetName)).filter(Boolean));
-      const missingTemplateRows = buildDefaultFixedAssetScheduleRows(periods).filter((row) => !existingNames.has(normalizeAssetName(row.assetName)));
-
-      if (current.length === 0) {
-        return missingTemplateRows;
-      }
-
-      return missingTemplateRows.length > 0 ? [...current, ...missingTemplateRows] : current;
-    });
+    setIsFixedAssetScheduleEnabled(true);
   }
 
   function addFixedAssetScheduleRow() {
+    setIsFixedAssetScheduleEnabled(true);
     setFixedAssetScheduleRows((current) => [createFixedAssetScheduleRow(periods), ...current]);
   }
 
@@ -396,6 +465,7 @@ export function ValuationWorkbench() {
     setPeriods(samplePeriods);
     setActivePeriodId("p2021");
     setRows(buildSampleRows());
+    setIsFixedAssetScheduleEnabled(false);
     setFixedAssetScheduleRows([]);
     setAssumptions(buildSampleAssumptions());
   }
@@ -405,6 +475,7 @@ export function ValuationWorkbench() {
     setPeriods(initialPeriods);
     setActivePeriodId(initialPeriods[0].id);
     setRows([]);
+    setIsFixedAssetScheduleEnabled(false);
     setFixedAssetScheduleRows([]);
     setAssumptions(emptyAssumptions);
 
@@ -555,7 +626,7 @@ export function ValuationWorkbench() {
             </div>
           </div>
 
-          {fixedAssetScheduleRows.length > 0 ? (
+          {shouldShowFixedAssetSchedule ? (
             <FixedAssetScheduleEditor
               periods={periods}
               schedule={fixedAssetSchedule}
@@ -568,7 +639,7 @@ export function ValuationWorkbench() {
 
           {rows.length === 0 ? (
             <div className="empty-state">
-              {fixedAssetScheduleRows.length > 0 ? "Belum ada akun manual tambahan." : "Belum ada akun. Tambahkan baris dari tombol di atas."}
+              {shouldShowFixedAssetSchedule ? "Belum ada akun manual tambahan." : "Belum ada akun. Tambahkan baris dari tombol di atas."}
             </div>
           ) : (
             <div className="table-wrap">
@@ -643,6 +714,8 @@ export function ValuationWorkbench() {
               </table>
             </div>
           )}
+
+          <BalanceSheetPositionTable periods={periods} view={balanceSheetView} />
         </section>
 
         <section id="mapping" className="split-panel">
@@ -909,6 +982,8 @@ function readPersistedWorkbenchState(): PersistedWorkbenchState | null {
     const fixedAssetScheduleRows = ensureFixedAssetSchedulePeriods(sanitizeFixedAssetScheduleRows(parsed.fixedAssetScheduleRows), periods);
     const assumptions = sanitizeAssumptions(parsed.assumptions);
     const activePeriodId = typeof parsed.activePeriodId === "string" ? parsed.activePeriodId : "";
+    const isFixedAssetScheduleEnabled =
+      typeof parsed.isFixedAssetScheduleEnabled === "boolean" ? parsed.isFixedAssetScheduleEnabled : fixedAssetScheduleRows.length > 0;
 
     return {
       version: WORKBENCH_STORAGE_VERSION,
@@ -916,6 +991,7 @@ function readPersistedWorkbenchState(): PersistedWorkbenchState | null {
       periods,
       activePeriodId,
       rows,
+      isFixedAssetScheduleEnabled,
       fixedAssetScheduleRows,
       assumptions,
     };
@@ -1083,10 +1159,6 @@ function sanitizeStringRecord(value: unknown): Record<string, string> {
   );
 }
 
-function normalizeAssetName(value: string): string {
-  return value.trim().toLowerCase();
-}
-
 function readFiniteNumber(value: unknown): number {
   const numericValue = typeof value === "number" || typeof value === "string" ? Number(value) : Number.NaN;
   return Number.isFinite(numericValue) ? numericValue : Number.NaN;
@@ -1094,6 +1166,278 @@ function readFiniteNumber(value: unknown): number {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function buildBalanceSheetView(periods: Period[], mappedRows: MappedRow[], fixedAssetSchedule: FixedAssetScheduleSummary): BalanceSheetView {
+  const assetLines: BalanceSheetLine[] = [];
+  const liabilityLines: BalanceSheetLine[] = [];
+  const equityLines: BalanceSheetLine[] = [];
+  const manualFixedAssetAcquisitionValues = zeroPeriodValues(periods);
+  const manualAccumulatedDepreciationValues = zeroPeriodValues(periods);
+  const explicitFixedAssetNetValues = zeroPeriodValues(periods);
+  let hasManualFixedAssetDetail = false;
+
+  mappedRows.forEach((item) => {
+    if (item.row.statement !== "balance_sheet" || item.effectiveCategory === "UNMAPPED") {
+      return;
+    }
+
+    const values = Object.fromEntries(periods.map((period) => [period.id, parseInputNumber(item.row.values[period.id] ?? "")]));
+
+    if (item.effectiveCategory === "FIXED_ASSET_ACQUISITION") {
+      addPeriodValues(manualFixedAssetAcquisitionValues, values, periods);
+      hasManualFixedAssetDetail = true;
+    }
+
+    if (item.effectiveCategory === "ACCUMULATED_DEPRECIATION") {
+      addPeriodValues(manualAccumulatedDepreciationValues, values, periods);
+      hasManualFixedAssetDetail = true;
+    }
+
+    if (item.effectiveCategory === "FIXED_ASSET") {
+      addPeriodValues(explicitFixedAssetNetValues, values, periods);
+    }
+
+    const line: BalanceSheetLine = {
+      label: item.row.accountName || categoryLabelMap.get(item.effectiveCategory) || item.effectiveCategory,
+      categoryId: item.effectiveCategory,
+      category: categoryLabelMap.get(item.effectiveCategory) || item.effectiveCategory,
+      source: "Input akun",
+      values,
+      affectsTotal: item.effectiveCategory !== "FIXED_ASSET_ACQUISITION" && item.effectiveCategory !== "ACCUMULATED_DEPRECIATION",
+      isOverride: item.effectiveCategory === "TOTAL_ASSETS" || item.effectiveCategory === "TOTAL_LIABILITIES",
+    };
+
+    if (assetCategories.has(item.effectiveCategory)) {
+      assetLines.push(line);
+      return;
+    }
+
+    if (liabilityCategories.has(item.effectiveCategory)) {
+      liabilityLines.push(line);
+      return;
+    }
+
+    if (equityCategories.has(item.effectiveCategory)) {
+      equityLines.push(line);
+    }
+  });
+
+  if (fixedAssetSchedule.hasInput) {
+    assetLines.push(
+      buildDerivedFixedAssetLine(
+        periods,
+        fixedAssetSchedule,
+        "Beginning",
+        "Acquisition ending",
+        (amounts) => amounts.acquisitionEnding,
+        false,
+      ),
+      buildDerivedFixedAssetLine(
+        periods,
+        fixedAssetSchedule,
+        "Accumulated Depreciations",
+        "Contra asset",
+        (amounts) => -amounts.depreciationEnding,
+        false,
+      ),
+      buildDerivedFixedAssetLine(periods, fixedAssetSchedule, "Fixed Assets, Net", "Net fixed assets", (amounts) => amounts.netValue),
+    );
+  }
+
+  if (hasManualFixedAssetDetail) {
+    const derivedManualFixedAssetNetValues = Object.fromEntries(
+      periods.map((period) => {
+        const explicitNet =
+          (explicitFixedAssetNetValues[period.id] ?? 0) + (fixedAssetSchedule.hasInput ? (fixedAssetSchedule.totals[period.id]?.netValue ?? 0) : 0);
+        const manualNet = Math.max(
+          0,
+          (manualFixedAssetAcquisitionValues[period.id] ?? 0) - (manualAccumulatedDepreciationValues[period.id] ?? 0),
+        );
+
+        return [period.id, explicitNet ? 0 : manualNet];
+      }),
+    );
+
+    if (hasAnyNonZeroValue(derivedManualFixedAssetNetValues)) {
+      assetLines.push({
+        label: "Fixed Assets, Net",
+        categoryId: "DERIVED_FIXED_ASSET",
+        category: "Net fixed assets from detail",
+        source: "Input akun",
+        values: derivedManualFixedAssetNetValues,
+        affectsTotal: true,
+        isDerived: true,
+      });
+    }
+  }
+
+  const totalAssets = totalWithOverride(periods, assetLines, "TOTAL_ASSETS");
+  const totalLiabilities = totalWithOverride(periods, liabilityLines, "TOTAL_LIABILITIES");
+  const totalEquity = sumLineValues(periods, equityLines);
+  const balanceGap = Object.fromEntries(
+    periods.map((period) => [period.id, (totalAssets[period.id] ?? 0) - (totalLiabilities[period.id] ?? 0) - (totalEquity[period.id] ?? 0)]),
+  );
+
+  return {
+    sections: [
+      { title: "Aset", lines: assetLines, totalLabel: "Total Aset", totalValues: totalAssets },
+      { title: "Liabilitas", lines: liabilityLines, totalLabel: "Total Liabilitas", totalValues: totalLiabilities },
+      { title: "Ekuitas", lines: equityLines, totalLabel: "Total Ekuitas", totalValues: totalEquity },
+    ],
+    totalAssets,
+    totalLiabilities,
+    totalEquity,
+    balanceGap,
+    hasRows: assetLines.length > 0 || liabilityLines.length > 0 || equityLines.length > 0,
+    hasFixedAssetScheduleLines: fixedAssetSchedule.hasInput,
+  };
+}
+
+function zeroPeriodValues(periods: Period[]): Record<string, number> {
+  return Object.fromEntries(periods.map((period) => [period.id, 0]));
+}
+
+function addPeriodValues(target: Record<string, number>, values: Record<string, number>, periods: Period[]) {
+  periods.forEach((period) => {
+    target[period.id] = (target[period.id] ?? 0) + (values[period.id] ?? 0);
+  });
+}
+
+function hasAnyNonZeroValue(values: Record<string, number>) {
+  return Object.values(values).some((value) => Math.abs(value) > 0.000001);
+}
+
+function buildDerivedFixedAssetLine(
+  periods: Period[],
+  fixedAssetSchedule: FixedAssetScheduleSummary,
+  label: string,
+  category: string,
+  getValue: (amounts: FixedAssetPeriodAmounts) => number,
+  affectsTotal = true,
+): BalanceSheetLine {
+  return {
+    label,
+    categoryId: "DERIVED_FIXED_ASSET",
+    category,
+    source: "Fixed Asset Schedule",
+    values: Object.fromEntries(
+      periods.map((period) => [period.id, getValue(fixedAssetSchedule.totals[period.id] ?? emptyFixedAssetAmounts())]),
+    ),
+    affectsTotal,
+    isDerived: true,
+  };
+}
+
+function totalWithOverride(periods: Period[], lines: BalanceSheetLine[], overrideCategory: AccountCategory): Record<string, number> {
+  const overrideLines = lines.filter((line) => line.categoryId === overrideCategory);
+  const componentLines = lines.filter((line) => line.categoryId !== overrideCategory && line.affectsTotal !== false);
+  const overrideValues = sumLineValues(periods, overrideLines);
+  const componentValues = sumLineValues(periods, componentLines);
+
+  return Object.fromEntries(periods.map((period) => [period.id, overrideValues[period.id] || componentValues[period.id] || 0]));
+}
+
+function sumLineValues(periods: Period[], lines: BalanceSheetLine[]): Record<string, number> {
+  return Object.fromEntries(
+    periods.map((period) => [period.id, lines.reduce((sum, line) => sum + (line.values[period.id] ?? 0), 0)]),
+  );
+}
+
+function BalanceSheetPositionTable({ periods, view }: { periods: Period[]; view: BalanceSheetView }) {
+  if (!view.hasRows) {
+    return null;
+  }
+
+  return (
+    <div className="balance-sheet-position">
+      <div className="subpanel-heading">
+        <div>
+          <p className="eyebrow">Neraca</p>
+          <h4>Posisi Aset · Liabilitas · Ekuitas</h4>
+        </div>
+        <span className="status-pill muted">{view.hasFixedAssetScheduleLines ? "Termasuk fixed asset otomatis" : "Dikelompokkan otomatis"}</span>
+      </div>
+      <div className="table-wrap">
+        <table className="balance-sheet-table">
+          <thead>
+            <tr>
+              <th>Pos</th>
+              <th>Akun / komponen</th>
+              <th>Sumber</th>
+              {periods.map((period) => (
+                <th key={period.id}>{period.label || "Periode"}</th>
+              ))}
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {view.sections.map((section) => (
+              <Fragment key={section.title}>
+                <tr className="balance-section-row">
+                  <td colSpan={periods.length + 4}>{section.title}</td>
+                </tr>
+                {section.lines.length === 0 ? (
+                  <tr>
+                    <td>{section.title}</td>
+                    <td colSpan={periods.length + 3}>Belum ada akun pada kelompok ini.</td>
+                  </tr>
+                ) : (
+                  section.lines.map((line, index) => (
+                    <tr key={`${section.title}-${line.label}-${index}`}>
+                      <td>{section.title}</td>
+                      <td>
+                        <strong>{line.label}</strong>
+                        <span>{line.category}</span>
+                      </td>
+                      <td>{line.source}</td>
+                      {periods.map((period) => (
+                        <td className="numeric-cell" key={period.id}>
+                          {formatInputNumber(line.values[period.id] ?? 0)}
+                        </td>
+                      ))}
+                      <td>
+                        <span className={line.isDerived ? "badge ok" : line.isOverride ? "badge warning" : "badge muted"}>
+                          {line.isDerived ? "Otomatis" : line.isOverride ? "Override" : "Input"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+                <tr className="total-row">
+                  <td>{section.title}</td>
+                  <td>{section.totalLabel}</td>
+                  <td>Model</td>
+                  {periods.map((period) => (
+                    <td className="numeric-cell" key={period.id}>
+                      {formatInputNumber(section.totalValues[period.id] ?? 0)}
+                    </td>
+                  ))}
+                  <td />
+                </tr>
+              </Fragment>
+            ))}
+            <tr className="balance-check-row">
+              <td>Check</td>
+              <td>Assets - Liabilities - Equity</td>
+              <td>Model</td>
+              {periods.map((period) => {
+                const value = view.balanceGap[period.id] ?? 0;
+                const isBalanced = Math.abs(value) <= Math.max(1, Math.abs(view.totalAssets[period.id] ?? 0) * 0.001);
+
+                return (
+                  <td className={isBalanced ? "numeric-cell ok-text" : "numeric-cell warning-text"} key={period.id}>
+                    {formatInputNumber(value)}
+                  </td>
+                );
+              })}
+              <td />
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 }
 
 function MappingTable({ mappedRows }: { mappedRows: MappedRow[] }) {
@@ -1212,30 +1556,36 @@ function FixedAssetScheduleEditor({
         </div>
       </div>
 
-      <FixedAssetSectionTable
-        title="A. Acquisition Costs"
-        beginningKey="acquisitionBeginning"
-        additionsKey="acquisitionAdditions"
-        endingKey="acquisitionEnding"
-        firstPeriodId={firstPeriodId}
-        periods={periods}
-        schedule={schedule}
-        onRemoveRow={onRemoveRow}
-        onUpdateRow={onUpdateRow}
-        onUpdateValue={onUpdateValue}
-      />
-      <FixedAssetSectionTable
-        title="B. Depreciation"
-        beginningKey="depreciationBeginning"
-        additionsKey="depreciationAdditions"
-        endingKey="depreciationEnding"
-        firstPeriodId={firstPeriodId}
-        periods={periods}
-        schedule={schedule}
-        onUpdateRow={onUpdateRow}
-        onUpdateValue={onUpdateValue}
-      />
-      <FixedAssetNetValueTable periods={periods} schedule={schedule} />
+      {schedule.rows.length === 0 ? (
+        <div className="empty-state">Belum ada kelas aset. Gunakan tombol Tambah kelas aset untuk mulai menginput fixed asset.</div>
+      ) : (
+        <>
+          <FixedAssetSectionTable
+            title="A. Acquisition Costs"
+            beginningKey="acquisitionBeginning"
+            additionsKey="acquisitionAdditions"
+            endingKey="acquisitionEnding"
+            firstPeriodId={firstPeriodId}
+            periods={periods}
+            schedule={schedule}
+            onRemoveRow={onRemoveRow}
+            onUpdateRow={onUpdateRow}
+            onUpdateValue={onUpdateValue}
+          />
+          <FixedAssetSectionTable
+            title="B. Depreciation"
+            beginningKey="depreciationBeginning"
+            additionsKey="depreciationAdditions"
+            endingKey="depreciationEnding"
+            firstPeriodId={firstPeriodId}
+            periods={periods}
+            schedule={schedule}
+            onUpdateRow={onUpdateRow}
+            onUpdateValue={onUpdateValue}
+          />
+          <FixedAssetNetValueTable periods={periods} schedule={schedule} />
+        </>
+      )}
     </div>
   );
 }
