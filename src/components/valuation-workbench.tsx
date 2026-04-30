@@ -496,7 +496,7 @@ export function ValuationWorkbench() {
   }
 
   function addRow(statement: StatementType = "balance_sheet") {
-    commitCoreState((current) => ({ ...current, rows: [createRow(statement, current.periods), ...current.rows] }));
+    commitCoreState((current) => ({ ...current, rows: [...current.rows, createRow(statement, current.periods)] }));
   }
 
   function loadFixedAssetTemplate() {
