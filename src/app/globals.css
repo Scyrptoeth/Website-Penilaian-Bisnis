@@ -39,7 +39,7 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font-sans), "Helvetica Neue", Arial, sans-serif;
-  font-size: 13px;
+  font-size: 10.4px;
   line-height: 1.42;
 }
 
@@ -110,7 +110,7 @@ svg {
   background: var(--ink);
   color: #ffffff;
   font-family: var(--font-mono), monospace;
-  font-size: 11px;
+  font-size: 8.8px;
   font-weight: 500;
 }
 
@@ -124,7 +124,7 @@ svg {
 }
 
 .brand-block h1 {
-  font-size: 14px;
+  font-size: 11.2px;
   line-height: 1.25;
 }
 
@@ -132,7 +132,7 @@ svg {
   margin: 0 0 4px;
   color: var(--muted);
   font-family: var(--font-mono), monospace;
-  font-size: 9.5px;
+  font-size: 7.6px;
   font-weight: 500;
   letter-spacing: 0;
   text-transform: uppercase;
@@ -152,7 +152,7 @@ svg {
   border: 1px solid transparent;
   border-radius: var(--radius);
   color: var(--ink-soft);
-  font-size: 12px;
+  font-size: 9.6px;
   font-weight: 650;
 }
 
@@ -196,7 +196,7 @@ svg {
 }
 
 .topbar h2 {
-  font-size: clamp(22px, 2vw, 30px);
+  font-size: clamp(17.6px, 1.6vw, 24px);
   line-height: 1.08;
 }
 
@@ -228,7 +228,7 @@ svg {
   border: 1px solid var(--ink);
   background: var(--ink);
   color: white;
-  font-size: 12.5px;
+  font-size: 10px;
   font-weight: 700;
   white-space: nowrap;
 }
@@ -292,7 +292,7 @@ select:focus-visible,
   background: var(--accent-soft);
   color: var(--accent-ink);
   font-family: var(--font-mono), monospace;
-  font-size: 10.5px;
+  font-size: 8.4px;
   font-weight: 500;
   white-space: nowrap;
 }
@@ -371,7 +371,7 @@ select:focus-visible,
 .period-card span,
 .field span {
   color: var(--ink-soft);
-  font-size: 11.5px;
+  font-size: 9.2px;
   font-weight: 700;
 }
 
@@ -423,7 +423,7 @@ select {
 
 .input-section-title h4 {
   color: var(--ink);
-  font-size: 13px;
+  font-size: 10.4px;
 }
 
 .input-grid {
@@ -491,7 +491,7 @@ select {
 .account-entry-table td:not(:nth-child(-n + 3)):not(:last-child) input {
   padding-inline: 3px;
   font-family: var(--font-mono), monospace;
-  font-size: 10.5px;
+  font-size: 8.4px;
   text-align: right;
 }
 
@@ -503,7 +503,7 @@ select {
 
 .account-entry-table select {
   padding-inline: 6px 18px;
-  font-size: 11.5px;
+  font-size: 9.2px;
 }
 
 .account-name-input {
@@ -513,7 +513,7 @@ select {
 .row-hint {
   display: block;
   font-family: var(--font-mono), monospace;
-  font-size: 10.5px;
+  font-size: 8.4px;
   line-height: 1.28;
 }
 
@@ -555,13 +555,13 @@ select {
 
 .sensitivity-grid span {
   color: var(--muted);
-  font-size: 11.5px;
+  font-size: 9.2px;
 }
 
 .sensitivity-grid strong {
   overflow-wrap: anywhere;
   font-family: var(--font-mono), monospace;
-  font-size: 13px;
+  font-size: 10.4px;
   font-weight: 500;
 }
 
@@ -575,7 +575,7 @@ select {
 .metric-card strong {
   overflow-wrap: anywhere;
   font-family: var(--font-mono), monospace;
-  font-size: clamp(15px, 1.55vw, 20px);
+  font-size: clamp(12px, 1.24vw, 16px);
   font-weight: 500;
 }
 
@@ -676,12 +676,12 @@ th {
   background: var(--surface-muted);
   color: var(--ink-soft);
   font-family: var(--font-mono), monospace;
-  font-size: 10.5px;
+  font-size: 8.4px;
   font-weight: 500;
 }
 
 td {
-  font-size: 12px;
+  font-size: 9.6px;
   overflow-wrap: anywhere;
 }
 
@@ -700,7 +700,7 @@ td span {
   padding: 0 7px;
   border-radius: var(--radius);
   font-family: var(--font-mono), monospace;
-  font-size: 10.5px;
+  font-size: 8.4px;
   font-weight: 500;
 }
 
@@ -748,7 +748,7 @@ td span {
   background: #ffffff;
   color: var(--accent-ink);
   font-family: var(--font-mono), monospace;
-  font-size: 10.5px;
+  font-size: 8.4px;
 }
 
 .formula-row p {
@@ -810,7 +810,7 @@ td span {
 
 .assumption-grid dt {
   color: var(--muted);
-  font-size: 11.5px;
+  font-size: 9.2px;
 }
 
 .assumption-grid dd {

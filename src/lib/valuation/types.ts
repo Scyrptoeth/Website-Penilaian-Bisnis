@@ -76,10 +76,22 @@ export interface AccountMappingResult {
   category: AccountCategory;
   displayName: string;
   confidence: number;
+  confidenceBand: "high" | "medium" | "low" | "none";
   treatment: MappingTreatment;
   valuationImpact: string[];
   reason: string;
   needsReview: boolean;
+  matchedKeywords: string[];
+  excludedKeywords: string[];
+  statementCompatible: boolean | null;
+  alternatives: AccountMappingAlternative[];
+}
+
+export interface AccountMappingAlternative {
+  category: AccountCategory;
+  displayName: string;
+  confidence: number;
+  treatment: MappingTreatment;
 }
 
 export interface FinancialStatementSnapshot {

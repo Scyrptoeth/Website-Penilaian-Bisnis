@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   Banknote,
@@ -43,7 +43,7 @@ const categoryOptions: Array<{ value: AccountCategory; label: string }> = [
   { value: "CASH_ON_HAND", label: "Cash on hand / kas" },
   { value: "CASH_ON_BANK", label: "Cash on bank / deposit" },
   { value: "ACCOUNT_RECEIVABLE", label: "Account receivable" },
-  { value: "EMPLOYEE_RECEIVABLE", label: "Employee receivable" },
+  { value: "EMPLOYEE_RECEIVABLE", label: "Employee / related-party receivable" },
   { value: "INVENTORY", label: "Inventory" },
   { value: "FIXED_ASSET", label: "Fixed asset net value" },
   { value: "FIXED_ASSET_ACQUISITION", label: "Fixed asset acquisition cost" },
@@ -87,6 +87,38 @@ const categoryOptions: Array<{ value: AccountCategory; label: string }> = [
 ];
 
 const categoryLabelMap = new Map(categoryOptions.map((option) => [option.value, option.label]));
+const confidenceBandLabels: Record<ReturnType<typeof mapRow>["mapping"]["confidenceBand"], string> = {
+  high: "Tinggi",
+  medium: "Sedang",
+  low: "Rendah",
+  none: "Tidak ada",
+};
+const categoryValueSet = new Set<AccountCategory>(categoryOptions.map((option) => option.value));
+const statementValueSet = new Set<StatementType>(["balance_sheet", "income_statement", "fixed_asset"]);
+const assumptionKeys: Array<keyof AssumptionState> = [
+  "taxRate",
+  "terminalGrowth",
+  "revenueGrowth",
+  "wacc",
+  "requiredReturnOnNta",
+  "arDays",
+  "inventoryDays",
+  "apDays",
+  "otherPayableDays",
+];
+const WORKBENCH_STORAGE_KEY = "penilaian-valuasi-bisnis.workbench.v1";
+const WORKBENCH_SCROLL_STORAGE_KEY = "penilaian-valuasi-bisnis.scroll.v1";
+const WORKBENCH_STORAGE_VERSION = 1;
+
+type PersistedWorkbenchState = {
+  version: typeof WORKBENCH_STORAGE_VERSION;
+  savedAt: string;
+  periods: Period[];
+  activePeriodId: string;
+  rows: AccountRow[];
+  assumptions: AssumptionState;
+};
+
 const sectionLinks = [
   { href: "#periods", label: "Periode" },
   { href: "#accounts", label: "Akun" },
@@ -103,6 +135,7 @@ export function ValuationWorkbench() {
   const [activePeriodId, setActivePeriodId] = useState(initialPeriods[0].id);
   const [rows, setRows] = useState<AccountRow[]>([]);
   const [assumptions, setAssumptions] = useState<AssumptionState>(emptyAssumptions);
+  const [isDraftRestored, setIsDraftRestored] = useState(false);
 
   const mappedRows = useMemo(() => rows.map((row) => mapRow(row)), [rows]);
   const snapshot = useMemo(() => buildSnapshot(periods, activePeriodId, rows, assumptions), [periods, activePeriodId, rows, assumptions]);
@@ -120,6 +153,83 @@ export function ValuationWorkbench() {
     periods.some((period) => period.label !== "Tahun 1" || period.valuationDate) ||
     Object.values(assumptions).some((value) => value.trim() !== "");
   const checks = buildValidationChecks(rows, mappedRows, assumptions, snapshot, balanceSheetGap);
+
+  useEffect(() => {
+    const storedState = readPersistedWorkbenchState();
+
+    if (storedState) {
+      const nextPeriods = storedState.periods.length > 0 ? storedState.periods : initialPeriods;
+      const nextActivePeriodId = nextPeriods.some((period) => period.id === storedState.activePeriodId)
+        ? storedState.activePeriodId
+        : nextPeriods[0].id;
+
+      setPeriods(nextPeriods);
+      setActivePeriodId(nextActivePeriodId);
+      setRows(storedState.rows);
+      setAssumptions(storedState.assumptions);
+    }
+
+    setIsDraftRestored(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isDraftRestored) {
+      return;
+    }
+
+    persistWorkbenchState({
+      version: WORKBENCH_STORAGE_VERSION,
+      savedAt: new Date().toISOString(),
+      periods,
+      activePeriodId,
+      rows,
+      assumptions,
+    });
+  }, [activePeriodId, assumptions, isDraftRestored, periods, rows]);
+
+  useEffect(() => {
+    if (!isDraftRestored || typeof window === "undefined") {
+      return;
+    }
+
+    const storedScrollY = readStoredScrollPosition();
+
+    if (storedScrollY > 0) {
+      window.setTimeout(() => window.scrollTo({ top: storedScrollY }), 0);
+      window.setTimeout(() => window.scrollTo({ top: storedScrollY }), 120);
+    }
+  }, [isDraftRestored]);
+
+  useEffect(() => {
+    if (!isDraftRestored || typeof window === "undefined") {
+      return;
+    }
+
+    let animationFrame = 0;
+    const saveScrollNow = () => safeSetLocalStorage(WORKBENCH_SCROLL_STORAGE_KEY, String(window.scrollY));
+    const saveScrollPosition = () => {
+      if (animationFrame) {
+        return;
+      }
+
+      animationFrame = window.requestAnimationFrame(() => {
+        animationFrame = 0;
+        saveScrollNow();
+      });
+    };
+
+    window.addEventListener("scroll", saveScrollPosition, { passive: true });
+    window.addEventListener("beforeunload", saveScrollNow);
+
+    return () => {
+      window.removeEventListener("scroll", saveScrollPosition);
+      window.removeEventListener("beforeunload", saveScrollNow);
+
+      if (animationFrame) {
+        window.cancelAnimationFrame(animationFrame);
+      }
+    };
+  }, [isDraftRestored]);
 
   function addPeriod() {
     const period: Period = {
@@ -188,10 +298,15 @@ export function ValuationWorkbench() {
   }
 
   function resetForm() {
+    clearPersistedWorkbenchState();
     setPeriods(initialPeriods);
     setActivePeriodId(initialPeriods[0].id);
     setRows([]);
     setAssumptions(emptyAssumptions);
+
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0 });
+    }
   }
 
   return (
@@ -613,6 +728,153 @@ export function ValuationWorkbench() {
   );
 }
 
+function readPersistedWorkbenchState(): PersistedWorkbenchState | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(WORKBENCH_STORAGE_KEY);
+
+    if (!raw) {
+      return null;
+    }
+
+    const parsed: unknown = JSON.parse(raw);
+
+    if (!isRecord(parsed) || parsed.version !== WORKBENCH_STORAGE_VERSION) {
+      return null;
+    }
+
+    const periods = sanitizePeriods(parsed.periods);
+    const rows = sanitizeRows(parsed.rows);
+    const assumptions = sanitizeAssumptions(parsed.assumptions);
+    const activePeriodId = typeof parsed.activePeriodId === "string" ? parsed.activePeriodId : "";
+
+    return {
+      version: WORKBENCH_STORAGE_VERSION,
+      savedAt: typeof parsed.savedAt === "string" ? parsed.savedAt : "",
+      periods,
+      activePeriodId,
+      rows,
+      assumptions,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function persistWorkbenchState(state: PersistedWorkbenchState) {
+  safeSetLocalStorage(WORKBENCH_STORAGE_KEY, JSON.stringify(state));
+}
+
+function clearPersistedWorkbenchState() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.removeItem(WORKBENCH_STORAGE_KEY);
+    window.localStorage.removeItem(WORKBENCH_SCROLL_STORAGE_KEY);
+  } catch {
+    // Storage can be unavailable in private or restricted browser contexts.
+  }
+}
+
+function safeSetLocalStorage(key: string, value: string) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Ignore quota or browser policy errors; the app should remain usable.
+  }
+}
+
+function readStoredScrollPosition(): number {
+  if (typeof window === "undefined") {
+    return 0;
+  }
+
+  try {
+    const value = Number(window.localStorage.getItem(WORKBENCH_SCROLL_STORAGE_KEY));
+    return Number.isFinite(value) ? Math.max(0, value) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function sanitizePeriods(value: unknown): Period[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((period): Period[] => {
+    if (!isRecord(period) || typeof period.id !== "string") {
+      return [];
+    }
+
+    return [
+      {
+        id: period.id,
+        label: typeof period.label === "string" ? period.label : "",
+        valuationDate: typeof period.valuationDate === "string" ? period.valuationDate : "",
+      },
+    ];
+  });
+}
+
+function sanitizeRows(value: unknown): AccountRow[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((row): AccountRow[] => {
+    if (!isRecord(row) || typeof row.id !== "string" || typeof row.accountName !== "string") {
+      return [];
+    }
+
+    const statement = statementValueSet.has(row.statement as StatementType) ? (row.statement as StatementType) : "balance_sheet";
+    const categoryOverride =
+      row.categoryOverride === "" || categoryValueSet.has(row.categoryOverride as AccountCategory)
+        ? (row.categoryOverride as AccountCategory | "")
+        : "";
+
+    return [
+      {
+        id: row.id,
+        statement,
+        accountName: row.accountName,
+        categoryOverride,
+        values: sanitizeStringRecord(row.values),
+      },
+    ];
+  });
+}
+
+function sanitizeAssumptions(value: unknown): AssumptionState {
+  const source = isRecord(value) ? value : {};
+  return Object.fromEntries(
+    assumptionKeys.map((key) => [key, typeof source[key] === "string" ? source[key] : ""]),
+  ) as AssumptionState;
+}
+
+function sanitizeStringRecord(value: unknown): Record<string, string> {
+  if (!isRecord(value)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === "string"),
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
 function MappingTable({ mappedRows }: { mappedRows: MappedRow[] }) {
   if (mappedRows.length === 0) {
     return <div className="empty-state">Belum ada akun untuk ditinjau.</div>;
@@ -642,9 +904,17 @@ function MappingTable({ mappedRows }: { mappedRows: MappedRow[] }) {
                   <span>{mapping.reason}</span>
                 </td>
                 <td>{statementLabels[row.statement]}</td>
-                <td>{mapping.displayName}</td>
+                <td>
+                  {mapping.displayName}
+                  {mapping.alternatives.length > 0 ? (
+                    <span>Alternatif: {mapping.alternatives.map((item) => `${item.displayName} ${formatScore(item.confidence)}`).join(", ")}</span>
+                  ) : null}
+                </td>
                 <td>{categoryLabelMap.get(effectiveCategory) ?? effectiveCategory}</td>
-                <td>{formatScore(mapping.confidence)}</td>
+                <td>
+                  {formatScore(mapping.confidence)}
+                  <span>{confidenceBandLabels[mapping.confidenceBand]}</span>
+                </td>
                 <td>
                   <span className={needsReview ? "badge warning" : "badge ok"}>{needsReview ? "Perlu ditinjau" : "Diterima"}</span>
                 </td>
