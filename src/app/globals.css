@@ -421,6 +421,10 @@ select:focus-visible,
   background: var(--surface-raised);
 }
 
+.period-card.historical-year {
+  grid-template-columns: auto minmax(92px, 1fr) auto;
+}
+
 .period-card.active {
   border-color: var(--accent);
   background: var(--accent-soft);
@@ -466,6 +470,7 @@ select {
 .period-actions {
   display: flex;
   gap: 4px;
+  justify-content: flex-end;
 }
 
 .single-field {

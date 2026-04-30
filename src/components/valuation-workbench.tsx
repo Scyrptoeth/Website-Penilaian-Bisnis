@@ -27,13 +27,19 @@ import {
   buildSampleRows,
   buildSnapshot,
   createFixedAssetScheduleRow,
+  createHistoricalPeriod,
   createRow,
   emptyAssumptions,
   ensureFixedAssetSchedulePeriods,
   fixedAssetScheduleValueKeys,
   getChronologicalPeriods,
+  getDefaultActivePeriod,
+  getNextHistoricalPeriodOffset,
+  getPeriodLabel,
+  getPeriodYearOffset,
   initialPeriods,
   mapRow,
+  normalizePeriods,
   statementLabels,
   type AccountRow,
   type AssumptionState,
@@ -164,7 +170,8 @@ export function ValuationWorkbench() {
   );
   const results = useMemo(() => calculateAllMethods(snapshot), [snapshot]);
   const methodCards = [results.aam, results.eem, results.dcf];
-  const activePeriod = periods.find((period) => period.id === activePeriodId) ?? periods[0];
+  const activePeriod = periods.find((period) => period.id === activePeriodId) ?? getDefaultActivePeriod(periods);
+  const nextHistoricalPeriodLabel = getPeriodLabel(getNextHistoricalPeriodOffset(periods)).replace("Tahun ", "");
   const equityBookComponents =
     snapshot.paidUpCapital +
     snapshot.additionalPaidInCapital +
@@ -175,7 +182,13 @@ export function ValuationWorkbench() {
     rows.length > 0 ||
     fixedAssetScheduleRows.length > 0 ||
     fixedAssetSchedule.hasInput ||
-    periods.some((period) => period.label !== "Tahun 1" || period.valuationDate) ||
+    periods.length !== 1 ||
+    periods.some(
+      (period) =>
+        getPeriodYearOffset(period) !== 0 ||
+        period.label !== getPeriodLabel(0) ||
+        period.valuationDate,
+    ) ||
     Object.values(assumptions).some((value) => value.trim() !== "");
   const checks = buildValidationChecks(rows, mappedRows, assumptions, snapshot, balanceSheetGap, fixedAssetSchedule);
 
@@ -183,10 +196,11 @@ export function ValuationWorkbench() {
     const storedState = readPersistedWorkbenchState();
 
     if (storedState) {
-      const nextPeriods = storedState.periods.length > 0 ? storedState.periods : initialPeriods;
+      const nextPeriods = normalizePeriods(storedState.periods.length > 0 ? storedState.periods : initialPeriods);
+      const defaultActivePeriod = getDefaultActivePeriod(nextPeriods);
       const nextActivePeriodId = nextPeriods.some((period) => period.id === storedState.activePeriodId)
         ? storedState.activePeriodId
-        : nextPeriods[0].id;
+        : (defaultActivePeriod?.id ?? nextPeriods[0].id);
 
       setPeriods(nextPeriods);
       setActivePeriodId(nextActivePeriodId);
@@ -268,16 +282,13 @@ export function ValuationWorkbench() {
   }, [isDraftRestored]);
 
   function addPeriod() {
-    const period: Period = {
-      id: `p${Date.now()}`,
-      label: `Tahun ${periods.length + 1}`,
-      valuationDate: "",
-    };
-    const nextPeriods = [...periods, period];
+    const period = createHistoricalPeriod(periods);
+    const nextPeriods = normalizePeriods([...periods, period]);
 
     setPeriods(nextPeriods);
+    setRows((current) => current.map((row) => ({ ...row, values: { ...row.values, [period.id]: "" } })));
     setFixedAssetScheduleRows((current) => ensureFixedAssetSchedulePeriods(current, nextPeriods));
-    setActivePeriodId(period.id);
+    setActivePeriodId((current) => (nextPeriods.some((item) => item.id === current) ? current : (getDefaultActivePeriod(nextPeriods)?.id ?? period.id)));
   }
 
   function updatePeriod(id: string, patch: Partial<Period>) {
@@ -285,11 +296,14 @@ export function ValuationWorkbench() {
   }
 
   function removePeriod(id: string) {
-    if (periods.length === 1) {
+    const periodToRemove = periods.find((period) => period.id === id);
+
+    if (!periodToRemove || periods.length === 1 || getPeriodYearOffset(periodToRemove) === 0) {
       return;
     }
 
-    const nextPeriods = periods.filter((period) => period.id !== id);
+    const nextPeriods = normalizePeriods(periods.filter((period) => period.id !== id));
+    const defaultActivePeriod = getDefaultActivePeriod(nextPeriods);
     setPeriods(nextPeriods);
     setRows((current) =>
       current.map((row) => {
@@ -305,7 +319,7 @@ export function ValuationWorkbench() {
     );
 
     if (activePeriodId === id) {
-      setActivePeriodId(nextPeriods[nextPeriods.length - 1].id);
+      setActivePeriodId(defaultActivePeriod?.id ?? nextPeriods[nextPeriods.length - 1].id);
     }
   }
 
@@ -467,41 +481,55 @@ export function ValuationWorkbench() {
             </div>
             <button className="button secondary" type="button" onClick={addPeriod}>
               <Plus size={18} />
-              Tambah periode
+              Tambah {nextHistoricalPeriodLabel}
             </button>
           </div>
           <div className="period-grid">
-            {periods.map((period) => (
-              <div className={period.id === activePeriodId ? "period-card active" : "period-card"} key={period.id}>
-                <CalendarDays size={18} />
-                <label>
-                  <span>Label</span>
-                  <input value={period.label} onChange={(event) => updatePeriod(period.id, { label: event.target.value })} />
-                </label>
-                <label>
-                  <span>Tanggal valuasi</span>
-                  <input
-                    type="date"
-                    value={period.valuationDate}
-                    onChange={(event) => updatePeriod(period.id, { valuationDate: event.target.value })}
-                  />
-                </label>
-                <div className="period-actions">
-                  <button className="icon-button" type="button" onClick={() => setActivePeriodId(period.id)} title="Gunakan periode ini">
-                    <CheckCircle2 size={18} />
-                  </button>
-                  <button
-                    className="icon-button danger"
-                    type="button"
-                    onClick={() => removePeriod(period.id)}
-                    disabled={periods.length === 1}
-                    title="Hapus periode"
-                  >
-                    <Trash2 size={18} />
-                  </button>
+            {periods.map((period) => {
+              const isValuationYear = getPeriodYearOffset(period) === 0;
+              const canRemovePeriod = !isValuationYear && periods.length > 1;
+              const periodCardClassName = [
+                "period-card",
+                isValuationYear ? "valuation-year" : "historical-year",
+                period.id === activePeriodId ? "active" : "",
+              ]
+                .filter(Boolean)
+                .join(" ");
+
+              return (
+                <div className={periodCardClassName} key={period.id}>
+                  <CalendarDays size={18} />
+                  <label>
+                    <span>Label</span>
+                    <input value={period.label} onChange={(event) => updatePeriod(period.id, { label: event.target.value })} />
+                  </label>
+                  {isValuationYear ? (
+                    <label>
+                      <span>Tanggal valuasi</span>
+                      <input
+                        type="date"
+                        value={period.valuationDate}
+                        onChange={(event) => updatePeriod(period.id, { valuationDate: event.target.value })}
+                      />
+                    </label>
+                  ) : null}
+                  <div className="period-actions">
+                    <button className="icon-button" type="button" onClick={() => setActivePeriodId(period.id)} title="Gunakan periode ini">
+                      <CheckCircle2 size={18} />
+                    </button>
+                    <button
+                      className="icon-button danger"
+                      type="button"
+                      onClick={() => removePeriod(period.id)}
+                      disabled={!canRemovePeriod}
+                      title={isValuationYear ? "Tahun Y tidak bisa dihapus" : "Hapus periode"}
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
 
@@ -876,7 +904,7 @@ function readPersistedWorkbenchState(): PersistedWorkbenchState | null {
       return null;
     }
 
-    const periods = sanitizePeriods(parsed.periods);
+    const periods = normalizePeriods(sanitizePeriods(parsed.periods));
     const rows = sanitizeRows(parsed.rows);
     const fixedAssetScheduleRows = ensureFixedAssetSchedulePeriods(sanitizeFixedAssetScheduleRows(parsed.fixedAssetScheduleRows), periods);
     const assumptions = sanitizeAssumptions(parsed.assumptions);
@@ -965,6 +993,7 @@ function sanitizePeriods(value: unknown): Period[] {
         id: period.id,
         label: typeof period.label === "string" ? period.label : "",
         valuationDate: typeof period.valuationDate === "string" ? period.valuationDate : "",
+        yearOffset: readFiniteNumber(period.yearOffset),
       },
     ];
   });
@@ -1056,6 +1085,11 @@ function sanitizeStringRecord(value: unknown): Record<string, string> {
 
 function normalizeAssetName(value: string): string {
   return value.trim().toLowerCase();
+}
+
+function readFiniteNumber(value: unknown): number {
+  const numericValue = typeof value === "number" || typeof value === "string" ? Number(value) : Number.NaN;
+  return Number.isFinite(numericValue) ? numericValue : Number.NaN;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

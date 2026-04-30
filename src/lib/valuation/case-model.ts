@@ -9,6 +9,7 @@ export type Period = {
   id: string;
   label: string;
   valuationDate: string;
+  yearOffset: number;
 };
 
 export type AccountRow = {
@@ -70,7 +71,9 @@ export type MappedRow = {
   effectiveCategory: AccountCategory;
 };
 
-export const initialPeriods: Period[] = [{ id: "p1", label: "Tahun 1", valuationDate: "" }];
+export const valuationYearOffset = 0;
+
+export const initialPeriods: Period[] = [{ id: "p1", label: "Tahun Y", valuationDate: "", yearOffset: valuationYearOffset }];
 
 export const fixedAssetScheduleValueKeys: FixedAssetScheduleValueKey[] = [
   "acquisitionBeginning",
@@ -152,16 +155,86 @@ export function ensureFixedAssetSchedulePeriods(rows: FixedAssetScheduleRow[], p
   }));
 }
 
-export function getChronologicalPeriods(periods: Period[]): Period[] {
-  const indexed = periods.map((period, index) => ({ period, index, timestamp: Date.parse(`${period.valuationDate}T00:00:00`) }));
-  const hasUsableDates = indexed.some((item) => Number.isFinite(item.timestamp));
+export function createHistoricalPeriod(periods: Period[]): Period {
+  const yearOffset = getNextHistoricalPeriodOffset(periods);
 
-  if (!hasUsableDates) {
-    return periods;
+  return {
+    id: `py${Math.abs(yearOffset)}-${Date.now()}`,
+    label: getPeriodLabel(yearOffset),
+    valuationDate: "",
+    yearOffset,
+  };
+}
+
+export function getPeriodLabel(yearOffset: number): string {
+  if (yearOffset === valuationYearOffset) {
+    return "Tahun Y";
   }
 
-  return indexed
+  return `Tahun Y-${Math.abs(yearOffset)}`;
+}
+
+export function getPeriodYearOffset(period: Pick<Period, "label" | "valuationDate"> & Partial<Pick<Period, "yearOffset">>): number {
+  if (typeof period.yearOffset === "number" && Number.isFinite(period.yearOffset)) {
+    return Math.trunc(period.yearOffset);
+  }
+
+  return parsePeriodLabelYearOffset(period.label) ?? valuationYearOffset;
+}
+
+export function getNextHistoricalPeriodOffset(periods: Period[]): number {
+  const existingOffsets = new Set(periods.map((period) => getPeriodYearOffset(period)));
+  let candidate = -1;
+
+  while (existingOffsets.has(candidate)) {
+    candidate -= 1;
+  }
+
+  return candidate;
+}
+
+export function normalizePeriods(periods: Period[]): Period[] {
+  const dateOffsets = inferYearOffsetsFromDates(periods);
+  const normalizedPeriods = periods.map((period, index) => {
+    const parsedLabelOffset = parsePeriodLabelYearOffset(period.label);
+    const fallbackOffset = dateOffsets.get(period.id) ?? -index;
+    const yearOffset =
+      typeof period.yearOffset === "number" && Number.isFinite(period.yearOffset)
+        ? Math.trunc(period.yearOffset)
+        : (parsedLabelOffset ?? fallbackOffset);
+    const legacyDefaultLabel = /^tahun\s+\d+$/i.test(period.label.trim());
+    const label = period.label.trim() && !legacyDefaultLabel ? period.label : getPeriodLabel(yearOffset);
+
+    return {
+      ...period,
+      label,
+      yearOffset,
+    };
+  });
+
+  return getChronologicalPeriods(normalizedPeriods);
+}
+
+export function getDefaultActivePeriod(periods: Period[]): Period | undefined {
+  const chronologicalPeriods = getChronologicalPeriods(periods);
+
+  return (
+    chronologicalPeriods.find((period) => getPeriodYearOffset(period) === valuationYearOffset) ??
+    chronologicalPeriods[chronologicalPeriods.length - 1] ??
+    periods[0]
+  );
+}
+
+export function getChronologicalPeriods(periods: Period[]): Period[] {
+  return periods
+    .map((period, index) => ({ period, index, timestamp: Date.parse(`${period.valuationDate}T00:00:00`) }))
     .sort((a, b) => {
+      const yearOffsetDifference = getPeriodYearOffset(a.period) - getPeriodYearOffset(b.period);
+
+      if (yearOffsetDifference !== 0) {
+        return yearOffsetDifference;
+      }
+
       const firstTime = Number.isFinite(a.timestamp) ? a.timestamp : Number.POSITIVE_INFINITY;
       const secondTime = Number.isFinite(b.timestamp) ? b.timestamp : Number.POSITIVE_INFINITY;
 
@@ -245,9 +318,9 @@ export function buildFixedAssetScheduleSummary(periods: Period[], rows: FixedAss
 
 export function buildSamplePeriods(): Period[] {
   return [
-    { id: "p2019", label: "2019", valuationDate: "2019-12-31" },
-    { id: "p2020", label: "2020", valuationDate: "2020-12-31" },
-    { id: "p2021", label: "2021", valuationDate: sampleCase.valuationDate },
+    { id: "p2019", label: "2019", valuationDate: "2019-12-31", yearOffset: -2 },
+    { id: "p2020", label: "2020", valuationDate: "2020-12-31", yearOffset: -1 },
+    { id: "p2021", label: "2021", valuationDate: sampleCase.valuationDate, yearOffset: valuationYearOffset },
   ];
 }
 
@@ -407,13 +480,14 @@ export function buildSnapshot(
   assumptions: AssumptionState,
   fixedAssetScheduleRows: FixedAssetScheduleRow[] = [],
 ): FinancialStatementSnapshot {
-  const activePeriod = periods.find((period) => period.id === activePeriodId) ?? periods[0];
+  const activePeriod = periods.find((period) => period.id === activePeriodId) ?? getDefaultActivePeriod(periods);
+  const effectiveActivePeriodId = activePeriod?.id ?? activePeriodId;
   const mappedRows = rows.map(mapRow);
   const fixedAssetSchedule = buildFixedAssetScheduleSummary(periods, fixedAssetScheduleRows);
-  const fixedAssetScheduleAmounts = fixedAssetSchedule.totals[activePeriodId];
+  const fixedAssetScheduleAmounts = fixedAssetSchedule.totals[effectiveActivePeriodId];
   const aggregate = (periodId: string, ...categories: AccountCategory[]) =>
     aggregateForPeriod(mappedRows, periodId, categories);
-  const activeAggregate = (...categories: AccountCategory[]) => aggregate(activePeriodId, ...categories);
+  const activeAggregate = (...categories: AccountCategory[]) => aggregate(effectiveActivePeriodId, ...categories);
   const historicalDrivers = deriveHistoricalDrivers(periods, mappedRows);
 
   const cashOnHand = amount(activeAggregate("CASH_ON_HAND"));
@@ -527,7 +601,8 @@ export function aggregateForPeriod(mappedRows: MappedRow[], periodId: string, ca
 }
 
 export function deriveHistoricalDrivers(periods: Period[], mappedRows: MappedRow[]) {
-  const periodMetrics = periods.map((period) => {
+  const chronologicalPeriods = getChronologicalPeriods(periods);
+  const periodMetrics = chronologicalPeriods.map((period) => {
     const aggregate = (...categories: AccountCategory[]) => aggregateForPeriod(mappedRows, period.id, categories);
     const revenue = amount(aggregate("REVENUE"));
     const cogs = amount(aggregate("COST_OF_GOOD_SOLD"));
@@ -609,6 +684,43 @@ function parseRate(input: string): number {
 
 function amount(value: number): number {
   return Math.abs(value);
+}
+
+function parsePeriodLabelYearOffset(label: string): number | null {
+  const trimmed = label.trim();
+  const relativeYearMatch = /^tahun\s+y(?:\s*-\s*(\d+))?$/i.exec(trimmed);
+
+  if (relativeYearMatch) {
+    return relativeYearMatch[1] ? -Number(relativeYearMatch[1]) : valuationYearOffset;
+  }
+
+  const legacyYearMatch = /^tahun\s+(\d+)$/i.exec(trimmed);
+
+  if (legacyYearMatch) {
+    return -(Number(legacyYearMatch[1]) - 1);
+  }
+
+  return null;
+}
+
+function inferYearOffsetsFromDates(periods: Period[]): Map<string, number> {
+  const datedPeriods = periods.flatMap((period) => {
+    const timestamp = Date.parse(`${period.valuationDate}T00:00:00`);
+
+    if (!Number.isFinite(timestamp)) {
+      return [];
+    }
+
+    return [{ id: period.id, year: new Date(timestamp).getFullYear() }];
+  });
+
+  if (datedPeriods.length === 0) {
+    return new Map();
+  }
+
+  const valuationYear = Math.max(...datedPeriods.map((period) => period.year));
+
+  return new Map(datedPeriods.map((period) => [period.id, Math.min(valuationYearOffset, period.year - valuationYear)]));
 }
 
 function createEmptyFixedAssetValues(): Record<FixedAssetScheduleValueKey, string> {
