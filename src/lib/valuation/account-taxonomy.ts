@@ -57,7 +57,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     includeKeywords: ["total", "jumlah", "aset", "assets", "aktiva"],
     treatment: "review",
     valuationImpact: ["AAM"],
-    reviewNote: "Use as total assets override only when component-level assets are unavailable or reconciled.",
+    reviewNote: "Gunakan sebagai override total assets hanya jika rincian komponen asset tidak tersedia atau sudah direkonsiliasi.",
   },
   {
     category: "CURRENT_ASSET",
@@ -66,7 +66,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     includeKeywords: ["lancar", "current"],
     treatment: "review",
     valuationImpact: ["AAM", "working capital support"],
-    reviewNote: "Map to detailed current asset categories when subledger is available.",
+    reviewNote: "Petakan ke kategori current asset yang lebih rinci jika subledger tersedia.",
   },
   {
     category: "CASH_ON_HAND",
@@ -76,7 +76,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     excludeKeywords: ["bank", "deposito", "deposit"],
     treatment: "review",
     valuationImpact: ["AAM", "surplus asset sensitivity", "minimum operating cash"],
-    reviewNote: "Cash on hand may be operating cash; review minimum operating cash before treating all as surplus.",
+    reviewNote: "Cash on hand dapat menjadi operating cash; tinjau minimum operating cash sebelum seluruhnya diperlakukan sebagai surplus.",
   },
   {
     category: "CASH_ON_BANK",
@@ -85,7 +85,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     includeKeywords: ["bank", "deposito", "deposit", "giro"],
     treatment: "non_operating",
     valuationImpact: ["AAM", "EEM bridge", "DCF bridge", "marketable securities review"],
-    reviewNote: "Separate operating bank account from deposit/investment when subledger is available.",
+    reviewNote: "Pisahkan operating bank account dari deposit/investment jika subledger tersedia.",
   },
   {
     category: "EXCESS_CASH",
@@ -94,7 +94,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     includeKeywords: ["excess", "berlebih", "kelebihan", "surplus"],
     treatment: "non_operating",
     valuationImpact: ["EEM bridge", "DCF bridge", "surplus asset sensitivity"],
-    reviewNote: "Treat as non-operating only when minimum operating cash has been considered.",
+    reviewNote: "Perlakukan sebagai non-operating hanya setelah minimum operating cash dipertimbangkan.",
   },
   {
     category: "SURPLUS_ASSET_CASH",
@@ -103,7 +103,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     includeKeywords: ["surplus", "kas", "cash", "non operasional"],
     treatment: "non_operating",
     valuationImpact: ["EEM bridge", "DCF bridge"],
-    reviewNote: "Cash-like surplus asset added in the EV-to-equity bridge after operating cash review.",
+    reviewNote: "Cash-like surplus asset ditambahkan pada EV-to-equity bridge setelah tinjauan operating cash.",
   },
   {
     category: "MARKETABLE_SECURITIES",
@@ -112,7 +112,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     includeKeywords: ["surat berharga", "marketable", "securities", "efek", "investasi"],
     treatment: "non_operating",
     valuationImpact: ["AAM", "EEM bridge", "DCF bridge"],
-    reviewNote: "Usually non-operating unless needed for ordinary operations.",
+    reviewNote: "Umumnya non-operating kecuali dibutuhkan untuk ordinary operations.",
   },
   {
     category: "ACCOUNT_RECEIVABLE",
@@ -122,7 +122,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     excludeKeywords: ["karyawan", "employee"],
     treatment: "operating",
     valuationImpact: ["AAM", "working capital", "DCF WC days"],
-    reviewNote: "Operating current asset unless evidence indicates non-operating receivable.",
+    reviewNote: "Operating current asset kecuali bukti menunjukkan non-operating receivable.",
   },
   {
     category: "EMPLOYEE_RECEIVABLE",
@@ -131,7 +131,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     includeKeywords: ["piutang", "karyawan", "pegawai", "employee"],
     treatment: "non_operating",
     valuationImpact: ["AAM", "non-operating asset bridge"],
-    reviewNote: "Usually excluded from operating working capital and added as non-operating asset.",
+    reviewNote: "Umumnya dikeluarkan dari operating working capital dan ditambahkan sebagai non-operating asset.",
   },
   {
     category: "INVENTORY",
@@ -140,7 +140,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     includeKeywords: ["inventory", "persediaan", "stock", "stok"],
     treatment: "operating",
     valuationImpact: ["AAM", "working capital", "DCF WC days"],
-    reviewNote: "Operating current asset for working capital unless obsolete/non-operating evidence exists.",
+    reviewNote: "Operating current asset untuk working capital kecuali ada bukti obsolete/non-operating.",
   },
   {
     category: "FIXED_ASSET",
@@ -150,7 +150,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     excludeKeywords: ["perolehan", "acquisition", "purchase", "pembelian", "harga"],
     treatment: "operating",
     valuationImpact: ["AAM", "EEM NTA", "DCF invested capital"],
-    reviewNote: "Treat as operating unless evidence identifies idle or non-operating fixed assets.",
+    reviewNote: "Perlakukan sebagai operating kecuali ada bukti idle atau non-operating fixed assets.",
   },
   {
     category: "NON_OPERATING_FIXED_ASSETS",
@@ -159,7 +159,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     includeKeywords: ["non operating", "non operasional", "idle"],
     treatment: "non_operating",
     valuationImpact: ["AAM", "EEM bridge", "DCF bridge"],
-    reviewNote: "Add outside operating NTA when the asset is idle or not required for earning power.",
+    reviewNote: "Tambahkan di luar operating NTA jika asset idle atau tidak diperlukan untuk earning power.",
   },
   {
     category: "FIXED_ASSET_ACQUISITION",
@@ -168,7 +168,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     includeKeywords: ["perolehan", "acquisition", "purchase", "pembelian"],
     treatment: "operating",
     valuationImpact: ["fixed asset schedule", "AAM support", "DCF capex support"],
-    reviewNote: "Use with accumulated depreciation to derive fixed asset net value when net value is unavailable.",
+    reviewNote: "Gunakan bersama accumulated depreciation untuk menurunkan fixed asset net value jika net value tidak tersedia.",
   },
   {
     category: "ACCUMULATED_DEPRECIATION",
@@ -177,7 +177,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     includeKeywords: ["akumulasi", "accumulated", "penyusutan", "depreciation"],
     treatment: "operating",
     valuationImpact: ["fixed asset schedule", "AAM support", "EEM NTA support"],
-    reviewNote: "Subtract from acquisition cost if fixed asset net value is not directly available.",
+    reviewNote: "Kurangkan dari acquisition cost jika fixed asset net value tidak tersedia langsung.",
   },
   {
     category: "DEPRECIATION_EXPENSE",
@@ -187,7 +187,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     excludeKeywords: ["akumulasi", "accumulated"],
     treatment: "operating",
     valuationImpact: ["EBIT", "DCF depreciation margin"],
-    reviewNote: "Operating non-cash expense for EBIT and DCF maintenance capex proxy.",
+    reviewNote: "Operating non-cash expense untuk EBIT dan proxy DCF maintenance capex.",
   },
   {
     category: "INTANGIBLE_ASSETS",
@@ -196,7 +196,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     includeKeywords: ["tak berwujud", "intangible", "software", "license", "lisensi", "hak guna"],
     treatment: "review",
     valuationImpact: ["AAM", "NTA exclusion review"],
-    reviewNote: "Recognize for AAM, but review exclusion from tangible operating asset base for EEM.",
+    reviewNote: "Akui untuk AAM, tetapi tinjau pengecualian dari tangible operating asset base untuk EEM.",
   },
   {
     category: "TOTAL_LIABILITIES",
@@ -205,7 +205,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     includeKeywords: ["total", "jumlah", "kewajiban", "liabilitas", "liabilities"],
     treatment: "liability",
     valuationImpact: ["AAM"],
-    reviewNote: "Use as total liabilities override only when component-level liabilities are unavailable or reconciled.",
+    reviewNote: "Gunakan sebagai override total liabilities hanya jika rincian komponen liability tidak tersedia atau sudah direkonsiliasi.",
   },
   {
     category: "CURRENT_LIABILITIES",
@@ -214,7 +214,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     includeKeywords: ["lancar", "liabilitas", "kewajiban"],
     treatment: "liability",
     valuationImpact: ["AAM", "working capital support"],
-    reviewNote: "Map to detailed liability categories when subledger is available.",
+    reviewNote: "Petakan ke kategori liability yang lebih rinci jika subledger tersedia.",
   },
   {
     category: "ACCOUNT_PAYABLE",
@@ -223,7 +223,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     includeKeywords: ["utang usaha", "hutang usaha", "payable"],
     treatment: "operating",
     valuationImpact: ["AAM", "working capital", "DCF WC days"],
-    reviewNote: "Operating current liability for working capital.",
+    reviewNote: "Operating current liability untuk working capital.",
   },
   {
     category: "TAX_PAYABLE",
@@ -232,7 +232,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     includeKeywords: ["pajak", "tax", "pph", "ppn"],
     treatment: "liability",
     valuationImpact: ["AAM", "debt-like sensitivity"],
-    reviewNote: "Liability for AAM; exclude from operating WC unless specifically justified.",
+    reviewNote: "Liability untuk AAM; keluarkan dari operating WC kecuali ada justifikasi khusus.",
   },
   {
     category: "OTHER_PAYABLE",
@@ -241,7 +241,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     includeKeywords: ["utang lain", "hutang lain", "accrued"],
     treatment: "operating",
     valuationImpact: ["AAM", "working capital", "DCF WC days"],
-    reviewNote: "Review whether operating payable or debt-like payable.",
+    reviewNote: "Tinjau apakah merupakan operating payable atau debt-like payable.",
   },
   {
     category: "BANK_LOAN_SHORT_TERM",
@@ -250,7 +250,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     includeKeywords: ["bank", "loan", "pinjaman", "hutang", "utang", "short", "pendek"],
     treatment: "debt",
     valuationImpact: ["interest bearing debt", "EV to equity bridge"],
-    reviewNote: "Exclude from operating working capital; subtract as debt if balance is nonzero.",
+    reviewNote: "Keluarkan dari operating working capital; kurangkan sebagai debt jika saldo tidak nol.",
   },
   {
     category: "BANK_LOAN_LONG_TERM",
@@ -259,7 +259,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     includeKeywords: ["bank", "loan", "pinjaman", "hutang", "utang", "long", "panjang"],
     treatment: "debt",
     valuationImpact: ["interest bearing debt", "EV to equity bridge"],
-    reviewNote: "Exclude from operating working capital; subtract as debt if balance is nonzero.",
+    reviewNote: "Keluarkan dari operating working capital; kurangkan sebagai debt jika saldo tidak nol.",
   },
   {
     category: "INTEREST_PAYABLE",
@@ -268,7 +268,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     includeKeywords: ["bunga", "interest", "harus dibayar", "accrued"],
     treatment: "liability",
     valuationImpact: ["AAM", "debt-like liability review"],
-    reviewNote: "Liability item; review whether it should be included in debt-like adjustments.",
+    reviewNote: "Liability item; tinjau apakah perlu dimasukkan dalam debt-like adjustments.",
   },
   {
     category: "INTEREST_BEARING_DEBT",
@@ -277,7 +277,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     includeKeywords: ["berbunga", "interest bearing", "pinjaman"],
     treatment: "debt",
     valuationImpact: ["EV to equity bridge"],
-    reviewNote: "Debt-like financing balance; exclude from operating working capital.",
+    reviewNote: "Debt-like financing balance; keluarkan dari operating working capital.",
   },
   {
     category: "MODAL_DISETOR",
@@ -287,7 +287,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     excludeKeywords: ["penambahan", "additional", "agio"],
     treatment: "equity",
     valuationImpact: ["balance sheet check", "equity roll-forward"],
-    reviewNote: "Equity component for reconciliation; do not use as enterprise-to-equity bridge item.",
+    reviewNote: "Equity component untuk rekonsiliasi; jangan gunakan sebagai enterprise-to-equity bridge item.",
   },
   {
     category: "PENAMBAHAN_MODAL_DISETOR",
@@ -296,7 +296,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     includeKeywords: ["penambahan", "additional", "agio"],
     treatment: "equity",
     valuationImpact: ["balance sheet check", "equity roll-forward"],
-    reviewNote: "Equity component; cash-flow treatment should use period movement, not ending balance.",
+    reviewNote: "Equity component; perlakuan cash-flow sebaiknya memakai movement periode, bukan ending balance.",
   },
   {
     category: "RETAINED_EARNINGS_SURPLUS",
@@ -305,7 +305,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     includeKeywords: ["retained", "saldo laba", "laba ditahan"],
     treatment: "equity",
     valuationImpact: ["balance sheet check"],
-    reviewNote: "Equity reconciliation account; not an operating earning-power driver.",
+    reviewNote: "Equity reconciliation account; bukan operating earning-power driver.",
   },
   {
     category: "RETAINED_EARNINGS_CURRENT_PROFIT",
@@ -314,7 +314,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     includeKeywords: ["laba", "berjalan", "current profit"],
     treatment: "equity",
     valuationImpact: ["balance sheet check", "commercial/fiscal basis review"],
-    reviewNote: "Review commercial versus fiscal basis before using as earning power.",
+    reviewNote: "Tinjau basis commercial versus fiscal sebelum digunakan sebagai earning power.",
   },
   {
     category: "REVENUE",
@@ -324,7 +324,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     excludeKeywords: ["beban", "biaya", "pokok", "interest", "bunga", "lain"],
     treatment: "operating",
     valuationImpact: ["DCF forecast driver", "margins"],
-    reviewNote: "Use commercial revenue as operating driver.",
+    reviewNote: "Gunakan commercial revenue sebagai operating driver.",
   },
   {
     category: "COST_OF_GOOD_SOLD",
@@ -333,7 +333,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     includeKeywords: ["cogs", "hpp", "pokok", "pupuk", "obat", "tbs"],
     treatment: "operating",
     valuationImpact: ["EBIT", "DCF margin"],
-    reviewNote: "Operating cost; preserve sign convention consistently.",
+    reviewNote: "Operating cost; pertahankan sign convention secara konsisten.",
   },
   {
     category: "SELLING_EXPENSE",
@@ -343,7 +343,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     excludeKeywords: ["revenue", "sales", "pendapatan"],
     treatment: "operating",
     valuationImpact: ["EBIT", "DCF margin"],
-    reviewNote: "Operating expense; preserve sign convention consistently.",
+    reviewNote: "Operating expense; pertahankan sign convention secara konsisten.",
   },
   {
     category: "GENERAL_ADMINISTRATIVE_OVERHEADS",
@@ -352,7 +352,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     includeKeywords: ["administrasi", "overhead", "bbm", "stnk", "pbb", "notaris", "listrik", "kantor"],
     treatment: "operating",
     valuationImpact: ["EBIT", "DCF margin"],
-    reviewNote: "Operating expense excluding financing and non-operating items.",
+    reviewNote: "Operating expense yang mengecualikan financing dan non-operating items.",
   },
   {
     category: "EBIT",
@@ -361,7 +361,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     includeKeywords: ["ebit", "laba usaha", "operating profit", "laba operasi"],
     treatment: "operating",
     valuationImpact: ["NOPLAT", "DCF"],
-    reviewNote: "Use commercial EBIT as override when income statement components are incomplete.",
+    reviewNote: "Gunakan commercial EBIT sebagai override ketika komponen income statement tidak lengkap.",
   },
   {
     category: "COMMERCIAL_NPAT",
@@ -370,7 +370,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     includeKeywords: ["laba bersih", "npat", "net profit"],
     treatment: "operating",
     valuationImpact: ["earning power support", "retained earnings support"],
-    reviewNote: "Use commercial profit only; do not use fiscal reconciliation as earning power.",
+    reviewNote: "Gunakan commercial profit saja; jangan gunakan fiscal reconciliation sebagai earning power.",
   },
   {
     category: "INTEREST_INCOME",
@@ -380,7 +380,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     excludeKeywords: ["beban", "expense", "biaya"],
     treatment: "non_operating",
     valuationImpact: ["NOPLAT exclusion", "surplus asset support"],
-    reviewNote: "Exclude from operating NOPLAT; can support deposit as surplus asset.",
+    reviewNote: "Keluarkan dari operating NOPLAT; dapat mendukung deposit sebagai surplus asset.",
   },
   {
     category: "INTEREST_EXPENSE",
@@ -389,7 +389,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     includeKeywords: ["interest expense", "beban bunga", "jasa giro", "pinjaman"],
     treatment: "financing",
     valuationImpact: ["NOPLAT exclusion", "debt review"],
-    reviewNote: "Exclude from operating NOPLAT and review whether related debt exists.",
+    reviewNote: "Keluarkan dari operating NOPLAT dan tinjau apakah related debt tersedia.",
   },
   {
     category: "NON_OPERATING_INCOME",
@@ -398,7 +398,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     includeKeywords: ["lain", "other", "non operating"],
     treatment: "non_operating",
     valuationImpact: ["NOPLAT exclusion", "CFI review"],
-    reviewNote: "Exclude from operating earning power.",
+    reviewNote: "Keluarkan dari operating earning power.",
   },
 ];
 
@@ -425,7 +425,7 @@ export function mapAccount(sourceLabel: string, statement?: StatementContext): A
       confidence: 0,
       treatment: "review",
       valuationImpact: ["mapping review"],
-      reason: "Account name is blank.",
+      reason: "Nama akun masih kosong.",
       needsReview: true,
     };
   }
@@ -465,7 +465,7 @@ export function mapAccount(sourceLabel: string, statement?: StatementContext): A
       confidence: 0,
       treatment: "review",
       valuationImpact: ["mapping review"],
-      reason: "No alias or keyword matched. Manual category review is required.",
+      reason: "Tidak ada alias atau keyword yang cocok. Tinjauan kategori manual diperlukan.",
       needsReview: true,
     };
   }
@@ -478,7 +478,7 @@ export function mapAccount(sourceLabel: string, statement?: StatementContext): A
     confidence,
     treatment: rule.treatment,
     valuationImpact: rule.valuationImpact,
-    reason: `${best?.aliasHit ? "Alias match" : "Keyword match"} with ${best?.includeHits ?? 0} keyword hit(s). ${rule.reviewNote}`,
+    reason: `${best?.aliasHit ? "Alias cocok" : "Keyword cocok"} dengan ${best?.includeHits ?? 0} keyword hit. ${rule.reviewNote}`,
     needsReview: confidence < 0.72 || (best?.excluded ?? false) || best?.statementCompatible === false,
   };
 }

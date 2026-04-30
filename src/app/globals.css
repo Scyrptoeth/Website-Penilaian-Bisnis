@@ -26,11 +26,15 @@
 }
 
 html {
+  max-width: 100%;
+  overflow-x: hidden;
   scroll-behavior: smooth;
 }
 
 body {
   min-width: 320px;
+  max-width: 100%;
+  overflow-x: hidden;
   margin: 0;
   background: var(--bg);
   color: var(--ink);
@@ -66,8 +70,11 @@ svg {
 
 .app-shell {
   display: grid;
-  grid-template-columns: 248px minmax(0, 1fr);
+  grid-template-columns: 220px minmax(0, 1fr);
+  width: 100%;
+  max-width: 100%;
   min-height: 100dvh;
+  overflow-x: clip;
 }
 
 .sidebar {
@@ -77,7 +84,8 @@ svg {
   grid-template-rows: auto 1fr;
   gap: 28px;
   height: 100dvh;
-  padding: 20px 16px;
+  min-width: 0;
+  padding: 18px 14px;
   border-right: 1px solid var(--line);
   background: rgba(251, 251, 248, 0.92);
   backdrop-filter: blur(18px);
@@ -85,9 +93,10 @@ svg {
 
 .brand-block {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   align-items: center;
-  padding: 6px 6px 18px;
+  min-width: 0;
+  padding: 6px 4px 16px;
   border-bottom: 1px solid var(--line);
 }
 
@@ -159,8 +168,10 @@ svg {
 .workspace {
   display: grid;
   gap: 18px;
-  width: min(100%, 1660px);
-  padding: 22px 24px 40px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: 20px clamp(14px, 1.4vw, 22px) 36px;
 }
 
 .topbar {
@@ -168,16 +179,24 @@ svg {
   top: 0;
   z-index: 5;
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 16px;
-  align-items: center;
+  align-items: flex-start;
+  min-width: 0;
   padding: 6px 0 14px;
   background: rgba(245, 246, 244, 0.9);
   backdrop-filter: blur(16px);
 }
 
+.topbar > div:first-child,
+.panel-heading > div:first-child,
+.card-title > span {
+  min-width: 0;
+}
+
 .topbar h2 {
-  font-size: clamp(28px, 3vw, 42px);
+  font-size: clamp(28px, 2.55vw, 38px);
   line-height: 1.04;
 }
 
@@ -186,6 +205,7 @@ svg {
   flex-wrap: wrap;
   gap: 8px;
   justify-content: flex-end;
+  min-width: 0;
 }
 
 .button,
@@ -210,6 +230,7 @@ svg {
   color: white;
   font-size: 14px;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .button.secondary {
@@ -286,12 +307,14 @@ select:focus-visible,
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
+  min-width: 0;
 }
 
 .metric-card,
 .panel,
 .review-band,
 .input-panel {
+  min-width: 0;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: rgba(255, 255, 255, 0.88);
@@ -317,16 +340,17 @@ select:focus-visible,
 
 .period-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
   gap: 10px;
 }
 
 .period-card {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr) auto;
-  gap: 10px;
+  grid-template-columns: auto minmax(112px, 1fr) minmax(132px, 1fr) auto;
+  gap: 8px;
   align-items: end;
-  padding: 12px;
+  min-width: 0;
+  padding: 10px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface-raised);
@@ -358,6 +382,7 @@ select:focus-visible,
 .account-textarea,
 select {
   width: 100%;
+  min-width: 0;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius);
   background: #ffffff;
@@ -434,22 +459,51 @@ select {
 }
 
 .account-entry-table {
-  min-width: 1180px;
+  min-width: 920px;
+  table-layout: fixed;
 }
 
 .account-entry-table th,
 .account-entry-table td {
-  min-width: 150px;
+  min-width: 0;
+}
+
+.account-entry-table th:first-child,
+.account-entry-table td:first-child {
+  width: 14%;
 }
 
 .account-entry-table th:nth-child(2),
 .account-entry-table td:nth-child(2) {
-  min-width: 300px;
+  width: 23.5%;
 }
 
 .account-entry-table th:nth-child(3),
 .account-entry-table td:nth-child(3) {
-  min-width: 280px;
+  width: 23.5%;
+}
+
+.account-entry-table th:not(:nth-child(-n + 3)):not(:last-child),
+.account-entry-table td:not(:nth-child(-n + 3)):not(:last-child) {
+  width: 10.5%;
+}
+
+.account-entry-table td:not(:nth-child(-n + 3)):not(:last-child) input {
+  padding-inline: 4px;
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  text-align: right;
+}
+
+.account-entry-table th:last-child,
+.account-entry-table td:last-child {
+  width: 56px;
+  text-align: center;
+}
+
+.account-entry-table select {
+  padding-inline: 8px 20px;
+  font-size: 13px;
 }
 
 .account-name-input {
@@ -534,6 +588,7 @@ select {
 .card-title,
 .panel-heading {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -589,6 +644,9 @@ select {
 }
 
 .table-wrap {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   overflow-x: auto;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -596,7 +654,8 @@ select {
 
 table {
   width: 100%;
-  min-width: 980px;
+  min-width: 780px;
+  table-layout: fixed;
   border-collapse: collapse;
   background: var(--surface);
 }
@@ -623,6 +682,7 @@ th {
 
 td {
   font-size: 14px;
+  overflow-wrap: anywhere;
 }
 
 td span {
@@ -658,6 +718,7 @@ td span {
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
   gap: 12px;
+  min-width: 0;
 }
 
 .formula-list {
@@ -761,6 +822,12 @@ td span {
 
 @media (max-width: 1180px) {
   .workflow-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1440px) {
+  .split-panel {
     grid-template-columns: 1fr;
   }
 }

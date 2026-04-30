@@ -33,11 +33,11 @@ import {
   type Period,
   type StatementType,
 } from "@/lib/valuation/case-model";
-import { formatIdr, formatPercent, formatScore } from "@/lib/valuation/format";
+import { formatDisplayDate, formatEditableNumber, formatIdr, formatPercent, formatScore } from "@/lib/valuation/format";
 import type { AccountCategory, FinancialStatementSnapshot, FormulaTrace } from "@/lib/valuation/types";
 
 const categoryOptions: Array<{ value: AccountCategory; label: string }> = [
-  { value: "UNMAPPED", label: "Review / belum dimapping" },
+  { value: "UNMAPPED", label: "Perlu ditinjau / belum dipetakan" },
   { value: "TOTAL_ASSETS", label: "Total assets override" },
   { value: "CURRENT_ASSET", label: "Current asset - broad" },
   { value: "CASH_ON_HAND", label: "Cash on hand / kas" },
@@ -87,6 +87,16 @@ const categoryOptions: Array<{ value: AccountCategory; label: string }> = [
 ];
 
 const categoryLabelMap = new Map(categoryOptions.map((option) => [option.value, option.label]));
+const sectionLinks = [
+  { href: "#periods", label: "Periode" },
+  { href: "#accounts", label: "Akun" },
+  { href: "#mapping", label: "Pemetaan" },
+  { href: "#summary", label: "Ringkasan" },
+  { href: "#aam", label: "AAM" },
+  { href: "#eem", label: "EEM" },
+  { href: "#dcf", label: "DCF" },
+  { href: "#audit", label: "Audit" },
+];
 
 export function ValuationWorkbench() {
   const [periods, setPeriods] = useState<Period[]>(initialPeriods);
@@ -107,14 +117,14 @@ export function ValuationWorkbench() {
   const balanceSheetGap = results.adjustedTotalAssets - results.adjustedTotalLiabilities - equityBookComponents;
   const hasAnyInput =
     rows.length > 0 ||
-    periods.some((period) => period.label !== "Year 1" || period.valuationDate) ||
+    periods.some((period) => period.label !== "Tahun 1" || period.valuationDate) ||
     Object.values(assumptions).some((value) => value.trim() !== "");
   const checks = buildValidationChecks(rows, mappedRows, assumptions, snapshot, balanceSheetGap);
 
   function addPeriod() {
     const period: Period = {
       id: `p${Date.now()}`,
-      label: `Year ${periods.length + 1}`,
+      label: `Tahun ${periods.length + 1}`,
       valuationDate: "",
     };
 
@@ -156,7 +166,7 @@ export function ValuationWorkbench() {
   function updateRowValue(rowId: string, periodId: string, value: string) {
     setRows((current) =>
       current.map((row) =>
-        row.id === rowId ? { ...row, values: { ...row.values, [periodId]: value } } : row,
+        row.id === rowId ? { ...row, values: { ...row.values, [periodId]: formatEditableNumber(value) } } : row,
       ),
     );
   }
@@ -166,7 +176,7 @@ export function ValuationWorkbench() {
   }
 
   function updateAssumption(key: keyof AssumptionState, value: string) {
-    setAssumptions((current) => ({ ...current, [key]: value }));
+    setAssumptions((current) => ({ ...current, [key]: formatEditableNumber(value) }));
   }
 
   function loadSample() {
@@ -191,13 +201,13 @@ export function ValuationWorkbench() {
           <div className="brand-mark">PVB</div>
           <div>
             <p className="eyebrow">Penilaian Valuasi Bisnis</p>
-            <h1>Dynamic Workbench</h1>
+            <h1>Ruang Kerja Dinamis</h1>
           </div>
         </div>
-        <nav className="nav-list" aria-label="Model sections">
-          {["Periods", "Accounts", "Mapping", "Summary", "AAM", "EEM", "DCF", "Audit"].map((item) => (
-            <a href={`#${item.toLowerCase()}`} key={item}>
-              {item}
+        <nav className="nav-list" aria-label="Bagian model">
+          {sectionLinks.map((item) => (
+            <a href={item.href} key={item.href}>
+              {item.label}
             </a>
           ))}
         </nav>
@@ -207,7 +217,7 @@ export function ValuationWorkbench() {
         <header className="topbar">
           <div>
             <p className="eyebrow">100% equity · controlling marketable basis · no DLOM/DLOC</p>
-            <h2>Flexible Account Input</h2>
+            <h2>Input Akun Fleksibel</h2>
           </div>
           <div className="toolbar">
             <button className="button secondary" type="button" onClick={loadSample}>
@@ -224,7 +234,7 @@ export function ValuationWorkbench() {
         <section id="periods" className="panel">
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">Step 1</p>
+              <p className="eyebrow">Langkah 1</p>
               <h3>Periode input</h3>
             </div>
             <button className="button secondary" type="button" onClick={addPeriod}>
@@ -243,7 +253,7 @@ export function ValuationWorkbench() {
                 <label>
                   <span>Tanggal valuasi</span>
                   <input
-                    placeholder="YYYY-MM-DD"
+                    type="date"
                     value={period.valuationDate}
                     onChange={(event) => updatePeriod(period.id, { valuationDate: event.target.value })}
                   />
@@ -270,21 +280,21 @@ export function ValuationWorkbench() {
         <section id="accounts" className="panel">
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">Step 2</p>
+              <p className="eyebrow">Langkah 2</p>
               <h3>Akun dan nilai historis</h3>
             </div>
             <div className="toolbar">
               <button className="button secondary" type="button" onClick={() => addRow("balance_sheet")}>
                 <Plus size={18} />
-                Neraca
+                Balance Sheet
               </button>
               <button className="button secondary" type="button" onClick={() => addRow("income_statement")}>
                 <Plus size={18} />
-                Laba rugi
+                Income Statement
               </button>
               <button className="button secondary" type="button" onClick={() => addRow("fixed_asset")}>
                 <Plus size={18} />
-                Aset tetap
+                Fixed Asset
               </button>
             </div>
           </div>
@@ -296,11 +306,11 @@ export function ValuationWorkbench() {
               <table className="account-entry-table">
                 <thead>
                   <tr>
-                    <th>Source</th>
+                    <th>Sumber</th>
                     <th>Nama akun dari laporan</th>
                     <th>Kategori perhitungan</th>
                     {periods.map((period) => (
-                      <th key={period.id}>{period.label || "Period"}</th>
+                      <th key={period.id}>{period.label || "Periode"}</th>
                     ))}
                     <th>Aksi</th>
                   </tr>
@@ -370,12 +380,12 @@ export function ValuationWorkbench() {
           <article className="panel">
             <div className="panel-heading">
               <div>
-                <p className="eyebrow">Step 3</p>
-                <h3>Review mapping</h3>
+                <p className="eyebrow">Langkah 3</p>
+                <h3>Tinjauan pemetaan</h3>
               </div>
               <div className="status-pill muted">
                 <GitBranch size={18} />
-                {accountMappingRules.length} rule
+                {accountMappingRules.length} aturan
               </div>
             </div>
             <MappingTable mappedRows={mappedRows} />
@@ -384,8 +394,8 @@ export function ValuationWorkbench() {
           <article className="panel">
             <div className="panel-heading">
               <div>
-                <p className="eyebrow">Assumptions</p>
-                <h3>Model drivers</h3>
+                <p className="eyebrow">Asumsi</p>
+                <h3>Driver model</h3>
               </div>
             </div>
             <div className="assumption-form-grid">
@@ -418,15 +428,15 @@ export function ValuationWorkbench() {
                 <span>{method.method}</span>
               </div>
               <strong>{formatIdr(method.equityValue)}</strong>
-              <p>{activePeriod?.label || "Active period"} · Equity Value 100%</p>
+              <p>{activePeriod?.label || "Periode aktif"} · Equity Value 100%</p>
             </article>
           ))}
         </section>
 
         <section className="review-band compact-review">
           <div>
-            <p className="eyebrow">Model checks</p>
-            <h3>Readiness</h3>
+            <p className="eyebrow">Pemeriksaan model</p>
+            <h3>Kesiapan</h3>
           </div>
           <div className="risk-grid">
             {checks.map((check) => (
@@ -441,8 +451,8 @@ export function ValuationWorkbench() {
         <section className="panel">
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">Sensitivity</p>
-              <h3>Excel-final scenario coverage</h3>
+              <p className="eyebrow">Sensitivitas</p>
+              <h3>Cakupan skenario final Excel</h3>
             </div>
           </div>
           <div className="sensitivity-grid">
@@ -512,7 +522,7 @@ export function ValuationWorkbench() {
           <article className="panel">
             <div className="panel-heading">
               <div>
-                <p className="eyebrow">Forecast</p>
+                <p className="eyebrow">Proyeksi</p>
                 <h3>FCFF projection</h3>
               </div>
             </div>
@@ -531,21 +541,21 @@ export function ValuationWorkbench() {
         <section id="audit" className="panel">
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">Computed model state</p>
-              <h3>Audit snapshot</h3>
+              <p className="eyebrow">Status model terhitung</p>
+              <h3>Snapshot audit</h3>
             </div>
           </div>
           <dl className="assumption-grid">
             <div>
-              <dt>Active period</dt>
+              <dt>Periode aktif</dt>
               <dd>{activePeriod?.label || "Belum diisi"}</dd>
             </div>
             <div>
-              <dt>Valuation date</dt>
-              <dd>{snapshot.valuationDate || "Belum diisi"}</dd>
+              <dt>Tanggal valuasi</dt>
+              <dd>{formatDisplayDate(snapshot.valuationDate) || "Belum diisi"}</dd>
             </div>
             <div>
-              <dt>Mapped accounts</dt>
+              <dt>Akun terpetakan</dt>
               <dd>{mappedRows.filter((item) => item.effectiveCategory !== "UNMAPPED").length}</dd>
             </div>
             <div>
@@ -605,7 +615,7 @@ export function ValuationWorkbench() {
 
 function MappingTable({ mappedRows }: { mappedRows: MappedRow[] }) {
   if (mappedRows.length === 0) {
-    return <div className="empty-state">Belum ada akun untuk direview.</div>;
+    return <div className="empty-state">Belum ada akun untuk ditinjau.</div>;
   }
 
   return (
@@ -614,10 +624,10 @@ function MappingTable({ mappedRows }: { mappedRows: MappedRow[] }) {
         <thead>
           <tr>
             <th>Nama akun</th>
-            <th>Source</th>
-            <th>Suggested mapping</th>
-            <th>Effective category</th>
-            <th>Confidence</th>
+            <th>Sumber</th>
+            <th>Saran pemetaan</th>
+            <th>Kategori efektif</th>
+            <th>Tingkat keyakinan</th>
             <th>Status</th>
           </tr>
         </thead>
@@ -636,7 +646,7 @@ function MappingTable({ mappedRows }: { mappedRows: MappedRow[] }) {
                 <td>{categoryLabelMap.get(effectiveCategory) ?? effectiveCategory}</td>
                 <td>{formatScore(mapping.confidence)}</td>
                 <td>
-                  <span className={needsReview ? "badge warning" : "badge ok"}>{needsReview ? "Review" : "Accepted"}</span>
+                  <span className={needsReview ? "badge warning" : "badge ok"}>{needsReview ? "Perlu ditinjau" : "Diterima"}</span>
                 </td>
               </tr>
             );
@@ -651,7 +661,7 @@ function AssumptionInput({ label, value, onChange }: { label: string; value: str
   return (
     <label className="field">
       <span>{label}</span>
-      <input inputMode="decimal" placeholder="Optional" value={value} onChange={(event) => onChange(event.target.value)} />
+      <input inputMode="decimal" placeholder="Opsional" value={value} onChange={(event) => onChange(event.target.value)} />
     </label>
   );
 }
@@ -689,7 +699,7 @@ function buildValidationChecks(
 
   return [
     { label: "Akun sudah diinput", ok: rows.length > 0 },
-    { label: "Mapping siap direview", ok: mappedRows.some((item) => item.effectiveCategory !== "UNMAPPED") },
+    { label: "Pemetaan siap ditinjau", ok: mappedRows.some((item) => item.effectiveCategory !== "UNMAPPED") },
     { label: "Neraca terisi", ok: snapshot.totalAssets !== 0 || snapshot.totalLiabilities !== 0 },
     { label: "Balance check", ok: !hasEquityComponents || Math.abs(balanceSheetGap) <= balanceTolerance },
     { label: "Laba rugi terisi", ok: snapshot.revenue !== 0 || snapshot.ebit !== 0 },

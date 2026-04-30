@@ -1,4 +1,5 @@
 import { mapAccount } from "./account-taxonomy";
+import { formatInputNumber } from "./format";
 import { sampleCase } from "./sample-case";
 import type { AccountCategory, FinancialStatementSnapshot } from "./types";
 
@@ -36,7 +37,7 @@ export type MappedRow = {
   effectiveCategory: AccountCategory;
 };
 
-export const initialPeriods: Period[] = [{ id: "p1", label: "Year 1", valuationDate: "" }];
+export const initialPeriods: Period[] = [{ id: "p1", label: "Tahun 1", valuationDate: "" }];
 
 export const emptyAssumptions: AssumptionState = {
   taxRate: "",
@@ -85,15 +86,15 @@ export function buildSamplePeriods(): Period[] {
 
 export function buildSampleAssumptions(): AssumptionState {
   return {
-    taxRate: String(sampleCase.taxRate),
-    terminalGrowth: String(sampleCase.terminalGrowth),
-    revenueGrowth: String(sampleCase.revenueGrowth),
-    wacc: String(sampleCase.wacc),
-    requiredReturnOnNta: String(sampleCase.requiredReturnOnNta),
-    arDays: String(sampleCase.arDays),
-    inventoryDays: String(sampleCase.inventoryDays),
-    apDays: String(sampleCase.apDays),
-    otherPayableDays: String(sampleCase.otherPayableDays),
+    taxRate: formatInputNumber(sampleCase.taxRate),
+    terminalGrowth: formatInputNumber(sampleCase.terminalGrowth),
+    revenueGrowth: formatInputNumber(sampleCase.revenueGrowth),
+    wacc: formatInputNumber(sampleCase.wacc),
+    requiredReturnOnNta: formatInputNumber(sampleCase.requiredReturnOnNta),
+    arDays: formatInputNumber(sampleCase.arDays),
+    inventoryDays: formatInputNumber(sampleCase.inventoryDays),
+    apDays: formatInputNumber(sampleCase.apDays),
+    otherPayableDays: formatInputNumber(sampleCase.otherPayableDays),
   };
 }
 
@@ -109,7 +110,7 @@ export function buildSampleRows(): AccountRow[] {
     statement,
     accountName,
     categoryOverride,
-    values: Object.fromEntries(Object.entries(values).map(([periodId, value]) => [periodId, String(Math.abs(value))])),
+    values: Object.fromEntries(Object.entries(values).map(([periodId, value]) => [periodId, formatInputNumber(Math.abs(value))])),
   });
 
   return [
@@ -402,24 +403,29 @@ export function parseInputNumber(input: string): number {
   }
 
   let normalized = trimmed.replace(/\s/g, "").replace(/rp/gi, "");
+  const isNegative = normalized.startsWith("-");
+  normalized = normalized.replace(/-/g, "");
   const commaCount = normalized.split(",").length - 1;
   const dotCount = normalized.split(".").length - 1;
 
   if (commaCount > 0 && dotCount > 0) {
     const lastComma = normalized.lastIndexOf(",");
-    const lastDot = normalized.lastIndexOf(".");
-    normalized =
-      lastComma > lastDot ? normalized.replace(/\./g, "").replace(",", ".") : normalized.replace(/,/g, "");
+    const integerPart = normalized.slice(0, lastComma).replace(/\./g, "").replace(/\D/g, "");
+    const decimalPart = normalized.slice(lastComma + 1).replace(/\D/g, "");
+    normalized = `${integerPart}.${decimalPart}`;
   } else if (commaCount > 1) {
     normalized = normalized.replace(/,/g, "");
   } else if (commaCount === 1) {
-    const [, fractionalPart = ""] = normalized.split(",");
-    normalized = fractionalPart.length === 3 ? normalized.replace(",", "") : normalized.replace(",", ".");
+    const [integerPart = "", fractionalPart = ""] = normalized.split(",");
+    normalized = `${integerPart.replace(/\./g, "").replace(/\D/g, "")}.${fractionalPart.replace(/\D/g, "")}`;
   } else if (dotCount > 1) {
     normalized = normalized.replace(/\./g, "");
+  } else if (dotCount === 1) {
+    const [, fractionalPart = ""] = normalized.split(".");
+    normalized = fractionalPart.length === 3 ? normalized.replace(".", "") : normalized;
   }
 
-  const parsed = Number(normalized.replace(/[^0-9.-]/g, ""));
+  const parsed = Number(`${isNegative ? "-" : ""}${normalized.replace(/[^0-9.]/g, "")}`);
   return Number.isFinite(parsed) ? parsed : 0;
 }
 

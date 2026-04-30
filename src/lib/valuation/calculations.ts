@@ -74,21 +74,21 @@ export function calculateAam(snapshot: FinancialStatementSnapshot): MethodOutput
   const traces: FormulaTrace[] = [
     {
       label: "Adjusted total assets",
-      formula: "Input total assets, or sum asset components when total assets is blank",
+      formula: "Input total assets atau jumlah komponen asset jika total assets kosong",
       value: totalAssets,
-      note: "FMV adjustment remains zero until independent asset appraisal is available.",
+      note: "FMV adjustment tetap nol sampai independent asset appraisal tersedia.",
     },
     {
       label: "Total liabilities",
-      formula: "Input total liabilities, or sum liability components when total liabilities is blank",
+      formula: "Input total liabilities atau jumlah komponen liability jika total liabilities kosong",
       value: totalLiabilities,
-      note: "AAM subtracts all liabilities, including tax payable.",
+      note: "AAM mengurangkan seluruh liabilities, termasuk tax payable.",
     },
     {
       label: "Equity Value 100% - AAM",
       formula: "Adjusted total assets - total liabilities",
       value: equityValue,
-      note: "No DLOM/DLOC applied.",
+      note: "DLOM/DLOC tidak diterapkan.",
     },
   ];
 
@@ -111,31 +111,31 @@ export function calculateEem(snapshot: FinancialStatementSnapshot): MethodOutput
       label: "Operating NWC",
       formula: "(AR + inventory) - (AP + other payable)",
       value: nwc,
-      note: "Cash, deposit, employee receivable, tax payable, and debt are excluded.",
+      note: "Cash, deposit, employee receivable, tax payable, dan debt dikeluarkan.",
     },
     {
       label: "Net operating tangible assets",
       formula: "Fixed assets net + operating NWC",
       value: netOperatingTangibleAssets,
-      note: "Operating tangible asset base for EEM.",
+      note: "Operating tangible asset base untuk EEM.",
     },
     {
       label: "Normalized NOPLAT",
       formula: "Commercial EBIT x (1 - statutory tax rate)",
       value: noplat,
-      note: "Uses commercial earning power and 22% statutory tax.",
+      note: "Menggunakan commercial earning power dan statutory tax 22%.",
     },
     {
       label: "Excess earnings",
       formula: "NOPLAT - (NTA x required return on NTA)",
       value: excessEarnings,
-      note: "Required return is charged on operating tangible assets.",
+      note: "Required return dibebankan pada operating tangible assets.",
     },
     {
       label: "Equity Value 100% - EEM",
       formula: "NTA + capitalized excess earnings + non-operating assets - interest-bearing debt",
       value: equityValue,
-      note: "No DLOM/DLOC applied.",
+      note: "DLOM/DLOC tidak diterapkan.",
     },
   ];
 
@@ -209,25 +209,25 @@ export function calculateDcf(
       label: "Explicit PV of FCFF",
       formula: "Sum yearly FCFF / (1 + WACC)^n",
       value: explicitPv,
-      note: "Five-year explicit forecast based on historical margins and operating WC days.",
+      note: "Explicit forecast lima tahun berbasis historical margins dan operating WC days.",
     },
     {
       label: "PV terminal value",
       formula: "[Final FCFF x (1 + g) / (WACC - g)] / (1 + WACC)^5",
       value: terminalPv,
-      note: "Base terminal growth is 0%.",
+      note: "Base terminal growth adalah 0%.",
     },
     {
       label: "Non-operating assets",
       formula: "Surplus cash or cash balances + marketable securities + employee receivable + non-operating fixed assets",
       value: nonOperatingAssets(snapshot),
-      note: "High-impact judgment; minimum operating cash sensitivity is required.",
+      note: "Judgment berdampak tinggi; sensitivitas minimum operating cash diperlukan.",
     },
     {
       label: "Equity Value 100% - DCF",
       formula: "Enterprise value + non-operating assets - interest-bearing debt",
       value: equityValue,
-      note: "No DLOM/DLOC applied.",
+      note: "DLOM/DLOC tidak diterapkan.",
     },
   ];
 
