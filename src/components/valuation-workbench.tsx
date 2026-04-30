@@ -10,6 +10,8 @@ import {
   Eraser,
   FileSearch,
   GitBranch,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   TableProperties,
   Trash2,
@@ -108,6 +110,7 @@ const assumptionKeys: Array<keyof AssumptionState> = [
 ];
 const WORKBENCH_STORAGE_KEY = "penilaian-valuasi-bisnis.workbench.v1";
 const WORKBENCH_SCROLL_STORAGE_KEY = "penilaian-valuasi-bisnis.scroll.v1";
+const WORKBENCH_SIDEBAR_STORAGE_KEY = "penilaian-valuasi-bisnis.sidebar.v1";
 const WORKBENCH_STORAGE_VERSION = 1;
 
 type PersistedWorkbenchState = {
@@ -135,6 +138,7 @@ export function ValuationWorkbench() {
   const [activePeriodId, setActivePeriodId] = useState(initialPeriods[0].id);
   const [rows, setRows] = useState<AccountRow[]>([]);
   const [assumptions, setAssumptions] = useState<AssumptionState>(emptyAssumptions);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isDraftRestored, setIsDraftRestored] = useState(false);
 
   const mappedRows = useMemo(() => rows.map((row) => mapRow(row)), [rows]);
@@ -169,6 +173,7 @@ export function ValuationWorkbench() {
       setAssumptions(storedState.assumptions);
     }
 
+    setIsSidebarCollapsed(readStoredSidebarState());
     setIsDraftRestored(true);
   }, []);
 
@@ -186,6 +191,14 @@ export function ValuationWorkbench() {
       assumptions,
     });
   }, [activePeriodId, assumptions, isDraftRestored, periods, rows]);
+
+  useEffect(() => {
+    if (!isDraftRestored) {
+      return;
+    }
+
+    safeSetLocalStorage(WORKBENCH_SIDEBAR_STORAGE_KEY, isSidebarCollapsed ? "collapsed" : "expanded");
+  }, [isDraftRestored, isSidebarCollapsed]);
 
   useEffect(() => {
     if (!isDraftRestored || typeof window === "undefined") {
@@ -310,23 +323,46 @@ export function ValuationWorkbench() {
   }
 
   return (
-    <main className="app-shell">
-      <aside className="sidebar">
-        <div className="brand-block">
-          <div className="brand-mark">PVB</div>
-          <div>
-            <p className="eyebrow">Penilaian Valuasi Bisnis</p>
-            <h1>Ruang Kerja Dinamis</h1>
-          </div>
+    <main className={isSidebarCollapsed ? "app-shell sidebar-collapsed" : "app-shell"}>
+      {isSidebarCollapsed ? (
+        <div className="sidebar-rail" aria-label="Navigasi ringkas">
+          <button
+            className="sidebar-toggle"
+            type="button"
+            onClick={() => setIsSidebarCollapsed(false)}
+            aria-label="Tampilkan sidebar"
+            title="Tampilkan sidebar"
+          >
+            <PanelLeftOpen size={18} />
+          </button>
         </div>
-        <nav className="nav-list" aria-label="Bagian model">
-          {sectionLinks.map((item) => (
-            <a href={item.href} key={item.href}>
-              {item.label}
-            </a>
-          ))}
-        </nav>
-      </aside>
+      ) : (
+        <aside className="sidebar">
+          <div className="brand-block">
+            <div className="brand-mark">PVB</div>
+            <div className="brand-copy">
+              <p className="eyebrow">Penilaian Valuasi Bisnis</p>
+              <h1>Ruang Kerja Dinamis</h1>
+            </div>
+            <button
+              className="sidebar-toggle"
+              type="button"
+              onClick={() => setIsSidebarCollapsed(true)}
+              aria-label="Sembunyikan sidebar"
+              title="Sembunyikan sidebar"
+            >
+              <PanelLeftClose size={18} />
+            </button>
+          </div>
+          <nav className="nav-list" aria-label="Bagian model">
+            {sectionLinks.map((item) => (
+              <a href={item.href} key={item.href}>
+                {item.label}
+              </a>
+            ))}
+          </nav>
+        </aside>
+      )}
 
       <section className="workspace">
         <header className="topbar">
@@ -803,6 +839,18 @@ function readStoredScrollPosition(): number {
     return Number.isFinite(value) ? Math.max(0, value) : 0;
   } catch {
     return 0;
+  }
+}
+
+function readStoredSidebarState(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  try {
+    return window.localStorage.getItem(WORKBENCH_SIDEBAR_STORAGE_KEY) === "collapsed";
+  } catch {
+    return false;
   }
 }
 
