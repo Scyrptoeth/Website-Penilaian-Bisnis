@@ -67,10 +67,18 @@ export type FixedAssetScheduleSummary = {
 
 export type AssumptionState = {
   taxRate: string;
+  taxRateSource: string;
+  taxRateOverrideReason: string;
   terminalGrowth: string;
+  terminalGrowthSource: string;
+  terminalGrowthOverrideReason: string;
   revenueGrowth: string;
   wacc: string;
+  waccSource: string;
+  waccOverrideReason: string;
   requiredReturnOnNta: string;
+  requiredReturnOnNtaSource: string;
+  requiredReturnOnNtaOverrideReason: string;
   arDays: string;
   inventoryDays: string;
   apDays: string;
@@ -96,10 +104,18 @@ export const fixedAssetScheduleValueKeys: FixedAssetScheduleValueKey[] = [
 
 export const emptyAssumptions: AssumptionState = {
   taxRate: "",
+  taxRateSource: "",
+  taxRateOverrideReason: "",
   terminalGrowth: "",
+  terminalGrowthSource: "",
+  terminalGrowthOverrideReason: "",
   revenueGrowth: "",
   wacc: "",
+  waccSource: "",
+  waccOverrideReason: "",
   requiredReturnOnNta: "",
+  requiredReturnOnNtaSource: "",
+  requiredReturnOnNtaOverrideReason: "",
   arDays: "",
   inventoryDays: "",
   apDays: "",
@@ -330,10 +346,18 @@ export function buildSamplePeriods(): Period[] {
 export function buildSampleAssumptions(): AssumptionState {
   return {
     taxRate: formatInputNumber(sampleCase.taxRate),
+    taxRateSource: "statutory-general",
+    taxRateOverrideReason: "",
     terminalGrowth: formatInputNumber(sampleCase.terminalGrowth),
+    terminalGrowthSource: "base-zero",
+    terminalGrowthOverrideReason: "",
     revenueGrowth: formatInputNumber(sampleCase.revenueGrowth),
     wacc: formatInputNumber(sampleCase.wacc),
+    waccSource: "source-discount-rate",
+    waccOverrideReason: "",
     requiredReturnOnNta: formatInputNumber(sampleCase.requiredReturnOnNta),
+    requiredReturnOnNtaSource: "borrowing-capacity-return",
+    requiredReturnOnNtaOverrideReason: "",
     arDays: formatInputNumber(sampleCase.arDays),
     inventoryDays: formatInputNumber(sampleCase.inventoryDays),
     apDays: formatInputNumber(sampleCase.apDays),

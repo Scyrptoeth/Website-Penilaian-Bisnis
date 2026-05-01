@@ -1181,6 +1181,227 @@ select {
   gap: 8px;
 }
 
+.assumption-control-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.compact-driver-grid {
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.assumption-driver-card {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-raised);
+}
+
+.assumption-driver-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.assumption-driver-heading div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.assumption-driver-heading span {
+  color: var(--ink-soft);
+  font-size: 9.2px;
+  font-weight: 700;
+}
+
+.assumption-driver-heading strong {
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono), monospace;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.source-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-style: normal;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.source-badge.recommended {
+  border-color: rgba(15, 118, 110, 0.24);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.source-badge.warning,
+.source-badge.sensitivity {
+  border-color: rgba(161, 98, 7, 0.28);
+  background: var(--review-soft);
+  color: var(--review);
+}
+
+.source-badge.manual {
+  border-color: var(--line-strong);
+  background: var(--surface-muted);
+}
+
+.assumption-source-line,
+.assumption-empty-note {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.38;
+}
+
+.candidate-list {
+  display: grid;
+  gap: 6px;
+}
+
+.candidate-button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  min-height: 44px;
+  padding: 7px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  text-align: left;
+}
+
+.candidate-button:hover,
+.candidate-button:focus-visible,
+.candidate-button.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.candidate-button span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  font-weight: 700;
+}
+
+.candidate-button small {
+  color: var(--muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 8.8px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.candidate-button strong {
+  font-family: var(--font-mono), monospace;
+  font-size: 10.4px;
+  font-weight: 600;
+}
+
+.driver-trace {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--line);
+}
+
+.driver-trace div {
+  min-width: 0;
+  padding: 8px;
+  background: var(--surface);
+}
+
+.driver-trace dt {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.driver-trace dd {
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.manual-driver-field {
+  margin-top: 2px;
+}
+
+.manual-reason-field {
+  gap: 5px;
+}
+
+.manual-reason-input {
+  width: 100%;
+  min-height: 64px;
+  min-width: 0;
+  resize: vertical;
+  padding: 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: #ffffff;
+  color: var(--ink);
+  line-height: 1.38;
+}
+
+.field-warning {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.active-driver-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--line);
+}
+
+.active-driver-strip div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 9px;
+  background: var(--surface);
+}
+
+.active-driver-strip span,
+.active-driver-strip small {
+  color: var(--muted);
+}
+
+.active-driver-strip strong {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.active-driver-strip small {
+  overflow-wrap: anywhere;
+}
+
 .sensitivity-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1652,11 +1873,17 @@ td span {
   .review-band,
   .risk-grid,
   .assumption-grid,
+  .assumption-control-grid,
   .assumption-form-grid,
   .sensitivity-grid,
+  .active-driver-strip,
   .audit-reference-grid,
   .period-grid,
   .input-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .driver-trace {
     grid-template-columns: 1fr;
   }
 

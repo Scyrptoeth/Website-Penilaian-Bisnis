@@ -102,6 +102,26 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByText("Corrected NOPLAT basis")).toBeVisible();
 });
 
+test("assumption drivers expose statutory suggestions, workbook candidates, and active valuation sources", async ({ page }) => {
+  await page.getByLabel("Tanggal valuasi").fill("2023-12-31");
+  await openWorkflowTab(page, "Asumsi & Driver");
+
+  const taxCard = page.getByTestId("assumption-card-tax-rate");
+  await expect(taxCard).toContainText("Statutory general 2023");
+  await taxCard.getByRole("button", { name: /Statutory general 2023/ }).click();
+  await expect(taxCard.getByLabel("Manual override")).toHaveValue("0,22");
+
+  await page.getByRole("button", { name: "Muat contoh workbook" }).click();
+  await openWorkflowTab(page, "Asumsi & Driver");
+  await expect(page.getByTestId("assumption-card-wacc")).toContainText("Source WACC");
+  await expect(page.getByTestId("assumption-card-terminal-growth")).toContainText("Base 0%");
+  await expect(page.getByTestId("assumption-card-required-return-on-nta")).toContainText("BORROWING CAP!F14");
+
+  await openWorkflowTab(page, "Valuasi");
+  await expect(page.getByLabel("Driver aktif valuasi")).toContainText("Source WACC");
+  await expect(page.getByLabel("Driver aktif valuasi")).toContainText("Final review base case");
+});
+
 test("legacy positive income-statement expense drafts migrate once and remain user-editable", async ({ page }) => {
   await page.evaluate(() => {
     window.localStorage.setItem(

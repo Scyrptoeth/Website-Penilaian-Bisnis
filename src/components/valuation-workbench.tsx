@@ -64,6 +64,7 @@ import {
   initialPeriods,
   mapRow,
   normalizePeriods,
+  parseInputNumber,
   statementLabels,
   type AccountRow,
   type AssumptionState,
@@ -82,6 +83,13 @@ import { buildWorkbenchReadiness, type SectionReadiness, type WorkbenchReadiness
 import { buildSectionAnalysis, type AnalysisRow, type AnalysisValue, type RatioRow, type SectionAnalysis } from "@/lib/valuation/section-analysis";
 import { buildValidationChecks } from "@/lib/valuation/validation-checks";
 import { workbookAuditFixture } from "@/lib/valuation/workbook-audit-fixture";
+import {
+  buildTaxRateCandidates,
+  requiredReturnOnNtaCandidates,
+  terminalGrowthCandidates,
+  waccCandidates,
+  type AssumptionCandidate,
+} from "@/lib/valuation/assumption-candidates";
 import type { AccountCategory, FormulaTrace } from "@/lib/valuation/types";
 const confidenceBandLabels: Record<ReturnType<typeof mapRow>["mapping"]["confidenceBand"], string> = {
   high: "Tinggi",
@@ -93,15 +101,46 @@ const categoryValueSet = new Set<AccountCategory>(categoryOptions.map((option) =
 const statementValueSet = new Set<StatementType>(["balance_sheet", "income_statement", "fixed_asset"]);
 const assumptionKeys: Array<keyof AssumptionState> = [
   "taxRate",
+  "taxRateSource",
+  "taxRateOverrideReason",
   "terminalGrowth",
+  "terminalGrowthSource",
+  "terminalGrowthOverrideReason",
   "revenueGrowth",
   "wacc",
+  "waccSource",
+  "waccOverrideReason",
   "requiredReturnOnNta",
+  "requiredReturnOnNtaSource",
+  "requiredReturnOnNtaOverrideReason",
   "arDays",
   "inventoryDays",
   "apDays",
   "otherPayableDays",
 ];
+
+type DriverAssumptionKey = "taxRate" | "terminalGrowth" | "wacc" | "requiredReturnOnNta";
+
+const assumptionSourceKeyByDriver: Record<DriverAssumptionKey, keyof AssumptionState> = {
+  taxRate: "taxRateSource",
+  terminalGrowth: "terminalGrowthSource",
+  wacc: "waccSource",
+  requiredReturnOnNta: "requiredReturnOnNtaSource",
+};
+
+const assumptionReasonKeyByDriver: Record<DriverAssumptionKey, keyof AssumptionState> = {
+  taxRate: "taxRateOverrideReason",
+  terminalGrowth: "terminalGrowthOverrideReason",
+  wacc: "waccOverrideReason",
+  requiredReturnOnNta: "requiredReturnOnNtaOverrideReason",
+};
+
+const manualSourceByDriver: Record<DriverAssumptionKey, string> = {
+  taxRate: "manual-tax-rate",
+  terminalGrowth: "manual-terminal-growth",
+  wacc: "manual-wacc",
+  requiredReturnOnNta: "manual-required-return-on-nta",
+};
 const WORKBENCH_STORAGE_KEY = "penilaian-valuasi-bisnis.workbench.v1";
 const WORKBENCH_SCROLL_STORAGE_KEY = "penilaian-valuasi-bisnis.scroll.v1";
 const WORKBENCH_SIDEBAR_STORAGE_KEY = "penilaian-valuasi-bisnis.sidebar.v1";
@@ -177,6 +216,18 @@ export function ValuationWorkbench() {
   );
   const methodCards = [results.aam, results.eem, results.dcf];
   const activePeriod = periods.find((period) => period.id === activePeriodId) ?? getDefaultActivePeriod(periods);
+  const taxRateCandidates = useMemo(() => buildTaxRateCandidates(activePeriod?.valuationDate ?? ""), [activePeriod?.valuationDate]);
+  const assumptionDriverSummaries = [
+    buildAssumptionDriverSummary("Tax rate", assumptions.taxRate, assumptions.taxRateSource, taxRateCandidates),
+    buildAssumptionDriverSummary("WACC", assumptions.wacc, assumptions.waccSource, waccCandidates),
+    buildAssumptionDriverSummary("Terminal growth", assumptions.terminalGrowth, assumptions.terminalGrowthSource, terminalGrowthCandidates),
+    buildAssumptionDriverSummary(
+      "Required return on NTA",
+      assumptions.requiredReturnOnNta,
+      assumptions.requiredReturnOnNtaSource,
+      requiredReturnOnNtaCandidates,
+    ),
+  ];
   const nextHistoricalPeriodLabel = getPeriodLabel(getNextHistoricalPeriodOffset(periods)).replace("Tahun ", "");
   const equityBookComponents =
     snapshot.paidUpCapital +
@@ -522,7 +573,29 @@ export function ValuationWorkbench() {
   function updateAssumption(key: keyof AssumptionState, value: string) {
     commitCoreState((current) => ({
       ...current,
-      assumptions: { ...current.assumptions, [key]: formatEditableNumber(value) },
+      assumptions: markManualAssumptionSource({ ...current.assumptions, [key]: formatEditableNumber(value) }, key),
+    }));
+  }
+
+  function updateAssumptionText(key: keyof AssumptionState, value: string) {
+    commitCoreState((current) => ({
+      ...current,
+      assumptions: { ...current.assumptions, [key]: value },
+    }));
+  }
+
+  function applyAssumptionCandidate(key: DriverAssumptionKey, candidate: AssumptionCandidate) {
+    const sourceKey = assumptionSourceKeyByDriver[key];
+    const reasonKey = assumptionReasonKeyByDriver[key];
+
+    commitCoreState((current) => ({
+      ...current,
+      assumptions: {
+        ...current.assumptions,
+        [key]: formatInputNumber(candidate.value),
+        [sourceKey]: candidate.id,
+        [reasonKey]: "",
+      },
     }));
   }
 
@@ -828,16 +901,58 @@ export function ValuationWorkbench() {
             </div>
           </div>
           <ReadinessPanel status={readiness.assumptions} onNavigate={navigateToWorkflowTab} />
-          <div className="assumption-form-grid">
-            <AssumptionInput label="Tax rate" value={assumptions.taxRate} onChange={(value) => updateAssumption("taxRate", value)} />
-            <AssumptionInput label="Revenue growth override" value={assumptions.revenueGrowth} onChange={(value) => updateAssumption("revenueGrowth", value)} />
-            <AssumptionInput label="Terminal growth" value={assumptions.terminalGrowth} onChange={(value) => updateAssumption("terminalGrowth", value)} />
-            <AssumptionInput label="WACC" value={assumptions.wacc} onChange={(value) => updateAssumption("wacc", value)} />
-            <AssumptionInput
+          <div className="assumption-control-grid">
+            <AssumptionDriverCard
+              label="Tax rate"
+              value={assumptions.taxRate}
+              sourceId={assumptions.taxRateSource}
+              reason={assumptions.taxRateOverrideReason}
+              candidates={taxRateCandidates}
+              emptyCandidateText="Isi tanggal valuasi di tab Periode untuk memunculkan statutory general rate."
+              manualHint="Override fasilitas khusus wajib diberi alasan."
+              onSelect={(candidate) => applyAssumptionCandidate("taxRate", candidate)}
+              onValueChange={(value) => updateAssumption("taxRate", value)}
+              onReasonChange={(value) => updateAssumptionText("taxRateOverrideReason", value)}
+            />
+            <AssumptionDriverCard
+              label="WACC"
+              value={assumptions.wacc}
+              sourceId={assumptions.waccSource}
+              reason={assumptions.waccOverrideReason}
+              candidates={waccCandidates}
+              emptyCandidateText="Belum ada kandidat WACC."
+              manualHint="Pilih kandidat aktif atau isi override beralasan."
+              onSelect={(candidate) => applyAssumptionCandidate("wacc", candidate)}
+              onValueChange={(value) => updateAssumption("wacc", value)}
+              onReasonChange={(value) => updateAssumptionText("waccOverrideReason", value)}
+            />
+            <AssumptionDriverCard
+              label="Terminal growth"
+              value={assumptions.terminalGrowth}
+              sourceId={assumptions.terminalGrowthSource}
+              reason={assumptions.terminalGrowthOverrideReason}
+              candidates={terminalGrowthCandidates}
+              emptyCandidateText="Belum ada skenario terminal growth."
+              manualHint="Terminal growth adalah assumption/sensitivity; override wajib dijelaskan."
+              onSelect={(candidate) => applyAssumptionCandidate("terminalGrowth", candidate)}
+              onValueChange={(value) => updateAssumption("terminalGrowth", value)}
+              onReasonChange={(value) => updateAssumptionText("terminalGrowthOverrideReason", value)}
+            />
+            <AssumptionDriverCard
               label="Required return on NTA"
               value={assumptions.requiredReturnOnNta}
-              onChange={(value) => updateAssumption("requiredReturnOnNta", value)}
+              sourceId={assumptions.requiredReturnOnNtaSource}
+              reason={assumptions.requiredReturnOnNtaOverrideReason}
+              candidates={requiredReturnOnNtaCandidates}
+              emptyCandidateText="Belum ada kandidat required return."
+              manualHint="Override required return berdampak langsung ke EEM."
+              onSelect={(candidate) => applyAssumptionCandidate("requiredReturnOnNta", candidate)}
+              onValueChange={(value) => updateAssumption("requiredReturnOnNta", value)}
+              onReasonChange={(value) => updateAssumptionText("requiredReturnOnNtaOverrideReason", value)}
             />
+          </div>
+          <div className="assumption-form-grid compact-driver-grid">
+            <AssumptionInput label="Revenue growth override" value={assumptions.revenueGrowth} onChange={(value) => updateAssumption("revenueGrowth", value)} />
             <AssumptionInput label="AR days" value={assumptions.arDays} onChange={(value) => updateAssumption("arDays", value)} />
             <AssumptionInput label="Inventory days" value={assumptions.inventoryDays} onChange={(value) => updateAssumption("inventoryDays", value)} />
             <AssumptionInput label="AP days" value={assumptions.apDays} onChange={(value) => updateAssumption("apDays", value)} />
@@ -863,6 +978,16 @@ export function ValuationWorkbench() {
               <strong>{formatIdr(method.equityValue)}</strong>
               <p>{activePeriod?.label || "Periode aktif"} · Equity Value 100%</p>
             </article>
+          ))}
+        </section>
+
+        <section className="active-driver-strip" aria-label="Driver aktif valuasi">
+          {assumptionDriverSummaries.map((driver) => (
+            <div key={driver.label}>
+              <span>{driver.label}</span>
+              <strong>{driver.valueLabel}</strong>
+              <small>{driver.sourceLabel}</small>
+            </div>
           ))}
         </section>
 
@@ -2167,13 +2292,166 @@ function MappingTable({ mappedRows }: { mappedRows: MappedRow[] }) {
   );
 }
 
-function AssumptionInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+function AssumptionDriverCard({
+  label,
+  value,
+  sourceId,
+  reason,
+  candidates,
+  emptyCandidateText,
+  manualHint,
+  onSelect,
+  onValueChange,
+  onReasonChange,
+}: {
+  label: string;
+  value: string;
+  sourceId: string;
+  reason: string;
+  candidates: AssumptionCandidate[];
+  emptyCandidateText: string;
+  manualHint: string;
+  onSelect: (candidate: AssumptionCandidate) => void;
+  onValueChange: (value: string) => void;
+  onReasonChange: (value: string) => void;
+}) {
+  const activeCandidate = candidates.find((candidate) => candidate.id === sourceId);
+  const isManual = sourceId.startsWith("manual-") || (value.trim() !== "" && !activeCandidate);
+  const needsReason = isManual && value.trim() !== "" && reason.trim() === "";
+  const inputId = `assumption-${slugifyLabel(label)}-manual`;
+  const reasonId = `assumption-${slugifyLabel(label)}-reason`;
+
   return (
-    <label className="field">
+    <article className="assumption-driver-card" data-testid={`assumption-card-${slugifyLabel(label)}`}>
+      <div className="assumption-driver-heading">
+        <div>
+          <span>{label}</span>
+          <strong>{formatRateInput(value)}</strong>
+        </div>
+        <em className={activeCandidate ? `source-badge ${activeCandidate.status}` : "source-badge manual"}>
+          {activeCandidate?.status === "recommended" ? "Aktif" : activeCandidate?.status ?? "Manual"}
+        </em>
+      </div>
+      <p className="assumption-source-line">{activeCandidate ? sourceLabel(activeCandidate) : sourceLabelFromManual(value)}</p>
+      <div className="candidate-list" aria-label={`${label} candidates`}>
+        {candidates.length > 0 ? (
+          candidates.map((candidate) => (
+            <button
+              className={candidate.id === sourceId ? "candidate-button active" : "candidate-button"}
+              key={candidate.id}
+              type="button"
+              onClick={() => onSelect(candidate)}
+            >
+              <span>
+                {candidate.label}
+                {candidate.sourceCell ? <small>{candidate.sourceCell}</small> : null}
+              </span>
+              <strong>{formatPercent(candidate.value)}</strong>
+            </button>
+          ))
+        ) : (
+          <p className="assumption-empty-note">{emptyCandidateText}</p>
+        )}
+      </div>
+      <dl className="driver-trace">
+        <div>
+          <dt>Formula</dt>
+          <dd>{activeCandidate?.formula ?? "Manual override"}</dd>
+        </div>
+        <div>
+          <dt>Catatan</dt>
+          <dd>{activeCandidate?.note ?? manualHint}</dd>
+        </div>
+      </dl>
+      <label className="field manual-driver-field" htmlFor={inputId}>
+        <span>Manual override</span>
+        <input
+          id={inputId}
+          inputMode="decimal"
+          placeholder="Opsional"
+          value={value}
+          onChange={(event) => onValueChange(event.target.value)}
+          aria-describedby={isManual ? reasonId : undefined}
+        />
+      </label>
+      {isManual ? (
+        <label className="field manual-reason-field" htmlFor={reasonId}>
+          <span>Alasan override</span>
+          <textarea
+            id={reasonId}
+            className="manual-reason-input"
+            placeholder={manualHint}
+            value={reason}
+            onChange={(event) => onReasonChange(event.target.value)}
+          />
+          {needsReason ? <small className="field-warning">Alasan wajib diisi untuk override manual.</small> : null}
+        </label>
+      ) : null}
+    </article>
+  );
+}
+
+function AssumptionInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  const inputId = `assumption-${slugifyLabel(label)}`;
+
+  return (
+    <label className="field" htmlFor={inputId}>
       <span>{label}</span>
-      <input inputMode="decimal" placeholder="Opsional" value={value} onChange={(event) => onChange(event.target.value)} />
+      <input id={inputId} inputMode="decimal" placeholder="Opsional" value={value} onChange={(event) => onChange(event.target.value)} />
     </label>
   );
+}
+
+function markManualAssumptionSource(assumptions: AssumptionState, key: keyof AssumptionState): AssumptionState {
+  if (!isDriverAssumptionKey(key)) {
+    return assumptions;
+  }
+
+  return {
+    ...assumptions,
+    [assumptionSourceKeyByDriver[key]]: manualSourceByDriver[key],
+  };
+}
+
+function isDriverAssumptionKey(key: keyof AssumptionState): key is DriverAssumptionKey {
+  return key === "taxRate" || key === "terminalGrowth" || key === "wacc" || key === "requiredReturnOnNta";
+}
+
+function buildAssumptionDriverSummary(label: string, value: string, sourceId: string, candidates: AssumptionCandidate[]) {
+  const candidate = candidates.find((item) => item.id === sourceId);
+
+  return {
+    label,
+    valueLabel: formatRateInput(value),
+    sourceLabel: candidate ? sourceLabel(candidate) : sourceLabelFromManual(value),
+  };
+}
+
+function sourceLabel(candidate: AssumptionCandidate): string {
+  const source = candidate.sourceCell ? `${candidate.source} · ${candidate.sourceCell}` : candidate.source;
+  return `${candidate.label} · ${source}`;
+}
+
+function sourceLabelFromManual(value: string): string {
+  return value.trim() ? "Manual override / legacy input" : "Belum dipilih";
+}
+
+function formatRateInput(input: string): string {
+  const rate = parseRateInput(input);
+  return rate === null ? "Belum dipilih" : formatPercent(rate);
+}
+
+function parseRateInput(input: string): number | null {
+  if (!input.trim()) {
+    return null;
+  }
+
+  const value = parseInputNumber(input);
+  return input.includes("%") || Math.abs(value) > 1 ? value / 100 : value;
+}
+
+function slugifyLabel(label: string): string {
+  return label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
 
 function emptyFixedAssetInputValues(): Record<FixedAssetScheduleValueKey, string> {
