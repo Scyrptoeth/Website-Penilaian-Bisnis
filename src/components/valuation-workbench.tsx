@@ -115,6 +115,56 @@ const categoryOptions: Array<{ value: AccountCategory; label: string }> = [
 ];
 
 const categoryLabelMap = new Map(categoryOptions.map((option) => [option.value, option.label]));
+const categoryOptionsByStatement: Record<StatementType, Set<AccountCategory>> = {
+  balance_sheet: new Set([
+    "UNMAPPED",
+    "TOTAL_ASSETS",
+    "CURRENT_ASSET",
+    "CASH_ON_HAND",
+    "CASH_ON_BANK",
+    "ACCOUNT_RECEIVABLE",
+    "EMPLOYEE_RECEIVABLE",
+    "INVENTORY",
+    "FIXED_ASSET",
+    "FIXED_ASSET_ACQUISITION",
+    "ACCUMULATED_DEPRECIATION",
+    "INTANGIBLE_ASSETS",
+    "NON_CURRENT_ASSET",
+    "TOTAL_LIABILITIES",
+    "CURRENT_LIABILITIES",
+    "BANK_LOAN_SHORT_TERM",
+    "ACCOUNT_PAYABLE",
+    "TAX_PAYABLE",
+    "OTHER_PAYABLE",
+    "BANK_LOAN_LONG_TERM",
+    "NON_CURRENT_LIABILITIES",
+    "MODAL_DISETOR",
+    "PENAMBAHAN_MODAL_DISETOR",
+    "RETAINED_EARNINGS_SURPLUS",
+    "RETAINED_EARNINGS_CURRENT_PROFIT",
+    "NON_OPERATING_FIXED_ASSETS",
+    "EXCESS_CASH",
+    "MARKETABLE_SECURITIES",
+    "INTEREST_PAYABLE",
+    "INTEREST_BEARING_DEBT",
+    "SURPLUS_ASSET_CASH",
+  ]),
+  income_statement: new Set([
+    "UNMAPPED",
+    "REVENUE",
+    "COST_OF_GOOD_SOLD",
+    "SELLING_EXPENSE",
+    "GENERAL_ADMINISTRATIVE_OVERHEADS",
+    "OPERATING_EXPENSE",
+    "DEPRECIATION_EXPENSE",
+    "EBIT",
+    "COMMERCIAL_NPAT",
+    "INTEREST_INCOME",
+    "INTEREST_EXPENSE",
+    "NON_OPERATING_INCOME",
+  ]),
+  fixed_asset: new Set(["UNMAPPED", "FIXED_ASSET", "FIXED_ASSET_ACQUISITION", "ACCUMULATED_DEPRECIATION", "DEPRECIATION_EXPENSE"]),
+};
 const confidenceBandLabels: Record<ReturnType<typeof mapRow>["mapping"]["confidenceBand"], string> = {
   high: "Tinggi",
   medium: "Sedang",
@@ -670,42 +720,44 @@ export function ValuationWorkbench() {
       )}
 
       <section className="workspace">
-        <header className="topbar">
-          <div>
-            <p className="eyebrow">100% equity · controlling marketable basis · no DLOM/DLOC</p>
-            <h2>Input Akun Fleksibel</h2>
-          </div>
-          <div className="toolbar">
-            <button className="icon-button" type="button" onClick={undoCoreChange} disabled={undoStack.length === 0} title="Undo perubahan data">
-              <Undo2 size={18} />
-            </button>
-            <button className="icon-button" type="button" onClick={redoCoreChange} disabled={redoStack.length === 0} title="Redo perubahan data">
-              <Redo2 size={18} />
-            </button>
-            <button className="button secondary" type="button" onClick={loadSample}>
-              <Upload size={18} />
-              Muat contoh workbook
-            </button>
-            <button className="button ghost" type="button" onClick={resetForm} disabled={!hasAnyInput}>
-              <Eraser size={18} />
-              Kosongkan
-            </button>
-          </div>
-        </header>
+        <div className="sticky-workspace-header">
+          <header className="topbar">
+            <div>
+              <p className="eyebrow">100% equity · controlling marketable basis · no DLOM/DLOC</p>
+              <h2>Input Akun Fleksibel</h2>
+            </div>
+            <div className="toolbar">
+              <button className="icon-button" type="button" onClick={undoCoreChange} disabled={undoStack.length === 0} title="Undo perubahan data">
+                <Undo2 size={18} />
+              </button>
+              <button className="icon-button" type="button" onClick={redoCoreChange} disabled={redoStack.length === 0} title="Redo perubahan data">
+                <Redo2 size={18} />
+              </button>
+              <button className="button secondary" type="button" onClick={loadSample}>
+                <Upload size={18} />
+                Muat contoh workbook
+              </button>
+              <button className="button ghost" type="button" onClick={resetForm} disabled={!hasAnyInput}>
+                <Eraser size={18} />
+                Kosongkan
+              </button>
+            </div>
+          </header>
 
-        <div className="workflow-tabs" role="tablist" aria-label="Workflow valuasi">
-          {workflowTabs.map((tab) => (
-            <button
-              className={activeWorkflowTab === tab.id ? "active" : ""}
-              type="button"
-              role="tab"
-              aria-selected={activeWorkflowTab === tab.id}
-              onClick={() => setActiveWorkflowTab(tab.id)}
-              key={tab.id}
-            >
-              {tab.label}
-            </button>
-          ))}
+          <div className="workflow-tabs" role="tablist" aria-label="Workflow valuasi">
+            {workflowTabs.map((tab) => (
+              <button
+                className={activeWorkflowTab === tab.id ? "active" : ""}
+                type="button"
+                role="tab"
+                aria-selected={activeWorkflowTab === tab.id}
+                onClick={() => setActiveWorkflowTab(tab.id)}
+                key={tab.id}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {activeWorkflowTab === "periods" ? (
@@ -816,6 +868,13 @@ export function ValuationWorkbench() {
             onUpdateRow={updateRow}
             onUpdateRowValue={updateRowValue}
           />
+
+          <div className="account-input-footer">
+            <button className="button secondary" type="button" onClick={() => addRow("balance_sheet")}>
+              <Plus size={18} />
+              Balance Sheet
+            </button>
+          </div>
 
           <BalanceSheetPositionTable periods={periods} view={balanceSheetView} />
         </section>
@@ -1635,7 +1694,7 @@ function AccountInputTable({
                 <td>
                   <select
                     value={row.statement}
-                    onChange={(event) => onUpdateRow(row.id, { statement: event.target.value as StatementType })}
+                    onChange={(event) => onUpdateRow(row.id, { statement: event.target.value as StatementType, categoryOverride: "" })}
                   >
                     {Object.entries(statementLabels).map(([value, label]) => (
                       <option key={value} value={value}>
@@ -1660,7 +1719,7 @@ function AccountInputTable({
                     value={row.categoryOverride || effectiveCategory}
                     onChange={(event) => onUpdateRow(row.id, { categoryOverride: event.target.value as AccountCategory })}
                   >
-                    {categoryOptions.map((option) => (
+                    {getCategoryOptionsForStatement(row.statement).map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
@@ -1695,6 +1754,12 @@ function AccountInputTable({
       </table>
     </div>
   );
+}
+
+function getCategoryOptionsForStatement(statement: StatementType): Array<{ value: AccountCategory; label: string }> {
+  const allowedCategories = categoryOptionsByStatement[statement] ?? categoryOptionsByStatement.balance_sheet;
+
+  return categoryOptions.filter((option) => allowedCategories.has(option.value));
 }
 
 function AccountLabelImpactCell({ item, onToggleLabel }: { item: MappedRow; onToggleLabel: (rowId: string, labelId: AccountLabelId) => void }) {
