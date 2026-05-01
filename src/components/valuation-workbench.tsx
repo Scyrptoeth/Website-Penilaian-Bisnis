@@ -92,9 +92,17 @@ import {
   type AssumptionReference,
 } from "@/lib/valuation/assumption-candidates";
 import {
+  averageInvestmentLoanRate,
+  getMarketAssumptionSuggestion,
+  getSupportedMarketSuggestionYears,
+  type MarketAssumptionSuggestion,
+} from "@/lib/valuation/market-assumption-suggestions";
+import {
   calculateRequiredReturnOnNtaAssumption,
+  calculateWaccComparableBetaAssumption,
   calculateWaccAssumption,
   readRateInput,
+  type WaccComparableBetaCalculation,
   type RequiredReturnOnNtaCalculation,
   type WaccCalculation,
 } from "@/lib/valuation/assumption-calculators";
@@ -123,11 +131,29 @@ const assumptionKeys: Array<keyof AssumptionState> = [
   "waccRiskFreeRate",
   "waccBeta",
   "waccEquityRiskPremium",
+  "waccRatingBasedDefaultSpread",
   "waccCountryRiskPremium",
   "waccSpecificRiskPremium",
   "waccPreTaxCostOfDebt",
+  "waccBankPerseroInvestmentLoanRate",
+  "waccBankSwastaInvestmentLoanRate",
+  "waccBankUmumInvestmentLoanRate",
   "waccDebtWeight",
   "waccEquityWeight",
+  "waccDebtMarketValue",
+  "waccEquityMarketValue",
+  "waccComparable1Name",
+  "waccComparable1BetaLevered",
+  "waccComparable1MarketCap",
+  "waccComparable1Debt",
+  "waccComparable2Name",
+  "waccComparable2BetaLevered",
+  "waccComparable2MarketCap",
+  "waccComparable2Debt",
+  "waccComparable3Name",
+  "waccComparable3BetaLevered",
+  "waccComparable3MarketCap",
+  "waccComparable3Debt",
   "requiredReturnOnNta",
   "requiredReturnOnNtaSource",
   "requiredReturnOnNtaOverrideReason",
@@ -190,8 +216,10 @@ const workflowTabs: Array<{ id: WorkflowTabId; label: string }> = [
   { id: "balance", label: "Neraca & Fixed Asset" },
   { id: "income", label: "Laba Rugi" },
   { id: "mapping", label: "Mapping & Label" },
-  { id: "assumptions", label: "Asumsi & Driver" },
-  { id: "valuation", label: "Valuasi" },
+  { id: "wacc", label: "WACC" },
+  { id: "eemDcfAssumptions", label: "Asumsi EEM/DCF" },
+  { id: "valuationAam", label: "Valuasi AAM" },
+  { id: "valuationEemDcf", label: "Valuasi EEM/DCF" },
   { id: "payablesCashFlow", label: "Payables & Cash Flow" },
   { id: "noplatFcf", label: "NOPLAT & FCF" },
   { id: "ratiosCapital", label: "Ratios & Capital Efficiency" },
@@ -238,10 +266,15 @@ export function ValuationWorkbench() {
     () => buildIncomeStatementView(periods, incomeStatementRows, fixedAssetSchedule),
     [fixedAssetSchedule, incomeStatementRows, periods],
   );
-  const methodCards = [results.aam, results.eem, results.dcf];
+  const eemDcfMethodCards = [results.eem, results.dcf];
   const activePeriod = periods.find((period) => period.id === activePeriodId) ?? getDefaultActivePeriod(periods);
   const taxRateCandidates = useMemo(() => buildTaxRateCandidates(activePeriod?.valuationDate ?? ""), [activePeriod?.valuationDate]);
+  const marketSuggestion = useMemo(
+    () => getMarketAssumptionSuggestion(activePeriod?.valuationDate ?? ""),
+    [activePeriod?.valuationDate],
+  );
   const waccCalculation = useMemo(() => calculateWaccAssumption(assumptions), [assumptions]);
+  const waccComparableBeta = useMemo(() => calculateWaccComparableBetaAssumption(assumptions), [assumptions]);
   const requiredReturnCalculation = useMemo(
     () =>
       calculateRequiredReturnOnNtaAssumption(assumptions, {
@@ -636,6 +669,29 @@ export function ValuationWorkbench() {
     }));
   }
 
+  function applyWaccMarketSuggestion(suggestion: MarketAssumptionSuggestion) {
+    const averageDebtRate = averageInvestmentLoanRate(suggestion);
+    const sourceNote = `Annual average suggestion ${suggestion.year}; ERP/default spread from Damodaran, SUN proxy from market evidence, SBDK investment-loan proxy from OJK.`;
+
+    commitCoreState((current) => ({
+      ...current,
+      assumptions: {
+        ...current.assumptions,
+        waccRiskFreeRate: formatInputNumber(suggestion.metrics.riskFreeSun.value),
+        waccEquityRiskPremium: formatInputNumber(suggestion.metrics.equityRiskPremium.value),
+        waccRatingBasedDefaultSpread: formatInputNumber(suggestion.metrics.ratingBasedDefaultSpread.value),
+        waccCountryRiskPremium: formatInputNumber(-suggestion.metrics.ratingBasedDefaultSpread.value),
+        waccSpecificRiskPremium: current.assumptions.waccSpecificRiskPremium.trim() || formatInputNumber(0),
+        waccPreTaxCostOfDebt: formatInputNumber(averageDebtRate),
+        waccBankPerseroInvestmentLoanRate: formatInputNumber(suggestion.metrics.bankPerseroInvestmentLoan.value),
+        waccBankSwastaInvestmentLoanRate: formatInputNumber(suggestion.metrics.bankSwastaInvestmentLoan.value),
+        waccBankUmumInvestmentLoanRate: formatInputNumber(suggestion.metrics.bankUmumInvestmentLoan.value),
+        waccSource: `market-suggestion-${suggestion.year}`,
+        waccOverrideReason: sourceNote,
+      },
+    }));
+  }
+
   function loadSample() {
     const samplePeriods = buildSamplePeriods();
     commitCoreState((current) => ({
@@ -929,15 +985,40 @@ export function ValuationWorkbench() {
         </section>
         ) : null}
 
-        {activeWorkflowTab === "assumptions" ? (
-        <section id="assumptions" className="panel">
+        {activeWorkflowTab === "wacc" ? (
+        <section id="wacc" className="panel">
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">Asumsi</p>
-              <h3>Driver model</h3>
+              <p className="eyebrow">WACC</p>
+              <h3>Weighted average cost of capital</h3>
             </div>
           </div>
-          <ReadinessPanel status={readiness.assumptions} onNavigate={navigateToWorkflowTab} />
+          <ReadinessPanel status={readiness.wacc} onNavigate={navigateToWorkflowTab} />
+          <WaccMarketSuggestionPanel
+            suggestion={marketSuggestion}
+            valuationDate={activePeriod?.valuationDate ?? ""}
+            onApply={applyWaccMarketSuggestion}
+          />
+          <WaccCalculatorPanel
+            assumptions={assumptions}
+            calculation={waccCalculation}
+            comparableBeta={waccComparableBeta}
+            onChange={updateAssumption}
+            onTextChange={updateAssumptionText}
+            onReasonChange={(value) => updateAssumptionText("waccOverrideReason", value)}
+          />
+        </section>
+        ) : null}
+
+        {activeWorkflowTab === "eemDcfAssumptions" ? (
+        <section id="eem-dcf-assumptions" className="panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Asumsi EEM/DCF</p>
+              <h3>Driver kapitalisasi dan proyeksi</h3>
+            </div>
+          </div>
+          <ReadinessPanel status={readiness.eemDcfAssumptions} onNavigate={navigateToWorkflowTab} />
           <AssumptionDriverMatrix drivers={assumptionDriverSummaries} />
           <div className="assumption-tax-row">
             <AssumptionDriverCard
@@ -954,12 +1035,6 @@ export function ValuationWorkbench() {
             />
           </div>
           <div className="assumption-calculator-grid">
-            <WaccCalculatorPanel
-              assumptions={assumptions}
-              calculation={waccCalculation}
-              onChange={updateAssumption}
-              onReasonChange={(value) => updateAssumptionText("waccOverrideReason", value)}
-            />
             <TerminalGrowthPanel
               assumptions={assumptions}
               wacc={snapshot.wacc}
@@ -992,11 +1067,67 @@ export function ValuationWorkbench() {
         </section>
         ) : null}
 
-        {activeWorkflowTab === "valuation" ? (
-        readiness.valuation.isReady ? (
+        {activeWorkflowTab === "valuationAam" ? (
+        readiness.valuationAam.isReady ? (
         <>
-        <section id="summary" className="section-grid">
-          {methodCards.map((method) => (
+        <section id="aam-summary" className="section-grid">
+          <article className="metric-card">
+            <div className="card-title">
+              <Calculator size={20} />
+              <span>AAM</span>
+            </div>
+            <strong>{formatIdr(results.aam.equityValue)}</strong>
+            <p>{activePeriod?.label || "Periode aktif"} · Equity Value 100%</p>
+          </article>
+          <article className="metric-card">
+            <div className="card-title">
+              <Banknote size={20} />
+              <span>Neraca basis</span>
+            </div>
+            <strong>{formatIdr(results.adjustedTotalAssets - results.adjustedTotalLiabilities)}</strong>
+            <p>Aset dikurangi seluruh liabilitas; tidak memakai WACC, tax rate, terminal growth, atau required return on NTA.</p>
+          </article>
+        </section>
+
+        <section id="aam" className="split-panel">
+          <article className="panel">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">AAM trace</p>
+                <h3>Asset accumulation method</h3>
+              </div>
+              <Banknote size={22} />
+            </div>
+            <FormulaList traces={results.aam.traces} />
+          </article>
+          <article className="panel">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">Batasan</p>
+                <h3>Scope metode AAM</h3>
+              </div>
+              <FileSearch size={22} />
+            </div>
+            <MetricTraceGrid
+              metrics={[
+                ["Input minimum", "Periode, neraca, fixed asset bila tersedia, dan mapping akun"],
+                ["Tidak diperlukan", "WACC, terminal growth, tax rate, required return on NTA"],
+                ["Judgment utama", "FMV adjustment aset/liabilitas dan review aset non-operating"],
+              ]}
+            />
+          </article>
+        </section>
+        </>
+        ) : (
+          <ReadinessPanel status={readiness.valuationAam} onNavigate={navigateToWorkflowTab} force />
+        )
+        ) : null}
+
+        {activeWorkflowTab === "valuationEemDcf" ? (
+        readiness.valuationEemDcf.isReady ? (
+        <>
+        <section id="eem-dcf-summary" className="section-grid">
+          {eemDcfMethodCards.map((method) => (
             <article className="metric-card" key={method.method}>
               <div className="card-title">
                 <Calculator size={20} />
@@ -1068,19 +1199,8 @@ export function ValuationWorkbench() {
           </div>
         </section>
 
-        <section id="aam" className="split-panel">
+        <section id="eem" className="split-panel">
           <article className="panel">
-            <div className="panel-heading">
-              <div>
-                <p className="eyebrow">AAM trace</p>
-                <h3>Asset accumulation method</h3>
-              </div>
-              <Banknote size={22} />
-            </div>
-            <FormulaList traces={results.aam.traces} />
-          </article>
-
-          <article id="eem" className="panel">
             <div className="panel-heading">
               <div>
                 <p className="eyebrow">EEM trace</p>
@@ -1090,9 +1210,7 @@ export function ValuationWorkbench() {
             </div>
             <FormulaList traces={results.eem.traces} />
           </article>
-        </section>
 
-        <section id="dcf" className="split-panel">
           <article className="panel">
             <div className="panel-heading">
               <div>
@@ -1103,7 +1221,9 @@ export function ValuationWorkbench() {
             </div>
             <FormulaList traces={results.dcf.traces} />
           </article>
+        </section>
 
+        <section id="dcf" className="split-panel">
           <article className="panel">
             <div className="panel-heading">
               <div>
@@ -1124,7 +1244,7 @@ export function ValuationWorkbench() {
         </section>
         </>
         ) : (
-          <ReadinessPanel status={readiness.valuation} onNavigate={navigateToWorkflowTab} force />
+          <ReadinessPanel status={readiness.valuationEemDcf} onNavigate={navigateToWorkflowTab} force />
         )
         ) : null}
 
@@ -2337,19 +2457,95 @@ function AssumptionDriverMatrix({
   );
 }
 
+function WaccMarketSuggestionPanel({
+  suggestion,
+  valuationDate,
+  onApply,
+}: {
+  suggestion: MarketAssumptionSuggestion | null;
+  valuationDate: string;
+  onApply: (suggestion: MarketAssumptionSuggestion) => void;
+}) {
+  const supportedYears = getSupportedMarketSuggestionYears();
+
+  if (!suggestion) {
+    return (
+      <article className="assumption-calculator-card wacc-suggestion-card" data-testid="wacc-suggestion-card">
+        <AssumptionCalculatorHeader
+          label="Smart auto suggestion"
+          value="Belum tersedia"
+          impact={`Data tersedia untuk ${supportedYears[0]}-${supportedYears[supportedYears.length - 1]}`}
+        />
+        <p className="assumption-empty-note">
+          {valuationDate.trim()
+            ? "Tanggal valuasi berada di luar library tahunan 2018-2025."
+            : "Isi tanggal valuasi pada tab Periode untuk memunculkan suggestion WACC tahunan."}
+        </p>
+      </article>
+    );
+  }
+
+  return (
+    <article className="assumption-calculator-card wacc-suggestion-card" data-testid="wacc-suggestion-card">
+      <AssumptionCalculatorHeader
+        label="Smart auto suggestion"
+        value={`${suggestion.year}`}
+        impact="Default memakai rata-rata tahunan dan tetap dapat dioverride dengan alasan."
+      />
+      <div className="table-wrap wacc-source-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Input</th>
+              <th>Suggestion</th>
+              <th>Metode</th>
+              <th>Sumber</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Object.values(suggestion.metrics).map((metric) => (
+              <tr key={metric.key}>
+                <td>{metric.label}</td>
+                <td className="numeric-cell">{formatPercent(metric.value)}</td>
+                <td>
+                  {metric.method}
+                  <span>{metric.note}</span>
+                </td>
+                <td>
+                  <a href={metric.sourceUrl} target="_blank" rel="noreferrer">
+                    {metric.source}
+                  </a>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <button className="button secondary" type="button" onClick={() => onApply(suggestion)}>
+        <CheckCircle2 size={18} />
+        Terapkan suggestion {suggestion.year}
+      </button>
+    </article>
+  );
+}
+
 function WaccCalculatorPanel({
   assumptions,
   calculation,
+  comparableBeta,
   onChange,
+  onTextChange,
   onReasonChange,
 }: {
   assumptions: AssumptionState;
   calculation: WaccCalculation | null;
+  comparableBeta: WaccComparableBetaCalculation;
   onChange: (key: keyof AssumptionState, value: string) => void;
+  onTextChange: (key: keyof AssumptionState, value: string) => void;
   onReasonChange: (value: string) => void;
 }) {
   return (
-    <article className="assumption-calculator-card" data-testid="wacc-calculator">
+    <article className="assumption-calculator-card wide" data-testid="wacc-calculator">
       <AssumptionCalculatorHeader
         label="WACC calculator"
         value={calculation ? formatPercent(calculation.wacc) : formatRateInput(assumptions.wacc)}
@@ -2357,11 +2553,15 @@ function WaccCalculatorPanel({
       />
       <div className="calculator-input-grid">
         <AssumptionInput label="Risk-free rate" value={assumptions.waccRiskFreeRate} onChange={(value) => onChange("waccRiskFreeRate", value)} />
-        <AssumptionInput label="Beta" value={assumptions.waccBeta} onChange={(value) => onChange("waccBeta", value)} />
         <AssumptionInput
           label="Equity risk premium"
           value={assumptions.waccEquityRiskPremium}
           onChange={(value) => onChange("waccEquityRiskPremium", value)}
+        />
+        <AssumptionInput
+          label="Rating-based default spread"
+          value={assumptions.waccRatingBasedDefaultSpread}
+          onChange={(value) => onChange("waccRatingBasedDefaultSpread", value)}
         />
         <AssumptionInput
           label="Country risk premium"
@@ -2373,17 +2573,37 @@ function WaccCalculatorPanel({
           value={assumptions.waccSpecificRiskPremium}
           onChange={(value) => onChange("waccSpecificRiskPremium", value)}
         />
+        <AssumptionInput label="Fallback beta" value={assumptions.waccBeta} onChange={(value) => onChange("waccBeta", value)} />
+      </div>
+      <WaccComparableTable assumptions={assumptions} comparableBeta={comparableBeta} onChange={onChange} onTextChange={onTextChange} />
+      <div className="calculator-input-grid">
         <AssumptionInput
-          label="Pre-tax cost of debt"
+          label="Bank Persero investment loan"
+          value={assumptions.waccBankPerseroInvestmentLoanRate}
+          onChange={(value) => onChange("waccBankPerseroInvestmentLoanRate", value)}
+        />
+        <AssumptionInput
+          label="Bank Swasta investment loan"
+          value={assumptions.waccBankSwastaInvestmentLoanRate}
+          onChange={(value) => onChange("waccBankSwastaInvestmentLoanRate", value)}
+        />
+        <AssumptionInput
+          label="Bank Umum investment loan"
+          value={assumptions.waccBankUmumInvestmentLoanRate}
+          onChange={(value) => onChange("waccBankUmumInvestmentLoanRate", value)}
+        />
+        <AssumptionInput
+          label="Pre-tax cost of debt override"
           value={assumptions.waccPreTaxCostOfDebt}
           onChange={(value) => onChange("waccPreTaxCostOfDebt", value)}
         />
-        <AssumptionInput label="Debt weight" value={assumptions.waccDebtWeight} onChange={(value) => onChange("waccDebtWeight", value)} />
-        <AssumptionInput label="Equity weight" value={assumptions.waccEquityWeight} onChange={(value) => onChange("waccEquityWeight", value)} />
       </div>
+      <WaccCapitalStructureTable assumptions={assumptions} calculation={calculation} onChange={onChange} />
       <MetricTraceGrid
         metrics={[
+          ["Beta applied", calculation ? formatNumber(calculation.beta) : "Belum dihitung"],
           ["Cost of equity", calculation ? formatPercent(calculation.costOfEquity) : "Belum dihitung"],
+          ["Pre-tax cost of debt", calculation ? formatPercent(calculation.preTaxCostOfDebt) : "Belum dihitung"],
           ["After-tax cost of debt", calculation ? formatPercent(calculation.afterTaxCostOfDebt) : "Belum dihitung"],
           ["Formula", "E/(D+E) x Ke + D/(D+E) x Kd(1-t)"],
         ]}
@@ -2397,6 +2617,139 @@ function WaccCalculatorPanel({
         onChange={onReasonChange}
       />
     </article>
+  );
+}
+
+function WaccComparableTable({
+  assumptions,
+  comparableBeta,
+  onChange,
+  onTextChange,
+}: {
+  assumptions: AssumptionState;
+  comparableBeta: WaccComparableBetaCalculation;
+  onChange: (key: keyof AssumptionState, value: string) => void;
+  onTextChange: (key: keyof AssumptionState, value: string) => void;
+}) {
+  const comparableKeys: Array<{
+    name: keyof AssumptionState;
+    beta: keyof AssumptionState;
+    marketCap: keyof AssumptionState;
+    debt: keyof AssumptionState;
+  }> = [
+    { name: "waccComparable1Name", beta: "waccComparable1BetaLevered", marketCap: "waccComparable1MarketCap", debt: "waccComparable1Debt" },
+    { name: "waccComparable2Name", beta: "waccComparable2BetaLevered", marketCap: "waccComparable2MarketCap", debt: "waccComparable2Debt" },
+    { name: "waccComparable3Name", beta: "waccComparable3BetaLevered", marketCap: "waccComparable3MarketCap", debt: "waccComparable3Debt" },
+  ];
+
+  return (
+    <div className="table-wrap wacc-model-table" data-testid="wacc-comparable-table">
+      <table>
+        <thead>
+          <tr>
+            <th>Perusahaan Pembanding</th>
+            <th>BL</th>
+            <th>Market Cap</th>
+            <th>Debt</th>
+            <th>BU</th>
+          </tr>
+        </thead>
+        <tbody>
+          {comparableKeys.map((keys, index) => {
+            const row = comparableBeta.rows[index];
+
+            return (
+              <tr key={keys.name}>
+                <td>
+                  <AssumptionTextInput
+                    label={`Comparable ${index + 1}`}
+                    value={assumptions[keys.name]}
+                    onChange={(value) => onTextChange(keys.name, value)}
+                  />
+                </td>
+                <td>
+                  <AssumptionInput label={`BL ${index + 1}`} value={assumptions[keys.beta]} onChange={(value) => onChange(keys.beta, value)} />
+                </td>
+                <td>
+                  <AssumptionInput
+                    label={`Market Cap ${index + 1}`}
+                    value={assumptions[keys.marketCap]}
+                    onChange={(value) => onChange(keys.marketCap, value)}
+                  />
+                </td>
+                <td>
+                  <AssumptionInput label={`Debt ${index + 1}`} value={assumptions[keys.debt]} onChange={(value) => onChange(keys.debt, value)} />
+                </td>
+                <td className="numeric-cell">{row?.unleveredBeta !== null && row?.unleveredBeta !== undefined ? formatNumber(row.unleveredBeta) : "Belum dihitung"}</td>
+              </tr>
+            );
+          })}
+          <tr className="total-row">
+            <td>Rata-rata / Relevered Beta</td>
+            <td>{comparableBeta.averageUnleveredBeta !== null ? formatNumber(comparableBeta.averageUnleveredBeta) : "Belum dihitung"}</td>
+            <td colSpan={2}>Target struktur kapital dipakai untuk relevered beta.</td>
+            <td className="numeric-cell">{comparableBeta.releveredBeta !== null ? formatNumber(comparableBeta.releveredBeta) : "Belum dihitung"}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function WaccCapitalStructureTable({
+  assumptions,
+  calculation,
+  onChange,
+}: {
+  assumptions: AssumptionState;
+  calculation: WaccCalculation | null;
+  onChange: (key: keyof AssumptionState, value: string) => void;
+}) {
+  return (
+    <div className="table-wrap wacc-model-table" data-testid="wacc-capital-structure-table">
+      <table>
+        <thead>
+          <tr>
+            <th>Struktur Kapital</th>
+            <th>Nilai</th>
+            <th>Bobot (%) Pasar</th>
+            <th>Biaya Mdl (%)</th>
+            <th>WACC</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Hutang</td>
+            <td>
+              <AssumptionInput label="Debt market value" value={assumptions.waccDebtMarketValue} onChange={(value) => onChange("waccDebtMarketValue", value)} />
+            </td>
+            <td>
+              <AssumptionInput label="Debt weight fallback" value={assumptions.waccDebtWeight} onChange={(value) => onChange("waccDebtWeight", value)} />
+              <span>{calculation ? formatPercent(calculation.debtWeight) : "Belum dihitung"}</span>
+            </td>
+            <td>{calculation ? formatPercent(calculation.afterTaxCostOfDebt) : "Belum dihitung"}</td>
+            <td>{calculation ? formatPercent(calculation.debtWeight * calculation.afterTaxCostOfDebt) : "Belum dihitung"}</td>
+          </tr>
+          <tr>
+            <td>Ekuitas</td>
+            <td>
+              <AssumptionInput label="Equity market value" value={assumptions.waccEquityMarketValue} onChange={(value) => onChange("waccEquityMarketValue", value)} />
+            </td>
+            <td>
+              <AssumptionInput label="Equity weight fallback" value={assumptions.waccEquityWeight} onChange={(value) => onChange("waccEquityWeight", value)} />
+              <span>{calculation ? formatPercent(calculation.equityWeight) : "Belum dihitung"}</span>
+            </td>
+            <td>{calculation ? formatPercent(calculation.costOfEquity) : "Belum dihitung"}</td>
+            <td>{calculation ? formatPercent(calculation.equityWeight * calculation.costOfEquity) : "Belum dihitung"}</td>
+          </tr>
+          <tr className="total-row">
+            <td>Weighted Average Cost of Capital (WACC)</td>
+            <td colSpan={3}>Hutang + Ekuitas</td>
+            <td>{calculation ? formatPercent(calculation.wacc) : formatRateInput(assumptions.wacc)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -2715,6 +3068,17 @@ function AssumptionInput({ label, value, onChange }: { label: string; value: str
   );
 }
 
+function AssumptionTextInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  const inputId = `assumption-${slugifyLabel(label)}`;
+
+  return (
+    <label className="field" htmlFor={inputId}>
+      <span>{label}</span>
+      <input id={inputId} placeholder="Opsional" value={value} onChange={(event) => onChange(event.target.value)} />
+    </label>
+  );
+}
+
 function markManualAssumptionSource(assumptions: AssumptionState, key: keyof AssumptionState): AssumptionState {
   if (!isDriverAssumptionKey(key)) {
     return assumptions;
@@ -2760,6 +3124,12 @@ function sourceLabelFromManual(value: string): string {
 function formatRateInput(input: string): string {
   const rate = parseRateInput(input);
   return rate === null ? "Belum dipilih" : formatPercent(rate);
+}
+
+function formatNumber(value: number): string {
+  return new Intl.NumberFormat("id-ID", {
+    maximumFractionDigits: 4,
+  }).format(value);
 }
 
 function parseRateInput(input: string): number | null {

@@ -13,8 +13,10 @@ export type WorkbenchSectionId =
   | "balance"
   | "income"
   | "mapping"
-  | "assumptions"
-  | "valuation"
+  | "wacc"
+  | "eemDcfAssumptions"
+  | "valuationAam"
+  | "valuationEemDcf"
   | "payablesCashFlow"
   | "noplatFcf"
   | "ratiosCapital"
@@ -71,6 +73,17 @@ export function buildWorkbenchReadiness({
     rows.some((row) => row.statement === "income_statement") || snapshot.revenue !== 0 || snapshot.ebit !== 0 || snapshot.commercialNpat !== 0;
   const hasTaxRate = assumptions.taxRate.trim() !== "";
   const hasWacc = assumptions.wacc.trim() !== "" || calculateWaccAssumption(assumptions) !== null;
+  const hasWaccMarketInputs =
+    assumptions.waccRiskFreeRate.trim() !== "" &&
+    assumptions.waccEquityRiskPremium.trim() !== "" &&
+    (assumptions.waccBeta.trim() !== "" ||
+      (assumptions.waccComparable1BetaLevered.trim() !== "" &&
+        assumptions.waccComparable1MarketCap.trim() !== "" &&
+        assumptions.waccComparable1Debt.trim() !== "")) &&
+    (assumptions.waccPreTaxCostOfDebt.trim() !== "" ||
+      assumptions.waccBankPerseroInvestmentLoanRate.trim() !== "" ||
+      assumptions.waccBankSwastaInvestmentLoanRate.trim() !== "" ||
+      assumptions.waccBankUmumInvestmentLoanRate.trim() !== "");
   const hasTerminalGrowth = assumptions.terminalGrowth.trim() !== "";
   const hasRequiredReturn =
     assumptions.requiredReturnOnNta.trim() !== "" ||
@@ -101,11 +114,13 @@ export function buildWorkbenchReadiness({
   const income = criterion(hasIncomeInput, "Data laba rugi tersedia", "income", "Isi Laba Rugi");
   const mapped = criterion(hasMappedAccount, "Akun sudah dipetakan atau siap ditinjau", "mapping", "Review Mapping");
   const anyAccount = criterion(hasAnyAccountInput, "Minimal satu akun/schedule sudah diinput", "balance", "Isi Akun");
-  const taxRate = criterion(hasTaxRate, "Tax rate tersedia", "assumptions", "Isi Asumsi");
-  const wacc = criterion(hasWacc, "WACC tersedia", "assumptions", "Isi Asumsi");
-  const terminalGrowth = criterion(hasTerminalGrowth, "Terminal growth tersedia", "assumptions", "Isi Asumsi");
-  const requiredReturn = criterion(hasRequiredReturn, "Required return on NTA tersedia", "assumptions", "Isi Asumsi");
-  const workingCapitalDays = criterion(hasWorkingCapitalDays, "Driver working-capital days tersedia", "assumptions", "Isi Driver");
+  const taxRateForEemDcf = criterion(hasTaxRate, "Tax rate tersedia", "eemDcfAssumptions", "Isi Asumsi EEM/DCF");
+  const taxRateForWacc = criterion(hasTaxRate, "Tax rate untuk after-tax cost of debt tersedia", "eemDcfAssumptions", "Isi Tax Rate");
+  const wacc = criterion(hasWacc, "WACC tersedia", "wacc", "Isi WACC");
+  const waccMarketInputs = criterion(hasWaccMarketInputs, "Input pasar WACC tersedia", "wacc", "Lengkapi WACC");
+  const terminalGrowth = criterion(hasTerminalGrowth, "Terminal growth tersedia", "eemDcfAssumptions", "Isi Asumsi EEM/DCF");
+  const requiredReturn = criterion(hasRequiredReturn, "Required return on NTA tersedia", "eemDcfAssumptions", "Isi Asumsi EEM/DCF");
+  const workingCapitalDays = criterion(hasWorkingCapitalDays, "Driver working-capital days tersedia", "eemDcfAssumptions", "Isi Driver");
   const operatingWorkingCapital = criterion(
     hasOperatingWorkingCapitalBasis,
     "Basis operating working capital tersedia: AR/inventory/AP/other payable",
@@ -124,8 +139,25 @@ export function buildWorkbenchReadiness({
     balance: status("balance", "Neraca & Fixed Asset", [period]),
     income: status("income", "Laba Rugi", [period, income]),
     mapping: status("mapping", "Mapping & Label", [anyAccount, mapped]),
-    assumptions: status("assumptions", "Asumsi & Driver", [period], [taxRate, wacc, terminalGrowth, requiredReturn, workingCapitalDays]),
-    valuation: status("valuation", "Valuasi", [period, balance, income, taxRate, wacc, terminalGrowth, requiredReturn, mapped]),
+    wacc: status("wacc", "WACC", [period, taxRateForWacc, waccMarketInputs, wacc]),
+    eemDcfAssumptions: status("eemDcfAssumptions", "Asumsi EEM/DCF", [period], [
+      taxRateForEemDcf,
+      wacc,
+      terminalGrowth,
+      requiredReturn,
+      workingCapitalDays,
+    ]),
+    valuationAam: status("valuationAam", "Valuasi AAM", [period, balance, mapped]),
+    valuationEemDcf: status("valuationEemDcf", "Valuasi EEM/DCF", [
+      period,
+      balance,
+      income,
+      taxRateForEemDcf,
+      wacc,
+      terminalGrowth,
+      requiredReturn,
+      mapped,
+    ]),
     payablesCashFlow: status("payablesCashFlow", "Payables & Cash Flow", [
       period,
       comparativePeriod,
@@ -138,7 +170,7 @@ export function buildWorkbenchReadiness({
       period,
       comparativePeriod,
       income,
-      taxRate,
+      taxRateForEemDcf,
       operatingWorkingCapital,
       fixedAssetOrDepreciation,
       mapped,

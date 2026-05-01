@@ -1249,6 +1249,51 @@ select {
   grid-column: 1 / -1;
 }
 
+.wacc-suggestion-card,
+.wacc-model-table {
+  margin-bottom: 10px;
+}
+
+.wacc-source-table table {
+  min-width: 860px;
+}
+
+.wacc-source-table th:nth-child(1),
+.wacc-source-table td:nth-child(1) {
+  width: 190px;
+}
+
+.wacc-source-table th:nth-child(2),
+.wacc-source-table td:nth-child(2) {
+  width: 110px;
+}
+
+.wacc-source-table th:nth-child(4),
+.wacc-source-table td:nth-child(4) {
+  width: 210px;
+}
+
+.wacc-model-table table {
+  min-width: 920px;
+}
+
+.wacc-model-table .field {
+  margin: 0;
+}
+
+.wacc-model-table .field span {
+  font-size: 7.8px;
+}
+
+.wacc-model-table input {
+  min-height: 30px;
+  padding: 0 7px;
+}
+
+.wacc-model-table td {
+  vertical-align: middle;
+}
+
 .assumption-calculator-heading {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(180px, 0.58fr);

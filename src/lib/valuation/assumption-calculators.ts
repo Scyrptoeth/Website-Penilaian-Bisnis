@@ -5,7 +5,27 @@ export type WaccCalculation = {
   afterTaxCostOfDebt: number;
   debtWeight: number;
   equityWeight: number;
+  beta: number;
+  preTaxCostOfDebt: number;
+  ratingBasedDefaultSpread: number;
+  countryRiskAdjustment: number;
+  comparableBeta?: WaccComparableBetaCalculation;
   wacc: number;
+};
+
+export type WaccComparableBetaRow = {
+  index: 1 | 2 | 3;
+  name: string;
+  betaLevered: number | null;
+  marketCap: number | null;
+  debt: number | null;
+  unleveredBeta: number | null;
+};
+
+export type WaccComparableBetaCalculation = {
+  rows: WaccComparableBetaRow[];
+  averageUnleveredBeta: number | null;
+  releveredBeta: number | null;
 };
 
 export type RequiredReturnOnNtaCalculation = {
@@ -25,12 +45,15 @@ export type RequiredReturnOnNtaBalances = {
 export function calculateWaccAssumption(assumptions: AssumptionState): WaccCalculation | null {
   const taxRate = readRateInput(assumptions.taxRate);
   const riskFreeRate = readRateInput(assumptions.waccRiskFreeRate);
-  const beta = readNumberInput(assumptions.waccBeta);
+  const comparableBeta = calculateWaccComparableBetaAssumption(assumptions);
+  const beta = comparableBeta.releveredBeta ?? readNumberInput(assumptions.waccBeta);
   const equityRiskPremium = readRateInput(assumptions.waccEquityRiskPremium);
-  const countryRiskPremium = readRateInput(assumptions.waccCountryRiskPremium) ?? 0;
+  const ratingBasedDefaultSpread = readRateInput(assumptions.waccRatingBasedDefaultSpread) ?? 0;
+  const countryRiskPremium = readRateInput(assumptions.waccCountryRiskPremium) ?? -ratingBasedDefaultSpread;
   const specificRiskPremium = readRateInput(assumptions.waccSpecificRiskPremium) ?? 0;
-  const preTaxCostOfDebt = readRateInput(assumptions.waccPreTaxCostOfDebt);
-  const weights = readCapitalWeights(assumptions.waccDebtWeight, assumptions.waccEquityWeight);
+  const preTaxCostOfDebt = readRateInput(assumptions.waccPreTaxCostOfDebt) ?? readAverageBankInvestmentLoanRate(assumptions);
+  const weights = readCapitalWeightsFromValues(assumptions.waccDebtMarketValue, assumptions.waccEquityMarketValue)
+    ?? readCapitalWeights(assumptions.waccDebtWeight, assumptions.waccEquityWeight);
 
   if (
     taxRate === null ||
@@ -52,7 +75,39 @@ export function calculateWaccAssumption(assumptions: AssumptionState): WaccCalcu
     afterTaxCostOfDebt,
     debtWeight: weights.debtWeight,
     equityWeight: weights.equityWeight,
+    beta,
+    preTaxCostOfDebt,
+    ratingBasedDefaultSpread,
+    countryRiskAdjustment: countryRiskPremium + specificRiskPremium,
+    comparableBeta,
     wacc,
+  };
+}
+
+export function calculateWaccComparableBetaAssumption(assumptions: AssumptionState): WaccComparableBetaCalculation {
+  const taxRate = readRateInput(assumptions.taxRate) ?? 0;
+  const targetWeights = readCapitalWeightsFromValues(assumptions.waccDebtMarketValue, assumptions.waccEquityMarketValue);
+  const rows: WaccComparableBetaRow[] = [
+    buildComparableBetaRow(1, assumptions.waccComparable1Name, assumptions.waccComparable1BetaLevered, assumptions.waccComparable1MarketCap, assumptions.waccComparable1Debt, taxRate),
+    buildComparableBetaRow(2, assumptions.waccComparable2Name, assumptions.waccComparable2BetaLevered, assumptions.waccComparable2MarketCap, assumptions.waccComparable2Debt, taxRate),
+    buildComparableBetaRow(3, assumptions.waccComparable3Name, assumptions.waccComparable3BetaLevered, assumptions.waccComparable3MarketCap, assumptions.waccComparable3Debt, taxRate),
+  ];
+  const validUnleveredBetas = rows
+    .map((row) => row.unleveredBeta)
+    .filter((value): value is number => value !== null && Number.isFinite(value));
+  const averageUnleveredBeta =
+    validUnleveredBetas.length > 0
+      ? validUnleveredBetas.reduce((sum, value) => sum + value, 0) / validUnleveredBetas.length
+      : null;
+  const releveredBeta =
+    averageUnleveredBeta !== null && targetWeights && targetWeights.equityWeight > 0
+      ? averageUnleveredBeta * (1 + (1 - taxRate) * (targetWeights.debtWeight / targetWeights.equityWeight))
+      : null;
+
+  return {
+    rows,
+    averageUnleveredBeta,
+    releveredBeta,
   };
 }
 
@@ -170,6 +225,66 @@ function readCapitalWeights(debtWeightInput: string, equityWeightInput: string):
   return {
     debtWeight: resolvedDebtWeight,
     equityWeight: resolvedEquityWeight,
+  };
+}
+
+function readCapitalWeightsFromValues(debtValueInput: string, equityValueInput: string): { debtWeight: number; equityWeight: number } | null {
+  const debtValue = readNumberInput(debtValueInput);
+  const equityValue = readNumberInput(equityValueInput);
+
+  if (debtValue === null || equityValue === null) {
+    return null;
+  }
+
+  const total = positive(debtValue) + positive(equityValue);
+
+  if (total <= 0) {
+    return null;
+  }
+
+  return {
+    debtWeight: positive(debtValue) / total,
+    equityWeight: positive(equityValue) / total,
+  };
+}
+
+function readAverageBankInvestmentLoanRate(assumptions: AssumptionState): number | null {
+  const rates = [
+    readRateInput(assumptions.waccBankPerseroInvestmentLoanRate),
+    readRateInput(assumptions.waccBankSwastaInvestmentLoanRate),
+    readRateInput(assumptions.waccBankUmumInvestmentLoanRate),
+  ].filter((value): value is number => value !== null);
+
+  if (rates.length === 0) {
+    return null;
+  }
+
+  return rates.reduce((sum, value) => sum + value, 0) / rates.length;
+}
+
+function buildComparableBetaRow(
+  index: 1 | 2 | 3,
+  name: string,
+  betaInput: string,
+  marketCapInput: string,
+  debtInput: string,
+  taxRate: number,
+): WaccComparableBetaRow {
+  const betaLevered = readNumberInput(betaInput);
+  const marketCap = readNumberInput(marketCapInput);
+  const debt = readNumberInput(debtInput);
+  const unleveredBeta =
+    betaLevered !== null && marketCap !== null && marketCap > 0 && debt !== null
+      ? betaLevered / (1 + (1 - taxRate) * (positive(debt) / positive(marketCap)))
+      : null;
+
+  return {
+    index,
+    name,
+    betaLevered,
+    marketCap,
+    debt,
+    unleveredBeta,
   };
 }
 

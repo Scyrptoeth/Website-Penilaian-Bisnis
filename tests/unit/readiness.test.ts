@@ -28,12 +28,15 @@ describe("workbench readiness", () => {
       fixedAssetSchedule,
     });
 
-    assert.equal(readiness.valuation.isReady, false);
+    assert.equal(readiness.valuationAam.isReady, false);
+    assert.equal(readiness.valuationEemDcf.isReady, false);
+    assert.equal(readiness.wacc.isReady, false);
     assert.equal(readiness.payablesCashFlow.isReady, false);
     assert.equal(readiness.noplatFcf.isReady, false);
-    assert.ok(readiness.valuation.missing.some((item) => item.targetTab === "balance"));
-    assert.ok(readiness.valuation.missing.some((item) => item.targetTab === "income"));
-    assert.ok(readiness.noplatFcf.missing.some((item) => item.targetTab === "assumptions"));
+    assert.ok(readiness.valuationAam.missing.some((item) => item.targetTab === "balance"));
+    assert.ok(readiness.valuationAam.missing.every((item) => item.targetTab !== "wacc" && item.targetTab !== "eemDcfAssumptions"));
+    assert.ok(readiness.valuationEemDcf.missing.some((item) => item.targetTab === "income"));
+    assert.ok(readiness.noplatFcf.missing.some((item) => item.targetTab === "eemDcfAssumptions"));
     assert.ok(readiness.payablesCashFlow.fulfilled.some((item) => item.targetTab === "periods"));
   });
 
@@ -56,6 +59,8 @@ describe("workbench readiness", () => {
     assert.equal(readiness.payablesCashFlow.isReady, true);
     assert.equal(readiness.noplatFcf.isReady, true);
     assert.equal(readiness.ratiosCapital.isReady, true);
+    assert.equal(readiness.valuationAam.isReady, true);
+    assert.equal(readiness.valuationEemDcf.isReady, true);
     assert.equal(readiness.ratiosCapital.warnings.length, 0);
   });
 });

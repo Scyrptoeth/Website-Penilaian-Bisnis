@@ -82,11 +82,29 @@ export type AssumptionState = {
   waccRiskFreeRate: string;
   waccBeta: string;
   waccEquityRiskPremium: string;
+  waccRatingBasedDefaultSpread: string;
   waccCountryRiskPremium: string;
   waccSpecificRiskPremium: string;
   waccPreTaxCostOfDebt: string;
+  waccBankPerseroInvestmentLoanRate: string;
+  waccBankSwastaInvestmentLoanRate: string;
+  waccBankUmumInvestmentLoanRate: string;
   waccDebtWeight: string;
   waccEquityWeight: string;
+  waccDebtMarketValue: string;
+  waccEquityMarketValue: string;
+  waccComparable1Name: string;
+  waccComparable1BetaLevered: string;
+  waccComparable1MarketCap: string;
+  waccComparable1Debt: string;
+  waccComparable2Name: string;
+  waccComparable2BetaLevered: string;
+  waccComparable2MarketCap: string;
+  waccComparable2Debt: string;
+  waccComparable3Name: string;
+  waccComparable3BetaLevered: string;
+  waccComparable3MarketCap: string;
+  waccComparable3Debt: string;
   requiredReturnOnNta: string;
   requiredReturnOnNtaSource: string;
   requiredReturnOnNtaOverrideReason: string;
@@ -135,11 +153,29 @@ export const emptyAssumptions: AssumptionState = {
   waccRiskFreeRate: "",
   waccBeta: "",
   waccEquityRiskPremium: "",
+  waccRatingBasedDefaultSpread: "",
   waccCountryRiskPremium: "",
   waccSpecificRiskPremium: "",
   waccPreTaxCostOfDebt: "",
+  waccBankPerseroInvestmentLoanRate: "",
+  waccBankSwastaInvestmentLoanRate: "",
+  waccBankUmumInvestmentLoanRate: "",
   waccDebtWeight: "",
   waccEquityWeight: "",
+  waccDebtMarketValue: "",
+  waccEquityMarketValue: "",
+  waccComparable1Name: "",
+  waccComparable1BetaLevered: "",
+  waccComparable1MarketCap: "",
+  waccComparable1Debt: "",
+  waccComparable2Name: "",
+  waccComparable2BetaLevered: "",
+  waccComparable2MarketCap: "",
+  waccComparable2Debt: "",
+  waccComparable3Name: "",
+  waccComparable3BetaLevered: "",
+  waccComparable3MarketCap: "",
+  waccComparable3Debt: "",
   requiredReturnOnNta: "",
   requiredReturnOnNtaSource: "",
   requiredReturnOnNtaOverrideReason: "",
@@ -393,11 +429,29 @@ export function buildSampleAssumptions(): AssumptionState {
     waccRiskFreeRate: formatInputNumber(0.064795),
     waccBeta: formatInputNumber(1.09),
     waccEquityRiskPremium: formatInputNumber(0.0738),
+    waccRatingBasedDefaultSpread: formatInputNumber(0.0207),
     waccCountryRiskPremium: formatInputNumber(-0.0207),
     waccSpecificRiskPremium: formatInputNumber(0),
     waccPreTaxCostOfDebt: formatInputNumber(0.088),
+    waccBankPerseroInvestmentLoanRate: "",
+    waccBankSwastaInvestmentLoanRate: "",
+    waccBankUmumInvestmentLoanRate: "",
     waccDebtWeight: formatInputNumber(0.17722560473918053),
     waccEquityWeight: formatInputNumber(0.8227743952608195),
+    waccDebtMarketValue: "",
+    waccEquityMarketValue: "",
+    waccComparable1Name: "",
+    waccComparable1BetaLevered: "",
+    waccComparable1MarketCap: "",
+    waccComparable1Debt: "",
+    waccComparable2Name: "",
+    waccComparable2BetaLevered: "",
+    waccComparable2MarketCap: "",
+    waccComparable2Debt: "",
+    waccComparable3Name: "",
+    waccComparable3BetaLevered: "",
+    waccComparable3MarketCap: "",
+    waccComparable3Debt: "",
     requiredReturnOnNta: formatInputNumber(sampleCase.requiredReturnOnNta),
     requiredReturnOnNtaSource: "computed-required-return-on-nta",
     requiredReturnOnNtaOverrideReason: "",

@@ -81,6 +81,26 @@ test("fixed asset schedule remains empty until user adds a class and then rolls 
   await expect(page.getByTestId("balance-sheet-position-table")).toContainText("Fixed Assets, Net");
 });
 
+test("AAM valuation remains available without WACC or EEM/DCF driver inputs", async ({ page }) => {
+  await page.getByLabel("Tanggal valuasi").fill("2021-12-31");
+  await openWorkflowTab(page, "Neraca & Fixed Asset");
+  await page.getByRole("button", { name: "Balance Sheet" }).first().click();
+  let balanceRow = page.getByTestId("balance-account-table-row").last();
+  await balanceRow.getByLabel("Nama akun").fill("Kas");
+  await balanceRow.getByLabel("Tahun Y amount").fill("1000000");
+  await page.getByRole("button", { name: "Balance Sheet" }).first().click();
+  balanceRow = page.getByTestId("balance-account-table-row").last();
+  await balanceRow.getByLabel("Nama akun").fill("Utang usaha");
+  await balanceRow.getByLabel("Tahun Y amount").fill("250000");
+
+  await openWorkflowTab(page, "Valuasi AAM");
+  await expect(page.getByText("Asset accumulation method")).toBeVisible();
+  await expect(page.getByText("Tidak diperlukan")).toBeVisible();
+
+  await openWorkflowTab(page, "Valuasi EEM/DCF");
+  await expect(page.getByTestId("readiness-valuationEemDcf")).toContainText("Masih diperlukan");
+});
+
 test("added analysis sections use readiness gates before sample data and render corrected workbook bridges after loading sample", async ({ page }) => {
   await openWorkflowTab(page, "NOPLAT & FCF");
   await expect(page.getByTestId("readiness-noplatFcf")).toBeVisible();
@@ -102,25 +122,34 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByText("Corrected NOPLAT basis")).toBeVisible();
 });
 
-test("assumption drivers expose statutory suggestions, input calculators, and active valuation sources", async ({ page }) => {
+test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators, and active valuation sources", async ({ page }) => {
   await page.getByLabel("Tanggal valuasi").fill("2023-12-31");
-  await openWorkflowTab(page, "Asumsi & Driver");
+  await openWorkflowTab(page, "Asumsi EEM/DCF");
 
   const taxCard = page.getByTestId("assumption-card-tax-rate");
   await expect(taxCard).toContainText("Statutory general 2023");
   await taxCard.getByRole("button", { name: /Statutory general 2023/ }).click();
   await expect(taxCard.getByLabel("Manual override")).toHaveValue("0,22");
 
+  await openWorkflowTab(page, "WACC");
+  await expect(page.getByTestId("wacc-suggestion-card")).toContainText("2023");
+  await expect(page.getByTestId("wacc-suggestion-card")).toContainText("Equity Risk Premium");
+  await page.getByRole("button", { name: /Terapkan suggestion 2023/ }).click();
+  await expect(page.getByTestId("wacc-calculator")).toContainText("Rating-based default spread");
+  await expect(page.getByTestId("wacc-comparable-table")).toContainText("Perusahaan Pembanding");
+  await expect(page.getByTestId("wacc-capital-structure-table")).toContainText("Struktur Kapital");
+
   await page.getByRole("button", { name: "Muat contoh workbook" }).click();
-  await openWorkflowTab(page, "Asumsi & Driver");
+  await openWorkflowTab(page, "WACC");
   await expect(page.getByTestId("wacc-calculator")).toContainText("WACC calculator");
   await expect(page.getByTestId("wacc-calculator")).toContainText("Risk-free rate");
+  await openWorkflowTab(page, "Asumsi EEM/DCF");
   await expect(page.getByTestId("terminal-growth-calculator")).toContainText("Terminal growth governance");
   await expect(page.getByTestId("required-return-on-nta-calculator")).toContainText("Receivables capacity");
   await expect(page.getByTestId("required-return-on-nta-calculator")).not.toContainText("BORROWING CAP");
   await expect(page.locator("body")).not.toContainText("STAT_ASSUMPTIONS");
 
-  await openWorkflowTab(page, "Valuasi");
+  await openWorkflowTab(page, "Valuasi EEM/DCF");
   await expect(page.getByLabel("Driver aktif valuasi")).toContainText("Calculated from WACC inputs");
   await expect(page.getByLabel("Driver aktif valuasi")).toContainText("Calculated from NTA capacity inputs");
 });
