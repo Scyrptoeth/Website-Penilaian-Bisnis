@@ -43,6 +43,7 @@ export const sampleCase: FinancialStatementSnapshot = {
   gaOverheads: -2_641_095_104,
   depreciation: -981_730_341,
   ebit: 2_261_432_441,
+  corporateTax: -436_128_347,
   interestIncome: 13_957_341,
   interestExpense: -942_033,
   nonOperatingIncome: -212_875,

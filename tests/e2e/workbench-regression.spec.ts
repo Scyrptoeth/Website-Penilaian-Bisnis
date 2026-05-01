@@ -42,9 +42,18 @@ test("period workflow, scoped categories, and display-only balance sheet classif
   await expect.poll(() => getTotalAssetsText(page)).toBe(totalBefore);
 
   await page.getByRole("tab", { name: "Laba Rugi" }).click();
-  await page.getByRole("button", { name: "Income Statement" }).click();
+  await page.getByRole("button", { name: "Income Statement" }).first().click();
   const incomeRow = page.getByTestId("income-account-table-row").last();
   await expect(incomeRow.getByLabel("Kategori utama").locator("option", { hasText: "Account payable" })).toHaveCount(0);
+  await incomeRow.getByLabel("Nama akun").fill("Corporate Tax");
+  await incomeRow.getByLabel("Tahun Y amount").fill("436128347");
+  await expect(incomeRow).toContainText("Saran: Corporate Tax");
+  await expect(incomeRow.getByLabel("Tahun Y amount")).toHaveValue("-436.128.347");
+  await expect(page.getByTestId("income-statement-report-table")).toContainText("Corporate Tax");
+  await expect(page.getByTestId("income-statement-report-table")).toContainText("-436.128.347");
+
+  await page.getByRole("button", { name: "Income Statement" }).last().click();
+  await expect(page.getByTestId("income-account-table-row")).toHaveCount(2);
 });
 
 test("fixed asset schedule remains empty until user adds a class and then rolls forward values", async ({ page }) => {
@@ -69,6 +78,57 @@ test("fixed asset schedule remains empty until user adds a class and then rolls 
   await expect(page.getByTestId("fixed-asset-net-value-table")).toContainText("135");
   await expect(page.getByTestId("fixed-asset-net-value-table")).toContainText("147");
   await expect(page.getByTestId("balance-sheet-position-table")).toContainText("Fixed Assets, Net");
+});
+
+test("legacy positive income-statement expense drafts migrate once and remain user-editable", async ({ page }) => {
+  await page.evaluate(() => {
+    window.localStorage.setItem(
+      "penilaian-valuasi-bisnis.workbench.v1",
+      JSON.stringify({
+        version: 1,
+        savedAt: "2026-05-01T00:00:00.000Z",
+        periods: [{ id: "p1", label: "Tahun Y", valuationDate: "", yearOffset: 0 }],
+        activePeriodId: "p1",
+        rows: [
+          {
+            id: "legacy-cogs",
+            statement: "income_statement",
+            accountName: "Beban pokok penjualan",
+            categoryOverride: "COST_OF_GOOD_SOLD",
+            balanceSheetClassification: "",
+            labelOverrides: [],
+            values: { p1: "100" },
+          },
+        ],
+        isFixedAssetScheduleEnabled: false,
+        fixedAssetScheduleRows: [],
+        assumptions: {
+          taxRate: "",
+          terminalGrowth: "",
+          revenueGrowth: "",
+          wacc: "",
+          requiredReturnOnNta: "",
+          arDays: "",
+          inventoryDays: "",
+          apDays: "",
+          otherPayableDays: "",
+        },
+      }),
+    );
+  });
+  await page.reload();
+  await page.getByRole("tab", { name: "Laba Rugi" }).click();
+
+  const amountInput = page.getByTestId("income-account-table-row").last().getByLabel("Tahun Y amount");
+  await expect(amountInput).toHaveValue("-100");
+  await amountInput.press("Home");
+  await amountInput.press("Delete");
+  await expect(amountInput).toHaveValue("100");
+  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(2);
+
+  await page.reload();
+  await page.getByRole("tab", { name: "Laba Rugi" }).click();
+  await expect(page.getByTestId("income-account-table-row").last().getByLabel("Tahun Y amount")).toHaveValue("100");
 });
 
 test("localStorage persistence, fixed header, and root overflow checks remain stable", async ({ page }) => {

@@ -785,6 +785,55 @@ select {
   white-space: nowrap;
 }
 
+.income-statement-report {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.income-statement-table {
+  min-width: 760px;
+  table-layout: fixed;
+}
+
+.income-statement-table th:first-child,
+.income-statement-table td:first-child {
+  width: 240px;
+}
+
+.income-statement-table th:nth-child(2),
+.income-statement-table td:nth-child(2) {
+  width: 190px;
+}
+
+.income-statement-table th.period-column,
+.income-statement-table td.period-column {
+  width: 132px;
+  text-align: right;
+}
+
+.income-section-row td {
+  border-top-color: var(--line-strong);
+  background: var(--surface-muted);
+  color: var(--accent-ink);
+  font-family: var(--font-mono), monospace;
+  font-size: 8.4px;
+  font-weight: 600;
+}
+
+.income-total-row td {
+  border-top-color: var(--line-strong);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+.income-derived-row td {
+  background: #fffdf4;
+}
+
 .account-entry-table {
   min-width: 1040px;
   table-layout: fixed;

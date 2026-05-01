@@ -310,6 +310,13 @@ export function getCategoryLabelProfile(category: AccountCategory): CategoryLabe
     formulaUsage.push("formula:noplat");
   }
 
+  if (category === "CORPORATE_TAX") {
+    placement = "Laba rugi";
+    treatment = "Tax expense";
+    signBehavior = "Expense reduces earnings";
+    labels.push("fs:expense", "sign:expense-negative", "review:judgment");
+  }
+
   if (fixedAssetCategories.has(category)) {
     formulaUsage.push("formula:fixed-asset", "formula:nta");
   }

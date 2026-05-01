@@ -30,6 +30,11 @@ import {
 } from "@/lib/valuation/balance-sheet-classification";
 import { buildBalanceSheetView, groupBalanceSheetLines, type BalanceSheetView } from "@/lib/valuation/balance-sheet-view";
 import {
+  buildIncomeStatementView,
+  formatIncomeStatementInputValue,
+  type IncomeStatementView,
+} from "@/lib/valuation/income-statement-view";
+import {
   accountLabelDefinitions,
   getAccountLabelDefinition,
   getCategoryLabelProfile,
@@ -96,7 +101,7 @@ const assumptionKeys: Array<keyof AssumptionState> = [
 const WORKBENCH_STORAGE_KEY = "penilaian-valuasi-bisnis.workbench.v1";
 const WORKBENCH_SCROLL_STORAGE_KEY = "penilaian-valuasi-bisnis.scroll.v1";
 const WORKBENCH_SIDEBAR_STORAGE_KEY = "penilaian-valuasi-bisnis.sidebar.v1";
-const WORKBENCH_STORAGE_VERSION = 1;
+const WORKBENCH_STORAGE_VERSION = 2;
 
 type PersistedWorkbenchState = {
   version: typeof WORKBENCH_STORAGE_VERSION;
@@ -154,6 +159,10 @@ export function ValuationWorkbench() {
   const balanceSheetView = useMemo(
     () => buildBalanceSheetView(periods, mappedRows, fixedAssetSchedule),
     [fixedAssetSchedule, mappedRows, periods],
+  );
+  const incomeStatementView = useMemo(
+    () => buildIncomeStatementView(periods, incomeStatementRows, fixedAssetSchedule),
+    [fixedAssetSchedule, incomeStatementRows, periods],
   );
   const methodCards = [results.aam, results.eem, results.dcf];
   const activePeriod = periods.find((period) => period.id === activePeriodId) ?? getDefaultActivePeriod(periods);
@@ -449,9 +458,16 @@ export function ValuationWorkbench() {
   function updateRowValue(rowId: string, periodId: string, value: string) {
     commitCoreState((current) => ({
       ...current,
-      rows: current.rows.map((row) =>
-        row.id === rowId ? { ...row, values: { ...row.values, [periodId]: formatEditableNumber(value) } } : row,
-      ),
+      rows: current.rows.map((row) => {
+        if (row.id !== rowId) {
+          return row;
+        }
+
+        const effectiveCategory = mapRow(row).effectiveCategory;
+        const formattedValue = formatIncomeStatementInputValue(effectiveCategory, row.statement, row.values[periodId] ?? "", value);
+
+        return { ...row, values: { ...row.values, [periodId]: formattedValue } };
+      }),
     }));
   }
 
@@ -747,6 +763,13 @@ export function ValuationWorkbench() {
             onUpdateRow={updateRow}
             onUpdateRowValue={updateRowValue}
           />
+          <div className="account-input-footer">
+            <button className="button secondary" type="button" onClick={() => addRow("income_statement")}>
+              <Plus size={18} />
+              Income Statement
+            </button>
+          </div>
+          <IncomeStatementReportTable periods={periods} view={incomeStatementView} />
         </section>
         ) : null}
 
@@ -1015,12 +1038,12 @@ function readPersistedWorkbenchState(): PersistedWorkbenchState | null {
 
     const parsed: unknown = JSON.parse(raw);
 
-    if (!isRecord(parsed) || parsed.version !== WORKBENCH_STORAGE_VERSION) {
+    if (!isRecord(parsed) || typeof parsed.version !== "number" || parsed.version < 1 || parsed.version > WORKBENCH_STORAGE_VERSION) {
       return null;
     }
 
     const periods = normalizePeriods(sanitizePeriods(parsed.periods));
-    const rows = sanitizeRows(parsed.rows);
+    const rows = parsed.version < 2 ? migrateLegacyIncomeStatementSigns(sanitizeRows(parsed.rows)) : sanitizeRows(parsed.rows);
     const fixedAssetScheduleRows = ensureFixedAssetSchedulePeriods(sanitizeFixedAssetScheduleRows(parsed.fixedAssetScheduleRows), periods);
     const assumptions = sanitizeAssumptions(parsed.assumptions);
     const activePeriodId = typeof parsed.activePeriodId === "string" ? parsed.activePeriodId : "";
@@ -1040,6 +1063,24 @@ function readPersistedWorkbenchState(): PersistedWorkbenchState | null {
   } catch {
     return null;
   }
+}
+
+function migrateLegacyIncomeStatementSigns(rows: AccountRow[]): AccountRow[] {
+  return rows.map((row) => {
+    if (row.statement !== "income_statement") {
+      return row;
+    }
+
+    const effectiveCategory = mapRow(row).effectiveCategory;
+    const values = Object.fromEntries(
+      Object.entries(row.values).map(([periodId, value]) => [
+        periodId,
+        formatIncomeStatementInputValue(effectiveCategory, row.statement, "", value),
+      ]),
+    );
+
+    return { ...row, values };
+  });
 }
 
 function persistWorkbenchState(state: PersistedWorkbenchState) {
@@ -1322,6 +1363,64 @@ function BalanceSheetPositionTable({ periods, view }: { periods: Period[]; view:
               })}
               <td />
             </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function IncomeStatementReportTable({ periods, view }: { periods: Period[]; view: IncomeStatementView }) {
+  if (!view.hasRows) {
+    return null;
+  }
+
+  return (
+    <div className="income-statement-report">
+      <div className="subpanel-heading">
+        <div>
+          <p className="eyebrow">Laporan Laba Rugi</p>
+          <h4>Revenue · EBITDA · EBIT · Net Profit After Tax</h4>
+        </div>
+        <span className="status-pill muted">Terstruktur dari mapping akun</span>
+      </div>
+      <div className="table-wrap">
+        <table className="income-statement-table" data-testid="income-statement-report-table">
+          <thead>
+            <tr>
+              <th>Pos</th>
+              <th>Sumber</th>
+              {periods.map((period) => (
+                <th className="period-column" key={period.id}>
+                  {period.label || "Periode"}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {view.lines.map((line) => {
+              if (line.kind === "section") {
+                return (
+                  <tr className="income-section-row" data-line-key={line.key} key={line.key}>
+                    <td colSpan={periods.length + 2}>{line.label}</td>
+                  </tr>
+                );
+              }
+
+              const rowClassName = line.kind === "subtotal" ? "income-total-row" : line.kind === "derived" ? "income-derived-row" : "";
+
+              return (
+                <tr className={rowClassName} data-line-key={line.key} key={line.key}>
+                  <td>{line.label}</td>
+                  <td>{line.source}</td>
+                  {periods.map((period) => (
+                    <td className="numeric-cell period-column" key={period.id}>
+                      {formatInputNumber(line.values[period.id] ?? 0)}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

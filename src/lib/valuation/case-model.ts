@@ -355,7 +355,12 @@ export function buildSampleRows(): AccountRow[] {
     categoryOverride,
     balanceSheetClassification: "",
     labelOverrides: [],
-    values: Object.fromEntries(Object.entries(values).map(([periodId, value]) => [periodId, formatInputNumber(Math.abs(value))])),
+    values: Object.fromEntries(
+      Object.entries(values).map(([periodId, value]) => [
+        periodId,
+        formatInputNumber(statement === "income_statement" ? value : Math.abs(value)),
+      ]),
+    ),
   });
 
   return [
@@ -470,6 +475,11 @@ export function buildSampleRows(): AccountRow[] {
       p2020: 0,
       p2021: sampleCase.nonOperatingIncome,
     }),
+    row("sample-corporate-tax", "income_statement", "Corporate Tax", "CORPORATE_TAX", {
+      p2019: -305_333_971,
+      p2020: -165_937_126,
+      p2021: sampleCase.corporateTax,
+    }),
     row("sample-commercial-npat", "income_statement", "Laba bersih komersial", "COMMERCIAL_NPAT", {
       p2019: 440_745_074,
       p2020: 754_862_153,
@@ -537,14 +547,17 @@ export function buildSnapshot(
   const totalLiabilitiesOverride = amount(activeAggregate("TOTAL_LIABILITIES"));
   const derivedTotalLiabilities = bankLoanShortTerm + accountPayable + taxPayable + otherPayable + bankLoanLongTerm + broadLiabilities;
 
-  const revenue = amount(activeAggregate("REVENUE"));
-  const cogsAmount = amount(activeAggregate("COST_OF_GOOD_SOLD"));
-  const sellingExpense = amount(activeAggregate("SELLING_EXPENSE"));
-  const gaOverheads = amount(activeAggregate("GENERAL_ADMINISTRATIVE_OVERHEADS", "OPERATING_EXPENSE"));
-  const depreciation = amount(activeAggregate("DEPRECIATION_EXPENSE"));
+  const revenue = activeAggregate("REVENUE");
+  const cogsAmount = activeAggregate("COST_OF_GOOD_SOLD");
+  const sellingExpense = activeAggregate("SELLING_EXPENSE");
+  const gaOverheads = activeAggregate("GENERAL_ADMINISTRATIVE_OVERHEADS", "OPERATING_EXPENSE");
+  const fixedAssetScheduleDepreciation = fixedAssetSchedule.hasInput ? -amount(fixedAssetScheduleAmounts?.depreciationAdditions ?? 0) : 0;
+  const depreciationInput = activeAggregate("DEPRECIATION_EXPENSE");
+  const depreciation = depreciationInput || fixedAssetScheduleDepreciation;
   const ebitOverride = activeAggregate("EBIT");
-  const computedEbit = revenue - cogsAmount - sellingExpense - gaOverheads - depreciation;
+  const computedEbit = revenue + cogsAmount + sellingExpense + gaOverheads + depreciation;
   const ebit = ebitOverride ? ebitOverride : computedEbit;
+  const corporateTax = activeAggregate("CORPORATE_TAX");
 
   return {
     valuationDate: activePeriod?.valuationDate || activePeriod?.label || "",
@@ -553,9 +566,9 @@ export function buildSnapshot(
     revenueGrowth: parseRate(assumptions.revenueGrowth) || historicalDrivers.revenueGrowth,
     wacc: parseRate(assumptions.wacc),
     requiredReturnOnNta: parseRate(assumptions.requiredReturnOnNta),
-    cogsMargin: historicalDrivers.cogsMargin || (revenue ? cogsAmount / revenue : 0),
-    gaMargin: historicalDrivers.gaMargin || (revenue ? (sellingExpense + gaOverheads) / revenue : 0),
-    depreciationMargin: historicalDrivers.depreciationMargin || (revenue ? depreciation / revenue : 0),
+    cogsMargin: historicalDrivers.cogsMargin || (revenue ? -cogsAmount / revenue : 0),
+    gaMargin: historicalDrivers.gaMargin || (revenue ? -(sellingExpense + gaOverheads) / revenue : 0),
+    depreciationMargin: historicalDrivers.depreciationMargin || (revenue ? -depreciation / revenue : 0),
     arDays: parseInputNumber(assumptions.arDays) || historicalDrivers.arDays,
     inventoryDays: parseInputNumber(assumptions.inventoryDays) || historicalDrivers.inventoryDays,
     apDays: parseInputNumber(assumptions.apDays) || historicalDrivers.apDays,
@@ -584,13 +597,14 @@ export function buildSnapshot(
     retainedEarningsCurrentProfit: amount(activeAggregate("RETAINED_EARNINGS_CURRENT_PROFIT")),
     commercialNpat: amount(activeAggregate("COMMERCIAL_NPAT")),
     revenue,
-    cogs: -cogsAmount,
-    sellingExpense: -sellingExpense,
-    gaOverheads: -gaOverheads,
-    depreciation: -depreciation,
+    cogs: cogsAmount,
+    sellingExpense,
+    gaOverheads,
+    depreciation,
     ebit,
+    corporateTax,
     interestIncome: activeAggregate("INTEREST_INCOME"),
-    interestExpense: -amount(activeAggregate("INTEREST_EXPENSE")),
+    interestExpense: activeAggregate("INTEREST_EXPENSE"),
     nonOperatingIncome: activeAggregate("NON_OPERATING_INCOME"),
   };
 }
@@ -609,11 +623,11 @@ export function deriveHistoricalDrivers(periods: Period[], mappedRows: MappedRow
   const chronologicalPeriods = getChronologicalPeriods(periods);
   const periodMetrics = chronologicalPeriods.map((period) => {
     const aggregate = (...categories: AccountCategory[]) => aggregateForPeriod(mappedRows, period.id, categories);
-    const revenue = amount(aggregate("REVENUE"));
-    const cogs = amount(aggregate("COST_OF_GOOD_SOLD"));
-    const selling = amount(aggregate("SELLING_EXPENSE"));
-    const ga = amount(aggregate("GENERAL_ADMINISTRATIVE_OVERHEADS", "OPERATING_EXPENSE"));
-    const depreciation = amount(aggregate("DEPRECIATION_EXPENSE"));
+    const revenue = aggregate("REVENUE");
+    const cogs = aggregate("COST_OF_GOOD_SOLD");
+    const selling = aggregate("SELLING_EXPENSE");
+    const ga = aggregate("GENERAL_ADMINISTRATIVE_OVERHEADS", "OPERATING_EXPENSE");
+    const depreciation = aggregate("DEPRECIATION_EXPENSE");
     const ar = amount(aggregate("ACCOUNT_RECEIVABLE"));
     const inventory = amount(aggregate("INVENTORY"));
     const ap = amount(aggregate("ACCOUNT_PAYABLE"));
@@ -638,13 +652,13 @@ export function deriveHistoricalDrivers(periods: Period[], mappedRows: MappedRow
 
   return {
     revenueGrowth,
-    cogsMargin: averageRatio(periodMetrics, (metric) => metric.cogs, (metric) => metric.revenue),
-    gaMargin: averageRatio(periodMetrics, (metric) => metric.selling + metric.ga, (metric) => metric.revenue),
-    depreciationMargin: averageRatio(periodMetrics, (metric) => metric.depreciation, (metric) => metric.revenue),
+    cogsMargin: averageRatio(periodMetrics, (metric) => -metric.cogs, (metric) => metric.revenue),
+    gaMargin: averageRatio(periodMetrics, (metric) => -(metric.selling + metric.ga), (metric) => metric.revenue),
+    depreciationMargin: averageRatio(periodMetrics, (metric) => -metric.depreciation, (metric) => metric.revenue),
     arDays: averageRatio(periodMetrics, (metric) => metric.ar * 365, (metric) => metric.revenue),
-    inventoryDays: averageRatio(periodMetrics, (metric) => metric.inventory * 365, (metric) => metric.cogs),
-    apDays: averageRatio(periodMetrics, (metric) => metric.ap * 365, (metric) => metric.cogs),
-    otherPayableDays: averageRatio(periodMetrics, (metric) => metric.otherPayable * 365, (metric) => metric.selling + metric.ga),
+    inventoryDays: averageRatio(periodMetrics, (metric) => metric.inventory * 365, (metric) => Math.abs(metric.cogs)),
+    apDays: averageRatio(periodMetrics, (metric) => metric.ap * 365, (metric) => Math.abs(metric.cogs)),
+    otherPayableDays: averageRatio(periodMetrics, (metric) => metric.otherPayable * 365, (metric) => Math.abs(metric.selling + metric.ga)),
   };
 }
 

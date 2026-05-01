@@ -31,6 +31,18 @@ describe("account taxonomy mapping", () => {
     assert.equal(shouldAutoApplyMapping(mapping), false);
   });
 
+  it("maps corporate tax to the income-statement tax row without treating tax payable as an expense", () => {
+    const incomeTax = mapAccount("Corporate Tax", "income_statement");
+    const taxPayable = mapAccount("Hutang pajak", "balance_sheet");
+
+    assert.equal(incomeTax.category, "CORPORATE_TAX");
+    assert.equal(incomeTax.confidenceBand, "high");
+    assert.equal(incomeTax.statementCompatible, true);
+    assert.equal(shouldAutoApplyMapping(incomeTax), true);
+    assert.equal(taxPayable.category, "TAX_PAYABLE");
+    assert.equal(taxPayable.statementCompatible, true);
+  });
+
   it("keeps empty labels unmapped", () => {
     const mapping = mapAccount("", "balance_sheet");
 

@@ -35,6 +35,7 @@ export type AccountCategory =
   | "OPERATING_EXPENSE"
   | "EBIT"
   | "COMMERCIAL_NPAT"
+  | "CORPORATE_TAX"
   | "INTEREST_INCOME"
   | "INTEREST_EXPENSE"
   | "NON_OPERATING_INCOME"
@@ -137,6 +138,7 @@ export interface FinancialStatementSnapshot {
   gaOverheads: number;
   depreciation: number;
   ebit: number;
+  corporateTax: number;
   interestIncome: number;
   interestExpense: number;
   nonOperatingIncome: number;
