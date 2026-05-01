@@ -21,6 +21,15 @@ import {
 } from "lucide-react";
 import { accountMappingRules } from "@/lib/valuation/account-taxonomy";
 import {
+  applyBalanceSheetClassificationToDisplayLabels,
+  balanceSheetClassificationLabelMap,
+  balanceSheetClassificationValueSet,
+  getBalanceSheetClassificationOptions,
+  getEffectiveBalanceSheetClassification,
+  inferBalanceSheetClassification,
+} from "@/lib/valuation/balance-sheet-classification";
+import { buildBalanceSheetView, groupBalanceSheetLines, type BalanceSheetView } from "@/lib/valuation/balance-sheet-view";
+import {
   accountLabelDefinitions,
   getAccountLabelDefinition,
   getCategoryLabelProfile,
@@ -49,7 +58,6 @@ import {
   initialPeriods,
   mapRow,
   normalizePeriods,
-  parseInputNumber,
   statementLabels,
   type AccountRow,
   type AssumptionState,
@@ -62,110 +70,10 @@ import {
   type Period,
   type StatementType,
 } from "@/lib/valuation/case-model";
+import { categoryLabelMap, categoryOptions, categoryOptionsByStatement } from "@/lib/valuation/category-options";
 import { formatDisplayDate, formatEditableNumber, formatIdr, formatInputNumber, formatPercent, formatScore } from "@/lib/valuation/format";
-import type { AccountCategory, FinancialStatementSnapshot, FormulaTrace } from "@/lib/valuation/types";
-
-const categoryOptions: Array<{ value: AccountCategory; label: string }> = [
-  { value: "UNMAPPED", label: "Perlu ditinjau / belum dipetakan" },
-  { value: "TOTAL_ASSETS", label: "Total assets override" },
-  { value: "CURRENT_ASSET", label: "Current asset - broad" },
-  { value: "CASH_ON_HAND", label: "Cash on hand / kas" },
-  { value: "CASH_ON_BANK", label: "Cash on bank / deposit" },
-  { value: "ACCOUNT_RECEIVABLE", label: "Account receivable" },
-  { value: "EMPLOYEE_RECEIVABLE", label: "Employee / related-party receivable" },
-  { value: "INVENTORY", label: "Inventory" },
-  { value: "FIXED_ASSET", label: "Fixed asset net value" },
-  { value: "FIXED_ASSET_ACQUISITION", label: "Fixed asset acquisition cost" },
-  { value: "ACCUMULATED_DEPRECIATION", label: "Accumulated depreciation" },
-  { value: "INTANGIBLE_ASSETS", label: "Intangible assets" },
-  { value: "NON_CURRENT_ASSET", label: "Non-current asset - broad" },
-  { value: "TOTAL_LIABILITIES", label: "Total liabilities override" },
-  { value: "CURRENT_LIABILITIES", label: "Current liabilities - broad" },
-  { value: "BANK_LOAN_SHORT_TERM", label: "Bank loan - short term" },
-  { value: "ACCOUNT_PAYABLE", label: "Account payable" },
-  { value: "TAX_PAYABLE", label: "Tax payable" },
-  { value: "OTHER_PAYABLE", label: "Other payable" },
-  { value: "BANK_LOAN_LONG_TERM", label: "Bank loan - long term" },
-  { value: "NON_CURRENT_LIABILITIES", label: "Non-current liabilities - broad" },
-  { value: "MODAL_DISETOR", label: "Modal disetor" },
-  { value: "PENAMBAHAN_MODAL_DISETOR", label: "Penambahan modal disetor" },
-  { value: "RETAINED_EARNINGS_SURPLUS", label: "Retained earnings surplus" },
-  { value: "RETAINED_EARNINGS_CURRENT_PROFIT", label: "Retained earnings current profit" },
-  { value: "REVENUE", label: "Revenue" },
-  { value: "COST_OF_GOOD_SOLD", label: "Cost of goods sold" },
-  { value: "SELLING_EXPENSE", label: "Selling expense" },
-  { value: "GENERAL_ADMINISTRATIVE_OVERHEADS", label: "General & administrative expense" },
-  { value: "OPERATING_EXPENSE", label: "Operating expense - other" },
-  { value: "DEPRECIATION_EXPENSE", label: "Depreciation expense" },
-  { value: "EBIT", label: "Commercial EBIT override" },
-  { value: "COMMERCIAL_NPAT", label: "Commercial NPAT" },
-  { value: "INTEREST_INCOME", label: "Interest income" },
-  { value: "INTEREST_EXPENSE", label: "Interest expense" },
-  { value: "NON_OPERATING_INCOME", label: "Non-operating income / expense" },
-  { value: "NON_OPERATING_FIXED_ASSETS", label: "Non-operating fixed assets" },
-  { value: "EXCESS_CASH", label: "Excess cash" },
-  { value: "MARKETABLE_SECURITIES", label: "Marketable securities" },
-  { value: "INTEREST_PAYABLE", label: "Interest payable" },
-  { value: "INTEREST_BEARING_DEBT", label: "Interest-bearing debt" },
-  { value: "SURPLUS_ASSET_CASH", label: "Surplus asset cash" },
-  { value: "WORKING_CAPITAL", label: "Working capital support" },
-  { value: "CASH_FLOW_FROM_FINANCING", label: "Cash flow from financing" },
-  { value: "CASH_FLOW_FROM_OPERATIONS", label: "Cash flow from operations" },
-  { value: "CASH_FLOW_FROM_NON_OPERATIONS", label: "Cash flow from non-operations" },
-  { value: "CASH_FLOW_AVAILABLE_TO_INVESTOR", label: "Cash flow available to investor" },
-];
-
-const categoryLabelMap = new Map(categoryOptions.map((option) => [option.value, option.label]));
-const categoryOptionsByStatement: Record<StatementType, Set<AccountCategory>> = {
-  balance_sheet: new Set([
-    "UNMAPPED",
-    "TOTAL_ASSETS",
-    "CURRENT_ASSET",
-    "CASH_ON_HAND",
-    "CASH_ON_BANK",
-    "ACCOUNT_RECEIVABLE",
-    "EMPLOYEE_RECEIVABLE",
-    "INVENTORY",
-    "FIXED_ASSET",
-    "FIXED_ASSET_ACQUISITION",
-    "ACCUMULATED_DEPRECIATION",
-    "INTANGIBLE_ASSETS",
-    "NON_CURRENT_ASSET",
-    "TOTAL_LIABILITIES",
-    "CURRENT_LIABILITIES",
-    "BANK_LOAN_SHORT_TERM",
-    "ACCOUNT_PAYABLE",
-    "TAX_PAYABLE",
-    "OTHER_PAYABLE",
-    "BANK_LOAN_LONG_TERM",
-    "NON_CURRENT_LIABILITIES",
-    "MODAL_DISETOR",
-    "PENAMBAHAN_MODAL_DISETOR",
-    "RETAINED_EARNINGS_SURPLUS",
-    "RETAINED_EARNINGS_CURRENT_PROFIT",
-    "NON_OPERATING_FIXED_ASSETS",
-    "EXCESS_CASH",
-    "MARKETABLE_SECURITIES",
-    "INTEREST_PAYABLE",
-    "INTEREST_BEARING_DEBT",
-    "SURPLUS_ASSET_CASH",
-  ]),
-  income_statement: new Set([
-    "UNMAPPED",
-    "REVENUE",
-    "COST_OF_GOOD_SOLD",
-    "SELLING_EXPENSE",
-    "GENERAL_ADMINISTRATIVE_OVERHEADS",
-    "OPERATING_EXPENSE",
-    "DEPRECIATION_EXPENSE",
-    "EBIT",
-    "COMMERCIAL_NPAT",
-    "INTEREST_INCOME",
-    "INTEREST_EXPENSE",
-    "NON_OPERATING_INCOME",
-  ]),
-  fixed_asset: new Set(["UNMAPPED", "FIXED_ASSET", "FIXED_ASSET_ACQUISITION", "ACCUMULATED_DEPRECIATION", "DEPRECIATION_EXPENSE"]),
-};
+import { buildValidationChecks } from "@/lib/valuation/validation-checks";
+import type { AccountCategory, FormulaTrace } from "@/lib/valuation/types";
 const confidenceBandLabels: Record<ReturnType<typeof mapRow>["mapping"]["confidenceBand"], string> = {
   high: "Tinggi",
   medium: "Sedang",
@@ -174,31 +82,6 @@ const confidenceBandLabels: Record<ReturnType<typeof mapRow>["mapping"]["confide
 };
 const categoryValueSet = new Set<AccountCategory>(categoryOptions.map((option) => option.value));
 const statementValueSet = new Set<StatementType>(["balance_sheet", "income_statement", "fixed_asset"]);
-const balanceSheetClassificationOptions: Array<{ value: BalanceSheetClassification; label: string }> = [
-  { value: "current_asset", label: "Current Asset" },
-  { value: "non_current_asset", label: "Non-current Asset" },
-  { value: "asset_total", label: "Total Asset / Override" },
-  { value: "current_liability", label: "Current Liability" },
-  { value: "non_current_liability", label: "Non-current Liability" },
-  { value: "liability_total", label: "Total Liability / Override" },
-  { value: "equity", label: "Equity" },
-];
-const balanceSheetClassificationLabelMap = new Map(balanceSheetClassificationOptions.map((option) => [option.value, option.label]));
-const balanceSheetClassificationValueSet = new Set<BalanceSheetClassification>(balanceSheetClassificationOptions.map((option) => option.value));
-const balanceSheetClassificationLabelIds: Partial<Record<BalanceSheetClassification, AccountLabelId>> = {
-  current_asset: "fs:current-asset",
-  non_current_asset: "fs:non-current-asset",
-  current_liability: "fs:current-liability",
-  non_current_liability: "fs:non-current-liability",
-  equity: "fs:equity",
-};
-const balanceSheetDetailLabelIds = new Set<AccountLabelId>([
-  "fs:current-asset",
-  "fs:non-current-asset",
-  "fs:current-liability",
-  "fs:non-current-liability",
-  "fs:equity",
-]);
 const assumptionKeys: Array<keyof AssumptionState> = [
   "taxRate",
   "terminalGrowth",
@@ -230,35 +113,6 @@ type WorkbenchCoreState = Omit<PersistedWorkbenchState, "version" | "savedAt">;
 
 type WorkflowTabId = "periods" | "balance" | "income" | "mapping" | "assumptions" | "valuation" | "audit";
 
-type BalanceSheetLine = {
-  label: string;
-  categoryId: AccountCategory | "DERIVED_FIXED_ASSET";
-  category: string;
-  balanceSheetClassification: BalanceSheetClassification | "";
-  source: string;
-  values: Record<string, number>;
-  affectsTotal?: boolean;
-  isDerived?: boolean;
-  isOverride?: boolean;
-};
-
-type BalanceSheetSection = {
-  title: string;
-  lines: BalanceSheetLine[];
-  totalLabel: string;
-  totalValues: Record<string, number>;
-};
-
-type BalanceSheetView = {
-  sections: BalanceSheetSection[];
-  totalAssets: Record<string, number>;
-  totalLiabilities: Record<string, number>;
-  totalEquity: Record<string, number>;
-  balanceGap: Record<string, number>;
-  hasRows: boolean;
-  hasFixedAssetScheduleLines: boolean;
-};
-
 const workflowTabs: Array<{ id: WorkflowTabId; label: string }> = [
   { id: "periods", label: "Periode" },
   { id: "balance", label: "Neraca & Fixed Asset" },
@@ -270,157 +124,6 @@ const workflowTabs: Array<{ id: WorkflowTabId; label: string }> = [
 ];
 
 const MAX_HISTORY_STEPS = 80;
-
-const assetCategories = new Set<AccountCategory>([
-  "CASH_ON_HAND",
-  "CASH_ON_BANK",
-  "ACCOUNT_RECEIVABLE",
-  "EMPLOYEE_RECEIVABLE",
-  "INVENTORY",
-  "CURRENT_ASSET",
-  "FIXED_ASSET",
-  "FIXED_ASSET_ACQUISITION",
-  "ACCUMULATED_DEPRECIATION",
-  "NON_CURRENT_ASSET",
-  "NON_OPERATING_FIXED_ASSETS",
-  "INTANGIBLE_ASSETS",
-  "EXCESS_CASH",
-  "MARKETABLE_SECURITIES",
-  "SURPLUS_ASSET_CASH",
-  "TOTAL_ASSETS",
-]);
-
-const liabilityCategories = new Set<AccountCategory>([
-  "BANK_LOAN_SHORT_TERM",
-  "ACCOUNT_PAYABLE",
-  "TAX_PAYABLE",
-  "OTHER_PAYABLE",
-  "CURRENT_LIABILITIES",
-  "BANK_LOAN_LONG_TERM",
-  "NON_CURRENT_LIABILITIES",
-  "INTEREST_PAYABLE",
-  "INTEREST_BEARING_DEBT",
-  "TOTAL_LIABILITIES",
-]);
-
-const equityCategories = new Set<AccountCategory>([
-  "MODAL_DISETOR",
-  "PENAMBAHAN_MODAL_DISETOR",
-  "RETAINED_EARNINGS_SURPLUS",
-  "RETAINED_EARNINGS_CURRENT_PROFIT",
-]);
-
-function inferBalanceSheetClassification(category: AccountCategory): BalanceSheetClassification | "" {
-  if (category === "TOTAL_ASSETS") {
-    return "asset_total";
-  }
-
-  if (category === "TOTAL_LIABILITIES") {
-    return "liability_total";
-  }
-
-  if (
-    category === "CURRENT_ASSET" ||
-    category === "CASH_ON_HAND" ||
-    category === "CASH_ON_BANK" ||
-    category === "ACCOUNT_RECEIVABLE" ||
-    category === "EMPLOYEE_RECEIVABLE" ||
-    category === "INVENTORY" ||
-    category === "EXCESS_CASH" ||
-    category === "MARKETABLE_SECURITIES" ||
-    category === "SURPLUS_ASSET_CASH"
-  ) {
-    return "current_asset";
-  }
-
-  if (
-    category === "NON_CURRENT_ASSET" ||
-    category === "FIXED_ASSET" ||
-    category === "FIXED_ASSET_ACQUISITION" ||
-    category === "ACCUMULATED_DEPRECIATION" ||
-    category === "NON_OPERATING_FIXED_ASSETS" ||
-    category === "INTANGIBLE_ASSETS"
-  ) {
-    return "non_current_asset";
-  }
-
-  if (
-    category === "CURRENT_LIABILITIES" ||
-    category === "BANK_LOAN_SHORT_TERM" ||
-    category === "ACCOUNT_PAYABLE" ||
-    category === "TAX_PAYABLE" ||
-    category === "OTHER_PAYABLE" ||
-    category === "INTEREST_PAYABLE"
-  ) {
-    return "current_liability";
-  }
-
-  if (category === "NON_CURRENT_LIABILITIES" || category === "BANK_LOAN_LONG_TERM" || category === "INTEREST_BEARING_DEBT") {
-    return "non_current_liability";
-  }
-
-  if (equityCategories.has(category)) {
-    return "equity";
-  }
-
-  return "";
-}
-
-function getBalanceSheetClassificationOptions(category: AccountCategory): Array<{ value: BalanceSheetClassification; label: string }> {
-  if (category === "TOTAL_ASSETS") {
-    return balanceSheetClassificationOptions.filter((option) => option.value === "asset_total");
-  }
-
-  if (category === "TOTAL_LIABILITIES") {
-    return balanceSheetClassificationOptions.filter((option) => option.value === "liability_total");
-  }
-
-  if (assetCategories.has(category)) {
-    return balanceSheetClassificationOptions.filter((option) => option.value === "current_asset" || option.value === "non_current_asset");
-  }
-
-  if (liabilityCategories.has(category)) {
-    return balanceSheetClassificationOptions.filter((option) => option.value === "current_liability" || option.value === "non_current_liability");
-  }
-
-  if (equityCategories.has(category)) {
-    return balanceSheetClassificationOptions.filter((option) => option.value === "equity");
-  }
-
-  return balanceSheetClassificationOptions.filter(
-    (option) =>
-      option.value === "current_asset" ||
-      option.value === "non_current_asset" ||
-      option.value === "current_liability" ||
-      option.value === "non_current_liability",
-  );
-}
-
-function getEffectiveBalanceSheetClassification(item: MappedRow): BalanceSheetClassification | "" {
-  const options = getBalanceSheetClassificationOptions(item.effectiveCategory);
-  const allowedValues = new Set(options.map((option) => option.value));
-  const override = item.row.balanceSheetClassification;
-
-  if (override && allowedValues.has(override)) {
-    return override;
-  }
-
-  return inferBalanceSheetClassification(item.effectiveCategory);
-}
-
-function applyBalanceSheetClassificationToDisplayLabels(
-  statement: StatementType,
-  labels: AccountLabelId[],
-  classification: BalanceSheetClassification | "",
-): AccountLabelId[] {
-  const classificationLabelId = classification ? balanceSheetClassificationLabelIds[classification] : undefined;
-
-  if (statement !== "balance_sheet" || !classificationLabelId) {
-    return labels;
-  }
-
-  return Array.from(new Set([...labels.filter((labelId) => !balanceSheetDetailLabelIds.has(labelId)), classificationLabelId]));
-}
 
 export function ValuationWorkbench() {
   const [periods, setPeriods] = useState<Period[]>(initialPeriods);
@@ -661,11 +364,13 @@ export function ValuationWorkbench() {
       const nextPeriods = normalizePeriods(current.periods.filter((period) => period.id !== id));
       const defaultActivePeriod = getDefaultActivePeriod(nextPeriods);
       const rows = current.rows.map((row) => {
-        const { [id]: _removed, ...values } = row.values;
+        const values = { ...row.values };
+        delete values[id];
         return { ...row, values };
       });
       const fixedAssetScheduleRows = current.fixedAssetScheduleRows.map((row) => {
-        const { [id]: _removed, ...values } = row.values;
+        const values = { ...row.values };
+        delete values[id];
         return { ...row, values };
       });
 
@@ -812,9 +517,9 @@ export function ValuationWorkbench() {
   }
 
   return (
-    <main className={isSidebarCollapsed ? "app-shell sidebar-collapsed" : "app-shell"}>
+    <main className={isSidebarCollapsed ? "app-shell sidebar-collapsed" : "app-shell"} data-testid="valuation-workbench">
       {isSidebarCollapsed ? (
-        <div className="sidebar-rail" aria-label="Navigasi ringkas">
+        <div className="sidebar-rail" aria-label="Navigasi ringkas" data-testid="sidebar-rail">
           <button
             className="sidebar-toggle"
             type="button"
@@ -859,7 +564,7 @@ export function ValuationWorkbench() {
       )}
 
       <section className="workspace">
-        <div className="sticky-workspace-header">
+        <div className="sticky-workspace-header" data-testid="workspace-header">
           <header className="topbar">
             <div>
               <p className="eyebrow">100% equity · controlling marketable basis · no DLOM/DLOC</p>
@@ -924,7 +629,7 @@ export function ValuationWorkbench() {
                 .join(" ");
 
               return (
-                <div className={periodCardClassName} key={period.id}>
+                <div className={periodCardClassName} data-testid="period-card" data-year-offset={getPeriodYearOffset(period)} key={period.id}>
                   <CalendarDays size={18} />
                   <label>
                     <span>Label</span>
@@ -1002,6 +707,7 @@ export function ValuationWorkbench() {
             emptyMessage="Belum ada akun neraca. Tambahkan baris dari tombol Balance Sheet di atas."
             mappedRows={balanceSheetRows}
             periods={periods}
+            testId="balance-account-table"
             onRemoveRow={removeRow}
             onToggleLabel={toggleRowLabel}
             onUpdateRow={updateRow}
@@ -1035,6 +741,7 @@ export function ValuationWorkbench() {
             emptyMessage="Belum ada akun laba rugi. Tambahkan baris Income Statement."
             mappedRows={incomeStatementRows}
             periods={periods}
+            testId="income-account-table"
             onRemoveRow={removeRow}
             onToggleLabel={toggleRowLabel}
             onUpdateRow={updateRow}
@@ -1512,220 +1219,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function buildBalanceSheetView(periods: Period[], mappedRows: MappedRow[], fixedAssetSchedule: FixedAssetScheduleSummary): BalanceSheetView {
-  const assetLines: BalanceSheetLine[] = [];
-  const liabilityLines: BalanceSheetLine[] = [];
-  const equityLines: BalanceSheetLine[] = [];
-  const manualFixedAssetAcquisitionValues = zeroPeriodValues(periods);
-  const manualAccumulatedDepreciationValues = zeroPeriodValues(periods);
-  const explicitFixedAssetNetValues = zeroPeriodValues(periods);
-  let hasManualFixedAssetDetail = false;
-
-  mappedRows.forEach((item) => {
-    if (item.row.statement !== "balance_sheet" || item.effectiveCategory === "UNMAPPED") {
-      return;
-    }
-
-    const rawValues = Object.fromEntries(periods.map((period) => [period.id, parseInputNumber(item.row.values[period.id] ?? "")]));
-    const values =
-      item.effectiveCategory === "ACCUMULATED_DEPRECIATION"
-        ? Object.fromEntries(periods.map((period) => [period.id, -Math.abs(rawValues[period.id] ?? 0)]))
-        : rawValues;
-
-    if (item.effectiveCategory === "FIXED_ASSET_ACQUISITION") {
-      addPeriodValues(manualFixedAssetAcquisitionValues, rawValues, periods);
-      hasManualFixedAssetDetail = true;
-    }
-
-    if (item.effectiveCategory === "ACCUMULATED_DEPRECIATION") {
-      addPeriodValues(
-        manualAccumulatedDepreciationValues,
-        Object.fromEntries(periods.map((period) => [period.id, Math.abs(rawValues[period.id] ?? 0)])),
-        periods,
-      );
-      hasManualFixedAssetDetail = true;
-    }
-
-    if (item.effectiveCategory === "FIXED_ASSET") {
-      addPeriodValues(explicitFixedAssetNetValues, rawValues, periods);
-    }
-
-    const line: BalanceSheetLine = {
-      label: item.row.accountName || categoryLabelMap.get(item.effectiveCategory) || item.effectiveCategory,
-      categoryId: item.effectiveCategory,
-      category: categoryLabelMap.get(item.effectiveCategory) || item.effectiveCategory,
-      balanceSheetClassification: getEffectiveBalanceSheetClassification(item),
-      source: "Input akun",
-      values,
-      affectsTotal: item.effectiveCategory !== "FIXED_ASSET_ACQUISITION" && item.effectiveCategory !== "ACCUMULATED_DEPRECIATION",
-      isOverride: item.effectiveCategory === "TOTAL_ASSETS" || item.effectiveCategory === "TOTAL_LIABILITIES",
-    };
-
-    if (assetCategories.has(item.effectiveCategory)) {
-      assetLines.push(line);
-      return;
-    }
-
-    if (liabilityCategories.has(item.effectiveCategory)) {
-      liabilityLines.push(line);
-      return;
-    }
-
-    if (equityCategories.has(item.effectiveCategory)) {
-      equityLines.push(line);
-    }
-  });
-
-  if (fixedAssetSchedule.hasInput) {
-    assetLines.push(
-      buildDerivedFixedAssetLine(
-        periods,
-        fixedAssetSchedule,
-        "Beginning",
-        "Acquisition ending",
-        (amounts) => amounts.acquisitionEnding,
-        false,
-      ),
-      buildDerivedFixedAssetLine(
-        periods,
-        fixedAssetSchedule,
-        "Accumulated Depreciations",
-        "Contra asset",
-        (amounts) => -amounts.depreciationEnding,
-        false,
-      ),
-      buildDerivedFixedAssetLine(periods, fixedAssetSchedule, "Fixed Assets, Net", "Net fixed assets", (amounts) => amounts.netValue),
-    );
-  }
-
-  if (hasManualFixedAssetDetail) {
-    const derivedManualFixedAssetNetValues = Object.fromEntries(
-      periods.map((period) => {
-        const explicitNet =
-          (explicitFixedAssetNetValues[period.id] ?? 0) + (fixedAssetSchedule.hasInput ? (fixedAssetSchedule.totals[period.id]?.netValue ?? 0) : 0);
-        const manualNet = Math.max(
-          0,
-          (manualFixedAssetAcquisitionValues[period.id] ?? 0) - (manualAccumulatedDepreciationValues[period.id] ?? 0),
-        );
-
-        return [period.id, explicitNet ? 0 : manualNet];
-      }),
-    );
-
-    if (hasAnyNonZeroValue(derivedManualFixedAssetNetValues)) {
-      assetLines.push({
-        label: "Fixed Assets, Net",
-        categoryId: "DERIVED_FIXED_ASSET",
-        category: "Net fixed assets from detail",
-        balanceSheetClassification: "non_current_asset",
-        source: "Input akun",
-        values: derivedManualFixedAssetNetValues,
-        affectsTotal: true,
-        isDerived: true,
-      });
-    }
-  }
-
-  const totalAssets = totalWithOverride(periods, assetLines, "TOTAL_ASSETS");
-  const totalLiabilities = totalWithOverride(periods, liabilityLines, "TOTAL_LIABILITIES");
-  const totalEquity = sumLineValues(periods, equityLines);
-  const balanceGap = Object.fromEntries(
-    periods.map((period) => [period.id, (totalAssets[period.id] ?? 0) - (totalLiabilities[period.id] ?? 0) - (totalEquity[period.id] ?? 0)]),
-  );
-
-  return {
-    sections: [
-      { title: "Aset", lines: assetLines, totalLabel: "Total Aset", totalValues: totalAssets },
-      { title: "Liabilitas", lines: liabilityLines, totalLabel: "Total Liabilitas", totalValues: totalLiabilities },
-      { title: "Ekuitas", lines: equityLines, totalLabel: "Total Ekuitas", totalValues: totalEquity },
-    ],
-    totalAssets,
-    totalLiabilities,
-    totalEquity,
-    balanceGap,
-    hasRows: assetLines.length > 0 || liabilityLines.length > 0 || equityLines.length > 0,
-    hasFixedAssetScheduleLines: fixedAssetSchedule.hasInput,
-  };
-}
-
-function zeroPeriodValues(periods: Period[]): Record<string, number> {
-  return Object.fromEntries(periods.map((period) => [period.id, 0]));
-}
-
-function addPeriodValues(target: Record<string, number>, values: Record<string, number>, periods: Period[]) {
-  periods.forEach((period) => {
-    target[period.id] = (target[period.id] ?? 0) + (values[period.id] ?? 0);
-  });
-}
-
-function hasAnyNonZeroValue(values: Record<string, number>) {
-  return Object.values(values).some((value) => Math.abs(value) > 0.000001);
-}
-
-function buildDerivedFixedAssetLine(
-  periods: Period[],
-  fixedAssetSchedule: FixedAssetScheduleSummary,
-  label: string,
-  category: string,
-  getValue: (amounts: FixedAssetPeriodAmounts) => number,
-  affectsTotal = true,
-): BalanceSheetLine {
-  return {
-    label,
-    categoryId: "DERIVED_FIXED_ASSET",
-    category,
-    balanceSheetClassification: "non_current_asset",
-    source: "Fixed Asset Schedule",
-    values: Object.fromEntries(
-      periods.map((period) => [period.id, getValue(fixedAssetSchedule.totals[period.id] ?? emptyFixedAssetAmounts())]),
-    ),
-    affectsTotal,
-    isDerived: true,
-  };
-}
-
-function totalWithOverride(periods: Period[], lines: BalanceSheetLine[], overrideCategory: AccountCategory): Record<string, number> {
-  const overrideLines = lines.filter((line) => line.categoryId === overrideCategory);
-  const componentLines = lines.filter((line) => line.categoryId !== overrideCategory && line.affectsTotal !== false);
-  const overrideValues = sumLineValues(periods, overrideLines);
-  const componentValues = sumLineValues(periods, componentLines);
-
-  return Object.fromEntries(periods.map((period) => [period.id, overrideValues[period.id] || componentValues[period.id] || 0]));
-}
-
-function sumLineValues(periods: Period[], lines: BalanceSheetLine[]): Record<string, number> {
-  return Object.fromEntries(
-    periods.map((period) => [period.id, lines.reduce((sum, line) => sum + (line.values[period.id] ?? 0), 0)]),
-  );
-}
-
-function groupBalanceSheetLines(lines: BalanceSheetLine[]): Array<{ key: string; label: string; lines: BalanceSheetLine[] }> {
-  const groupOrder: Array<BalanceSheetClassification | "unclassified"> = [
-    "current_asset",
-    "non_current_asset",
-    "asset_total",
-    "current_liability",
-    "non_current_liability",
-    "liability_total",
-    "equity",
-    "unclassified",
-  ];
-  const groupedLines = new Map<string, BalanceSheetLine[]>();
-
-  lines.forEach((line) => {
-    const key = line.balanceSheetClassification || "unclassified";
-    groupedLines.set(key, [...(groupedLines.get(key) ?? []), line]);
-  });
-
-  return Array.from(groupedLines.entries())
-    .sort(([left], [right]) => groupOrder.indexOf(left as BalanceSheetClassification | "unclassified") - groupOrder.indexOf(right as BalanceSheetClassification | "unclassified"))
-    .map(([key, grouped]) => ({
-      key,
-      label: key === "unclassified" ? "Belum diklasifikasi" : balanceSheetClassificationLabelMap.get(key as BalanceSheetClassification) ?? key,
-      lines: grouped,
-    }));
-}
-
 function BalanceSheetPositionTable({ periods, view }: { periods: Period[]; view: BalanceSheetView }) {
   if (!view.hasRows) {
     return null;
@@ -1741,7 +1234,7 @@ function BalanceSheetPositionTable({ periods, view }: { periods: Period[]; view:
         <span className="status-pill muted">{view.hasFixedAssetScheduleLines ? "Termasuk fixed asset otomatis" : "Dikelompokkan otomatis"}</span>
       </div>
       <div className="table-wrap">
-        <table className="balance-sheet-table">
+        <table className="balance-sheet-table" data-testid="balance-sheet-position-table">
           <thead>
             <tr>
               <th>Pos</th>
@@ -1840,6 +1333,7 @@ function AccountInputTable({
   emptyMessage,
   mappedRows,
   periods,
+  testId,
   onRemoveRow,
   onToggleLabel,
   onUpdateRow,
@@ -1848,6 +1342,7 @@ function AccountInputTable({
   emptyMessage: string;
   mappedRows: MappedRow[];
   periods: Period[];
+  testId: string;
   onRemoveRow: (id: string) => void;
   onToggleLabel: (rowId: string, labelId: AccountLabelId) => void;
   onUpdateRow: (id: string, patch: Partial<AccountRow>) => void;
@@ -1860,8 +1355,8 @@ function AccountInputTable({
   const hasBalanceSheetClassificationColumn = mappedRows.some((item) => item.row.statement === "balance_sheet");
 
   return (
-    <div className="table-wrap">
-      <table className={hasBalanceSheetClassificationColumn ? "account-entry-table balance-entry-table" : "account-entry-table"}>
+    <div className="table-wrap" data-testid={`${testId}-wrap`}>
+      <table className={hasBalanceSheetClassificationColumn ? "account-entry-table balance-entry-table" : "account-entry-table"} data-testid={testId}>
         <thead>
           <tr>
             <th>Sumber</th>
@@ -1882,9 +1377,10 @@ function AccountInputTable({
             const balanceSheetClassificationOptionsForRow = getBalanceSheetClassificationOptions(effectiveCategory);
 
             return (
-              <tr key={row.id}>
+              <tr data-testid={`${testId}-row`} key={row.id}>
                 <td>
                   <select
+                    aria-label="Sumber laporan"
                     value={row.statement}
                     onChange={(event) =>
                       onUpdateRow(row.id, {
@@ -1906,6 +1402,7 @@ function AccountInputTable({
                     {row.statement === "balance_sheet" ? (
                       <div className="balance-classification-cell">
                         <select
+                          aria-label="Klasifikasi neraca"
                           value={balanceSheetClassification}
                           onChange={(event) =>
                             onUpdateRow(row.id, { balanceSheetClassification: event.target.value as BalanceSheetClassification | "" })
@@ -1932,6 +1429,7 @@ function AccountInputTable({
                 <td>
                   <input
                     className="account-name-input"
+                    aria-label="Nama akun"
                     placeholder="Ketik nama akun sesuai laporan"
                     value={row.accountName}
                     onChange={(event) => onUpdateRow(row.id, { accountName: event.target.value })}
@@ -1942,6 +1440,7 @@ function AccountInputTable({
                 </td>
                 <td>
                   <select
+                    aria-label="Kategori utama"
                     value={row.categoryOverride || effectiveCategory}
                     onChange={(event) => {
                       const nextCategory = event.target.value as AccountCategory;
@@ -1969,6 +1468,7 @@ function AccountInputTable({
                 {periods.map((period) => (
                   <td key={period.id}>
                     <input
+                      aria-label={`${period.label || "Periode"} amount`}
                       inputMode="decimal"
                       placeholder="0"
                       value={row.values[period.id] ?? ""}
@@ -2167,7 +1667,7 @@ function FixedAssetScheduleEditor({
   const firstPeriodId = chronologicalPeriods[0]?.id ?? periods[0]?.id;
 
   return (
-    <div className="fixed-asset-editor">
+    <div className="fixed-asset-editor" data-testid="fixed-asset-editor">
       <div className="subpanel-heading">
         <div>
           <p className="eyebrow">Fixed Asset Schedule</p>
@@ -2183,7 +1683,7 @@ function FixedAssetScheduleEditor({
       </div>
 
       {schedule.rows.length === 0 ? (
-        <div className="empty-state">Belum ada kelas aset. Gunakan tombol Tambah kelas aset untuk mulai menginput fixed asset.</div>
+        <div className="empty-state" data-testid="fixed-asset-empty">Belum ada kelas aset. Gunakan tombol Tambah kelas aset untuk mulai menginput fixed asset.</div>
       ) : (
         <>
           <FixedAssetSectionTable
@@ -2243,7 +1743,7 @@ function FixedAssetSectionTable({
     <div className="fixed-asset-section">
       <h5>{title}</h5>
       <div className="table-wrap fixed-asset-table-wrap">
-        <table className="fixed-asset-table">
+        <table className="fixed-asset-table" data-testid={title.startsWith("A.") ? "fixed-asset-acquisition-table" : "fixed-asset-depreciation-table"}>
           <thead>
             <tr>
               <th rowSpan={2}>Asset class</th>
@@ -2265,10 +1765,11 @@ function FixedAssetSectionTable({
           </thead>
           <tbody>
             {schedule.rows.map(({ row, amounts }) => (
-              <tr key={row.id}>
+              <tr data-testid="fixed-asset-row" key={row.id}>
                 <td>
                   <div className="asset-name-cell">
                     <input
+                      aria-label="Asset class"
                       value={row.assetName}
                       onChange={(event) => onUpdateRow(row.id, { assetName: event.target.value })}
                       placeholder="Nama kelas aset"
@@ -2290,6 +1791,7 @@ function FixedAssetSectionTable({
                       <td>
                         {isManualBeginning ? (
                           <input
+                            aria-label={`${title} ${period.label || "Periode"} Beginning`}
                             inputMode="decimal"
                             value={values[beginningKey] ?? ""}
                             onChange={(event) => onUpdateValue(row.id, period.id, beginningKey, event.target.value)}
@@ -2301,6 +1803,7 @@ function FixedAssetSectionTable({
                       </td>
                       <td>
                         <input
+                          aria-label={`${title} ${period.label || "Periode"} Additions`}
                           inputMode="decimal"
                           value={values[additionsKey] ?? ""}
                           onChange={(event) => onUpdateValue(row.id, period.id, additionsKey, event.target.value)}
@@ -2341,7 +1844,7 @@ function FixedAssetNetValueTable({ periods, schedule }: { periods: Period[]; sch
     <div className="fixed-asset-section">
       <h5>Net Value Fixed Assets</h5>
       <div className="table-wrap fixed-asset-table-wrap">
-        <table className="fixed-asset-table net-value-table">
+        <table className="fixed-asset-table net-value-table" data-testid="fixed-asset-net-value-table">
           <thead>
             <tr>
               <th>Asset class</th>
@@ -2393,42 +1896,4 @@ function FormulaList({ traces }: { traces: FormulaTrace[] }) {
       ))}
     </div>
   );
-}
-
-function buildValidationChecks(
-  rows: AccountRow[],
-  mappedRows: MappedRow[],
-  assumptions: AssumptionState,
-  snapshot: FinancialStatementSnapshot,
-  balanceSheetGap: number,
-  fixedAssetSchedule: FixedAssetScheduleSummary,
-): Array<{ label: string; ok: boolean }> {
-  const hasEquityComponents =
-    snapshot.paidUpCapital !== 0 ||
-    snapshot.additionalPaidInCapital !== 0 ||
-    snapshot.retainedEarningsSurplus !== 0 ||
-    snapshot.retainedEarningsCurrentProfit !== 0;
-  const balanceTolerance = Math.max(1, Math.abs(snapshot.totalAssets) * 0.001);
-  const hasManualFixedAssetNet = mappedRows.some((item) => item.effectiveCategory === "FIXED_ASSET");
-  const checks = [
-    { label: "Akun sudah diinput", ok: rows.length > 0 || fixedAssetSchedule.hasInput },
-    {
-      label: "Pemetaan siap ditinjau",
-      ok: fixedAssetSchedule.hasInput || mappedRows.some((item) => item.effectiveCategory !== "UNMAPPED"),
-    },
-    { label: "Neraca terisi", ok: snapshot.totalAssets !== 0 || snapshot.totalLiabilities !== 0 },
-    { label: "Balance check", ok: !hasEquityComponents || Math.abs(balanceSheetGap) <= balanceTolerance },
-    { label: "Laba rugi terisi", ok: snapshot.revenue !== 0 || snapshot.ebit !== 0 },
-    { label: "Tax rate", ok: assumptions.taxRate.trim() !== "" },
-    { label: "WACC", ok: assumptions.wacc.trim() !== "" },
-  ];
-
-  if (fixedAssetSchedule.hasInput) {
-    checks.push(
-      { label: "Jadwal aset tetap otomatis", ok: snapshot.fixedAssetsNet !== 0 },
-      { label: "Tidak double count fixed asset", ok: !hasManualFixedAssetNet },
-    );
-  }
-
-  return checks;
 }
