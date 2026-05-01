@@ -1,0 +1,28 @@
+export const workbookAuditFixture = {
+  sourceWorkbook: "KKP Saham Baru Edit - FINAL ACCOUNT CATEGORY REVIEW.xlsx",
+  sourceFolder: "/Users/persiapantubel/Desktop/codex/penilaian-bisnis",
+  sourceSummary: "final_account_category_review_summary.json",
+  valuationDate: "2021-12-31",
+  taxRate: 0.22,
+  values: {
+    sourceNoplat: 1_825_304_094,
+    normalizedNoplat: 1_763_917_303.98,
+    sourceFcf2021: 5_597_188_426,
+    sourceCfo2021: 5_597_188_426,
+    sourceCfsWorkingCapitalChange: 2_790_153_991,
+    operatingNwc2021: -2_707_664_417,
+    cashFlowRollforwardGap: 10_559_019_302,
+    equityInjectionSource: 5_280_000_000,
+    correctedEquityInjectionMovement: -3_150_000_000,
+    sourceRoicExcessCash: 717_848_795,
+    sourceDcf: 60_965_153_743.2762,
+    correctedDcf: 34_009_467_929.99399,
+    correctedEem: 19_886_438_291.38458,
+    correctedAam: 13_701_055_249,
+  },
+  notes: [
+    "Workbook source cash-flow statement is not used directly for valuation because financing used ending paid-up/additional capital instead of period movement.",
+    "Website calculations use corrected operating working capital, normalized NOPLAT, and formula trace as the default engine.",
+    "Workbook values are retained as an audit reference for bridge checks and reviewer context.",
+  ],
+} as const;

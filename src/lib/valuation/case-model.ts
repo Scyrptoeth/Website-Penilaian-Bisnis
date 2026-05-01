@@ -522,30 +522,36 @@ export function buildSnapshot(
   const excessCash = amount(activeAggregate("EXCESS_CASH"));
   const marketableSecurities = amount(activeAggregate("MARKETABLE_SECURITIES"));
   const surplusAssetCash = amount(activeAggregate("SURPLUS_ASSET_CASH"));
-  const broadAssets = amount(activeAggregate("CURRENT_ASSET", "NON_CURRENT_ASSET"));
+  const broadCurrentAssets = amount(activeAggregate("CURRENT_ASSET"));
+  const broadNonCurrentAssets = amount(activeAggregate("NON_CURRENT_ASSET"));
   const totalAssetsOverride = amount(activeAggregate("TOTAL_ASSETS"));
-  const derivedTotalAssets =
+  const derivedCurrentAssets =
     cashOnHand +
     cashOnBankDeposit +
     accountReceivable +
     employeeReceivable +
     inventory +
-    fixedAssetsNet +
-    nonOperatingFixedAssets +
-    intangibleAssets +
     excessCash +
     marketableSecurities +
     surplusAssetCash +
-    broadAssets;
+    broadCurrentAssets;
+  const derivedNonCurrentAssets = fixedAssetsNet + nonOperatingFixedAssets + intangibleAssets + broadNonCurrentAssets;
+  const derivedTotalAssets =
+    derivedCurrentAssets +
+    derivedNonCurrentAssets;
 
   const bankLoanShortTerm = amount(activeAggregate("BANK_LOAN_SHORT_TERM"));
   const accountPayable = amount(activeAggregate("ACCOUNT_PAYABLE"));
   const taxPayable = amount(activeAggregate("TAX_PAYABLE"));
   const otherPayable = amount(activeAggregate("OTHER_PAYABLE"));
+  const interestPayable = amount(activeAggregate("INTEREST_PAYABLE"));
   const bankLoanLongTerm = amount(activeAggregate("BANK_LOAN_LONG_TERM", "INTEREST_BEARING_DEBT"));
-  const broadLiabilities = amount(activeAggregate("CURRENT_LIABILITIES", "NON_CURRENT_LIABILITIES", "INTEREST_PAYABLE"));
+  const broadCurrentLiabilities = amount(activeAggregate("CURRENT_LIABILITIES"));
+  const broadNonCurrentLiabilities = amount(activeAggregate("NON_CURRENT_LIABILITIES"));
   const totalLiabilitiesOverride = amount(activeAggregate("TOTAL_LIABILITIES"));
-  const derivedTotalLiabilities = bankLoanShortTerm + accountPayable + taxPayable + otherPayable + bankLoanLongTerm + broadLiabilities;
+  const derivedCurrentLiabilities = bankLoanShortTerm + accountPayable + taxPayable + otherPayable + interestPayable + broadCurrentLiabilities;
+  const derivedNonCurrentLiabilities = bankLoanLongTerm + broadNonCurrentLiabilities;
+  const derivedTotalLiabilities = derivedCurrentLiabilities + derivedNonCurrentLiabilities;
 
   const revenue = activeAggregate("REVENUE");
   const cogsAmount = activeAggregate("COST_OF_GOOD_SOLD");
@@ -558,6 +564,11 @@ export function buildSnapshot(
   const computedEbit = revenue + cogsAmount + sellingExpense + gaOverheads + depreciation;
   const ebit = ebitOverride ? ebitOverride : computedEbit;
   const corporateTax = activeAggregate("CORPORATE_TAX");
+
+  const paidUpCapital = amount(activeAggregate("MODAL_DISETOR"));
+  const additionalPaidInCapital = amount(activeAggregate("PENAMBAHAN_MODAL_DISETOR"));
+  const retainedEarningsSurplus = amount(activeAggregate("RETAINED_EARNINGS_SURPLUS"));
+  const retainedEarningsCurrentProfit = amount(activeAggregate("RETAINED_EARNINGS_CURRENT_PROFIT"));
 
   return {
     valuationDate: activePeriod?.valuationDate || activePeriod?.label || "",
@@ -584,17 +595,23 @@ export function buildSnapshot(
     excessCash,
     marketableSecurities,
     surplusAssetCash,
+    currentAssets: derivedCurrentAssets,
+    nonCurrentAssets: derivedNonCurrentAssets,
     totalAssets: totalAssetsOverride || derivedTotalAssets,
     bankLoanShortTerm,
     accountPayable,
     taxPayable,
     otherPayable,
+    interestPayable,
     bankLoanLongTerm,
+    currentLiabilities: derivedCurrentLiabilities,
+    nonCurrentLiabilities: derivedNonCurrentLiabilities,
     totalLiabilities: totalLiabilitiesOverride || derivedTotalLiabilities,
-    paidUpCapital: amount(activeAggregate("MODAL_DISETOR")),
-    additionalPaidInCapital: amount(activeAggregate("PENAMBAHAN_MODAL_DISETOR")),
-    retainedEarningsSurplus: amount(activeAggregate("RETAINED_EARNINGS_SURPLUS")),
-    retainedEarningsCurrentProfit: amount(activeAggregate("RETAINED_EARNINGS_CURRENT_PROFIT")),
+    paidUpCapital,
+    additionalPaidInCapital,
+    retainedEarningsSurplus,
+    retainedEarningsCurrentProfit,
+    bookEquity: paidUpCapital + additionalPaidInCapital + retainedEarningsSurplus + retainedEarningsCurrentProfit,
     commercialNpat: amount(activeAggregate("COMMERCIAL_NPAT")),
     revenue,
     cogs: cogsAmount,

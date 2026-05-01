@@ -30,6 +30,7 @@ export function adjustedTotalLiabilities(snapshot: FinancialStatementSnapshot): 
     snapshot.accountPayable +
     snapshot.taxPayable +
     snapshot.otherPayable +
+    snapshot.interestPayable +
     snapshot.bankLoanLongTerm;
 
   return snapshot.totalLiabilities || componentTotal;

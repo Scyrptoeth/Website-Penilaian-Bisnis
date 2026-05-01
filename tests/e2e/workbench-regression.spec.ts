@@ -8,6 +8,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("period workflow, scoped categories, and display-only balance sheet classification", async ({ page }) => {
+  await expect(page.locator(".mobile-workflow-tabs")).toBeHidden();
   await expect(page.getByTestId("period-card")).toHaveCount(1);
   await page.getByRole("button", { name: /Tambah Y-1/ }).click();
   await page.getByRole("button", { name: /Tambah Y-2/ }).click();
@@ -28,7 +29,7 @@ test("period workflow, scoped categories, and display-only balance sheet classif
   ]);
   await expect(page.locator('[data-testid="period-card"][data-year-offset="0"]').getByTitle("Tahun Y tidak bisa dihapus")).toBeDisabled();
 
-  await page.getByRole("tab", { name: "Neraca & Fixed Asset" }).click();
+  await openWorkflowTab(page, "Neraca & Fixed Asset");
   await page.getByRole("button", { name: "Balance Sheet" }).first().click();
   const balanceRow = page.getByTestId("balance-account-table-row").last();
   await balanceRow.getByLabel("Nama akun").fill("Kas");
@@ -41,7 +42,7 @@ test("period workflow, scoped categories, and display-only balance sheet classif
   await expect(page.getByTestId("balance-sheet-position-table")).toContainText("Non-current Asset");
   await expect.poll(() => getTotalAssetsText(page)).toBe(totalBefore);
 
-  await page.getByRole("tab", { name: "Laba Rugi" }).click();
+  await openWorkflowTab(page, "Laba Rugi");
   await page.getByRole("button", { name: "Income Statement" }).first().click();
   const incomeRow = page.getByTestId("income-account-table-row").last();
   await expect(incomeRow.getByLabel("Kategori utama").locator("option", { hasText: "Account payable" })).toHaveCount(0);
@@ -58,7 +59,7 @@ test("period workflow, scoped categories, and display-only balance sheet classif
 
 test("fixed asset schedule remains empty until user adds a class and then rolls forward values", async ({ page }) => {
   await page.getByRole("button", { name: /Tambah Y-1/ }).click();
-  await page.getByRole("tab", { name: "Neraca & Fixed Asset" }).click();
+  await openWorkflowTab(page, "Neraca & Fixed Asset");
   await page.getByRole("button", { name: "Fixed Asset Schedule" }).click();
   await expect(page.getByTestId("fixed-asset-empty")).toBeVisible();
 
@@ -78,6 +79,27 @@ test("fixed asset schedule remains empty until user adds a class and then rolls 
   await expect(page.getByTestId("fixed-asset-net-value-table")).toContainText("135");
   await expect(page.getByTestId("fixed-asset-net-value-table")).toContainText("147");
   await expect(page.getByTestId("balance-sheet-position-table")).toContainText("Fixed Assets, Net");
+});
+
+test("added analysis sections use readiness gates before sample data and render corrected workbook bridges after loading sample", async ({ page }) => {
+  await openWorkflowTab(page, "NOPLAT & FCF");
+  await expect(page.getByTestId("readiness-noplatFcf")).toBeVisible();
+  await expect(page.getByTestId("readiness-noplatFcf")).toContainText("Masih diperlukan");
+  await page.getByTestId("readiness-noplatFcf").getByRole("link", { name: /Isi Laba Rugi/ }).first().click();
+  await expect(workflowNav(page).getByRole("button", { name: "Laba Rugi" })).toHaveAttribute("aria-current", "page");
+
+  await page.getByRole("button", { name: "Muat contoh workbook" }).click();
+  await openWorkflowTab(page, "Payables & Cash Flow");
+  await expect(page.getByText("Corrected cash-flow bridge")).toBeVisible();
+  await expect(page.getByText(/3\.150\.000\.000/).first()).toBeVisible();
+
+  await openWorkflowTab(page, "NOPLAT & FCF");
+  await expect(page.getByText("Free cash flow to firm")).toBeVisible();
+  await expect(page.getByText("Commercial statutory basis")).toBeVisible();
+
+  await openWorkflowTab(page, "Ratios & Capital Efficiency");
+  await expect(page.getByText("Capital efficiency bridge")).toBeVisible();
+  await expect(page.getByText("Corrected NOPLAT basis")).toBeVisible();
 });
 
 test("legacy positive income-statement expense drafts migrate once and remain user-editable", async ({ page }) => {
@@ -117,7 +139,7 @@ test("legacy positive income-statement expense drafts migrate once and remain us
     );
   });
   await page.reload();
-  await page.getByRole("tab", { name: "Laba Rugi" }).click();
+  await openWorkflowTab(page, "Laba Rugi");
 
   const amountInput = page.getByTestId("income-account-table-row").last().getByLabel("Tahun Y amount");
   await expect(amountInput).toHaveValue("-100");
@@ -127,12 +149,12 @@ test("legacy positive income-statement expense drafts migrate once and remain us
   await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(2);
 
   await page.reload();
-  await page.getByRole("tab", { name: "Laba Rugi" }).click();
+  await openWorkflowTab(page, "Laba Rugi");
   await expect(page.getByTestId("income-account-table-row").last().getByLabel("Tahun Y amount")).toHaveValue("100");
 });
 
 test("localStorage persistence, fixed header, and root overflow checks remain stable", async ({ page }) => {
-  await page.getByRole("tab", { name: "Neraca & Fixed Asset" }).click();
+  await openWorkflowTab(page, "Neraca & Fixed Asset");
   await page.getByTitle("Sembunyikan sidebar").click();
   await expect.poll(() => page.evaluate(() => window.localStorage.getItem("penilaian-valuasi-bisnis.sidebar.v1"))).toBe("collapsed");
   await page.getByRole("button", { name: "Balance Sheet" }).first().click();
@@ -141,7 +163,7 @@ test("localStorage persistence, fixed header, and root overflow checks remain st
 
   await expect(page.getByTestId("sidebar-rail")).toBeVisible();
   await page.getByRole("button", { name: "Tampilkan sidebar" }).click();
-  await page.getByRole("tab", { name: "Neraca & Fixed Asset" }).click();
+  await openWorkflowTab(page, "Neraca & Fixed Asset");
   await expect(page.getByTestId("balance-account-table-row").last().getByLabel("Nama akun")).toHaveValue("Piutang usaha");
 
   for (let index = 0; index < 12; index += 1) {
@@ -154,12 +176,21 @@ test("localStorage persistence, fixed header, and root overflow checks remain st
   expect(await hasNoRootHorizontalOverflow(page)).toBe(true);
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByTestId("workspace-header")).toBeVisible();
+  await expect(page.locator(".mobile-workflow-tabs")).toBeVisible();
   expect(await hasNoRootHorizontalOverflow(page)).toBe(true);
 });
 
 async function getTotalAssetsText(page: Page) {
   const totalAssetsRow = page.getByTestId("balance-sheet-position-table").locator("tr.total-row").filter({ hasText: "Total Aset" }).first();
   return totalAssetsRow.locator(".numeric-cell").last().innerText();
+}
+
+function workflowNav(page: Page) {
+  return page.getByRole("navigation", { name: "Bagian model" });
+}
+
+async function openWorkflowTab(page: Page, name: string) {
+  await workflowNav(page).getByRole("button", { name }).click();
 }
 
 async function hasNoRootHorizontalOverflow(page: Page) {

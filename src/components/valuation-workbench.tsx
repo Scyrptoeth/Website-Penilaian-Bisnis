@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
+  ArrowRight,
   Banknote,
   Calculator,
   CalendarDays,
@@ -77,7 +78,10 @@ import {
 } from "@/lib/valuation/case-model";
 import { categoryLabelMap, categoryOptions, categoryOptionsByStatement } from "@/lib/valuation/category-options";
 import { formatDisplayDate, formatEditableNumber, formatIdr, formatInputNumber, formatPercent, formatScore } from "@/lib/valuation/format";
+import { buildWorkbenchReadiness, type SectionReadiness, type WorkbenchReadiness, type WorkbenchSectionId } from "@/lib/valuation/readiness";
+import { buildSectionAnalysis, type AnalysisRow, type AnalysisValue, type RatioRow, type SectionAnalysis } from "@/lib/valuation/section-analysis";
 import { buildValidationChecks } from "@/lib/valuation/validation-checks";
+import { workbookAuditFixture } from "@/lib/valuation/workbook-audit-fixture";
 import type { AccountCategory, FormulaTrace } from "@/lib/valuation/types";
 const confidenceBandLabels: Record<ReturnType<typeof mapRow>["mapping"]["confidenceBand"], string> = {
   high: "Tinggi",
@@ -116,7 +120,7 @@ type PersistedWorkbenchState = {
 
 type WorkbenchCoreState = Omit<PersistedWorkbenchState, "version" | "savedAt">;
 
-type WorkflowTabId = "periods" | "balance" | "income" | "mapping" | "assumptions" | "valuation" | "audit";
+type WorkflowTabId = WorkbenchSectionId;
 
 const workflowTabs: Array<{ id: WorkflowTabId; label: string }> = [
   { id: "periods", label: "Periode" },
@@ -125,6 +129,9 @@ const workflowTabs: Array<{ id: WorkflowTabId; label: string }> = [
   { id: "mapping", label: "Mapping & Label" },
   { id: "assumptions", label: "Asumsi & Driver" },
   { id: "valuation", label: "Valuasi" },
+  { id: "payablesCashFlow", label: "Payables & Cash Flow" },
+  { id: "noplatFcf", label: "NOPLAT & FCF" },
+  { id: "ratiosCapital", label: "Ratios & Capital Efficiency" },
   { id: "audit", label: "Audit" },
 ];
 
@@ -156,6 +163,10 @@ export function ValuationWorkbench() {
     [periods, activePeriodId, rows, assumptions, fixedAssetScheduleRows],
   );
   const results = useMemo(() => calculateAllMethods(snapshot), [snapshot]);
+  const sectionAnalysis = useMemo(
+    () => buildSectionAnalysis(periods, rows, assumptions, fixedAssetScheduleRows),
+    [periods, rows, assumptions, fixedAssetScheduleRows],
+  );
   const balanceSheetView = useMemo(
     () => buildBalanceSheetView(periods, mappedRows, fixedAssetSchedule),
     [fixedAssetSchedule, mappedRows, periods],
@@ -187,6 +198,10 @@ export function ValuationWorkbench() {
     ) ||
     Object.values(assumptions).some((value) => value.trim() !== "");
   const checks = buildValidationChecks(rows, mappedRows, assumptions, snapshot, balanceSheetGap, fixedAssetSchedule);
+  const readiness = useMemo(
+    () => buildWorkbenchReadiness({ periods, rows, mappedRows, assumptions, snapshot, fixedAssetSchedule }),
+    [assumptions, fixedAssetSchedule, mappedRows, periods, rows, snapshot],
+  );
 
   function getCurrentCoreState(): WorkbenchCoreState {
     return {
@@ -243,6 +258,14 @@ export function ValuationWorkbench() {
     setRedoStack((stack) => stack.slice(1));
     setUndoStack((stack) => [...stack.slice(-(MAX_HISTORY_STEPS - 1)), cloneCoreState(getCurrentCoreState())]);
     applyCoreState(cloneCoreState(next));
+  }
+
+  function navigateToWorkflowTab(tabId: WorkflowTabId) {
+    setActiveWorkflowTab(tabId);
+
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0 });
+    }
   }
 
   useEffect(() => {
@@ -570,6 +593,7 @@ export function ValuationWorkbench() {
                 className={activeWorkflowTab === item.id ? "active" : ""}
                 type="button"
                 onClick={() => setActiveWorkflowTab(item.id)}
+                aria-current={activeWorkflowTab === item.id ? "page" : undefined}
                 key={item.id}
               >
                 {item.label}
@@ -604,7 +628,7 @@ export function ValuationWorkbench() {
             </div>
           </header>
 
-          <div className="workflow-tabs" role="tablist" aria-label="Workflow valuasi">
+          <div className="workflow-tabs mobile-workflow-tabs" role="tablist" aria-label="Workflow valuasi">
             {workflowTabs.map((tab) => (
               <button
                 className={activeWorkflowTab === tab.id ? "active" : ""}
@@ -632,6 +656,7 @@ export function ValuationWorkbench() {
               Tambah {nextHistoricalPeriodLabel}
             </button>
           </div>
+          <ReadinessPanel status={readiness.periods} onNavigate={navigateToWorkflowTab} />
           <div className="period-grid">
             {periods.map((period) => {
               const isValuationYear = getPeriodYearOffset(period) === 0;
@@ -696,6 +721,7 @@ export function ValuationWorkbench() {
               </button>
             </div>
           </div>
+          <ReadinessPanel status={readiness.balance} onNavigate={navigateToWorkflowTab} />
 
           {shouldShowFixedAssetSchedule ? (
             <FixedAssetScheduleEditor
@@ -753,6 +779,7 @@ export function ValuationWorkbench() {
               Income Statement
             </button>
           </div>
+          <ReadinessPanel status={readiness.income} onNavigate={navigateToWorkflowTab} />
           <AccountInputTable
             emptyMessage="Belum ada akun laba rugi. Tambahkan baris Income Statement."
             mappedRows={incomeStatementRows}
@@ -786,6 +813,7 @@ export function ValuationWorkbench() {
                 {accountMappingRules.length} aturan
               </div>
             </div>
+            <ReadinessPanel status={readiness.mapping} onNavigate={navigateToWorkflowTab} />
             <MappingTable mappedRows={mappedRows} />
           </article>
         </section>
@@ -799,6 +827,7 @@ export function ValuationWorkbench() {
               <h3>Driver model</h3>
             </div>
           </div>
+          <ReadinessPanel status={readiness.assumptions} onNavigate={navigateToWorkflowTab} />
           <div className="assumption-form-grid">
             <AssumptionInput label="Tax rate" value={assumptions.taxRate} onChange={(value) => updateAssumption("taxRate", value)} />
             <AssumptionInput label="Revenue growth override" value={assumptions.revenueGrowth} onChange={(value) => updateAssumption("revenueGrowth", value)} />
@@ -822,6 +851,7 @@ export function ValuationWorkbench() {
         ) : null}
 
         {activeWorkflowTab === "valuation" ? (
+        readiness.valuation.isReady ? (
         <>
         <section id="summary" className="section-grid">
           {methodCards.map((method) => (
@@ -941,6 +971,33 @@ export function ValuationWorkbench() {
           </article>
         </section>
         </>
+        ) : (
+          <ReadinessPanel status={readiness.valuation} onNavigate={navigateToWorkflowTab} force />
+        )
+        ) : null}
+
+        {activeWorkflowTab === "payablesCashFlow" ? (
+          readiness.payablesCashFlow.isReady ? (
+            <PayablesCashFlowSection analysis={sectionAnalysis} />
+          ) : (
+            <ReadinessPanel status={readiness.payablesCashFlow} onNavigate={navigateToWorkflowTab} force />
+          )
+        ) : null}
+
+        {activeWorkflowTab === "noplatFcf" ? (
+          readiness.noplatFcf.isReady ? (
+            <NoplatFcfSection analysis={sectionAnalysis} />
+          ) : (
+            <ReadinessPanel status={readiness.noplatFcf} onNavigate={navigateToWorkflowTab} force />
+          )
+        ) : null}
+
+        {activeWorkflowTab === "ratiosCapital" ? (
+          readiness.ratiosCapital.isReady ? (
+            <RatiosCapitalSection analysis={sectionAnalysis} readiness={readiness.ratiosCapital} onNavigate={navigateToWorkflowTab} />
+          ) : (
+            <ReadinessPanel status={readiness.ratiosCapital} onNavigate={navigateToWorkflowTab} force />
+          )
         ) : null}
 
         {activeWorkflowTab === "audit" ? (
@@ -951,6 +1008,7 @@ export function ValuationWorkbench() {
               <h3>Snapshot audit</h3>
             </div>
           </div>
+          <ReadinessOverview readiness={readiness} onNavigate={navigateToWorkflowTab} />
           <dl className="assumption-grid">
             <div>
               <dt>Periode aktif</dt>
@@ -1022,6 +1080,398 @@ export function ValuationWorkbench() {
       </section>
     </main>
   );
+}
+
+function ReadinessPanel({
+  status,
+  onNavigate,
+  force = false,
+}: {
+  status: SectionReadiness;
+  onNavigate: (tabId: WorkflowTabId) => void;
+  force?: boolean;
+}) {
+  if (!force && status.isReady && status.warnings.length === 0) {
+    return null;
+  }
+
+  const hasBlockingItems = status.missing.length > 0;
+
+  return (
+    <section className={hasBlockingItems ? "readiness-panel blocking" : "readiness-panel"} data-testid={`readiness-${status.id}`}>
+      <div className="readiness-heading">
+        <div>
+          <p className="eyebrow">{hasBlockingItems ? "Data belum lengkap" : "Kesiapan data"}</p>
+          <h3>{hasBlockingItems ? `${status.title} belum dapat ditampilkan penuh` : `${status.title} siap diproses`}</h3>
+        </div>
+        <span className={hasBlockingItems ? "badge warning" : "badge ok"}>{hasBlockingItems ? "Perlu dilengkapi" : "Siap"}</span>
+      </div>
+
+      {hasBlockingItems ? (
+        <div className="readiness-list">
+          <h4>Masih diperlukan</h4>
+          {status.missing.map((item) => (
+            <a
+              href={`#${item.targetTab}`}
+              className="readiness-link"
+              onClick={(event) => {
+                event.preventDefault();
+                onNavigate(item.targetTab);
+              }}
+              key={`${item.label}-${item.targetTab}`}
+            >
+              <span>
+                {item.label}
+                {item.detail ? <small>{item.detail}</small> : null}
+              </span>
+              <strong>
+                {item.targetLabel}
+                <ArrowRight size={14} />
+              </strong>
+            </a>
+          ))}
+        </div>
+      ) : null}
+
+      {status.warnings.length > 0 ? (
+        <div className="readiness-list warning-list">
+          <h4>Peringatan</h4>
+          {status.warnings.map((item) => (
+            <a
+              href={`#${item.targetTab}`}
+              className="readiness-link"
+              onClick={(event) => {
+                event.preventDefault();
+                onNavigate(item.targetTab);
+              }}
+              key={`${item.label}-${item.targetTab}`}
+            >
+              <span>{item.label}</span>
+              <strong>
+                {item.targetLabel}
+                <ArrowRight size={14} />
+              </strong>
+            </a>
+          ))}
+        </div>
+      ) : null}
+
+      {status.fulfilled.length > 0 ? (
+        <div className="readiness-list fulfilled-list">
+          <h4>Sudah terpenuhi</h4>
+          <div className="fulfilled-grid">
+            {status.fulfilled.map((item) => (
+              <span className="fulfilled-item" key={`${item.label}-${item.targetTab}`}>
+                <CheckCircle2 size={14} />
+                {item.label}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function ReadinessOverview({ readiness, onNavigate }: { readiness: WorkbenchReadiness; onNavigate: (tabId: WorkflowTabId) => void }) {
+  return (
+    <section className="readiness-overview" data-testid="readiness-overview">
+      {workflowTabs.map((tab) => {
+        const status = readiness[tab.id];
+        const unresolvedCount = status.missing.length + status.warnings.length;
+
+        return (
+          <button
+            className={status.isReady && status.warnings.length === 0 ? "readiness-overview-item ready" : "readiness-overview-item"}
+            type="button"
+            onClick={() => onNavigate(tab.id)}
+            key={tab.id}
+          >
+            {status.isReady && status.warnings.length === 0 ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+            <span>{tab.label}</span>
+            <strong>{unresolvedCount === 0 ? "Siap" : `${unresolvedCount} item`}</strong>
+          </button>
+        );
+      })}
+    </section>
+  );
+}
+
+function PayablesCashFlowSection({ analysis }: { analysis: SectionAnalysis }) {
+  return (
+    <>
+      <section className="split-panel">
+        <article className="panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">ACC PAYABLES</p>
+              <h3>Debt and payable movement schedule</h3>
+            </div>
+            <span className="status-pill muted">Corrected movement basis</span>
+          </div>
+          <AnalysisTable rows={analysis.payablesRows} periods={analysis.periods} />
+        </article>
+
+        <article className="panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Workbook audit reference</p>
+              <h3>Cash-flow source issue</h3>
+            </div>
+          </div>
+          <WorkbookAuditReference keys={["equityInjectionSource", "correctedEquityInjectionMovement", "cashFlowRollforwardGap"]} />
+        </article>
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">CASH FLOW STATEMENT</p>
+            <h3>Corrected cash-flow bridge</h3>
+          </div>
+          <span className="status-pill muted">Movement antar periode</span>
+        </div>
+        <AnalysisTable rows={analysis.cashFlowRows} periods={analysis.periods} />
+      </section>
+    </>
+  );
+}
+
+function NoplatFcfSection({ analysis }: { analysis: SectionAnalysis }) {
+  return (
+    <>
+      <section className="split-panel">
+        <article className="panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">NOPLAT</p>
+              <h3>Normalized operating profit after tax</h3>
+            </div>
+            <span className="status-pill muted">Commercial statutory basis</span>
+          </div>
+          <AnalysisTable rows={analysis.noplatRows} periods={analysis.periods} />
+        </article>
+
+        <article className="panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Workbook audit reference</p>
+              <h3>NOPLAT bridge</h3>
+            </div>
+          </div>
+          <WorkbookAuditReference keys={["sourceNoplat", "normalizedNoplat", "sourceFcf2021"]} />
+        </article>
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">FCF</p>
+            <h3>Free cash flow to firm</h3>
+          </div>
+          <span className="status-pill muted">NOPLAT + depreciation + WC - capex</span>
+        </div>
+        <AnalysisTable rows={analysis.fcfRows} periods={analysis.periods} />
+      </section>
+    </>
+  );
+}
+
+function RatiosCapitalSection({
+  analysis,
+  readiness,
+  onNavigate,
+}: {
+  analysis: SectionAnalysis;
+  readiness: SectionReadiness;
+  onNavigate: (tabId: WorkflowTabId) => void;
+}) {
+  return (
+    <>
+      <ReadinessPanel status={readiness} onNavigate={onNavigate} />
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">FINANCIAL RATIO</p>
+            <h3>Profitability · liquidity · leverage · cash flow</h3>
+          </div>
+          <span className="status-pill muted">Average mengikuti periode tersedia</span>
+        </div>
+        <RatioTable rows={analysis.ratioRows} periods={analysis.periods} />
+      </section>
+
+      <section className="split-panel">
+        <article className="panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">ROIC</p>
+              <h3>Capital efficiency bridge</h3>
+            </div>
+            <span className="status-pill muted">Corrected NOPLAT basis</span>
+          </div>
+          <AnalysisTable rows={analysis.roicRows} periods={analysis.periods} percentRowKeys={new Set(["roic"])} />
+        </article>
+
+        <article className="panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Workbook audit reference</p>
+              <h3>ROIC cash classification</h3>
+            </div>
+          </div>
+          <WorkbookAuditReference keys={["sourceRoicExcessCash", "operatingNwc2021", "correctedEem", "correctedDcf"]} />
+        </article>
+      </section>
+    </>
+  );
+}
+
+function AnalysisTable({
+  rows,
+  periods,
+  percentRowKeys = new Set<string>(),
+}: {
+  rows: AnalysisRow[];
+  periods: Period[];
+  percentRowKeys?: Set<string>;
+}) {
+  return (
+    <div className="table-wrap">
+      <table className="analysis-table">
+        <thead>
+          <tr>
+            <th>Pos</th>
+            <th>Sumber</th>
+            <th>Formula</th>
+            {periods.map((period) => (
+              <th className="period-column" key={period.id}>
+                {period.label || "Periode"}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => {
+            if (row.kind === "section") {
+              return (
+                <tr className="analysis-section-row" key={row.key}>
+                  <td colSpan={periods.length + 3}>{row.label}</td>
+                </tr>
+              );
+            }
+
+            const rowClassName =
+              row.kind === "subtotal" ? "analysis-total-row" : row.kind === "warning" ? "analysis-warning-row" : "";
+
+            return (
+              <tr className={rowClassName} key={row.key}>
+                <td>{row.label}</td>
+                <td>{row.source}</td>
+                <td>
+                  <code>{row.formula}</code>
+                  {row.note ? <span>{row.note}</span> : null}
+                </td>
+                {periods.map((period) => (
+                  <td className="numeric-cell period-column" key={period.id}>
+                    {formatAnalysisValue(row.values[period.id] ?? null, percentRowKeys.has(row.key) ? "percent" : "currency")}
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function RatioTable({ rows, periods }: { rows: RatioRow[]; periods: Period[] }) {
+  return (
+    <div className="table-wrap">
+      <table className="analysis-table ratio-table">
+        <thead>
+          <tr>
+            <th>Ratio</th>
+            <th>Formula</th>
+            {periods.map((period) => (
+              <th className="period-column" key={period.id}>
+                {period.label || "Periode"}
+              </th>
+            ))}
+            <th>Average</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.key}>
+              <td>
+                {row.label}
+                <span>{row.source}</span>
+              </td>
+              <td>
+                <code>{row.formula}</code>
+              </td>
+              {periods.map((period) => (
+                <td className="numeric-cell period-column" key={period.id}>
+                  {formatAnalysisValue(row.values[period.id] ?? null, row.display)}
+                </td>
+              ))}
+              <td className="numeric-cell period-column">{formatAnalysisValue(row.average, row.display)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function WorkbookAuditReference({ keys }: { keys: Array<keyof typeof workbookAuditFixture.values> }) {
+  return (
+    <div className="audit-reference">
+      <div className="audit-reference-source">
+        <strong>{workbookAuditFixture.sourceWorkbook}</strong>
+        <span>{workbookAuditFixture.sourceSummary}</span>
+      </div>
+      <div className="audit-reference-grid">
+        {keys.map((key) => (
+          <div key={key}>
+            <span>{formatFixtureLabel(key)}</span>
+            <strong>{formatIdr(workbookAuditFixture.values[key])}</strong>
+          </div>
+        ))}
+      </div>
+      <ul>
+        {workbookAuditFixture.notes.map((note) => (
+          <li key={note}>{note}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function formatAnalysisValue(value: AnalysisValue, display: "currency" | "percent" | "multiple"): string {
+  if (value === null || !Number.isFinite(value)) {
+    return "Perlu data pembanding";
+  }
+
+  if (display === "percent") {
+    return formatPercent(value);
+  }
+
+  if (display === "multiple") {
+    return `${value.toFixed(2)}x`;
+  }
+
+  return formatIdr(value);
+}
+
+function formatFixtureLabel(key: keyof typeof workbookAuditFixture.values): string {
+  return key
+    .replace(/([A-Z])/g, " $1")
+    .replace(/2021/g, " 2021")
+    .replace(/\b\w/g, (match) => match.toUpperCase())
+    .trim();
 }
 
 function readPersistedWorkbenchState(): PersistedWorkbenchState | null {
