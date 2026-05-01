@@ -108,7 +108,7 @@ export function buildWorkbenchReadiness({
     snapshot.fixedAssetsNet !== 0 ||
     hasAnyCategory(categorySet, ["FIXED_ASSET", "FIXED_ASSET_ACQUISITION", "ACCUMULATED_DEPRECIATION", "DEPRECIATION_EXPENSE"]);
 
-  const period = criterion(hasPeriod, "Periode aktif tersedia", "periods", "Isi Periode");
+  const period = criterion(hasPeriod, "Periode aktif tersedia", "periods", "Isi Data Awal");
   const comparativePeriod = criterion(hasComparativePeriod, "Minimal dua periode untuk movement dan cash-flow bridge", "periods", "Tambah Periode");
   const balance = criterion(hasBalanceInput, "Data neraca / fixed asset tersedia", "balance", "Isi Neraca");
   const income = criterion(hasIncomeInput, "Data laba rugi tersedia", "income", "Isi Laba Rugi");
@@ -135,7 +135,7 @@ export function buildWorkbenchReadiness({
   );
 
   return {
-    periods: status("periods", "Periode", [period]),
+    periods: status("periods", "Data Awal", [period]),
     balance: status("balance", "Neraca & Fixed Asset", [period]),
     income: status("income", "Laba Rugi", [period, income]),
     mapping: status("mapping", "Mapping & Label", [anyAccount, mapped]),

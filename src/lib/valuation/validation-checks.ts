@@ -1,4 +1,5 @@
 import type { AccountRow, AssumptionState, FixedAssetScheduleSummary, MappedRow } from "./case-model";
+import { calculateWaccAssumption } from "./assumption-calculators";
 import type { FinancialStatementSnapshot } from "./types";
 
 export type ValidationCheck = {
@@ -31,7 +32,7 @@ export function buildValidationChecks(
     { label: "Balance check", ok: !hasEquityComponents || Math.abs(balanceSheetGap) <= balanceTolerance },
     { label: "Laba rugi terisi", ok: snapshot.revenue !== 0 || snapshot.ebit !== 0 },
     { label: "Tax rate", ok: assumptions.taxRate.trim() !== "" },
-    { label: "WACC", ok: assumptions.wacc.trim() !== "" },
+    { label: "WACC", ok: assumptions.wacc.trim() !== "" || calculateWaccAssumption(assumptions) !== null },
   ];
 
   if (fixedAssetSchedule.hasInput) {

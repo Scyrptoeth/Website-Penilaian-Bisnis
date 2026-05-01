@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  buildCaseProfileDerived,
   buildFixedAssetScheduleSummary,
   buildSnapshot,
   deriveHistoricalDrivers,
   emptyAssumptions,
+  emptyCaseProfile,
   getDefaultActivePeriod,
   getNextHistoricalPeriodOffset,
   mapRow,
@@ -114,6 +116,36 @@ describe("case model", () => {
     assertAlmostEqual(drivers.gaMargin, 0.1, 1e-12);
     assertAlmostEqual(drivers.arDays, 73, 1e-12);
     assertAlmostEqual(drivers.apDays, 73, 1e-12);
+  });
+
+  it("derives initial case formulas from workbook HOME inputs", () => {
+    const derived = buildCaseProfileDerived({
+      ...emptyCaseProfile,
+      transferType: "Modal Disetor",
+      capitalBaseFull: "5.280.000.000",
+      capitalBaseValued: "1.600.000.000",
+      transactionYear: "2022",
+    });
+
+    assert.equal(derived.capitalBaseFullLabel, "Jumlah Modal Disetor 100%");
+    assert.equal(derived.capitalBaseValuedLabel, "Jumlah Modal Disetor yang Dinilai");
+    assert.equal(derived.capitalProportionStatus, "valid");
+    assertAlmostEqual(derived.capitalProportion ?? 0, 1_600_000_000 / 5_280_000_000, 1e-12);
+    assert.equal(derived.cutOffDate, "2021-12-31");
+    assert.equal(derived.firstProjectionEndDate, "2022-12-31");
+  });
+
+  it("switches capital labels for share-transfer input and flags invalid proportions", () => {
+    const derived = buildCaseProfileDerived({
+      ...emptyCaseProfile,
+      transferType: "Lembar Saham",
+      capitalBaseFull: "100",
+      capitalBaseValued: "120",
+    });
+
+    assert.equal(derived.capitalBaseFullLabel, "Jumlah Saham Beredar 100%");
+    assert.equal(derived.capitalBaseValuedLabel, "Jumlah Saham yang Dinilai");
+    assert.equal(derived.capitalProportionStatus, "invalid");
   });
 
   it("parses Indonesian and common accounting number inputs", () => {

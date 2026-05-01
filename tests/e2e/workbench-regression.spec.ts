@@ -9,6 +9,12 @@ test.beforeEach(async ({ page }) => {
 
 test("period workflow, scoped categories, and display-only balance sheet classification", async ({ page }) => {
   await expect(page.locator(".mobile-workflow-tabs")).toBeHidden();
+  await expect(workflowNav(page).getByRole("button", { name: "Data Awal" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByTestId("case-profile-panel")).toBeVisible();
+  await page.getByLabel("Sektor Perusahaan").selectOption("Basic Materials");
+  await page.getByLabel("Tahun Transaksi Pengalihan").fill("2022");
+  await expect(page.getByText("31 Desember 2021").first()).toBeVisible();
+  await expect(page.getByLabel("Tanggal valuasi")).toHaveValue("2021-12-31");
   await expect(page.getByTestId("period-card")).toHaveCount(1);
   await page.getByRole("button", { name: /Tambah Y-1/ }).click();
   await page.getByRole("button", { name: /Tambah Y-2/ }).click();
@@ -28,6 +34,11 @@ test("period workflow, scoped categories, and display-only balance sheet classif
     { offset: "0", label: "Tahun Y", dateInputCount: 1 },
   ]);
   await expect(page.locator('[data-testid="period-card"][data-year-offset="0"]').getByTitle("Tahun Y tidak bisa dihapus")).toBeDisabled();
+
+  await openWorkflowTab(page, "WACC");
+  await expect(page.getByLabel("Comparable 1")).toHaveValue(/Indal Aluminium Industry Tbk\. \(Data Pembanding Bersifat Ideal\)/);
+  await expect(page.getByLabel("BL 1")).toHaveValue("0,261");
+  await expect(page.getByLabel("Market Cap 1")).toHaveValue("117.849.604.096");
 
   await openWorkflowTab(page, "Neraca & Fixed Asset");
   await page.getByRole("button", { name: "Balance Sheet" }).first().click();
@@ -198,7 +209,7 @@ test("legacy positive income-statement expense drafts migrate once and remain us
   await amountInput.press("Home");
   await amountInput.press("Delete");
   await expect(amountInput).toHaveValue("100");
-  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(2);
+  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(3);
 
   await page.reload();
   await openWorkflowTab(page, "Laba Rugi");

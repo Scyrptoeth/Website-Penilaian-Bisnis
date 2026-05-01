@@ -37,9 +37,11 @@ describe("assumption calculators", () => {
 
     assert.ok(comparableBeta.averageUnleveredBeta);
     assert.ok(comparableBeta.releveredBeta);
+    assert.equal(comparableBeta.aggregateMarketCap, 600);
+    assert.equal(comparableBeta.aggregateDebt, 90);
     assert.ok(calculation);
-    assertAlmostEqual(calculation.debtWeight, 0.25, 1e-12);
-    assertAlmostEqual(calculation.equityWeight, 0.75, 1e-12);
+    assertAlmostEqual(calculation.debtWeight, 90 / 690, 1e-12);
+    assertAlmostEqual(calculation.equityWeight, 600 / 690, 1e-12);
     assertAlmostEqual(calculation.preTaxCostOfDebt, 0.09, 1e-12);
     assertAlmostEqual(calculation.ratingBasedDefaultSpread, 0.02, 1e-12);
     assert.equal(Number.isFinite(calculation.wacc), true);

@@ -46,13 +46,18 @@ import {
 import { calculateAllMethods } from "@/lib/valuation/calculations";
 import {
   buildFixedAssetScheduleSummary,
+  buildCaseProfileDerived,
+  buildSampleCaseProfile,
   buildSampleAssumptions,
   buildSamplePeriods,
   buildSampleRows,
   buildSnapshot,
+  companySectorOptions,
+  companyTypeOptions,
   createFixedAssetScheduleRow,
   createHistoricalPeriod,
   createRow,
+  emptyCaseProfile,
   emptyAssumptions,
   ensureFixedAssetSchedulePeriods,
   fixedAssetScheduleValueKeys,
@@ -65,10 +70,15 @@ import {
   mapRow,
   normalizePeriods,
   parseInputNumber,
+  subjectTaxpayerTypeOptions,
   statementLabels,
+  transferTypeOptions,
+  valuationObjectOptions,
   type AccountRow,
   type AssumptionState,
   type BalanceSheetClassification,
+  type CaseProfile,
+  type CaseProfileDerived,
   type FixedAssetPeriodAmounts,
   type FixedAssetScheduleRow,
   type FixedAssetScheduleSummary,
@@ -106,6 +116,13 @@ import {
   type RequiredReturnOnNtaCalculation,
   type WaccCalculation,
 } from "@/lib/valuation/assumption-calculators";
+import {
+  findIdxComparableByLabel,
+  formatIdxComparableLabel,
+  getIdxComparablesBySector,
+  getSuggestedIdxComparables,
+  type IdxComparableCompany,
+} from "@/lib/valuation/idx-comparable-suggestions";
 import type { AccountCategory, FormulaTrace } from "@/lib/valuation/types";
 const confidenceBandLabels: Record<ReturnType<typeof mapRow>["mapping"]["confidenceBand"], string> = {
   high: "Tinggi",
@@ -169,6 +186,21 @@ const assumptionKeys: Array<keyof AssumptionState> = [
   "otherPayableDays",
 ];
 
+const caseProfileKeys: Array<keyof CaseProfile> = [
+  "objectTaxpayerName",
+  "objectTaxpayerNpwp",
+  "companySector",
+  "companyType",
+  "subjectTaxpayerName",
+  "subjectTaxpayerNpwp",
+  "subjectTaxpayerType",
+  "transferType",
+  "capitalBaseFull",
+  "capitalBaseValued",
+  "transactionYear",
+  "valuationObject",
+];
+
 type DriverAssumptionKey = "taxRate" | "terminalGrowth" | "wacc" | "requiredReturnOnNta";
 
 const assumptionSourceKeyByDriver: Record<DriverAssumptionKey, keyof AssumptionState> = {
@@ -191,10 +223,29 @@ const manualSourceByDriver: Record<DriverAssumptionKey, string> = {
   wacc: "manual-wacc",
   requiredReturnOnNta: "manual-required-return-on-nta",
 };
+
+type AutoWaccCapitalValues = {
+  debtMarketValue: number;
+  equityMarketValue: number;
+};
+
+type WaccComparableSlot = {
+  name: keyof AssumptionState;
+  beta: keyof AssumptionState;
+  marketCap: keyof AssumptionState;
+  debt: keyof AssumptionState;
+};
+
+const waccComparableSlots: WaccComparableSlot[] = [
+  { name: "waccComparable1Name", beta: "waccComparable1BetaLevered", marketCap: "waccComparable1MarketCap", debt: "waccComparable1Debt" },
+  { name: "waccComparable2Name", beta: "waccComparable2BetaLevered", marketCap: "waccComparable2MarketCap", debt: "waccComparable2Debt" },
+  { name: "waccComparable3Name", beta: "waccComparable3BetaLevered", marketCap: "waccComparable3MarketCap", debt: "waccComparable3Debt" },
+];
+
 const WORKBENCH_STORAGE_KEY = "penilaian-valuasi-bisnis.workbench.v1";
 const WORKBENCH_SCROLL_STORAGE_KEY = "penilaian-valuasi-bisnis.scroll.v1";
 const WORKBENCH_SIDEBAR_STORAGE_KEY = "penilaian-valuasi-bisnis.sidebar.v1";
-const WORKBENCH_STORAGE_VERSION = 2;
+const WORKBENCH_STORAGE_VERSION = 3;
 
 type PersistedWorkbenchState = {
   version: typeof WORKBENCH_STORAGE_VERSION;
@@ -205,6 +256,7 @@ type PersistedWorkbenchState = {
   isFixedAssetScheduleEnabled: boolean;
   fixedAssetScheduleRows: FixedAssetScheduleRow[];
   assumptions: AssumptionState;
+  caseProfile: CaseProfile;
 };
 
 type WorkbenchCoreState = Omit<PersistedWorkbenchState, "version" | "savedAt">;
@@ -212,7 +264,7 @@ type WorkbenchCoreState = Omit<PersistedWorkbenchState, "version" | "savedAt">;
 type WorkflowTabId = WorkbenchSectionId;
 
 const workflowTabs: Array<{ id: WorkflowTabId; label: string }> = [
-  { id: "periods", label: "Periode" },
+  { id: "periods", label: "Data Awal" },
   { id: "balance", label: "Neraca & Fixed Asset" },
   { id: "income", label: "Laba Rugi" },
   { id: "mapping", label: "Mapping & Label" },
@@ -235,6 +287,7 @@ export function ValuationWorkbench() {
   const [isFixedAssetScheduleEnabled, setIsFixedAssetScheduleEnabled] = useState(false);
   const [fixedAssetScheduleRows, setFixedAssetScheduleRows] = useState<FixedAssetScheduleRow[]>([]);
   const [assumptions, setAssumptions] = useState<AssumptionState>(emptyAssumptions);
+  const [caseProfile, setCaseProfile] = useState<CaseProfile>(emptyCaseProfile);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isDraftRestored, setIsDraftRestored] = useState(false);
   const [activeWorkflowTab, setActiveWorkflowTab] = useState<WorkflowTabId>("periods");
@@ -242,6 +295,11 @@ export function ValuationWorkbench() {
   const [redoStack, setRedoStack] = useState<WorkbenchCoreState[]>([]);
 
   const mappedRows = useMemo(() => rows.map((row) => mapRow(row)), [rows]);
+  const caseProfileDerived = useMemo(() => buildCaseProfileDerived(caseProfile), [caseProfile]);
+  const activePeriod = periods.find((period) => period.id === activePeriodId) ?? getDefaultActivePeriod(periods);
+  const effectiveValuationDate = caseProfileDerived.cutOffDate || activePeriod?.valuationDate || "";
+  const sectorComparableOptions = useMemo(() => getIdxComparablesBySector(caseProfile.companySector), [caseProfile.companySector]);
+  const sectorComparableSuggestions = useMemo(() => getSuggestedIdxComparables(caseProfile.companySector), [caseProfile.companySector]);
   const balanceSheetRows = useMemo(() => mappedRows.filter((item) => item.row.statement === "balance_sheet"), [mappedRows]);
   const incomeStatementRows = useMemo(() => mappedRows.filter((item) => item.row.statement === "income_statement"), [mappedRows]);
   const fixedAssetSchedule = useMemo(
@@ -249,9 +307,29 @@ export function ValuationWorkbench() {
     [fixedAssetScheduleRows, periods],
   );
   const shouldShowFixedAssetSchedule = isFixedAssetScheduleEnabled || fixedAssetScheduleRows.length > 0;
-  const snapshot = useMemo(
+  const accountingSnapshot = useMemo(
     () => buildSnapshot(periods, activePeriodId, rows, assumptions, fixedAssetScheduleRows),
     [periods, activePeriodId, rows, assumptions, fixedAssetScheduleRows],
+  );
+  const autoWaccCapitalValues = useMemo(
+    () => ({
+      debtMarketValue: accountingSnapshot.currentLiabilities + accountingSnapshot.nonCurrentLiabilities || accountingSnapshot.totalLiabilities,
+      equityMarketValue: accountingSnapshot.bookEquity,
+    }),
+    [
+      accountingSnapshot.bookEquity,
+      accountingSnapshot.currentLiabilities,
+      accountingSnapshot.nonCurrentLiabilities,
+      accountingSnapshot.totalLiabilities,
+    ],
+  );
+  const resolvedAssumptions = useMemo(
+    () => resolveAutoWaccCapitalValues(assumptions, autoWaccCapitalValues),
+    [assumptions, autoWaccCapitalValues],
+  );
+  const snapshot = useMemo(
+    () => buildSnapshot(periods, activePeriodId, rows, resolvedAssumptions, fixedAssetScheduleRows),
+    [periods, activePeriodId, rows, resolvedAssumptions, fixedAssetScheduleRows],
   );
   const results = useMemo(() => calculateAllMethods(snapshot), [snapshot]);
   const sectionAnalysis = useMemo(
@@ -267,14 +345,13 @@ export function ValuationWorkbench() {
     [fixedAssetSchedule, incomeStatementRows, periods],
   );
   const eemDcfMethodCards = [results.eem, results.dcf];
-  const activePeriod = periods.find((period) => period.id === activePeriodId) ?? getDefaultActivePeriod(periods);
-  const taxRateCandidates = useMemo(() => buildTaxRateCandidates(activePeriod?.valuationDate ?? ""), [activePeriod?.valuationDate]);
+  const taxRateCandidates = useMemo(() => buildTaxRateCandidates(effectiveValuationDate), [effectiveValuationDate]);
   const marketSuggestion = useMemo(
-    () => getMarketAssumptionSuggestion(activePeriod?.valuationDate ?? ""),
-    [activePeriod?.valuationDate],
+    () => getMarketAssumptionSuggestion(effectiveValuationDate),
+    [effectiveValuationDate],
   );
-  const waccCalculation = useMemo(() => calculateWaccAssumption(assumptions), [assumptions]);
-  const waccComparableBeta = useMemo(() => calculateWaccComparableBetaAssumption(assumptions), [assumptions]);
+  const waccCalculation = useMemo(() => calculateWaccAssumption(resolvedAssumptions), [resolvedAssumptions]);
+  const waccComparableBeta = useMemo(() => calculateWaccComparableBetaAssumption(resolvedAssumptions), [resolvedAssumptions]);
   const requiredReturnCalculation = useMemo(
     () =>
       calculateRequiredReturnOnNtaAssumption(assumptions, {
@@ -317,11 +394,12 @@ export function ValuationWorkbench() {
         period.label !== getPeriodLabel(0) ||
         period.valuationDate,
     ) ||
+    Object.values(caseProfile).some((value) => value.trim() !== "") ||
     Object.values(assumptions).some((value) => value.trim() !== "");
-  const checks = buildValidationChecks(rows, mappedRows, assumptions, snapshot, balanceSheetGap, fixedAssetSchedule);
+  const checks = buildValidationChecks(rows, mappedRows, resolvedAssumptions, snapshot, balanceSheetGap, fixedAssetSchedule);
   const readiness = useMemo(
-    () => buildWorkbenchReadiness({ periods, rows, mappedRows, assumptions, snapshot, fixedAssetSchedule }),
-    [assumptions, fixedAssetSchedule, mappedRows, periods, rows, snapshot],
+    () => buildWorkbenchReadiness({ periods, rows, mappedRows, assumptions: resolvedAssumptions, snapshot, fixedAssetSchedule }),
+    [fixedAssetSchedule, mappedRows, periods, resolvedAssumptions, rows, snapshot],
   );
 
   function getCurrentCoreState(): WorkbenchCoreState {
@@ -332,6 +410,7 @@ export function ValuationWorkbench() {
       isFixedAssetScheduleEnabled,
       fixedAssetScheduleRows,
       assumptions,
+      caseProfile,
     };
   }
 
@@ -342,6 +421,7 @@ export function ValuationWorkbench() {
     setIsFixedAssetScheduleEnabled(state.isFixedAssetScheduleEnabled);
     setFixedAssetScheduleRows(state.fixedAssetScheduleRows);
     setAssumptions(state.assumptions);
+    setCaseProfile(state.caseProfile);
   }
 
   function commitCoreState(update: (current: WorkbenchCoreState) => WorkbenchCoreState) {
@@ -405,6 +485,7 @@ export function ValuationWorkbench() {
       setIsFixedAssetScheduleEnabled(storedState.isFixedAssetScheduleEnabled || storedState.fixedAssetScheduleRows.length > 0);
       setFixedAssetScheduleRows(storedState.fixedAssetScheduleRows);
       setAssumptions(storedState.assumptions);
+      setCaseProfile(storedState.caseProfile);
       setUndoStack([]);
       setRedoStack([]);
     }
@@ -427,8 +508,9 @@ export function ValuationWorkbench() {
       isFixedAssetScheduleEnabled,
       fixedAssetScheduleRows,
       assumptions,
+      caseProfile,
     });
-  }, [activePeriodId, assumptions, fixedAssetScheduleRows, isDraftRestored, isFixedAssetScheduleEnabled, periods, rows]);
+  }, [activePeriodId, assumptions, caseProfile, fixedAssetScheduleRows, isDraftRestored, isFixedAssetScheduleEnabled, periods, rows]);
 
   useEffect(() => {
     if (!isDraftRestored) {
@@ -504,6 +586,30 @@ export function ValuationWorkbench() {
       ...current,
       periods: current.periods.map((period) => (period.id === id ? { ...period, ...patch } : period)),
     }));
+  }
+
+  function updateCaseProfile(key: keyof CaseProfile, value: string) {
+    commitCoreState((current) => {
+      const nextCaseProfile = { ...current.caseProfile, [key]: formatCaseProfileValue(key, value) };
+      const derived = buildCaseProfileDerived(nextCaseProfile);
+      const nextPeriods =
+        key === "transactionYear" && derived.cutOffDate
+          ? current.periods.map((period) =>
+              getPeriodYearOffset(period) === 0 ? { ...period, valuationDate: derived.cutOffDate } : period,
+            )
+          : current.periods;
+      const nextAssumptions =
+        key === "companySector"
+          ? applyIdxComparableSuggestions(current.assumptions, nextCaseProfile.companySector, "empty-only")
+          : current.assumptions;
+
+      return {
+        ...current,
+        periods: nextPeriods,
+        caseProfile: nextCaseProfile,
+        assumptions: nextAssumptions,
+      };
+    });
   }
 
   function removePeriod(id: string) {
@@ -654,6 +760,26 @@ export function ValuationWorkbench() {
     }));
   }
 
+  function updateWaccComparableName(slot: WaccComparableSlot, value: string) {
+    commitCoreState((current) => {
+      const selectedComparable = findIdxComparableByLabel(current.caseProfile.companySector, value);
+
+      return {
+        ...current,
+        assumptions: selectedComparable
+          ? applyIdxComparableToSlot(current.assumptions, slot, selectedComparable)
+          : { ...current.assumptions, [slot.name]: value },
+      };
+    });
+  }
+
+  function applySectorComparableSuggestions() {
+    commitCoreState((current) => ({
+      ...current,
+      assumptions: applyIdxComparableSuggestions(current.assumptions, current.caseProfile.companySector, "replace"),
+    }));
+  }
+
   function applyAssumptionCandidate(key: DriverAssumptionKey, candidate: AssumptionCandidate) {
     const sourceKey = assumptionSourceKeyByDriver[key];
     const reasonKey = assumptionReasonKeyByDriver[key];
@@ -702,6 +828,7 @@ export function ValuationWorkbench() {
       isFixedAssetScheduleEnabled: false,
       fixedAssetScheduleRows: [],
       assumptions: buildSampleAssumptions(),
+      caseProfile: buildSampleCaseProfile(),
     }));
   }
 
@@ -714,6 +841,7 @@ export function ValuationWorkbench() {
       isFixedAssetScheduleEnabled: false,
       fixedAssetScheduleRows: [],
       assumptions: emptyAssumptions,
+      caseProfile: emptyCaseProfile,
     }));
 
     if (typeof window !== "undefined") {
@@ -815,7 +943,7 @@ export function ValuationWorkbench() {
           <div className="panel-heading">
             <div>
               <p className="eyebrow">Langkah 1</p>
-              <h3>Periode input</h3>
+              <h3>Data Awal</h3>
             </div>
             <button className="button secondary" type="button" onClick={addPeriod}>
               <Plus size={18} />
@@ -823,6 +951,20 @@ export function ValuationWorkbench() {
             </button>
           </div>
           <ReadinessPanel status={readiness.periods} onNavigate={navigateToWorkflowTab} />
+          <CaseProfilePanel
+            profile={caseProfile}
+            derived={caseProfileDerived}
+            onChange={updateCaseProfile}
+          />
+          <div className="period-section-heading">
+            <div>
+              <p className="eyebrow">Periode valuasi</p>
+              <h4>Periode input laporan keuangan</h4>
+            </div>
+            {caseProfileDerived.cutOffDate ? (
+              <span className="status-pill">Cut off {formatDisplayDate(caseProfileDerived.cutOffDate)}</span>
+            ) : null}
+          </div>
           <div className="period-grid">
             {periods.map((period) => {
               const isValuationYear = getPeriodYearOffset(period) === 0;
@@ -996,15 +1138,20 @@ export function ValuationWorkbench() {
           <ReadinessPanel status={readiness.wacc} onNavigate={navigateToWorkflowTab} />
           <WaccMarketSuggestionPanel
             suggestion={marketSuggestion}
-            valuationDate={activePeriod?.valuationDate ?? ""}
+            valuationDate={effectiveValuationDate}
             onApply={applyWaccMarketSuggestion}
           />
           <WaccCalculatorPanel
             assumptions={assumptions}
             calculation={waccCalculation}
             comparableBeta={waccComparableBeta}
+            companySector={caseProfile.companySector}
+            comparableOptions={sectorComparableOptions}
+            comparableSuggestions={sectorComparableSuggestions}
+            autoCapitalValues={autoWaccCapitalValues}
             onChange={updateAssumption}
-            onTextChange={updateAssumptionText}
+            onComparableNameChange={updateWaccComparableName}
+            onApplyComparableSuggestions={applySectorComparableSuggestions}
             onReasonChange={(value) => updateAssumptionText("waccOverrideReason", value)}
           />
         </section>
@@ -1027,7 +1174,7 @@ export function ValuationWorkbench() {
               sourceId={assumptions.taxRateSource}
               reason={assumptions.taxRateOverrideReason}
               candidates={taxRateCandidates}
-              emptyCandidateText="Isi tanggal valuasi di tab Periode untuk memunculkan statutory general rate."
+              emptyCandidateText="Isi tahun transaksi di Data Awal atau tanggal valuasi untuk memunculkan statutory general rate."
               manualHint="Override fasilitas khusus wajib diberi alasan."
               onSelect={(candidate) => applyAssumptionCandidate("taxRate", candidate)}
               onValueChange={(value) => updateAssumption("taxRate", value)}
@@ -1768,6 +1915,7 @@ function readPersistedWorkbenchState(): PersistedWorkbenchState | null {
     const rows = parsed.version < 2 ? migrateLegacyIncomeStatementSigns(sanitizeRows(parsed.rows)) : sanitizeRows(parsed.rows);
     const fixedAssetScheduleRows = ensureFixedAssetSchedulePeriods(sanitizeFixedAssetScheduleRows(parsed.fixedAssetScheduleRows), periods);
     const assumptions = sanitizeAssumptions(parsed.assumptions);
+    const caseProfile = sanitizeCaseProfile(parsed.caseProfile);
     const activePeriodId = typeof parsed.activePeriodId === "string" ? parsed.activePeriodId : "";
     const isFixedAssetScheduleEnabled =
       typeof parsed.isFixedAssetScheduleEnabled === "boolean" ? parsed.isFixedAssetScheduleEnabled : fixedAssetScheduleRows.length > 0;
@@ -1781,6 +1929,7 @@ function readPersistedWorkbenchState(): PersistedWorkbenchState | null {
       isFixedAssetScheduleEnabled,
       fixedAssetScheduleRows,
       assumptions,
+      caseProfile,
     };
   } catch {
     return null;
@@ -1961,6 +2110,13 @@ function sanitizeAssumptions(value: unknown): AssumptionState {
   return Object.fromEntries(
     assumptionKeys.map((key) => [key, typeof source[key] === "string" ? source[key] : ""]),
   ) as AssumptionState;
+}
+
+function sanitizeCaseProfile(value: unknown): CaseProfile {
+  const source = isRecord(value) ? value : {};
+  return Object.fromEntries(
+    caseProfileKeys.map((key) => [key, typeof source[key] === "string" ? source[key] : ""]),
+  ) as CaseProfile;
 }
 
 function sanitizeStringRecord(value: unknown): Record<string, string> {
@@ -2457,6 +2613,157 @@ function AssumptionDriverMatrix({
   );
 }
 
+function CaseProfilePanel({
+  profile,
+  derived,
+  onChange,
+}: {
+  profile: CaseProfile;
+  derived: CaseProfileDerived;
+  onChange: (key: keyof CaseProfile, value: string) => void;
+}) {
+  return (
+    <div className="data-awal-grid" data-testid="case-profile-panel">
+      <article className="data-awal-card">
+        <div className="input-section-title">
+          <FileSearch size={16} />
+          <h4>Identitas Objek Pajak</h4>
+        </div>
+        <div className="input-grid">
+          <CaseProfileInput label="Nama Objek Pajak" value={profile.objectTaxpayerName} onChange={(value) => onChange("objectTaxpayerName", value)} />
+          <CaseProfileInput label="NPWP Objek Pajak" value={profile.objectTaxpayerNpwp} onChange={(value) => onChange("objectTaxpayerNpwp", value)} />
+          <CaseProfileSelect label="Sektor Perusahaan" value={profile.companySector} options={companySectorOptions} onChange={(value) => onChange("companySector", value)} />
+          <CaseProfileSelect label="Jenis Perusahaan" value={profile.companyType} options={companyTypeOptions} onChange={(value) => onChange("companyType", value)} />
+        </div>
+      </article>
+
+      <article className="data-awal-card">
+        <div className="input-section-title">
+          <Banknote size={16} />
+          <h4>Identitas Subjek Pajak</h4>
+        </div>
+        <div className="input-grid">
+          <CaseProfileInput label="Nama Subjek Pajak" value={profile.subjectTaxpayerName} onChange={(value) => onChange("subjectTaxpayerName", value)} />
+          <CaseProfileInput label="NPWP Subjek Pajak" value={profile.subjectTaxpayerNpwp} onChange={(value) => onChange("subjectTaxpayerNpwp", value)} />
+          <CaseProfileSelect
+            label="Jenis Subjek Pajak"
+            value={profile.subjectTaxpayerType}
+            options={subjectTaxpayerTypeOptions}
+            onChange={(value) => onChange("subjectTaxpayerType", value)}
+          />
+        </div>
+      </article>
+
+      <article className="data-awal-card wide">
+        <div className="input-section-title">
+          <Calculator size={16} />
+          <h4>Transaksi dan Objek Penilaian</h4>
+        </div>
+        <div className="case-transaction-grid">
+          <CaseProfileSelect
+            label="Jenis Peralihan yang Diketahui"
+            value={profile.transferType}
+            options={transferTypeOptions}
+            onChange={(value) => onChange("transferType", value)}
+          />
+          <CaseProfileInput
+            label={derived.capitalBaseFullLabel}
+            value={profile.capitalBaseFull}
+            inputMode="decimal"
+            onChange={(value) => onChange("capitalBaseFull", value)}
+          />
+          <CaseProfileInput
+            label={derived.capitalBaseValuedLabel}
+            value={profile.capitalBaseValued}
+            inputMode="decimal"
+            onChange={(value) => onChange("capitalBaseValued", value)}
+          />
+          <DerivedCaseField
+            label={derived.capitalProportionLabel}
+            value={formatCaseProfileProportion(derived)}
+            state={derived.capitalProportionStatus === "invalid" ? "invalid" : "neutral"}
+          />
+          <CaseProfileInput
+            label="Tahun Transaksi Pengalihan"
+            value={profile.transactionYear}
+            inputMode="numeric"
+            onChange={(value) => onChange("transactionYear", value)}
+          />
+          <DerivedCaseField label="Cut off Date" value={formatDerivedDate(derived.cutOffDate)} />
+          <DerivedCaseField label="Akhir Periode Proyeksi Pertama" value={formatDerivedDate(derived.firstProjectionEndDate)} />
+          <CaseProfileSelect label="Objek Penilaian" value={profile.valuationObject} options={valuationObjectOptions} onChange={(value) => onChange("valuationObject", value)} />
+        </div>
+      </article>
+    </div>
+  );
+}
+
+function CaseProfileInput({
+  label,
+  value,
+  inputMode = "text",
+  onChange,
+}: {
+  label: string;
+  value: string;
+  inputMode?: "text" | "decimal" | "numeric";
+  onChange: (value: string) => void;
+}) {
+  const inputId = `case-profile-${slugifyLabel(label)}`;
+
+  return (
+    <label className="field" htmlFor={inputId}>
+      <span>{label}</span>
+      <input id={inputId} inputMode={inputMode} value={value} onChange={(event) => onChange(event.target.value)} />
+    </label>
+  );
+}
+
+function CaseProfileSelect({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  onChange: (value: string) => void;
+}) {
+  const inputId = `case-profile-${slugifyLabel(label)}`;
+
+  return (
+    <label className="field" htmlFor={inputId}>
+      <span>{label}</span>
+      <select id={inputId} value={value} onChange={(event) => onChange(event.target.value)}>
+        <option value="">Pilih</option>
+        {options.map((option) => (
+          <option value={option} key={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function DerivedCaseField({
+  label,
+  value,
+  state = "neutral",
+}: {
+  label: string;
+  value: string;
+  state?: "neutral" | "invalid";
+}) {
+  return (
+    <div className={state === "invalid" ? "derived-field invalid" : "derived-field"}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
 function WaccMarketSuggestionPanel({
   suggestion,
   valuationDate,
@@ -2479,7 +2786,7 @@ function WaccMarketSuggestionPanel({
         <p className="assumption-empty-note">
           {valuationDate.trim()
             ? "Tanggal valuasi berada di luar library tahunan 2018-2025."
-            : "Isi tanggal valuasi pada tab Periode untuk memunculkan suggestion WACC tahunan."}
+            : "Isi Tahun Transaksi Pengalihan di Data Awal atau tanggal valuasi untuk memunculkan suggestion WACC tahunan."}
         </p>
       </article>
     );
@@ -2533,15 +2840,25 @@ function WaccCalculatorPanel({
   assumptions,
   calculation,
   comparableBeta,
+  companySector,
+  comparableOptions,
+  comparableSuggestions,
+  autoCapitalValues,
   onChange,
-  onTextChange,
+  onComparableNameChange,
+  onApplyComparableSuggestions,
   onReasonChange,
 }: {
   assumptions: AssumptionState;
   calculation: WaccCalculation | null;
   comparableBeta: WaccComparableBetaCalculation;
+  companySector: string;
+  comparableOptions: IdxComparableCompany[];
+  comparableSuggestions: IdxComparableCompany[];
+  autoCapitalValues: AutoWaccCapitalValues;
   onChange: (key: keyof AssumptionState, value: string) => void;
-  onTextChange: (key: keyof AssumptionState, value: string) => void;
+  onComparableNameChange: (slot: WaccComparableSlot, value: string) => void;
+  onApplyComparableSuggestions: () => void;
   onReasonChange: (value: string) => void;
 }) {
   return (
@@ -2575,7 +2892,16 @@ function WaccCalculatorPanel({
         />
         <AssumptionInput label="Fallback beta" value={assumptions.waccBeta} onChange={(value) => onChange("waccBeta", value)} />
       </div>
-      <WaccComparableTable assumptions={assumptions} comparableBeta={comparableBeta} onChange={onChange} onTextChange={onTextChange} />
+      <WaccComparableTable
+        assumptions={assumptions}
+        comparableBeta={comparableBeta}
+        companySector={companySector}
+        comparableOptions={comparableOptions}
+        comparableSuggestions={comparableSuggestions}
+        onChange={onChange}
+        onComparableNameChange={onComparableNameChange}
+        onApplyComparableSuggestions={onApplyComparableSuggestions}
+      />
       <div className="calculator-input-grid">
         <AssumptionInput
           label="Bank Persero investment loan"
@@ -2598,7 +2924,7 @@ function WaccCalculatorPanel({
           onChange={(value) => onChange("waccPreTaxCostOfDebt", value)}
         />
       </div>
-      <WaccCapitalStructureTable assumptions={assumptions} calculation={calculation} onChange={onChange} />
+      <WaccCapitalStructureTable assumptions={assumptions} calculation={calculation} autoCapitalValues={autoCapitalValues} onChange={onChange} />
       <MetricTraceGrid
         metrics={[
           ["Beta applied", calculation ? formatNumber(calculation.beta) : "Belum dihitung"],
@@ -2623,88 +2949,147 @@ function WaccCalculatorPanel({
 function WaccComparableTable({
   assumptions,
   comparableBeta,
+  companySector,
+  comparableOptions,
+  comparableSuggestions,
   onChange,
-  onTextChange,
+  onComparableNameChange,
+  onApplyComparableSuggestions,
 }: {
   assumptions: AssumptionState;
   comparableBeta: WaccComparableBetaCalculation;
+  companySector: string;
+  comparableOptions: IdxComparableCompany[];
+  comparableSuggestions: IdxComparableCompany[];
   onChange: (key: keyof AssumptionState, value: string) => void;
-  onTextChange: (key: keyof AssumptionState, value: string) => void;
+  onComparableNameChange: (slot: WaccComparableSlot, value: string) => void;
+  onApplyComparableSuggestions: () => void;
 }) {
-  const comparableKeys: Array<{
-    name: keyof AssumptionState;
-    beta: keyof AssumptionState;
-    marketCap: keyof AssumptionState;
-    debt: keyof AssumptionState;
-  }> = [
-    { name: "waccComparable1Name", beta: "waccComparable1BetaLevered", marketCap: "waccComparable1MarketCap", debt: "waccComparable1Debt" },
-    { name: "waccComparable2Name", beta: "waccComparable2BetaLevered", marketCap: "waccComparable2MarketCap", debt: "waccComparable2Debt" },
-    { name: "waccComparable3Name", beta: "waccComparable3BetaLevered", marketCap: "waccComparable3MarketCap", debt: "waccComparable3Debt" },
-  ];
+  return (
+    <div className="wacc-comparable-block" data-testid="wacc-comparable-table">
+      <div className="wacc-comparable-toolbar">
+        <div>
+          <strong>Perusahaan Pembanding</strong>
+          <span>
+            {companySector
+              ? `${companySector} · ${comparableOptions.length} emiten tersedia · ${comparableSuggestions.length} prioritas ideal/moderat`
+              : "Pilih Sektor Perusahaan di Data Awal"}
+          </span>
+        </div>
+        <button className="button ghost compact-button" type="button" onClick={onApplyComparableSuggestions} disabled={comparableSuggestions.length === 0}>
+          Terapkan Saran
+        </button>
+      </div>
+      <div className="table-wrap wacc-model-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Perusahaan Pembanding</th>
+              <th>BL</th>
+              <th>Market Cap</th>
+              <th>Debt</th>
+              <th>BU</th>
+            </tr>
+          </thead>
+          <tbody>
+            {waccComparableSlots.map((keys, index) => {
+              const row = comparableBeta.rows[index];
+
+              return (
+                <tr key={keys.name}>
+                  <td>
+                    <ComparableNameInput
+                      index={index + 1}
+                      value={assumptions[keys.name]}
+                      options={comparableOptions}
+                      onChange={(value) => onComparableNameChange(keys, value)}
+                    />
+                  </td>
+                  <td>
+                    <AssumptionInput label={`BL ${index + 1}`} value={assumptions[keys.beta]} onChange={(value) => onChange(keys.beta, value)} />
+                  </td>
+                  <td>
+                    <AssumptionInput
+                      label={`Market Cap ${index + 1}`}
+                      value={assumptions[keys.marketCap]}
+                      onChange={(value) => onChange(keys.marketCap, value)}
+                    />
+                  </td>
+                  <td>
+                    <AssumptionInput label={`Debt ${index + 1}`} value={assumptions[keys.debt]} onChange={(value) => onChange(keys.debt, value)} />
+                  </td>
+                  <td className="numeric-cell">{row?.unleveredBeta !== null && row?.unleveredBeta !== undefined ? formatNumber(row.unleveredBeta) : "Belum dihitung"}</td>
+                </tr>
+              );
+            })}
+            <tr className="total-row">
+              <td>Rata-rata / Relevered Beta</td>
+              <td>{comparableBeta.averageUnleveredBeta !== null ? formatNumber(comparableBeta.averageUnleveredBeta) : "Belum dihitung"}</td>
+              <td colSpan={2}>
+                {comparableBeta.capitalWeights
+                  ? `${formatPercent(comparableBeta.capitalWeights.debtWeight)} debt / ${formatPercent(comparableBeta.capitalWeights.equityWeight)} equity`
+                  : "Bobot struktur kapital belum tersedia."}
+              </td>
+              <td className="numeric-cell">{comparableBeta.releveredBeta !== null ? formatNumber(comparableBeta.releveredBeta) : "Belum dihitung"}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function ComparableNameInput({
+  index,
+  value,
+  options,
+  onChange,
+}: {
+  index: number;
+  value: string;
+  options: IdxComparableCompany[];
+  onChange: (value: string) => void;
+}) {
+  const inputId = `assumption-comparable-${index}`;
+  const listId = `${inputId}-options`;
 
   return (
-    <div className="table-wrap wacc-model-table" data-testid="wacc-comparable-table">
-      <table>
-        <thead>
-          <tr>
-            <th>Perusahaan Pembanding</th>
-            <th>BL</th>
-            <th>Market Cap</th>
-            <th>Debt</th>
-            <th>BU</th>
-          </tr>
-        </thead>
-        <tbody>
-          {comparableKeys.map((keys, index) => {
-            const row = comparableBeta.rows[index];
-
-            return (
-              <tr key={keys.name}>
-                <td>
-                  <AssumptionTextInput
-                    label={`Comparable ${index + 1}`}
-                    value={assumptions[keys.name]}
-                    onChange={(value) => onTextChange(keys.name, value)}
-                  />
-                </td>
-                <td>
-                  <AssumptionInput label={`BL ${index + 1}`} value={assumptions[keys.beta]} onChange={(value) => onChange(keys.beta, value)} />
-                </td>
-                <td>
-                  <AssumptionInput
-                    label={`Market Cap ${index + 1}`}
-                    value={assumptions[keys.marketCap]}
-                    onChange={(value) => onChange(keys.marketCap, value)}
-                  />
-                </td>
-                <td>
-                  <AssumptionInput label={`Debt ${index + 1}`} value={assumptions[keys.debt]} onChange={(value) => onChange(keys.debt, value)} />
-                </td>
-                <td className="numeric-cell">{row?.unleveredBeta !== null && row?.unleveredBeta !== undefined ? formatNumber(row.unleveredBeta) : "Belum dihitung"}</td>
-              </tr>
-            );
-          })}
-          <tr className="total-row">
-            <td>Rata-rata / Relevered Beta</td>
-            <td>{comparableBeta.averageUnleveredBeta !== null ? formatNumber(comparableBeta.averageUnleveredBeta) : "Belum dihitung"}</td>
-            <td colSpan={2}>Target struktur kapital dipakai untuk relevered beta.</td>
-            <td className="numeric-cell">{comparableBeta.releveredBeta !== null ? formatNumber(comparableBeta.releveredBeta) : "Belum dihitung"}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <label className="field" htmlFor={inputId}>
+      <span>{`Comparable ${index}`}</span>
+      <input
+        id={inputId}
+        list={listId}
+        placeholder="Pilih emiten sektor yang sama"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+      <datalist id={listId}>
+        {options.map((company) => {
+          const label = formatIdxComparableLabel(company);
+          return <option value={label} key={`${company.sector}-${company.comparable}-${company.quality}`} />;
+        })}
+      </datalist>
+      {value.trim() ? <small className="comparable-selected-label">{value}</small> : null}
+    </label>
   );
 }
 
 function WaccCapitalStructureTable({
   assumptions,
   calculation,
+  autoCapitalValues,
   onChange,
 }: {
   assumptions: AssumptionState;
   calculation: WaccCalculation | null;
+  autoCapitalValues: AutoWaccCapitalValues;
   onChange: (key: keyof AssumptionState, value: string) => void;
 }) {
+  const debtMarketValue = assumptions.waccDebtMarketValue.trim() || formatAutoCapitalValue(autoCapitalValues.debtMarketValue);
+  const equityMarketValue = assumptions.waccEquityMarketValue.trim() || formatAutoCapitalValue(autoCapitalValues.equityMarketValue);
+  const isDebtAuto = !assumptions.waccDebtMarketValue.trim() && autoCapitalValues.debtMarketValue > 0;
+  const isEquityAuto = !assumptions.waccEquityMarketValue.trim() && autoCapitalValues.equityMarketValue > 0;
+
   return (
     <div className="table-wrap wacc-model-table" data-testid="wacc-capital-structure-table">
       <table>
@@ -2721,7 +3106,8 @@ function WaccCapitalStructureTable({
           <tr>
             <td>Hutang</td>
             <td>
-              <AssumptionInput label="Debt market value" value={assumptions.waccDebtMarketValue} onChange={(value) => onChange("waccDebtMarketValue", value)} />
+              <AssumptionInput label="Debt market value" value={debtMarketValue} onChange={(value) => onChange("waccDebtMarketValue", value)} />
+              {isDebtAuto ? <small className="auto-source-note">Auto Neraca: current liabilities + non-current liabilities.</small> : null}
             </td>
             <td>
               <AssumptionInput label="Debt weight fallback" value={assumptions.waccDebtWeight} onChange={(value) => onChange("waccDebtWeight", value)} />
@@ -2733,7 +3119,8 @@ function WaccCapitalStructureTable({
           <tr>
             <td>Ekuitas</td>
             <td>
-              <AssumptionInput label="Equity market value" value={assumptions.waccEquityMarketValue} onChange={(value) => onChange("waccEquityMarketValue", value)} />
+              <AssumptionInput label="Equity market value" value={equityMarketValue} onChange={(value) => onChange("waccEquityMarketValue", value)} />
+              {isEquityAuto ? <small className="auto-source-note">Auto Neraca: book equity aktif.</small> : null}
             </td>
             <td>
               <AssumptionInput label="Equity weight fallback" value={assumptions.waccEquityWeight} onChange={(value) => onChange("waccEquityWeight", value)} />
@@ -3068,15 +3455,80 @@ function AssumptionInput({ label, value, onChange }: { label: string; value: str
   );
 }
 
-function AssumptionTextInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
-  const inputId = `assumption-${slugifyLabel(label)}`;
+function formatCaseProfileValue(key: keyof CaseProfile, value: string): string {
+  if (key === "capitalBaseFull" || key === "capitalBaseValued") {
+    return formatEditableNumber(value);
+  }
 
-  return (
-    <label className="field" htmlFor={inputId}>
-      <span>{label}</span>
-      <input id={inputId} placeholder="Opsional" value={value} onChange={(event) => onChange(event.target.value)} />
-    </label>
-  );
+  if (key === "transactionYear") {
+    return value.replace(/\D/g, "").slice(0, 4);
+  }
+
+  return value;
+}
+
+function formatCaseProfileProportion(derived: CaseProfileDerived): string {
+  if (derived.capitalProportionStatus === "empty") {
+    return "Belum dihitung";
+  }
+
+  if (derived.capitalProportionStatus === "invalid" || derived.capitalProportion === null) {
+    return "Data Tidak Valid";
+  }
+
+  return formatPercent(derived.capitalProportion);
+}
+
+function formatDerivedDate(value: string): string {
+  return value ? formatDisplayDate(value) : "Belum dihitung";
+}
+
+function formatAutoCapitalValue(value: number): string {
+  return value > 0 ? formatInputNumber(value) : "";
+}
+
+function resolveAutoWaccCapitalValues(assumptions: AssumptionState, autoCapitalValues: AutoWaccCapitalValues): AssumptionState {
+  return {
+    ...assumptions,
+    waccDebtMarketValue: assumptions.waccDebtMarketValue.trim() || formatAutoCapitalValue(autoCapitalValues.debtMarketValue),
+    waccEquityMarketValue: assumptions.waccEquityMarketValue.trim() || formatAutoCapitalValue(autoCapitalValues.equityMarketValue),
+  };
+}
+
+function applyIdxComparableSuggestions(
+  assumptions: AssumptionState,
+  sector: string,
+  mode: "empty-only" | "replace",
+): AssumptionState {
+  const suggestions = getSuggestedIdxComparables(sector);
+
+  if (suggestions.length === 0) {
+    return assumptions;
+  }
+
+  return waccComparableSlots.reduce((nextAssumptions, slot, index) => {
+    const suggestion = suggestions[index];
+
+    if (!suggestion || (mode === "empty-only" && String(nextAssumptions[slot.name]).trim())) {
+      return nextAssumptions;
+    }
+
+    return applyIdxComparableToSlot(nextAssumptions, slot, suggestion);
+  }, assumptions);
+}
+
+function applyIdxComparableToSlot(
+  assumptions: AssumptionState,
+  slot: WaccComparableSlot,
+  company: IdxComparableCompany,
+): AssumptionState {
+  return {
+    ...assumptions,
+    [slot.name]: formatIdxComparableLabel(company),
+    [slot.beta]: company.betaLevered !== null ? formatInputNumber(company.betaLevered) : "",
+    [slot.marketCap]: company.marketCap !== null ? formatInputNumber(company.marketCap) : "",
+    [slot.debt]: company.debt !== null ? formatInputNumber(company.debt) : "",
+  };
 }
 
 function markManualAssumptionSource(assumptions: AssumptionState, key: keyof AssumptionState): AssumptionState {

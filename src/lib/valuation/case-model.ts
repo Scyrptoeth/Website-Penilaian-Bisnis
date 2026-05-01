@@ -23,6 +23,31 @@ export type Period = {
   yearOffset: number;
 };
 
+export type CaseProfile = {
+  objectTaxpayerName: string;
+  objectTaxpayerNpwp: string;
+  companySector: string;
+  companyType: string;
+  subjectTaxpayerName: string;
+  subjectTaxpayerNpwp: string;
+  subjectTaxpayerType: string;
+  transferType: string;
+  capitalBaseFull: string;
+  capitalBaseValued: string;
+  transactionYear: string;
+  valuationObject: string;
+};
+
+export type CaseProfileDerived = {
+  capitalBaseFullLabel: string;
+  capitalBaseValuedLabel: string;
+  capitalProportionLabel: string;
+  capitalProportion: number | null;
+  capitalProportionStatus: "empty" | "valid" | "invalid";
+  cutOffDate: string;
+  firstProjectionEndDate: string;
+};
+
 export type AccountRow = {
   id: string;
   statement: StatementType;
@@ -129,6 +154,43 @@ export type MappedRow = {
 export const valuationYearOffset = 0;
 
 export const initialPeriods: Period[] = [{ id: "p1", label: "Tahun Y", valuationDate: "", yearOffset: valuationYearOffset }];
+
+export const companySectorOptions = [
+  "Basic Materials",
+  "Consumer Cyclicals",
+  "Consumer Non-Cyclicals",
+  "Energy",
+  "Financials",
+  "Healthcare",
+  "Industrials",
+  "Infrastructures",
+  "Properties & Real Estate",
+  "Transportation & Logistic",
+  "Technology",
+];
+
+export const companyTypeOptions = ["Tertutup", "Terbuka (Tbk)"];
+
+export const subjectTaxpayerTypeOptions = ["Orang Pribadi", "Badan"];
+
+export const transferTypeOptions = ["Lembar Saham", "Modal Disetor"];
+
+export const valuationObjectOptions = ["Saham", "Bisnis"];
+
+export const emptyCaseProfile: CaseProfile = {
+  objectTaxpayerName: "",
+  objectTaxpayerNpwp: "",
+  companySector: "",
+  companyType: "",
+  subjectTaxpayerName: "",
+  subjectTaxpayerNpwp: "",
+  subjectTaxpayerType: "",
+  transferType: "",
+  capitalBaseFull: "",
+  capitalBaseValued: "",
+  transactionYear: "",
+  valuationObject: "",
+};
 
 export const fixedAssetScheduleValueKeys: FixedAssetScheduleValueKey[] = [
   "acquisitionBeginning",
@@ -335,6 +397,46 @@ export function getChronologicalPeriods(periods: Period[]): Period[] {
     .map((item) => item.period);
 }
 
+export function buildCaseProfileDerived(profile: CaseProfile): CaseProfileDerived {
+  const isPaidUpCapitalTransfer = profile.transferType === "Modal Disetor" || profile.transferType.trim() === "";
+  const capitalBaseFullLabel = isPaidUpCapitalTransfer ? "Jumlah Modal Disetor 100%" : "Jumlah Saham Beredar 100%";
+  const capitalBaseValuedLabel = isPaidUpCapitalTransfer ? "Jumlah Modal Disetor yang Dinilai" : "Jumlah Saham yang Dinilai";
+  const capitalProportionLabel = isPaidUpCapitalTransfer ? "Proporsi Modal Disetor yang Dinilai" : "Proporsi Saham yang Dinilai";
+  const fullCapital = parseInputNumber(profile.capitalBaseFull);
+  const valuedCapital = parseInputNumber(profile.capitalBaseValued);
+  const capitalProportion = fullCapital > 0 ? valuedCapital / fullCapital : null;
+  const capitalProportionStatus =
+    !profile.capitalBaseFull.trim() && !profile.capitalBaseValued.trim()
+      ? "empty"
+      : capitalProportion !== null && capitalProportion > 0 && capitalProportion <= 1
+        ? "valid"
+        : "invalid";
+  const transactionYear = readTransactionYear(profile.transactionYear);
+  const cutOffDate = transactionYear ? `${transactionYear - 1}-12-31` : "";
+  const firstProjectionEndDate = transactionYear ? `${transactionYear}-12-31` : "";
+
+  return {
+    capitalBaseFullLabel,
+    capitalBaseValuedLabel,
+    capitalProportionLabel,
+    capitalProportion,
+    capitalProportionStatus,
+    cutOffDate,
+    firstProjectionEndDate,
+  };
+}
+
+export function readTransactionYear(value: string): number | null {
+  const match = /\b(19\d{2}|20\d{2})\b/.exec(value.trim());
+
+  if (!match) {
+    return null;
+  }
+
+  const year = Number(match[1]);
+  return Number.isFinite(year) ? year : null;
+}
+
 export function buildFixedAssetScheduleSummary(periods: Period[], rows: FixedAssetScheduleRow[]): FixedAssetScheduleSummary {
   const chronologicalPeriods = getChronologicalPeriods(periods);
   const totals = Object.fromEntries(
@@ -410,6 +512,23 @@ export function buildSamplePeriods(): Period[] {
     { id: "p2020", label: "2020", valuationDate: "2020-12-31", yearOffset: -1 },
     { id: "p2021", label: "2021", valuationDate: sampleCase.valuationDate, yearOffset: valuationYearOffset },
   ];
+}
+
+export function buildSampleCaseProfile(): CaseProfile {
+  return {
+    objectTaxpayerName: "Makmur Jaya Sejati Raya",
+    objectTaxpayerNpwp: "211437892119000",
+    companySector: "Consumer Cyclicals",
+    companyType: "Tertutup",
+    subjectTaxpayerName: "Helga",
+    subjectTaxpayerNpwp: "211437892119000",
+    subjectTaxpayerType: "Orang Pribadi",
+    transferType: "Modal Disetor",
+    capitalBaseFull: formatInputNumber(5_280_000_000),
+    capitalBaseValued: formatInputNumber(1_600_000_000),
+    transactionYear: "2022",
+    valuationObject: "Saham",
+  };
 }
 
 export function buildSampleAssumptions(): AssumptionState {

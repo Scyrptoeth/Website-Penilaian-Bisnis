@@ -25,6 +25,9 @@ export type WaccComparableBetaRow = {
 export type WaccComparableBetaCalculation = {
   rows: WaccComparableBetaRow[];
   averageUnleveredBeta: number | null;
+  aggregateMarketCap: number | null;
+  aggregateDebt: number | null;
+  capitalWeights: { debtWeight: number; equityWeight: number } | null;
   releveredBeta: number | null;
 };
 
@@ -52,7 +55,8 @@ export function calculateWaccAssumption(assumptions: AssumptionState): WaccCalcu
   const countryRiskPremium = readRateInput(assumptions.waccCountryRiskPremium) ?? -ratingBasedDefaultSpread;
   const specificRiskPremium = readRateInput(assumptions.waccSpecificRiskPremium) ?? 0;
   const preTaxCostOfDebt = readRateInput(assumptions.waccPreTaxCostOfDebt) ?? readAverageBankInvestmentLoanRate(assumptions);
-  const weights = readCapitalWeightsFromValues(assumptions.waccDebtMarketValue, assumptions.waccEquityMarketValue)
+  const weights = comparableBeta.capitalWeights
+    ?? readCapitalWeightsFromValues(assumptions.waccDebtMarketValue, assumptions.waccEquityMarketValue)
     ?? readCapitalWeights(assumptions.waccDebtWeight, assumptions.waccEquityWeight);
 
   if (
@@ -86,12 +90,20 @@ export function calculateWaccAssumption(assumptions: AssumptionState): WaccCalcu
 
 export function calculateWaccComparableBetaAssumption(assumptions: AssumptionState): WaccComparableBetaCalculation {
   const taxRate = readRateInput(assumptions.taxRate) ?? 0;
-  const targetWeights = readCapitalWeightsFromValues(assumptions.waccDebtMarketValue, assumptions.waccEquityMarketValue);
   const rows: WaccComparableBetaRow[] = [
     buildComparableBetaRow(1, assumptions.waccComparable1Name, assumptions.waccComparable1BetaLevered, assumptions.waccComparable1MarketCap, assumptions.waccComparable1Debt, taxRate),
     buildComparableBetaRow(2, assumptions.waccComparable2Name, assumptions.waccComparable2BetaLevered, assumptions.waccComparable2MarketCap, assumptions.waccComparable2Debt, taxRate),
     buildComparableBetaRow(3, assumptions.waccComparable3Name, assumptions.waccComparable3BetaLevered, assumptions.waccComparable3MarketCap, assumptions.waccComparable3Debt, taxRate),
   ];
+  const aggregateMarketCap = sumComparableValues(rows.map((row) => row.marketCap));
+  const aggregateDebt = sumComparableValues(rows.map((row) => row.debt));
+  const capitalWeights =
+    aggregateMarketCap !== null && aggregateDebt !== null && aggregateMarketCap + aggregateDebt > 0
+      ? {
+          debtWeight: aggregateDebt / (aggregateDebt + aggregateMarketCap),
+          equityWeight: aggregateMarketCap / (aggregateDebt + aggregateMarketCap),
+        }
+      : readCapitalWeightsFromValues(assumptions.waccDebtMarketValue, assumptions.waccEquityMarketValue);
   const validUnleveredBetas = rows
     .map((row) => row.unleveredBeta)
     .filter((value): value is number => value !== null && Number.isFinite(value));
@@ -100,13 +112,16 @@ export function calculateWaccComparableBetaAssumption(assumptions: AssumptionSta
       ? validUnleveredBetas.reduce((sum, value) => sum + value, 0) / validUnleveredBetas.length
       : null;
   const releveredBeta =
-    averageUnleveredBeta !== null && targetWeights && targetWeights.equityWeight > 0
-      ? averageUnleveredBeta * (1 + (1 - taxRate) * (targetWeights.debtWeight / targetWeights.equityWeight))
+    averageUnleveredBeta !== null && capitalWeights && capitalWeights.equityWeight > 0
+      ? averageUnleveredBeta * (1 + (1 - taxRate) * (capitalWeights.debtWeight / capitalWeights.equityWeight))
       : null;
 
   return {
     rows,
     averageUnleveredBeta,
+    aggregateMarketCap,
+    aggregateDebt,
+    capitalWeights,
     releveredBeta,
   };
 }
@@ -290,6 +305,16 @@ function buildComparableBetaRow(
 
 function positive(value: number): number {
   return Math.max(Math.abs(value), 0);
+}
+
+function sumComparableValues(values: Array<number | null>): number | null {
+  const validValues = values.filter((value): value is number => value !== null && Number.isFinite(value));
+
+  if (validValues.length === 0) {
+    return null;
+  }
+
+  return validValues.reduce((sum, value) => sum + positive(value), 0);
 }
 
 function clamp(value: number, min: number, max: number): number {

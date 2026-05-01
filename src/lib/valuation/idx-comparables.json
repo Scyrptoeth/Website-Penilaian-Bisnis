@@ -1,0 +1,5754 @@
+[
+  {
+    "comparable": "Polychem Indonesia Tbk",
+    "sector": "Basic Materials",
+    "betaLevered": 0.07,
+    "marketCap": 847841132544,
+    "debt": 55146,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "ESSA Industries Indonesia Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.084,
+    "marketCap": 14987468734464,
+    "debt": 179264,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Lotte Chemical Titan Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": -0.138,
+    "marketCap": 2749808508928,
+    "debt": 264000,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Citra Tubindo Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.389,
+    "marketCap": 4342015590400,
+    "debt": 2638718,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Unggul Indah Cahaya Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.164,
+    "marketCap": 4753308778496,
+    "debt": 5933537,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "SLJ Global Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": -0.331,
+    "marketCap": 644719247360,
+    "debt": 7481613,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Alakasa Industrindo Tbk",
+    "sector": "Basic Materials",
+    "betaLevered": 1.552,
+    "marketCap": 229699862528,
+    "debt": 15000000,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Alumindo Light Metal Industry",
+    "sector": "Basic Materials",
+    "betaLevered": -0.519,
+    "marketCap": 282384007168,
+    "debt": 21074968,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Gunung Raja Paksi Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.398,
+    "marketCap": 3488076529664,
+    "debt": 30185824,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Ancora Indonesia Resources Tbk",
+    "sector": "Basic Materials",
+    "betaLevered": 0.032,
+    "marketCap": 287187369984,
+    "debt": 39709464,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Pelat Timah Nusantara Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.79,
+    "marketCap": 751958294528,
+    "debt": 54328672,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Tembaga Mulia Semanan Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.282,
+    "marketCap": 1002838228992,
+    "debt": 56569300,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Indopoly Swakarsa Industry Tbk",
+    "sector": "Basic Materials",
+    "betaLevered": 0.408,
+    "marketCap": 850526142464,
+    "debt": 168143968,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Bumi Resources Minerals Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 1.019,
+    "marketCap": 114136155422720,
+    "debt": 191144400,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "J Resources Asia Pasifik Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.594,
+    "marketCap": 14156100009984,
+    "debt": 280644480,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Toba Pulp Lestari Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.287,
+    "marketCap": 819441172480,
+    "debt": 333806016,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Archi Indonesia Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 1.338,
+    "marketCap": 39114250387456,
+    "debt": 494639264,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Pabrik Kertas Tjiwi Kimia Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.687,
+    "marketCap": 26929384128512,
+    "debt": 715835008,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Merdeka Battery Materials Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 1.298,
+    "marketCap": 72896911245312,
+    "debt": 944940992,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Abadi Nusantara Hijau Investam",
+    "sector": "Basic Materials",
+    "betaLevered": -2.36,
+    "marketCap": 6925944094720,
+    "debt": 1150019712,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Sinergi Inti Plastindo Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.659,
+    "marketCap": 193131954176,
+    "debt": 1270298752,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Champion Pacific Indonesia Tbk",
+    "sector": "Basic Materials",
+    "betaLevered": -0.023,
+    "marketCap": 447190237184,
+    "debt": 1640690816,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "PAM Mineral Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.646,
+    "marketCap": 9306189594624,
+    "debt": 1705402240,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Merdeka Copper Gold Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 1.24,
+    "marketCap": 78866588631040,
+    "debt": 2080607744,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "OBM Drilchem Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": -2.081,
+    "marketCap": 186990362624,
+    "debt": 2425012224,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Intanwijaya Internasional Tbk",
+    "sector": "Basic Materials",
+    "betaLevered": 0.236,
+    "marketCap": 148474478592,
+    "debt": 3420930560,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Berkah Beton Sadaya Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": -0.247,
+    "marketCap": 224999997440,
+    "debt": 3804470016,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Indah Kiat Pulp & Paper Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.493,
+    "marketCap": 53342084530176,
+    "debt": 4720852992,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Amman Mineral Internasional Tb",
+    "sector": "Basic Materials",
+    "betaLevered": 0.025,
+    "marketCap": 369303299817472,
+    "debt": 6461625856,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Barito Pacific Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.586,
+    "marketCap": 171961044959232,
+    "debt": 8150786048,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Emdeki Utama Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.154,
+    "marketCap": 480728481792,
+    "debt": 11445000192,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Paperocks Indonesia Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.571,
+    "marketCap": 193504919552,
+    "debt": 13113380864,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Madusari Murni Indah Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": -0.079,
+    "marketCap": 800866762752,
+    "debt": 13255445504,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Ekadharma International Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.027,
+    "marketCap": 625403625472,
+    "debt": 22942197760,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Surya Biru Murni Acetylene Tbk",
+    "sector": "Basic Materials",
+    "betaLevered": -0.268,
+    "marketCap": 109731299328,
+    "debt": 24762626048,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Kusuma Kemindo Sentosa Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": -0.246,
+    "marketCap": 61499998208,
+    "debt": 28445732864,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Ifishdeco Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 1.082,
+    "marketCap": 4519396114432,
+    "debt": 33310459904,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Chemstar Indonesia Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": -0.638,
+    "marketCap": 154702987264,
+    "debt": 38143926272,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Sinergi Multi Lestarindo Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 2.627,
+    "marketCap": 307316195328,
+    "debt": 48806203392,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Colorpak Indonesia Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": -0.084,
+    "marketCap": 504966643712,
+    "debt": 51923673088,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Asiaplast Industries Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": -0.162,
+    "marketCap": 316139765760,
+    "debt": 62179233792,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Sumber Mineral Global Abadi Tb",
+    "sector": "Basic Materials",
+    "betaLevered": 1.244,
+    "marketCap": 778750001152,
+    "debt": 62383366144,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Kedawung Setia Industrial Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": -0.121,
+    "marketCap": 751680028672,
+    "debt": 77478141952,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Nusa Palapa Gemilang Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.106,
+    "marketCap": 236537217024,
+    "debt": 85637742592,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Avia Avian Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.054,
+    "marketCap": 22822426509312,
+    "debt": 86208004096,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Megalestari Epack Sentosaraya",
+    "sector": "Basic Materials",
+    "betaLevered": -0.174,
+    "marketCap": 260968595456,
+    "debt": 90841694208,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Pelangi Indah Canindo Tbk",
+    "sector": "Basic Materials",
+    "betaLevered": -0.207,
+    "marketCap": 91508367360,
+    "debt": 107722072064,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Adhi Kartiko Pratama Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 1.479,
+    "marketCap": 1934082310144,
+    "debt": 133804236800,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Primadaya Plastisindo Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.289,
+    "marketCap": 1071469494272,
+    "debt": 138358095872,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Panca Budi Idaman Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": -0.12,
+    "marketCap": 3937500135424,
+    "debt": 230273695744,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Indonesia Fibreboard Industry",
+    "sector": "Basic Materials",
+    "betaLevered": 0.092,
+    "marketCap": 2070639935488,
+    "debt": 239463038976,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Indo Komoditi Korpora Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.224,
+    "marketCap": 84863852544,
+    "debt": 257318977536,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Tunas Alfin Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.048,
+    "marketCap": 933870174208,
+    "debt": 267262017536,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Wijaya Cahaya Timber Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.192,
+    "marketCap": 174706999296,
+    "debt": 301391446016,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Wilton Makmur Indonesia Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.306,
+    "marketCap": 854567550976,
+    "debt": 308079263744,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Wijaya Karya Beton Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.309,
+    "marketCap": 784391995392,
+    "debt": 360105607168,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Bintang Mitra Semestaraya Tbk",
+    "sector": "Basic Materials",
+    "betaLevered": -0.709,
+    "marketCap": 380217589760,
+    "debt": 367570386944,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Sriwahana Adityakarta Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": -0.146,
+    "marketCap": 48307200000,
+    "debt": 390300499968,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Saranacentral Bajatama Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.944,
+    "marketCap": 286200004608,
+    "debt": 411857485824,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Semen Baturaja (Persero) Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.582,
+    "marketCap": 2145427521536,
+    "debt": 522186489856,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Alkindo Naratama Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.157,
+    "marketCap": 1617695866880,
+    "debt": 612237508608,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Suparma Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.722,
+    "marketCap": 861066690560,
+    "debt": 712492646400,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Indal Aluminium Industry Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.261,
+    "marketCap": 117849604096,
+    "debt": 739453566976,
+    "quality": "Data Pembanding Bersifat Ideal"
+  },
+  {
+    "comparable": "Saraswanti Anugerah Makmur Tbk",
+    "sector": "Basic Materials",
+    "betaLevered": 0.444,
+    "marketCap": 3362000207872,
+    "debt": 773657198592,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Central Omega Resources Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.643,
+    "marketCap": 4603760869376,
+    "debt": 869337595904,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Berlina Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": -0.268,
+    "marketCap": 646212616192,
+    "debt": 913787191296,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Tirta Mahakam Resources Tbk",
+    "sector": "Basic Materials",
+    "betaLevered": 2.251,
+    "marketCap": 551417217024,
+    "debt": 973768753152,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Satyamitra Kemas Lestari Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.131,
+    "marketCap": 553729851392,
+    "debt": 1153604255744,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Argha Karya Prima Industry Tbk",
+    "sector": "Basic Materials",
+    "betaLevered": 0.147,
+    "marketCap": 330613915648,
+    "debt": 1340652781568,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Lautan Luas Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": -0.175,
+    "marketCap": 1142457237504,
+    "debt": 1349237997568,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Kapuas Prima Coal Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.609,
+    "marketCap": 757500018688,
+    "debt": 1501837000704,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Timah Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 1.037,
+    "marketCap": 26662955646976,
+    "debt": 1665877016576,
+    "quality": "Data Pembanding Diatas Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Solusi Bangun Indonesia Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.169,
+    "marketCap": 6990021001216,
+    "debt": 1863826014208,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Kirana Megatara Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": -0.005,
+    "marketCap": 2103133732864,
+    "debt": 2050206859264,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Trias Sentosa Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.057,
+    "marketCap": 1347839983616,
+    "debt": 2068834942976,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Steel Pipe Industry of Indones",
+    "sector": "Basic Materials",
+    "betaLevered": 0.43,
+    "marketCap": 3088547577856,
+    "debt": 2368344948736,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Indocement Tunggal Prakarsa Tb",
+    "sector": "Basic Materials",
+    "betaLevered": 0.411,
+    "marketCap": 17186573778944,
+    "debt": 2743493984256,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Waskita Beton Precast Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.076,
+    "marketCap": 1043768737792,
+    "debt": 3575070588928,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Samator Indo Gas Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": -0.056,
+    "marketCap": 9199980380160,
+    "debt": 3984910974976,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Fajar Surya Wisesa Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.223,
+    "marketCap": 17555842400256,
+    "debt": 4536873779200,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Aneka Tambang Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.961,
+    "marketCap": 89875059572736,
+    "debt": 4556903153664,
+    "quality": "Data Pembanding Diatas Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Cemindo Gemilang Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.145,
+    "marketCap": 13957285806080,
+    "debt": 8901784240128,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Trimegah Bangun Persada Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 1.544,
+    "marketCap": 65822319968256,
+    "debt": 10259722665984,
+    "quality": "Data Pembanding Diatas Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Semen Indonesia (Persero) Tbk.",
+    "sector": "Basic Materials",
+    "betaLevered": 0.448,
+    "marketCap": 13471088377856,
+    "debt": 10398470242304,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Goodyear Indonesia Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.188,
+    "marketCap": 455100006400,
+    "debt": 1151152,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Tifico Fiber Indonesia Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 1.031,
+    "marketCap": 3496730427392,
+    "debt": 1295716,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Ever Shine Tex Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.997,
+    "marketCap": 338555076608,
+    "debt": 25434536,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Eratex Djaja Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.566,
+    "marketCap": 259881041920,
+    "debt": 32861894,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Pan Brothers Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.472,
+    "marketCap": 816317071360,
+    "debt": 86645976,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Sanurhasta Mitra Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.154,
+    "marketCap": 3327187484672,
+    "debt": 121941952,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Indo-Rama Synthetics Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.45,
+    "marketCap": 1760205996032,
+    "debt": 126060768,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Klinko Karya Imaji Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": -0.608,
+    "marketCap": 198744621056,
+    "debt": 507159264,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Solusi Environment Asia Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.86,
+    "marketCap": 664736956416,
+    "debt": 558772608,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Asia Pacific Fibers Tbk",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.911,
+    "marketCap": 79864111104,
+    "debt": 1044077120,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Bersama Mencapai Puncak Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 3.003,
+    "marketCap": 749785907200,
+    "debt": 1382736256,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Lavender Bina Cendikia Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 1.634,
+    "marketCap": 40173158400,
+    "debt": 1676231040,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Red Planet Indonesia Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": -0.243,
+    "marketCap": 2629212831744,
+    "debt": 3973550592,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Eastparc Hotel Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": -0.255,
+    "marketCap": 383755714560,
+    "debt": 5658910208,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Futura Energi Global Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 1.408,
+    "marketCap": 1499634728960,
+    "debt": 5851463168,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Lupromax Pelumas Indonesia Tbk",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.02,
+    "marketCap": 109201473536,
+    "debt": 6099207680,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Isra Presisi Indonesia Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 1.699,
+    "marketCap": 124630835200,
+    "debt": 6796119040,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Oscar Mitra Sukses Sejahtera T",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.536,
+    "marketCap": 108304179200,
+    "debt": 7151480320,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Puri Sentul Permai Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.537,
+    "marketCap": 1187522150400,
+    "debt": 7422206976,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Arkadia Digital Media Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.039,
+    "marketCap": 64999997440,
+    "debt": 8338480128,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Sepeda Bersama Indonesia Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.027,
+    "marketCap": 659897384960,
+    "debt": 11487928320,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Idea Indonesia Akademi Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.733,
+    "marketCap": 82870124544,
+    "debt": 11743456256,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Harta Djaya Karya Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 1.157,
+    "marketCap": 281673269248,
+    "debt": 12258026496,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Pembangunan Graha Lestari Inda",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.848,
+    "marketCap": 112240001024,
+    "debt": 14393820160,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Imago Mulia Persada Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.92,
+    "marketCap": 732331573248,
+    "debt": 14548272128,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Selaras Citra Nusantara Perkas",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.496,
+    "marketCap": 376149409792,
+    "debt": 14899999744,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Griptha Putra Persada Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.583,
+    "marketCap": 64000000000,
+    "debt": 18317699072,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Rohartindo Nusantara Luas Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.577,
+    "marketCap": 205002031104,
+    "debt": 19487178752,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Mitra Angkasa Sejahtera Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 1.036,
+    "marketCap": 163206217728,
+    "debt": 19593777152,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Planet Properindo Jaya Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 1.442,
+    "marketCap": 47525605376,
+    "debt": 22408034304,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Hotel Fitra International Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 2.598,
+    "marketCap": 521708797952,
+    "debt": 25303099392,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Lima Dua Lima Tiga Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 1.829,
+    "marketCap": 2476655247360,
+    "debt": 26419128320,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Kedaung Indah Can Tbk",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.865,
+    "marketCap": 60167999488,
+    "debt": 28549933056,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Panca Anugrah Wisesa Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.731,
+    "marketCap": 16191509757952,
+    "debt": 31605305344,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Surya Citra Media Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.161,
+    "marketCap": 15876175691776,
+    "debt": 36380778496,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Primarindo Asia Infrastructure",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": -0.399,
+    "marketCap": 49870409728,
+    "debt": 39932416000,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Samcro Hyosung Adilestari Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.587,
+    "marketCap": 256731561984,
+    "debt": 41048772608,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Golden Flower Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.164,
+    "marketCap": 10649999507456,
+    "debt": 44022829056,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Chitose Internasional Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.074,
+    "marketCap": 216000004096,
+    "debt": 44517150720,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Era Media Sejahtera Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": -1.575,
+    "marketCap": 1346567143424,
+    "debt": 47278407680,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Gaya Abadi Sempurna Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": -0.464,
+    "marketCap": 204457263104,
+    "debt": 47413661696,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Pudjiadi & Sons Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.039,
+    "marketCap": 490655318016,
+    "debt": 49586708480,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Magna Investama Mandiri Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.497,
+    "marketCap": 627627393024,
+    "debt": 59235794944,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Electronic City Indonesia Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.661,
+    "marketCap": 208959668224,
+    "debt": 60740993024,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Sari Kreasi Boga Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.531,
+    "marketCap": 112613056512,
+    "debt": 62020534272,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Tempo Intimedia Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.749,
+    "marketCap": 135466655744,
+    "debt": 63379423232,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Pioneerindo Gourmet Internatio",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 1.461,
+    "marketCap": 207559524352,
+    "debt": 64993693696,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Anugerah Kagum Karya Utama Tbk",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.626,
+    "marketCap": 245079621632,
+    "debt": 70833307648,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Bersama Zatta Jaya Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 3.547,
+    "marketCap": 798623989760,
+    "debt": 100255080448,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Sunindo Adipersada Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.319,
+    "marketCap": 11480005632,
+    "debt": 100490944512,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Multitrend Indo Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.57,
+    "marketCap": 654056685568,
+    "debt": 103313416192,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Damai Sejahtera Abadi Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": -0.115,
+    "marketCap": 449230569472,
+    "debt": 111693078528,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Sona Topas Tourism Industry Tb",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 1.199,
+    "marketCap": 1708991971328,
+    "debt": 126803550208,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Destinasi Tirta Nusantara Tbk",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": -0.259,
+    "marketCap": 364650004480,
+    "debt": 139737710592,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Dafam Property Indonesia Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.394,
+    "marketCap": 201384394752,
+    "debt": 141253672960,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Esta Multi Usaha Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.173,
+    "marketCap": 538428637184,
+    "debt": 146549522432,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Sepatu Bata Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.512,
+    "marketCap": 83200000000,
+    "debt": 147662503936,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Panorama Sentrawisata Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.262,
+    "marketCap": 707625025536,
+    "debt": 151937449984,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "MNC Sky Vision Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.046,
+    "marketCap": 837635604480,
+    "debt": 155522007040,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Saraswanti Indoland Developmen",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.196,
+    "marketCap": 581582061568,
+    "debt": 163012083712,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Homeco Victoria Makmur Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.788,
+    "marketCap": 1038019133440,
+    "debt": 167593017344,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Arsy Buana Travelindo Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": -0.112,
+    "marketCap": 320904495104,
+    "debt": 168013037568,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Selamat Sempurna Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.131,
+    "marketCap": 10365616259072,
+    "debt": 172983992320,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Satria Mega Kencana Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 3.594,
+    "marketCap": 1040004153344,
+    "debt": 177171955712,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Trisula Textile Industries Tbk",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 1.312,
+    "marketCap": 1060227317760,
+    "debt": 178956976128,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Greenwood Sejahtera Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.507,
+    "marketCap": 1177914703872,
+    "debt": 197379489792,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Jakarta International Hotels &",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": -0.837,
+    "marketCap": 1199455862784,
+    "debt": 201368928256,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "King Tire Indonesia Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": -0.226,
+    "marketCap": 417669808128,
+    "debt": 205951090688,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Mahaka Media Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": -0.205,
+    "marketCap": 165307498496,
+    "debt": 210308628480,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Trisula International Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.199,
+    "marketCap": 571580153856,
+    "debt": 218829914112,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Mitra Pinasthika Mustika Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.288,
+    "marketCap": 4314126352384,
+    "debt": 220889006080,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Mega Perintis Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": -0.36,
+    "marketCap": 295858307072,
+    "debt": 226969681920,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Menteng Heritage Realty Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.079,
+    "marketCap": 309854994432,
+    "debt": 233835986944,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Langgeng Makmur Industri Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.231,
+    "marketCap": 168422457344,
+    "debt": 246379200512,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "VKTR Teknologi Mobilitas Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 2.025,
+    "marketCap": 39593747415040,
+    "debt": 248429002752,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Indospring Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 2.438,
+    "marketCap": 2887498596352,
+    "debt": 270664663040,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Apollo Global Interactive Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.071,
+    "marketCap": 5401007357952,
+    "debt": 273519902720,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "MNC Digital Entertainment Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.524,
+    "marketCap": 48540940238848,
+    "debt": 275556007936,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Dharma Polimetal Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.258,
+    "marketCap": 4611764649984,
+    "debt": 278684008448,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Citra Putra Realty Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.924,
+    "marketCap": 7298799894528,
+    "debt": 309502738432,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Multi Indocitra Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.319,
+    "marketCap": 298911531008,
+    "debt": 315477065728,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Caturkarda Depo Bangunan Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.502,
+    "marketCap": 1751820009472,
+    "debt": 333930823680,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Garuda Metalindo Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.087,
+    "marketCap": 2109374857216,
+    "debt": 337341448192,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Sejahtera Bintang Abadi Textil",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": -0.126,
+    "marketCap": 4752982528,
+    "debt": 338000707584,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Tripar Multivision Plus Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.489,
+    "marketCap": 1444487495680,
+    "debt": 349417504768,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Sarimelati Kencana Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.437,
+    "marketCap": 631153033216,
+    "debt": 359939801088,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Mahaka Radio Integra Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.712,
+    "marketCap": 152326668288,
+    "debt": 371715833856,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Hotel Sahid Jaya International",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": -0.168,
+    "marketCap": 833898020864,
+    "debt": 401512693760,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Sinar Eka Selaras Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.694,
+    "marketCap": 1576999976960,
+    "debt": 422242123776,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Ramayana Lestari Sentosa Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.563,
+    "marketCap": 2621618520064,
+    "debt": 435072991232,
+    "quality": "Data Pembanding Bersifat Ideal"
+  },
+  {
+    "comparable": "Globe Kita Terang Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.523,
+    "marketCap": 172222349312,
+    "debt": 457475686400,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Gema Grahasarana Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.18,
+    "marketCap": 142133002240,
+    "debt": 464531226624,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Bukit Uluwatu Villa Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.752,
+    "marketCap": 25847905910784,
+    "debt": 472886181888,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Putra Mandiri Jembar Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.268,
+    "marketCap": 1760716783616,
+    "debt": 521294446592,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "MNC Vision Networks Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.087,
+    "marketCap": 1772313903104,
+    "debt": 524421988352,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Inocycle Technology Group Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.848,
+    "marketCap": 285699080192,
+    "debt": 568231723008,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Champ Resto Indonesia Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.063,
+    "marketCap": 762666680320,
+    "debt": 568964874240,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Astra Otoparts Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.14,
+    "marketCap": 12386713993216,
+    "debt": 580313022464,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Terang Dunia Internusa Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.128,
+    "marketCap": 573333307392,
+    "debt": 591531278336,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "DMS Propertindo Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.881,
+    "marketCap": 1571381575680,
+    "debt": 645916065792,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Argo Pantes Tbk",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.308,
+    "marketCap": 3507644792832,
+    "debt": 761715752960,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Pembangunan Jaya Ancol Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.005,
+    "marketCap": 799999983616,
+    "debt": 772651024384,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Aspirasi Hidup Indonesia Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.19,
+    "marketCap": 6129099735040,
+    "debt": 1011720519680,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Industri dan Perdagangan Bintr",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": -0.061,
+    "marketCap": 1395000082432,
+    "debt": 1198400077824,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Graha Layar Prima Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.447,
+    "marketCap": 2359630233600,
+    "debt": 1202393841664,
+    "quality": "Data Pembanding Bersifat Ideal"
+  },
+  {
+    "comparable": "Ricky Putra Globalindo Tbk",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.31,
+    "marketCap": 60963164160,
+    "debt": 1327462612992,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Media Nusantara Citra Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.154,
+    "marketCap": 3200973012992,
+    "debt": 1435700035584,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Nusantara Sejahtera Raya Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.097,
+    "marketCap": 8491682496512,
+    "debt": 1678686027776,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Fast Food Indonesia Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.993,
+    "marketCap": 1328998252544,
+    "debt": 2207889489920,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Jakarta Setiabudi Internasiona",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": -0.525,
+    "marketCap": 3304198504448,
+    "debt": 2491403468800,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "MDS Retailing Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.136,
+    "marketCap": 1907461193728,
+    "debt": 2569941024768,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Intermedia Capital Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.809,
+    "marketCap": 5098019749888,
+    "debt": 2883829628928,
+    "quality": "Data Pembanding Diatas Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Integra Indocabinet Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.357,
+    "marketCap": 1904242982912,
+    "debt": 2935227154432,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Visi Media Asia Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.61,
+    "marketCap": 856142053376,
+    "debt": 4035900604416,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Omni Inovasi Indonesia Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.221,
+    "marketCap": 65798365184,
+    "debt": 4047547924480,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Catur Sentosa Adiprana Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.021,
+    "marketCap": 1648120692736,
+    "debt": 4372511588352,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Gajah Tunggal Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.409,
+    "marketCap": 4163927801856,
+    "debt": 5208167940096,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Global Mediacom Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.343,
+    "marketCap": 2747221934080,
+    "debt": 5800093810688,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "MNC Tourism Indonesia Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.5,
+    "marketCap": 11084188614656,
+    "debt": 6020841603072,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Erajaya Swasembada Tbk.",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.438,
+    "marketCap": 6471228588032,
+    "debt": 9399743545344,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Indomobil Sukses Internasional",
+    "sector": "Consumer Cyclicals",
+    "betaLevered": 0.21,
+    "marketCap": 4253919739904,
+    "debt": 51479670947840,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Multi Spunindo Jaya Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.166,
+    "marketCap": 2923434606592,
+    "debt": 12250210,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Wahana Pronatural Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": -0.725,
+    "marketCap": 168765554688,
+    "debt": 32336452,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "FKS Multi Agro Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 1.298,
+    "marketCap": 3959999954944,
+    "debt": 134467936,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Austindo Nusantara Jaya Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.437,
+    "marketCap": 6087827783680,
+    "debt": 143991088,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Panca Mitra Multiperdana Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": -0.632,
+    "marketCap": 129415004160,
+    "debt": 169197296,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Hassana Boga Sejahtera Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 1.169,
+    "marketCap": 181050802176,
+    "debt": 180103696,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Cilacap Samudera Fishing Indus",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 1.558,
+    "marketCap": 380000010240,
+    "debt": 311628992,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "PP London Sumatra Indonesia Tb",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": -0.037,
+    "marketCap": 11764437614592,
+    "debt": 329000000,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Cisarua Mountain Dairy Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.149,
+    "marketCap": 33643055546368,
+    "debt": 427000000,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Formosa Ingredient Factory Tbk",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.448,
+    "marketCap": 316675489792,
+    "debt": 605952320,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Agro Bahari Nusantara Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 1.873,
+    "marketCap": 1601286701056,
+    "debt": 619255232,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Pulau Subur Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.953,
+    "marketCap": 390152683520,
+    "debt": 1005609984,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Mitra Tirta Buwana Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": -1.531,
+    "marketCap": 56291360768,
+    "debt": 2000000000,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Segar Kumala Indonesia Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": -0.416,
+    "marketCap": 1050000031744,
+    "debt": 2711087104,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Lovina Beach Brewery Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.142,
+    "marketCap": 1157958336512,
+    "debt": 3777151232,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Wahana Inti Makmur Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.449,
+    "marketCap": 123532197888,
+    "debt": 5871067648,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Indo Pureco Pratama Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": -0.431,
+    "marketCap": 64399998976,
+    "debt": 6015041024,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Delta Djakarta Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.137,
+    "marketCap": 1601318158336,
+    "debt": 6627923968,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Falmaco Nonwoven Industri Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 1.753,
+    "marketCap": 139062493184,
+    "debt": 7314974720,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Mandom Indonesia Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.301,
+    "marketCap": 1154122645504,
+    "debt": 8084343296,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Jobubu Jarum Minahasa Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.174,
+    "marketCap": 536000004096,
+    "debt": 12656710656,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Dewi Shri Farmindo Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": -0.176,
+    "marketCap": 254000005120,
+    "debt": 15178537984,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Sentra Food Indonesia Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.744,
+    "marketCap": 120900001792,
+    "debt": 16076920832,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "BISI International Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.145,
+    "marketCap": 2250000039936,
+    "debt": 16805999616,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Nanotech Indonesia Global Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.207,
+    "marketCap": 162838888448,
+    "debt": 18131689472,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Indo Boga Sukses Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 1.739,
+    "marketCap": 814644723712,
+    "debt": 18416072704,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Prima Cakrawala Abadi Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": -0.531,
+    "marketCap": 42000003072,
+    "debt": 22981330944,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Graha Prima Mentari Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 2.873,
+    "marketCap": 464519987200,
+    "debt": 26901989376,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Janu Putra Sejahtera Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": -0.111,
+    "marketCap": 1360000057344,
+    "debt": 42373251072,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Ultrajaya Milk Industry & Trad",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.225,
+    "marketCap": 17572916363264,
+    "debt": 43524001792,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Era Mandiri Cemerlang Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.139,
+    "marketCap": 81666629632,
+    "debt": 45446336512,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Toba Surimi Industries Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.168,
+    "marketCap": 409499992064,
+    "debt": 47522250752,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Asia Sejahtera Mina Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.694,
+    "marketCap": 249999998976,
+    "debt": 59059462144,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Prasidha Aneka Niaga Tbk",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.105,
+    "marketCap": 290879995904,
+    "debt": 65827422208,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Aman Agrindo Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.474,
+    "marketCap": 378908311552,
+    "debt": 73127116800,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Diamond Food Indonesia Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.088,
+    "marketCap": 6107091173376,
+    "debt": 76472000512,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Dharma Samudera Fishing Indust",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.205,
+    "marketCap": 183856414720,
+    "debt": 82052710400,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Hatten Bali Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.485,
+    "marketCap": 495930015744,
+    "debt": 84733558784,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Victoria Care Indonesia Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": -0.236,
+    "marketCap": 4125419896832,
+    "debt": 85074870272,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Multi Bintang Indonesia Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.01,
+    "marketCap": 12273275895808,
+    "debt": 106867998720,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Indo Oil Perkasa Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.242,
+    "marketCap": 125319618560,
+    "debt": 118886875136,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Mustika Ratu Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.553,
+    "marketCap": 172056002560,
+    "debt": 129043136512,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Maxindo Karya Anugerah Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.652,
+    "marketCap": 490115072000,
+    "debt": 134691741696,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Indonesian Tobacco Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.707,
+    "marketCap": 246468640768,
+    "debt": 138439966720,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Andira Agro Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.381,
+    "marketCap": 233749987328,
+    "debt": 140789071872,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Palma Serasih Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.313,
+    "marketCap": 3751150092288,
+    "debt": 144817405952,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Uni-Charm Indonesia Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.175,
+    "marketCap": 1670942162944,
+    "debt": 156396994560,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Martina Berto Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.393,
+    "marketCap": 130540003328,
+    "debt": 159916294144,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Gozco Plantations Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.192,
+    "marketCap": 1248406798336,
+    "debt": 175235006464,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Morenzo Abadi Perkasa Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 1.405,
+    "marketCap": 155703394304,
+    "debt": 186075938816,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Enseval Putera Megatrading Tbk",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": -0.006,
+    "marketCap": 6392390352896,
+    "debt": 189926506496,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Tigaraksa Satria Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": -0.094,
+    "marketCap": 4776161968128,
+    "debt": 196116004864,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Jaya Swarasa Agung Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": -0.369,
+    "marketCap": 70330875904,
+    "debt": 212256882688,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Wicaksana Overseas Internation",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": -0.762,
+    "marketCap": 294426378240,
+    "debt": 233948905472,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "FKS Food Sejahtera Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.316,
+    "marketCap": 468103561216,
+    "debt": 237050003456,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Wismilak Inti Makmur Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": -0.32,
+    "marketCap": 3954348130304,
+    "debt": 339639861248,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Pinago Utama Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.114,
+    "marketCap": 2734375043072,
+    "debt": 339813924864,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Buyung Poetra Sembada Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.018,
+    "marketCap": 638731681792,
+    "debt": 345161105408,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Pradiksi Gunatama Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 2.79,
+    "marketCap": 50779960377344,
+    "debt": 363264540672,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Wahana Interfood Nusantara Tbk",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.914,
+    "marketCap": 1139025903616,
+    "debt": 384915865600,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Sekar Laut Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": -0.169,
+    "marketCap": 1371985149952,
+    "debt": 411583414272,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "H.M. Sampoerna Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.678,
+    "marketCap": 87238553632768,
+    "debt": 415301009408,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Supra Boga Lestari Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 1.232,
+    "marketCap": 891757920256,
+    "debt": 421893308416,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Sariguna Primatirta Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": -0.375,
+    "marketCap": 9360000417792,
+    "debt": 426841964544,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Tri Banyan Tirta Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": -0.008,
+    "marketCap": 39453667328,
+    "debt": 570714423296,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Sreeya Sewu Indonesia Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.916,
+    "marketCap": 1691973976064,
+    "debt": 599105011712,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Dua Putra Utama Makmur Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.355,
+    "marketCap": 483086630912,
+    "debt": 638292459520,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Nippon Indosari Corpindo Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": -0.024,
+    "marketCap": 3626367713280,
+    "debt": 639192268800,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Unilever Indonesia Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.366,
+    "marketCap": 58301194698752,
+    "debt": 644841013248,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Sekar Bumi Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.636,
+    "marketCap": 1202421760000,
+    "debt": 654026473472,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Menthobi Karyatama Raya Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 1.097,
+    "marketCap": 1531674361856,
+    "debt": 757737586688,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Gudang Garam Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.82,
+    "marketCap": 30785409122304,
+    "debt": 761930973184,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Cisadane Sawit Raya Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": -0.161,
+    "marketCap": 1865499934720,
+    "debt": 802333917184,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Teladan Prima Agro Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.037,
+    "marketCap": 8091581546496,
+    "debt": 841596993536,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Widodo Makmur Unggas Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 1.084,
+    "marketCap": 905882370048,
+    "debt": 1255708295168,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "DFI Retail Nusantara Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.309,
+    "marketCap": 1983042420736,
+    "debt": 1259666014208,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Matahari Putra Prima Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 1.416,
+    "marketCap": 674265235456,
+    "debt": 1557490040832,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Kino Indonesia Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": -0.188,
+    "marketCap": 1544277196800,
+    "debt": 1561313542144,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Estika Tata Tiara Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 1.008,
+    "marketCap": 1656530927616,
+    "debt": 1564108652544,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Sumber Tani Agung Resources Tb",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": -0.087,
+    "marketCap": 13408756826112,
+    "debt": 1575773011968,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Malindo Feedmill Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.081,
+    "marketCap": 1907075448832,
+    "debt": 1757532258304,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Jhonlin Agro Raya Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 1.373,
+    "marketCap": 20215154868224,
+    "debt": 1806843641856,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Cerestar Indonesia Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.296,
+    "marketCap": 1477846761472,
+    "debt": 1815154524160,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Multipolar Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.594,
+    "marketCap": 1530109362176,
+    "debt": 2000185065472,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Budi Starch & Sweetener Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.149,
+    "marketCap": 943168159744,
+    "debt": 2005818015744,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Citra Borneo Utama Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.14,
+    "marketCap": 2671874932736,
+    "debt": 2094903984128,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Mahkota Group Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": -0.08,
+    "marketCap": 2379570479104,
+    "debt": 2097506418688,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Garudafood Putra Putri Jaya Tb",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.065,
+    "marketCap": 12907161059328,
+    "debt": 2213432524800,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Jaya Agra Wattie Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": -0.517,
+    "marketCap": 2759601684480,
+    "debt": 2287829516288,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Sumber Alfaria Trijaya Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": -0.055,
+    "marketCap": 54305675542528,
+    "debt": 2710428975104,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Prime Agri Resources Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": -0.01,
+    "marketCap": 8183798562816,
+    "debt": 2996096991232,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Widodo Makmur Perkasa Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": -1.587,
+    "marketCap": 1235598049280,
+    "debt": 3054348795904,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Eagle High Plantations Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.192,
+    "marketCap": 4170397253632,
+    "debt": 4529253253120,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "FAP Agri Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": -0.071,
+    "marketCap": 24569177964544,
+    "debt": 4688283435008,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Bakrie Sumatera Plantations Tb",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.029,
+    "marketCap": 925060038656,
+    "debt": 4957417766912,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Sawit Sumbermas Sarana Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.102,
+    "marketCap": 13144499945472,
+    "debt": 8423145996288,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Salim Ivomas Pratama Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.262,
+    "marketCap": 11936008765440,
+    "debt": 9536222003200,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Japfa Comfeed Indonesia Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.224,
+    "marketCap": 28836620140544,
+    "debt": 11862081011712,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Sinar Mas Agro Resources and T",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.453,
+    "marketCap": 17663988334592,
+    "debt": 16417676066816,
+    "quality": "Data Pembanding Diatas Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Tunas Baru Lampung Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.125,
+    "marketCap": 4353009647616,
+    "debt": 17904231776256,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Indofood CBP Sukses Makmur Tbk",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": 0.005,
+    "marketCap": 79009429848064,
+    "debt": 47431525859328,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Indofood Sukses Makmur Tbk.",
+    "sector": "Consumer Non-Cyclicals",
+    "betaLevered": -0.025,
+    "marketCap": 59267876913152,
+    "debt": 75094315499520,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Indo Straits Tbk.",
+    "sector": "Energy",
+    "betaLevered": 0.775,
+    "marketCap": 170551246848,
+    "debt": 252085,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Rig Tenders Indonesia Tbk.",
+    "sector": "Energy",
+    "betaLevered": 0.917,
+    "marketCap": 414208393216,
+    "debt": 254842,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Garda Tujuh Buana Tbk",
+    "sector": "Energy",
+    "betaLevered": -0.638,
+    "marketCap": 550000001024,
+    "debt": 537793,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Capitol Nusantara Indonesia Tb",
+    "sector": "Energy",
+    "betaLevered": 1.375,
+    "marketCap": 117515042816,
+    "debt": 918608,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Baramulti Suksessarana Tbk.",
+    "sector": "Energy",
+    "betaLevered": -0.418,
+    "marketCap": 10413669351424,
+    "debt": 1288321,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Resource Alam Indonesia Tbk.",
+    "sector": "Energy",
+    "betaLevered": -0.33,
+    "marketCap": 1539972005888,
+    "debt": 2835164,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Pelayaran Nasional Bina Buana",
+    "sector": "Energy",
+    "betaLevered": 0.785,
+    "marketCap": 1263444033536,
+    "debt": 3198811,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "IMC Pelita Logistik Tbk.",
+    "sector": "Energy",
+    "betaLevered": 0.193,
+    "marketCap": 1730961997824,
+    "debt": 10029503,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Sumber Energi Andalan Tbk.",
+    "sector": "Energy",
+    "betaLevered": 0.784,
+    "marketCap": 1978125254656,
+    "debt": 16882030,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Samindo Resources Tbk.",
+    "sector": "Energy",
+    "betaLevered": -0.069,
+    "marketCap": 2724795777024,
+    "debt": 18667544,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Golden Eagle Energy Tbk.",
+    "sector": "Energy",
+    "betaLevered": 0.134,
+    "marketCap": 7808999751680,
+    "debt": 27291144,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "GTS Internasional Tbk.",
+    "sector": "Energy",
+    "betaLevered": 0.698,
+    "marketCap": 3480211423232,
+    "debt": 32002488,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Mitrabara Adiperdana Tbk.",
+    "sector": "Energy",
+    "betaLevered": -0.558,
+    "marketCap": 2024998699008,
+    "debt": 34858872,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Wintermar Offshore Marine Tbk.",
+    "sector": "Energy",
+    "betaLevered": 0.185,
+    "marketCap": 2512391503872,
+    "debt": 44417848,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "MNC Energy Investments Tbk.",
+    "sector": "Energy",
+    "betaLevered": -0.343,
+    "marketCap": 2564617928704,
+    "debt": 54827772,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Atlas Resources Tbk.",
+    "sector": "Energy",
+    "betaLevered": -0.357,
+    "marketCap": 1057500037120,
+    "debt": 79968000,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Indo Tambangraya Megah Tbk.",
+    "sector": "Energy",
+    "betaLevered": -0.583,
+    "marketCap": 29951591972864,
+    "debt": 88685000,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Humpuss Maritim Internasional",
+    "sector": "Energy",
+    "betaLevered": 1.389,
+    "marketCap": 3269334663168,
+    "debt": 107572688,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Buana Lintas Lautan Tbk.",
+    "sector": "Energy",
+    "betaLevered": 1.228,
+    "marketCap": 7902162583552,
+    "debt": 108137104,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Humpuss Intermoda Transportasi",
+    "sector": "Energy",
+    "betaLevered": 0.157,
+    "marketCap": 823725850624,
+    "debt": 108207496,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Trans Power Marine Tbk.",
+    "sector": "Energy",
+    "betaLevered": 0.806,
+    "marketCap": 1870616985600,
+    "debt": 122120128,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Apexindo Pratama Duta Tbk.",
+    "sector": "Energy",
+    "betaLevered": 0.432,
+    "marketCap": 716386271232,
+    "debt": 133408368,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Golden Energy Mines Tbk.",
+    "sector": "Energy",
+    "betaLevered": -0.115,
+    "marketCap": 46617650528256,
+    "debt": 134444480,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Rukun Raharja Tbk.",
+    "sector": "Energy",
+    "betaLevered": -0.284,
+    "marketCap": 17500121071616,
+    "debt": 153552128,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Soechi Lines Tbk.",
+    "sector": "Energy",
+    "betaLevered": 0.791,
+    "marketCap": 3444791836672,
+    "debt": 168580736,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "TBS Energi Utama Tbk.",
+    "sector": "Energy",
+    "betaLevered": 1.031,
+    "marketCap": 4702135648256,
+    "debt": 400253728,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Energi Mega Persada Tbk.",
+    "sector": "Energy",
+    "betaLevered": 0.386,
+    "marketCap": 44788590051328,
+    "debt": 427142816,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Bumi Resources Tbk.",
+    "sector": "Energy",
+    "betaLevered": 0.168,
+    "marketCap": 89120495894528,
+    "debt": 434884160,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Harum Energy Tbk.",
+    "sector": "Energy",
+    "betaLevered": 0.277,
+    "marketCap": 13082813267968,
+    "debt": 617428608,
+    "quality": "Data Pembanding Bersifat Ideal"
+  },
+  {
+    "comparable": "Astrindo Nusantara Infrastrukt",
+    "sector": "Energy",
+    "betaLevered": 1.754,
+    "marketCap": 15290447429632,
+    "debt": 710498496,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Alamtri Minerals Indonesia Tbk",
+    "sector": "Energy",
+    "betaLevered": 0.418,
+    "marketCap": 75632310484992,
+    "debt": 714544000,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Alamtri Resources Indonesia Tb",
+    "sector": "Energy",
+    "betaLevered": -0.229,
+    "marketCap": 72577246560256,
+    "debt": 821264000,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "ABM Investama Tbk.",
+    "sector": "Energy",
+    "betaLevered": -0.767,
+    "marketCap": 8121837158400,
+    "debt": 969108032,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "BUMA Internasional Grup Tbk.",
+    "sector": "Energy",
+    "betaLevered": -0.259,
+    "marketCap": 1854006755328,
+    "debt": 1054920832,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Perusahaan Gas Negara (Persero",
+    "sector": "Energy",
+    "betaLevered": 0.101,
+    "marketCap": 47028524548096,
+    "debt": 1083182976,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Indika Energy Tbk.",
+    "sector": "Energy",
+    "betaLevered": 0.553,
+    "marketCap": 18989826703360,
+    "debt": 1091357568,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Dian Swastatika Sentosa Tbk",
+    "sector": "Energy",
+    "betaLevered": -0.342,
+    "marketCap": 249892370907136,
+    "debt": 1486163968,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Atlantis Subsea Indonesia Tbk.",
+    "sector": "Energy",
+    "betaLevered": 0.302,
+    "marketCap": 328577613824,
+    "debt": 1498282752,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Artha Mahiya Investama Tbk.",
+    "sector": "Energy",
+    "betaLevered": 1.409,
+    "marketCap": 99000000512,
+    "debt": 2001282304,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Medco Energi Internasional Tbk",
+    "sector": "Energy",
+    "betaLevered": 0.429,
+    "marketCap": 43191088709632,
+    "debt": 3898892032,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Alfa Energi Investama Tbk.",
+    "sector": "Energy",
+    "betaLevered": -0.403,
+    "marketCap": 203600117760,
+    "debt": 5126887936,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Ratu Prabu Energi Tbk",
+    "sector": "Energy",
+    "betaLevered": -0.609,
+    "marketCap": 15680000000,
+    "debt": 7447628288,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Batulicin Nusantara Maritim Tb",
+    "sector": "Energy",
+    "betaLevered": 0.029,
+    "marketCap": 3887714533376,
+    "debt": 14562310144,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Kian Santang Muliatama Tbk.",
+    "sector": "Energy",
+    "betaLevered": -1.031,
+    "marketCap": 131331063808,
+    "debt": 18906626048,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Sigma Energy Compressindo Tbk.",
+    "sector": "Energy",
+    "betaLevered": -0.047,
+    "marketCap": 112849641472,
+    "debt": 24639723520,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Bintang Samudera Mandiri Lines",
+    "sector": "Energy",
+    "betaLevered": -0.575,
+    "marketCap": 740089987072,
+    "debt": 29848100864,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Citra Nusantara Gemilang Tbk.",
+    "sector": "Energy",
+    "betaLevered": -0.197,
+    "marketCap": 299383324672,
+    "debt": 35823058944,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Semacom Integrated Tbk.",
+    "sector": "Energy",
+    "betaLevered": -0.161,
+    "marketCap": 150893002752,
+    "debt": 58340278272,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Ginting Jaya Energi Tbk.",
+    "sector": "Energy",
+    "betaLevered": 0.099,
+    "marketCap": 195581870080,
+    "debt": 69910683648,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Indah Prakasa Sentosa Tbk.",
+    "sector": "Energy",
+    "betaLevered": 1.326,
+    "marketCap": 428999999488,
+    "debt": 76368150528,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Royaltama Mulia Kontraktorindo",
+    "sector": "Energy",
+    "betaLevered": 3.868,
+    "marketCap": 607499976704,
+    "debt": 95494930432,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Mitra Energi Persada Tbk.",
+    "sector": "Energy",
+    "betaLevered": 0.594,
+    "marketCap": 170133078016,
+    "debt": 110764556288,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Multikarya Asia Pasifik Raya T",
+    "sector": "Energy",
+    "betaLevered": 2.288,
+    "marketCap": 3509999894528,
+    "debt": 150064185344,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Ulima Nitra Tbk.",
+    "sector": "Energy",
+    "betaLevered": 0.249,
+    "marketCap": 398650834944,
+    "debt": 169378742272,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Black Diamond Resources Tbk.",
+    "sector": "Energy",
+    "betaLevered": 0.055,
+    "marketCap": 412500000768,
+    "debt": 184130961408,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Sunindo Pratama Tbk.",
+    "sector": "Energy",
+    "betaLevered": -0.44,
+    "marketCap": 1491967934464,
+    "debt": 185406504960,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Capitalinc Investment Tbk.",
+    "sector": "Energy",
+    "betaLevered": 0.541,
+    "marketCap": 700525838336,
+    "debt": 212384858112,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Mitrabahtera Segara Sejati Tbk",
+    "sector": "Energy",
+    "betaLevered": 0.251,
+    "marketCap": 4130062729216,
+    "debt": 243433406464,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Paragon Karya Perkasa Tbk.",
+    "sector": "Energy",
+    "betaLevered": 0.417,
+    "marketCap": 3671999905792,
+    "debt": 268749160448,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Dwi Guna Laksana Tbk.",
+    "sector": "Energy",
+    "betaLevered": -0.023,
+    "marketCap": 2553778536448,
+    "debt": 301331218432,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Exploitasi Energi Indonesia Tb",
+    "sector": "Energy",
+    "betaLevered": -0.007,
+    "marketCap": 528425287680,
+    "debt": 418573123584,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "RMK Energy Tbk.",
+    "sector": "Energy",
+    "betaLevered": 0.688,
+    "marketCap": 14087500070912,
+    "debt": 453705924608,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Radiant Utama Interinsco Tbk.",
+    "sector": "Energy",
+    "betaLevered": -0.343,
+    "marketCap": 177099997184,
+    "debt": 499786809344,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Mandiri Herindo Adiperkasa Tbk",
+    "sector": "Energy",
+    "betaLevered": 0.328,
+    "marketCap": 2475640487936,
+    "debt": 612435689472,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Elnusa Tbk.",
+    "sector": "Energy",
+    "betaLevered": 0.281,
+    "marketCap": 5765815336960,
+    "debt": 649871032320,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Transcoal Pacific Tbk.",
+    "sector": "Energy",
+    "betaLevered": 0.131,
+    "marketCap": 57499998748672,
+    "debt": 1280645005312,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Sumber Global Energy Tbk.",
+    "sector": "Energy",
+    "betaLevered": -0.147,
+    "marketCap": 5860677910528,
+    "debt": 2300691349504,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Hillcon Tbk.",
+    "sector": "Energy",
+    "betaLevered": -0.232,
+    "marketCap": 309571485696,
+    "debt": 3613487005696,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Bukit Asam (Persero) Tbk.",
+    "sector": "Energy",
+    "betaLevered": -0.38,
+    "marketCap": 33046203990016,
+    "debt": 3857182883840,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "AKR Corporindo Tbk.",
+    "sector": "Energy",
+    "betaLevered": -0.464,
+    "marketCap": 31283635814400,
+    "debt": 5529788743680,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Asuransi Maximus Graha Persada",
+    "sector": "Financials",
+    "betaLevered": 0.257,
+    "marketCap": 170209214464,
+    "debt": 251088832,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Calculus Global Ventures Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.787,
+    "marketCap": 2928000368640,
+    "debt": 1037647424,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Bank Pembangunan Daerah Banten",
+    "sector": "Financials",
+    "betaLevered": -0.251,
+    "marketCap": 1400501829632,
+    "debt": 1047000000,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Danasupra Erapacific Tbk.",
+    "sector": "Financials",
+    "betaLevered": -0.284,
+    "marketCap": 108160000000,
+    "debt": 1464570624,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Fuji Finance Indonesia Tbk.",
+    "sector": "Financials",
+    "betaLevered": -0.618,
+    "marketCap": 423800012800,
+    "debt": 2447829248,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Yulie Sekuritas Indonesia Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.183,
+    "marketCap": 5349156323328,
+    "debt": 2721539584,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Malacca Trust Wuwungan Insuran",
+    "sector": "Financials",
+    "betaLevered": -0.019,
+    "marketCap": 918288793600,
+    "debt": 4793340928,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Surya Fajar Capital Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.072,
+    "marketCap": 2658671001600,
+    "debt": 6327128064,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Bank Ganesha Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.296,
+    "marketCap": 2900490452992,
+    "debt": 6686000128,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Bank Panin Dubai Syariah Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.101,
+    "marketCap": 1979495743488,
+    "debt": 7875566080,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Bank JTrust Indonesia Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.175,
+    "marketCap": 2318069923840,
+    "debt": 8536999936,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Minna Padi Investama Sekuritas",
+    "sector": "Financials",
+    "betaLevered": -0.34,
+    "marketCap": 1221182619648,
+    "debt": 8853603328,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Ashmore Asset Management Indon",
+    "sector": "Financials",
+    "betaLevered": 0.592,
+    "marketCap": 780899844096,
+    "debt": 9340999680,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Bank BTPN Syariah Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.469,
+    "marketCap": 7703700176896,
+    "debt": 27204999168,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Reliance Sekuritas Indonesia T",
+    "sector": "Financials",
+    "betaLevered": -0.37,
+    "marketCap": 908999983104,
+    "debt": 30822481920,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Bank QNB Indonesia Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.099,
+    "marketCap": 2109482991616,
+    "debt": 82441003008,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Asuransi Ramayana Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.139,
+    "marketCap": 365505740800,
+    "debt": 144316612608,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Bank MNC Internasional Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.639,
+    "marketCap": 2267408760832,
+    "debt": 194195996672,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Bank China Construction Bank I",
+    "sector": "Financials",
+    "betaLevered": 0.201,
+    "marketCap": 2616461361152,
+    "debt": 195945005056,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Bank Neo Commerce Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.686,
+    "marketCap": 4085247377408,
+    "debt": 224165003264,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Bhakti Multi Artha Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.082,
+    "marketCap": 6999999774720,
+    "debt": 251513192448,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Bank Artha Graha Internasional",
+    "sector": "Financials",
+    "betaLevered": -0.37,
+    "marketCap": 3195299168256,
+    "debt": 403345997824,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Equity Development Investment",
+    "sector": "Financials",
+    "betaLevered": -0.562,
+    "marketCap": 1423040053248,
+    "debt": 490677010432,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Bank Oke Indonesia Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.026,
+    "marketCap": 2432504430592,
+    "debt": 508398895104,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Bank Aladin Syariah Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.168,
+    "marketCap": 8580041277440,
+    "debt": 511818006528,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "KDB Tifa Finance Tbk.",
+    "sector": "Financials",
+    "betaLevered": -0.052,
+    "marketCap": 1179334737920,
+    "debt": 733450797056,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Bank Sinarmas Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.239,
+    "marketCap": 16955898593280,
+    "debt": 736198983680,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Allo Bank Indonesia Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.691,
+    "marketCap": 27678130307072,
+    "debt": 754055970816,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Bank Mayapada Internasional Tb",
+    "sector": "Financials",
+    "betaLevered": 0.298,
+    "marketCap": 5207403528192,
+    "debt": 769958019072,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Asuransi Tugu Pratama Indonesi",
+    "sector": "Financials",
+    "betaLevered": 0.153,
+    "marketCap": 4497803313152,
+    "debt": 785658216448,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Venteny Fortuna International",
+    "sector": "Financials",
+    "betaLevered": 0.846,
+    "marketCap": 444828745728,
+    "debt": 927737184256,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Woori Finance Indonesia Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.197,
+    "marketCap": 711282720768,
+    "debt": 1094459850752,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Bank Raya Indonesia Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.597,
+    "marketCap": 4465189978112,
+    "debt": 1106406932480,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Saratoga Investama Sedaya Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.381,
+    "marketCap": 24321951006720,
+    "debt": 1450471063552,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Batavia Prosperindo Internasio",
+    "sector": "Financials",
+    "betaLevered": -0.474,
+    "marketCap": 4586247028736,
+    "debt": 1618321604608,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Pacific Strategic Financial Tb",
+    "sector": "Financials",
+    "betaLevered": -0.016,
+    "marketCap": 22297165430784,
+    "debt": 1762109554688,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Bank Maspion Indonesia Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.071,
+    "marketCap": 9051331100672,
+    "debt": 2040278548480,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Bank Capital Indonesia Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.34,
+    "marketCap": 2733564493824,
+    "debt": 2140647981056,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Mizuho Leasing Indonesia Tbk.",
+    "sector": "Financials",
+    "betaLevered": -0.055,
+    "marketCap": 466363023360,
+    "debt": 2318329184256,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Bank Syariah Indonesia (Perser",
+    "sector": "Financials",
+    "betaLevered": 0.113,
+    "marketCap": 81879432691712,
+    "debt": 2712051908608,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Bank Central Asia Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.112,
+    "marketCap": 719626199629824,
+    "debt": 2733053050880,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Radana Bhaskara Finance Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.441,
+    "marketCap": 726211428352,
+    "debt": 2836200947712,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Bank Ina Perdana Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.162,
+    "marketCap": 27299487416320,
+    "debt": 2853029019648,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "MNC Kapital Indonesia Tbk.",
+    "sector": "Financials",
+    "betaLevered": -0.169,
+    "marketCap": 2216180318208,
+    "debt": 3009408925696,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Capital Financial Indonesia Tb",
+    "sector": "Financials",
+    "betaLevered": -0.218,
+    "marketCap": 73542968279040,
+    "debt": 3133863100416,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Provident Investasi Bersama Tb",
+    "sector": "Financials",
+    "betaLevered": 0.491,
+    "marketCap": 5743254700032,
+    "debt": 3210915086336,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Bank Jago Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.917,
+    "marketCap": 18089037004800,
+    "debt": 3213250002944,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Clipan Finance Indonesia Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.209,
+    "marketCap": 1338798899200,
+    "debt": 3492448305152,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Trimegah Sekuritas Indonesia T",
+    "sector": "Financials",
+    "betaLevered": -0.024,
+    "marketCap": 4052301119488,
+    "debt": 3633026170880,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Wahana Ottomitra Multiartha Tb",
+    "sector": "Financials",
+    "betaLevered": 0.35,
+    "marketCap": 1037481476096,
+    "debt": 5055732776960,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Bank IBK Indonesia Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.361,
+    "marketCap": 3350507028480,
+    "debt": 5255347044352,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Buana Finance Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.212,
+    "marketCap": 1094454411264,
+    "debt": 5646689239040,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Bank Victoria International Tb",
+    "sector": "Financials",
+    "betaLevered": 0.291,
+    "marketCap": 1934039056384,
+    "debt": 6138189316096,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Victoria Investama Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.033,
+    "marketCap": 2510817329152,
+    "debt": 6166680698880,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Bank Nationalnobu Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.096,
+    "marketCap": 3926183116800,
+    "debt": 6509004062720,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Indoritel Makmur Internasional",
+    "sector": "Financials",
+    "betaLevered": 0.278,
+    "marketCap": 134393393840128,
+    "debt": 7084787105792,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Bank Woori Saudara Indonesia 1",
+    "sector": "Financials",
+    "betaLevered": 0.084,
+    "marketCap": 3761200693248,
+    "debt": 7461905891328,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Bank Mega Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.2,
+    "marketCap": 51894877683712,
+    "debt": 10179555885056,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Bank OCBC NISP Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.224,
+    "marketCap": 30402517401600,
+    "debt": 10373637865472,
+    "quality": "Data Pembanding Bersifat Ideal"
+  },
+  {
+    "comparable": "Sinarmas Multiartha Tbk.",
+    "sector": "Financials",
+    "betaLevered": -0.246,
+    "marketCap": 99335572291584,
+    "debt": 11514464436224,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Paninvest Tbk.",
+    "sector": "Financials",
+    "betaLevered": -0.282,
+    "marketCap": 3152950853632,
+    "debt": 12956731441152,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Bank Permata Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.916,
+    "marketCap": 108543931842560,
+    "debt": 14561472151552,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Bank Pembangunan Daerah Jawa T",
+    "sector": "Financials",
+    "betaLevered": 0.231,
+    "marketCap": 8708988862464,
+    "debt": 14615735959552,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Panin Financial Tbk.",
+    "sector": "Financials",
+    "betaLevered": -0.629,
+    "marketCap": 7749341544448,
+    "debt": 16218280951808,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Bank Pan Indonesia Tbk",
+    "sector": "Financials",
+    "betaLevered": -0.374,
+    "marketCap": 24553310912512,
+    "debt": 16820774895616,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Adira Dinamika Multi Finance T",
+    "sector": "Financials",
+    "betaLevered": 0.274,
+    "marketCap": 10788685217792,
+    "debt": 20252251389952,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Bank CIMB Niaga Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.147,
+    "marketCap": 42226566561792,
+    "debt": 24529900404736,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Bank KB Indonesia Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.682,
+    "marketCap": 11461139103744,
+    "debt": 24703567659008,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Bank Maybank Indonesia Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.263,
+    "marketCap": 15547900100608,
+    "debt": 34077906305024,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Bank Pembangunan Daerah Jawa B",
+    "sector": "Financials",
+    "betaLevered": 0.056,
+    "marketCap": 9153655341056,
+    "debt": 42359614078976,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Bank SMBC Indonesia Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.205,
+    "marketCap": 20812822216704,
+    "debt": 50417941610496,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Bank Tabungan Negara (Persero)",
+    "sector": "Financials",
+    "betaLevered": 0.409,
+    "marketCap": 19016672346112,
+    "debt": 51561862529024,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Bank Rakyat Indonesia (Persero",
+    "sector": "Financials",
+    "betaLevered": 0.359,
+    "marketCap": 453161395421184,
+    "debt": 209176617811968,
+    "quality": "Data Pembanding Diatas Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Bank Mandiri (Persero) Tbk.",
+    "sector": "Financials",
+    "betaLevered": 0.096,
+    "marketCap": 409733336924160,
+    "debt": 276390641401856,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Darya-Varia Laboratoria Tbk.",
+    "sector": "Healthcare",
+    "betaLevered": -0.123,
+    "marketCap": 1797600051200,
+    "debt": 709414016,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Industri Jamu dan Farmasi Sido",
+    "sector": "Healthcare",
+    "betaLevered": 0.106,
+    "marketCap": 14717599875072,
+    "debt": 4110000128,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Soho Global Health Tbk.",
+    "sector": "Healthcare",
+    "betaLevered": 1.227,
+    "marketCap": 24431489449984,
+    "debt": 7218999808,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Hetzer Medical Indonesia Tbk.",
+    "sector": "Healthcare",
+    "betaLevered": 0.925,
+    "marketCap": 120312496128,
+    "debt": 8000230912,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Mitra Keluarga Karyasehat Tbk.",
+    "sector": "Healthcare",
+    "betaLevered": 0.09,
+    "marketCap": 26771902693376,
+    "debt": 9550823424,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Merck Tbk.",
+    "sector": "Healthcare",
+    "betaLevered": -0.113,
+    "marketCap": 1881600032768,
+    "debt": 14228508672,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Prodia Widyahusada Tbk.",
+    "sector": "Healthcare",
+    "betaLevered": -0.287,
+    "marketCap": 2260029669376,
+    "debt": 20867999744,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Charlie Hospital Semarang Tbk.",
+    "sector": "Healthcare",
+    "betaLevered": 0.563,
+    "marketCap": 726099951616,
+    "debt": 64079966208,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Diagnos Laboratorium Utama Tbk",
+    "sector": "Healthcare",
+    "betaLevered": 0.776,
+    "marketCap": 332500008960,
+    "debt": 77146382336,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Kedoya Adyaraya Tbk.",
+    "sector": "Healthcare",
+    "betaLevered": -0.464,
+    "marketCap": 1278303141888,
+    "debt": 146505416704,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Ikapharmindo Putramas Tbk.",
+    "sector": "Healthcare",
+    "betaLevered": 1.021,
+    "marketCap": 343671144448,
+    "debt": 170962321408,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Multi Medika Internasional Tbk",
+    "sector": "Healthcare",
+    "betaLevered": 1.394,
+    "marketCap": 1440127647744,
+    "debt": 184447762432,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Jayamas Medica Industri Tbk.",
+    "sector": "Healthcare",
+    "betaLevered": 0.103,
+    "marketCap": 7778338865152,
+    "debt": 216110055424,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Penta Valent Tbk.",
+    "sector": "Healthcare",
+    "betaLevered": 0.34,
+    "marketCap": 706250014720,
+    "debt": 326847037440,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Phapros Tbk.",
+    "sector": "Healthcare",
+    "betaLevered": 0.312,
+    "marketCap": 250319994880,
+    "debt": 717273366528,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Itama Ranoraya Tbk.",
+    "sector": "Healthcare",
+    "betaLevered": 0.383,
+    "marketCap": 582017482752,
+    "debt": 835915808768,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Murni Sadar Tbk.",
+    "sector": "Healthcare",
+    "betaLevered": 0.206,
+    "marketCap": 2047841665024,
+    "debt": 836994465792,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Indofarma Tbk.",
+    "sector": "Healthcare",
+    "betaLevered": 0.284,
+    "marketCap": 390507724800,
+    "debt": 845733691392,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Tempo Scan Pacific Tbk.",
+    "sector": "Healthcare",
+    "betaLevered": 0.251,
+    "marketCap": 11004069019648,
+    "debt": 1060819894272,
+    "quality": "Data Pembanding Bersifat Ideal"
+  },
+  {
+    "comparable": "Metro Healthcare Indonesia Tbk",
+    "sector": "Healthcare",
+    "betaLevered": -0.511,
+    "marketCap": 13632499875840,
+    "debt": 1083635007488,
+    "quality": "Data Pembanding Bersifat Ideal"
+  },
+  {
+    "comparable": "Sarana Meditama Metropolitan T",
+    "sector": "Healthcare",
+    "betaLevered": 0.048,
+    "marketCap": 5698657714176,
+    "debt": 1103671459840,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Bundamedik Tbk.",
+    "sector": "Healthcare",
+    "betaLevered": -0.253,
+    "marketCap": 1591632068608,
+    "debt": 1355787403264,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Famon Awal Bros Sedaya Tbk.",
+    "sector": "Healthcare",
+    "betaLevered": 0.407,
+    "marketCap": 10469566840832,
+    "debt": 1932080971776,
+    "quality": "Data Pembanding Bersifat Ideal"
+  },
+  {
+    "comparable": "Pyridam Farma Tbk",
+    "sector": "Healthcare",
+    "betaLevered": 1.02,
+    "marketCap": 3393481867264,
+    "debt": 4841405939712,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Sejahteraraya Anugrahjaya Tbk.",
+    "sector": "Healthcare",
+    "betaLevered": 0.599,
+    "marketCap": 184196349820928,
+    "debt": 5664209895424,
+    "quality": "Data Pembanding Diatas Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Kimia Farma Tbk.",
+    "sector": "Healthcare",
+    "betaLevered": 1.219,
+    "marketCap": 2660829757440,
+    "debt": 7315068026880,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Sumi Indo Kabel Tbk.",
+    "sector": "Industrials",
+    "betaLevered": 0.204,
+    "marketCap": 679320027136,
+    "debt": 10188160,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Hexindo Adiperkasa Tbk.",
+    "sector": "Industrials",
+    "betaLevered": 0.085,
+    "marketCap": 3729600020480,
+    "debt": 167112624,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Multi Garam Utama Tbk.",
+    "sector": "Industrials",
+    "betaLevered": 3.628,
+    "marketCap": 1391061499904,
+    "debt": 604150016,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Geoprima Solusi Tbk.",
+    "sector": "Industrials",
+    "betaLevered": 0.117,
+    "marketCap": 230692421632,
+    "debt": 769049024,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Berkah Prima Perkasa Tbk.",
+    "sector": "Industrials",
+    "betaLevered": 1.627,
+    "marketCap": 1404479995904,
+    "debt": 847180352,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Green Power Group Tbk.",
+    "sector": "Industrials",
+    "betaLevered": 0.45,
+    "marketCap": 139028709376,
+    "debt": 1078114176,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Widiant Jaya Krenindo Tbk.",
+    "sector": "Industrials",
+    "betaLevered": -0.299,
+    "marketCap": 52801048576,
+    "debt": 1113241088,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Keramika Indonesia Assosiasi T",
+    "sector": "Industrials",
+    "betaLevered": 0.24,
+    "marketCap": 313511084032,
+    "debt": 5493000192,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Ateliers Mecaniques D Indonesi",
+    "sector": "Industrials",
+    "betaLevered": 0.825,
+    "marketCap": 269999996928,
+    "debt": 5889954304,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Mark Dynamics Indonesia Tbk.",
+    "sector": "Industrials",
+    "betaLevered": 0.295,
+    "marketCap": 3097000148992,
+    "debt": 6183241216,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Ecocare Indo Pasifik Tbk.",
+    "sector": "Industrials",
+    "betaLevered": -0.098,
+    "marketCap": 358897156096,
+    "debt": 7631340544,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Kokoh Inti Arebama Tbk",
+    "sector": "Industrials",
+    "betaLevered": 0.308,
+    "marketCap": 82390867968,
+    "debt": 8409999872,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Nusatama Berkah Tbk.",
+    "sector": "Industrials",
+    "betaLevered": 0.583,
+    "marketCap": 232205565952,
+    "debt": 8999999488,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Multi Hanna Kreasindo Tbk.",
+    "sector": "Industrials",
+    "betaLevered": 2.891,
+    "marketCap": 693750005760,
+    "debt": 10182264832,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Jasuindo Tiga Perkasa Tbk.",
+    "sector": "Industrials",
+    "betaLevered": -0.141,
+    "marketCap": 4309042593792,
+    "debt": 11625251840,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Island Concepts Indonesia Tbk.",
+    "sector": "Industrials",
+    "betaLevered": 0.369,
+    "marketCap": 153654755328,
+    "debt": 13046877184,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Multi Makmur Lemindo Tbk.",
+    "sector": "Industrials",
+    "betaLevered": 1.329,
+    "marketCap": 469375320064,
+    "debt": 15567382528,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Astra Graphia Tbk.",
+    "sector": "Industrials",
+    "betaLevered": 0.41,
+    "marketCap": 2212000169984,
+    "debt": 24184999936,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Lion Metal Works Tbk.",
+    "sector": "Industrials",
+    "betaLevered": 0.51,
+    "marketCap": 213265596416,
+    "debt": 25694851072,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Mitra Pack Tbk.",
+    "sector": "Industrials",
+    "betaLevered": 1.2,
+    "marketCap": 225013202944,
+    "debt": 45123444736,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Hoffmen Cleanindo Tbk.",
+    "sector": "Industrials",
+    "betaLevered": -0.069,
+    "marketCap": 1134843527168,
+    "debt": 45510938624,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Mutuagung Lestari Tbk.",
+    "sector": "Industrials",
+    "betaLevered": 0.512,
+    "marketCap": 333152780288,
+    "debt": 51743047680,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Harapan Duta Pertiwi Tbk.",
+    "sector": "Industrials",
+    "betaLevered": 0.853,
+    "marketCap": 351509446656,
+    "debt": 62284816384,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Perma Plasindo Tbk.",
+    "sector": "Industrials",
+    "betaLevered": 0.202,
+    "marketCap": 277588574208,
+    "debt": 72061902848,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Arwana Citramulia Tbk.",
+    "sector": "Industrials",
+    "betaLevered": 0.162,
+    "marketCap": 3472808738816,
+    "debt": 72965357568,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Communication Cable Systems In",
+    "sector": "Industrials",
+    "betaLevered": 0.205,
+    "marketCap": 357333336064,
+    "debt": 112164634624,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Personel Alih Daya Tbk.",
+    "sector": "Industrials",
+    "betaLevered": 0.521,
+    "marketCap": 570150027264,
+    "debt": 118896148480,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "KMI Wire & Cable Tbk.",
+    "sector": "Industrials",
+    "betaLevered": 0.081,
+    "marketCap": 1306358579200,
+    "debt": 122804609024,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Arita Prima Indonesia Tbk.",
+    "sector": "Industrials",
+    "betaLevered": 0.123,
+    "marketCap": 207621685248,
+    "debt": 143641706496,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Surya Toto Indonesia Tbk.",
+    "sector": "Industrials",
+    "betaLevered": 0.061,
+    "marketCap": 2786399879168,
+    "debt": 204627034112,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Intikeramik Alamasri Industri",
+    "sector": "Industrials",
+    "betaLevered": 0.472,
+    "marketCap": 332645007360,
+    "debt": 205352452096,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Arkha Jayanti Persada Tbk.",
+    "sector": "Industrials",
+    "betaLevered": 0.193,
+    "marketCap": 62000001024,
+    "debt": 206323515392,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Cahayaputra Asa Keramik Tbk.",
+    "sector": "Industrials",
+    "betaLevered": -0.131,
+    "marketCap": 200951136256,
+    "debt": 221447880704,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Dyandra Media International Tb",
+    "sector": "Industrials",
+    "betaLevered": -0.039,
+    "marketCap": 358929006592,
+    "debt": 235283759104,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Surya Pertiwi Tbk.",
+    "sector": "Industrials",
+    "betaLevered": -0.123,
+    "marketCap": 1673999941632,
+    "debt": 263221936128,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Superkrane Mitra Utama Tbk.",
+    "sector": "Industrials",
+    "betaLevered": -0.05,
+    "marketCap": 3430875922432,
+    "debt": 272504438784,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Multifiling Mitra Indonesia Tb",
+    "sector": "Industrials",
+    "betaLevered": 0.056,
+    "marketCap": 984855281664,
+    "debt": 286952914944,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Modern Internasional Tbk.",
+    "sector": "Industrials",
+    "betaLevered": 1.031,
+    "marketCap": 412137062400,
+    "debt": 294728073216,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Citatah Tbk.",
+    "sector": "Industrials",
+    "betaLevered": 0.116,
+    "marketCap": 187087650816,
+    "debt": 327342882816,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Sarana Mitra Luas Tbk.",
+    "sector": "Industrials",
+    "betaLevered": 0.102,
+    "marketCap": 2438707281920,
+    "debt": 394335977472,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Voksel Electric Tbk.",
+    "sector": "Industrials",
+    "betaLevered": 0.183,
+    "marketCap": 897610153984,
+    "debt": 817926307840,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Intan Baru Prana Tbk.",
+    "sector": "Industrials",
+    "betaLevered": 0.535,
+    "marketCap": 119869259776,
+    "debt": 867476373504,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Mulia Industrindo Tbk",
+    "sector": "Industrials",
+    "betaLevered": 0.05,
+    "marketCap": 1733130059776,
+    "debt": 868923670528,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Impack Pratama Industri Tbk.",
+    "sector": "Industrials",
+    "betaLevered": 0.383,
+    "marketCap": 121493291794432,
+    "debt": 1049537478656,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Dosni Roha Indonesia Tbk.",
+    "sector": "Industrials",
+    "betaLevered": 0.194,
+    "marketCap": 26710364160,
+    "debt": 1052804841472,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Asahimas Flat Glass Tbk.",
+    "sector": "Industrials",
+    "betaLevered": 0.294,
+    "marketCap": 1375779946496,
+    "debt": 1112832999424,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Jembo Cable Company Tbk.",
+    "sector": "Industrials",
+    "betaLevered": 0.373,
+    "marketCap": 710640009216,
+    "debt": 1123594141696,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Singaraja Putra Tbk.",
+    "sector": "Industrials",
+    "betaLevered": 2.671,
+    "marketCap": 6252999999488,
+    "debt": 1418565648384,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Kobexindo Tractors Tbk.",
+    "sector": "Industrials",
+    "betaLevered": -0.077,
+    "marketCap": 420412489728,
+    "debt": 1447927349248,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "MNC Asia Holding Tbk.",
+    "sector": "Industrials",
+    "betaLevered": 0.386,
+    "marketCap": 2756910514176,
+    "debt": 11147955666944,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Bakrie & Brothers Tbk",
+    "sector": "Industrials",
+    "betaLevered": 0.754,
+    "marketCap": 37111201792000,
+    "debt": 17111143415808,
+    "quality": "Data Pembanding Diatas Rata-Rata Sektor"
+  },
+  {
+    "comparable": "United Tractors Tbk.",
+    "sector": "Industrials",
+    "betaLevered": -0.17,
+    "marketCap": 103787784044544,
+    "debt": 18917040848896,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Astra International Tbk.",
+    "sector": "Industrials",
+    "betaLevered": 0.127,
+    "marketCap": 240276962541568,
+    "debt": 116834997108736,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Kencana Energi Lestari Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": 0.282,
+    "marketCap": 3299681239040,
+    "debt": 105505536,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Fimperkasa Utama Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": 0.391,
+    "marketCap": 27600066560,
+    "debt": 181788640,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Cikarang Listrindo Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": 0.05,
+    "marketCap": 11650851667968,
+    "debt": 344594432,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Garuda Maintenance Facility Ae",
+    "sector": "Infrastructures",
+    "betaLevered": -0.123,
+    "marketCap": 7864621465600,
+    "debt": 384761280,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Koka Indonesia Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": 1.746,
+    "marketCap": 503594614784,
+    "debt": 4845451776,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Total Bangun Persada Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": 0.241,
+    "marketCap": 4074949836800,
+    "debt": 4881141248,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Sinergi Inti Andalan Prima Tbk",
+    "sector": "Infrastructures",
+    "betaLevered": -0.663,
+    "marketCap": 6667485315072,
+    "debt": 9809263616,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Paramita Bangun Sarana Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": 0.078,
+    "marketCap": 3450000113664,
+    "debt": 11220829184,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Manggung Polahraya Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": 1.368,
+    "marketCap": 198255280128,
+    "debt": 23954941952,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Pratama Widya Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": 0.259,
+    "marketCap": 834278129664,
+    "debt": 28301086720,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Asri Karya Lestari Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": 1.331,
+    "marketCap": 2312499888128,
+    "debt": 30857545728,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Aracord Nusantara Group Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": 1.157,
+    "marketCap": 2168749948928,
+    "debt": 32677249024,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Megapower Makmur Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": 0.075,
+    "marketCap": 88235679744,
+    "debt": 34314090496,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Maharaksa Biru Energi Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": -0.106,
+    "marketCap": 2411943690240,
+    "debt": 34833035264,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Jasnita Telekomindo Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": 0.086,
+    "marketCap": 107175002112,
+    "debt": 35116146688,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Bangun Karya Perkasa Jaya Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": 0.679,
+    "marketCap": 121467871232,
+    "debt": 38688522240,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Djasa Ubersakti Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": 0.402,
+    "marketCap": 105000001536,
+    "debt": 70877192192,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Jaya Konstruksi Manggala Prata",
+    "sector": "Infrastructures",
+    "betaLevered": 0.16,
+    "marketCap": 1255756005376,
+    "debt": 85615116288,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Terregra Asia Energy Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": 0.082,
+    "marketCap": 74250002432,
+    "debt": 101444550656,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Lancartama Sejati Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": -0.385,
+    "marketCap": 206400110592,
+    "debt": 137151717376,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Cahaya Aero Services Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": 0.39,
+    "marketCap": 3766944792576,
+    "debt": 158527995904,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Berdikari Pondasi Perkasa Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": 0.818,
+    "marketCap": 798542135296,
+    "debt": 199813595136,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Nusa Konstruksi Enjiniring Tbk",
+    "sector": "Infrastructures",
+    "betaLevered": 0.199,
+    "marketCap": 709451186176,
+    "debt": 228142940160,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Wijaya Karya Bangunan Gedung T",
+    "sector": "Infrastructures",
+    "betaLevered": 0.255,
+    "marketCap": 564747960320,
+    "debt": 258516566016,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Nusa Raya Cipta Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": -0.088,
+    "marketCap": 1489303633920,
+    "debt": 325241110528,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Totalindo Eka Persada Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": -0.367,
+    "marketCap": 33329999872,
+    "debt": 419516579840,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Indonesia Pondasi Raya Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": 0.671,
+    "marketCap": 604905996288,
+    "debt": 442870235136,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Indonesia Kendaraan Terminal T",
+    "sector": "Infrastructures",
+    "betaLevered": 0.144,
+    "marketCap": 2391175856128,
+    "debt": 485521457152,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Gihon Telekomunikasi Indonesia",
+    "sector": "Infrastructures",
+    "betaLevered": 0.163,
+    "marketCap": 984500011008,
+    "debt": 582634438656,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Ketrosden Triasmitra Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": 0.163,
+    "marketCap": 1420631474176,
+    "debt": 685038436352,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Nusantara Pelabuhan Handal Tbk",
+    "sector": "Infrastructures",
+    "betaLevered": 0.736,
+    "marketCap": 2518478225408,
+    "debt": 932984127488,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Arkora Hydro Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": 0.462,
+    "marketCap": 28259976740864,
+    "debt": 1036816023552,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Inti Bangun Sejahtera Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": -0.176,
+    "marketCap": 11448920047616,
+    "debt": 1042459983872,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Solusi Tunas Pratama Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": -0.899,
+    "marketCap": 49882865860608,
+    "debt": 1534644060160,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Surya Semesta Internusa Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": 0.636,
+    "marketCap": 8398869889024,
+    "debt": 2502587580416,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Bali Towerindo Sentra Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": -0.233,
+    "marketCap": 4996932304896,
+    "debt": 4330120019968,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Ekamas Mora Republik Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": 0.066,
+    "marketCap": 111375808462848,
+    "debt": 5478167871488,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Citra Marga Nusaphala Persada",
+    "sector": "Infrastructures",
+    "betaLevered": 0.079,
+    "marketCap": 10144976994304,
+    "debt": 6974322245632,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Link Net Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": 0.578,
+    "marketCap": 4857113083904,
+    "debt": 7002755956736,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Bukaka Teknik Utama Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": -0.398,
+    "marketCap": 3155340296192,
+    "debt": 14881715650560,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "PP (Persero) Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": 0.372,
+    "marketCap": 1608188821504,
+    "debt": 18186195959808,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Dayamitra Telekomunikasi Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": -0.153,
+    "marketCap": 41920659193856,
+    "debt": 21478038831104,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Centratama Telekomunikasi Indo",
+    "sector": "Infrastructures",
+    "betaLevered": 0.437,
+    "marketCap": 3087162933248,
+    "debt": 22933997092864,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Wijaya Karya (Persero) Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": 0.122,
+    "marketCap": 8133880578048,
+    "debt": 33455922479104,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Sarana Menara Nusantara Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": -0.007,
+    "marketCap": 27708713074688,
+    "debt": 45219437346816,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Indosat Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": -0.281,
+    "marketCap": 64340367507456,
+    "debt": 54915154051072,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "XLSMART Telecom Sejahtera Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": -0.114,
+    "marketCap": 53507600154624,
+    "debt": 62827016486912,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Jasa Marga (Persero) Tbk.",
+    "sector": "Infrastructures",
+    "betaLevered": 0.197,
+    "marketCap": 21483298488320,
+    "debt": 75206798344192,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Telkom Indonesia (Persero) Tbk",
+    "sector": "Infrastructures",
+    "betaLevered": 0.154,
+    "marketCap": 278364833185792,
+    "debt": 77677998374912,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Kokoh Exa Nusantara Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 2.418,
+    "marketCap": 580699815936,
+    "debt": 40096368,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Bumi Benowo Sukses Sejahtera T",
+    "sector": "Properties & Real Estate",
+    "betaLevered": -0.104,
+    "marketCap": 777602596864,
+    "debt": 60000000,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Gowa Makassar Tourism Developm",
+    "sector": "Properties & Real Estate",
+    "betaLevered": -0.044,
+    "marketCap": 1599223496704,
+    "debt": 215207264,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Era Graharealty Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 1.001,
+    "marketCap": 140580536320,
+    "debt": 723325824,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Royalindo Investa Wijaya Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.377,
+    "marketCap": 694515007488,
+    "debt": 1030837312,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Multisarana Intan Eduka Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 1.508,
+    "marketCap": 163520872448,
+    "debt": 1927432448,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Minahasa Membangun Hebat Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 2.607,
+    "marketCap": 546388934656,
+    "debt": 2000000000,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Metropolitan Kentjana Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": -0.021,
+    "marketCap": 21144725880832,
+    "debt": 2195456768,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Metro Realty Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": -1.251,
+    "marketCap": 116423999488,
+    "debt": 2624384512,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Bekasi Asri Pemula Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": -0.282,
+    "marketCap": 157504716800,
+    "debt": 3000000000,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Duta Pertiwi Tbk",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.103,
+    "marketCap": 7917999751168,
+    "debt": 3590652416,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Jaya Real Property Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.104,
+    "marketCap": 14061891747840,
+    "debt": 4871116800,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Karya Bersama Anugerah Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": -0.007,
+    "marketCap": 371800145920,
+    "debt": 7761230336,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Citra Buana Prasida Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": -0.236,
+    "marketCap": 412299984896,
+    "debt": 11726177280,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Grand House Mulia Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.307,
+    "marketCap": 337050009600,
+    "debt": 14419825664,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Bumi Citra Permai Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.416,
+    "marketCap": 94374420480,
+    "debt": 15269208064,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Star Pacific Tbk",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.87,
+    "marketCap": 346448101376,
+    "debt": 15637000192,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Pudjiadi Prestige Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.44,
+    "marketCap": 209600167936,
+    "debt": 20121645056,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Saptausaha Gemilangindah Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": -0.02,
+    "marketCap": 241005821952,
+    "debt": 21556641792,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Trimitra Prawara Goldland Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 1.127,
+    "marketCap": 631250026496,
+    "debt": 23754399744,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Andalan Sakti Primaindo Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.101,
+    "marketCap": 257112850432,
+    "debt": 26301683712,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Graha Mitra Asia Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.065,
+    "marketCap": 240568942592,
+    "debt": 28846577664,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Suryamas Dutamakmur Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": -0.827,
+    "marketCap": 2863282782208,
+    "debt": 30763988992,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Rockfields Properti Indonesia",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.867,
+    "marketCap": 3645370269696,
+    "debt": 44778209280,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Fortune Mate Indonesia Tbk",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.531,
+    "marketCap": 1484800000000,
+    "debt": 51651014656,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Vastland Indonesia Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.743,
+    "marketCap": 385022885888,
+    "debt": 55715303424,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Nusantara Almazia Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 1.213,
+    "marketCap": 345013878784,
+    "debt": 58994573312,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Cahayasakti Investindo Sukses",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.186,
+    "marketCap": 344002396160,
+    "debt": 73234759680,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Winner Nusantara Jaya Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.8,
+    "marketCap": 172765429760,
+    "debt": 90530308096,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Diamond Citra Propertindo Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 1.097,
+    "marketCap": 371576537088,
+    "debt": 107030339584,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Bima Sakti Pertiwi Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.234,
+    "marketCap": 199999995904,
+    "debt": 117041479680,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Natura City Developments Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": -0.079,
+    "marketCap": 1091848175616,
+    "debt": 128487989248,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Ristia Bintang Mahkotasejati T",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.157,
+    "marketCap": 175310045184,
+    "debt": 131220652032,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Indonesia Prima Property Tbk",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 2.856,
+    "marketCap": 2518155264000,
+    "debt": 149870739456,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Trimitra Propertindo Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.48,
+    "marketCap": 248543182848,
+    "debt": 164839358464,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Triniti Dinamik Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 1.335,
+    "marketCap": 1173521694720,
+    "debt": 292032249856,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Perdana Gapuraprima Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.175,
+    "marketCap": 491815370752,
+    "debt": 320448561152,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Bukit Darmo Property Tbk",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.596,
+    "marketCap": 563549437952,
+    "debt": 338155208704,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Wulandari Bangun Laksana Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.409,
+    "marketCap": 1530604814336,
+    "debt": 338835111936,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Makmur Berkah Amanda Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": -0.098,
+    "marketCap": 991615975424,
+    "debt": 356859478016,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Maha Properti Indonesia Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.922,
+    "marketCap": 91719563476992,
+    "debt": 359465254912,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Megapolitan Developments Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": -0.055,
+    "marketCap": 264650014720,
+    "debt": 433712726016,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Pollux Properties Indonesia Tb",
+    "sector": "Properties & Real Estate",
+    "betaLevered": -0.212,
+    "marketCap": 931708207104,
+    "debt": 520537309184,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Plaza Indonesia Realty Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": -0.161,
+    "marketCap": 8874741465088,
+    "debt": 533748973568,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Pantai Indah Kapuk Dua Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": -0.276,
+    "marketCap": 153088874774528,
+    "debt": 590365065216,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Pakuan Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 3.369,
+    "marketCap": 4392300052480,
+    "debt": 609797996544,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Jaya Sukses Makmur Sentosa Tbk",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 1.38,
+    "marketCap": 26646696427520,
+    "debt": 628466450432,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Lippo Cikarang Tbk",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.541,
+    "marketCap": 3260525314048,
+    "debt": 662570008576,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Bhuwanatala Indah Permai Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.568,
+    "marketCap": 452580245504,
+    "debt": 686052999168,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Urban Jakarta Propertindo Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.138,
+    "marketCap": 717507526656,
+    "debt": 815503507456,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Pikko Land Development Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.463,
+    "marketCap": 1073778130944,
+    "debt": 959500451840,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "PP Properti Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.078,
+    "marketCap": 1295189147648,
+    "debt": 1012499939328,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Perintis Triniti Properti Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 1.27,
+    "marketCap": 3094991339520,
+    "debt": 1030166740992,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Bakrieland Development Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.377,
+    "marketCap": 1871442214912,
+    "debt": 1123775938560,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Adhi Commuter Properti Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.075,
+    "marketCap": 1133333315584,
+    "debt": 1136172859392,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Bekasi Fajar Industrial Estate",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.285,
+    "marketCap": 1061204197376,
+    "debt": 1163093475328,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Metropolitan Land Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.05,
+    "marketCap": 3865838878720,
+    "debt": 1181804003328,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Binakarya Jaya Abadi Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.242,
+    "marketCap": 32575399936,
+    "debt": 1358374764544,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Mega Manunggal Property Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.159,
+    "marketCap": 2342305660928,
+    "debt": 1637320228864,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Sentul City Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.215,
+    "marketCap": 17777144365056,
+    "debt": 2072848629760,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Indonesian Paradise Property T",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.2,
+    "marketCap": 8945576968192,
+    "debt": 2186666967040,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Intiland Development Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.17,
+    "marketCap": 1347560931328,
+    "debt": 3289098485760,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Duta Anggada Realty Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.418,
+    "marketCap": 505763921920,
+    "debt": 3382053175296,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Kawasan Industri Jababeka Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.382,
+    "marketCap": 3743429427200,
+    "debt": 4606521245696,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Agung Podomoro Land Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.293,
+    "marketCap": 4766859001856,
+    "debt": 5361281007616,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Alam Sutera Realty Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.489,
+    "marketCap": 2613371731968,
+    "debt": 6062880063488,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Modernland Realty Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.219,
+    "marketCap": 657102405632,
+    "debt": 6446242070528,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "City Retail Developments Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.426,
+    "marketCap": 4617365618688,
+    "debt": 8079723724800,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Lippo Karawaci Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.667,
+    "marketCap": 5811940098048,
+    "debt": 9639232012288,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Ciputra Development Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.232,
+    "marketCap": 12789629321216,
+    "debt": 9834845962240,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Summarecon Agung Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.542,
+    "marketCap": 5117656432640,
+    "debt": 13329499160576,
+    "quality": "Data Pembanding Bersifat Ideal"
+  },
+  {
+    "comparable": "Bumi Serpong Damai Tbk.",
+    "sector": "Properties & Real Estate",
+    "betaLevered": 0.199,
+    "marketCap": 16103315079168,
+    "debt": 16402464374784,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Sat Nusapersada Tbk",
+    "sector": "Technology",
+    "betaLevered": 0.533,
+    "marketCap": 1626189201408,
+    "debt": 30833642,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Techno9 Indonesia Tbk.",
+    "sector": "Technology",
+    "betaLevered": -2.839,
+    "marketCap": 314921975808,
+    "debt": 1340111744,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Folago Global Nusantara Tbk.",
+    "sector": "Technology",
+    "betaLevered": 1.021,
+    "marketCap": 3415646928896,
+    "debt": 1805768448,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Bahtera Bumi Raya Tbk.",
+    "sector": "Technology",
+    "betaLevered": 0.908,
+    "marketCap": 640666566656,
+    "debt": 2218622976,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Mitra Pedagang Indonesia Tbk.",
+    "sector": "Technology",
+    "betaLevered": 1.039,
+    "marketCap": 129693671424,
+    "debt": 2858724096,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Informasi Teknologi Indonesia",
+    "sector": "Technology",
+    "betaLevered": 0.217,
+    "marketCap": 345827115008,
+    "debt": 3975260416,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Hensel Davest Indonesia Tbk.",
+    "sector": "Technology",
+    "betaLevered": 0.665,
+    "marketCap": 96054837248,
+    "debt": 4999956992,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Wira Global Solusi Tbk.",
+    "sector": "Technology",
+    "betaLevered": 0.839,
+    "marketCap": 212669988864,
+    "debt": 6852839424,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Distribusi Voucher Nusantara T",
+    "sector": "Technology",
+    "betaLevered": 0.056,
+    "marketCap": 215598088192,
+    "debt": 7381023232,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Sentral Mitra Informatika Tbk.",
+    "sector": "Technology",
+    "betaLevered": 0.529,
+    "marketCap": 80163962880,
+    "debt": 7767031296,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Digital Mediatama Maxima Tbk.",
+    "sector": "Technology",
+    "betaLevered": 0.009,
+    "marketCap": 1597075750912,
+    "debt": 8802410496,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Era Digital Media Tbk.",
+    "sector": "Technology",
+    "betaLevered": 0.094,
+    "marketCap": 563339984896,
+    "debt": 10427927552,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Global Sukses Solusi Tbk.",
+    "sector": "Technology",
+    "betaLevered": 0.335,
+    "marketCap": 82393030656,
+    "debt": 12005024768,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Sumber Sinergi Makmur Tbk.",
+    "sector": "Technology",
+    "betaLevered": -0.581,
+    "marketCap": 333288767488,
+    "debt": 20344487936,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Topindo Solusi Komunika Tbk.",
+    "sector": "Technology",
+    "betaLevered": 1.962,
+    "marketCap": 280017731584,
+    "debt": 22720675840,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Pelita Teknologi Global Tbk.",
+    "sector": "Technology",
+    "betaLevered": 0.129,
+    "marketCap": 846299987968,
+    "debt": 35333013504,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Telefast Indonesia Tbk.",
+    "sector": "Technology",
+    "betaLevered": -0.236,
+    "marketCap": 371126992896,
+    "debt": 40501329920,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Teknologi Karya Digital Nusa T",
+    "sector": "Technology",
+    "betaLevered": 0.609,
+    "marketCap": 407100030976,
+    "debt": 42653503488,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "ITSEC Asia Tbk.",
+    "sector": "Technology",
+    "betaLevered": 0.556,
+    "marketCap": 8549243027456,
+    "debt": 46953709568,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Mastersystem Infotama Tbk.",
+    "sector": "Technology",
+    "betaLevered": -0.374,
+    "marketCap": 4238212071424,
+    "debt": 99514908672,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Bukalapak.com Tbk.",
+    "sector": "Technology",
+    "betaLevered": 0.307,
+    "marketCap": 13731886006272,
+    "debt": 112910934016,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "WIR ASIA Tbk.",
+    "sector": "Technology",
+    "betaLevered": 0.867,
+    "marketCap": 943151185920,
+    "debt": 137095798784,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "NFC Indonesia Tbk.",
+    "sector": "Technology",
+    "betaLevered": -1.301,
+    "marketCap": 1192342061056,
+    "debt": 256064815104,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Tera Data Indonusa Tbk.",
+    "sector": "Technology",
+    "betaLevered": 0.113,
+    "marketCap": 683294785536,
+    "debt": 257099038720,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "M Cash Integrasi Tbk.",
+    "sector": "Technology",
+    "betaLevered": -0.149,
+    "marketCap": 286108418048,
+    "debt": 317718659072,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Quantum Clovera Investama Tbk.",
+    "sector": "Technology",
+    "betaLevered": 0.597,
+    "marketCap": 327676461056,
+    "debt": 322211086336,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Galva Technologies Tbk.",
+    "sector": "Technology",
+    "betaLevered": 0.685,
+    "marketCap": 510000005120,
+    "debt": 355913990144,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Metrodata Electronics Tbk.",
+    "sector": "Technology",
+    "betaLevered": 0.169,
+    "marketCap": 6936439816192,
+    "debt": 1129444016128,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Anabatic Technologies Tbk.",
+    "sector": "Technology",
+    "betaLevered": 0.696,
+    "marketCap": 1261871955968,
+    "debt": 1319863713792,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "DCI Indonesia Tbk.",
+    "sector": "Technology",
+    "betaLevered": 0.416,
+    "marketCap": 472577600389120,
+    "debt": 2047801032704,
+    "quality": "Data Pembanding Diatas Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Elang Mahkota Teknologi Tbk.",
+    "sector": "Technology",
+    "betaLevered": 0.38,
+    "marketCap": 50475567153152,
+    "debt": 2140948004864,
+    "quality": "Data Pembanding Diatas Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Global Digital Niaga Tbk.",
+    "sector": "Technology",
+    "betaLevered": -0.085,
+    "marketCap": 50533553405952,
+    "debt": 3608453054464,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Indointernet Tbk.",
+    "sector": "Technology",
+    "betaLevered": 0.54,
+    "marketCap": 9676997525504,
+    "debt": 4054614016000,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Solusi Sinergi Digital Tbk.",
+    "sector": "Technology",
+    "betaLevered": 0.272,
+    "marketCap": 12475090075648,
+    "debt": 5544516517888,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "GoTo Gojek Tokopedia Tbk.",
+    "sector": "Technology",
+    "betaLevered": 0.52,
+    "marketCap": 57348550819840,
+    "debt": 7999311052800,
+    "quality": "Data Pembanding Diatas Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Berlian Laju Tanker Tbk",
+    "sector": "Transportation & Logistic",
+    "betaLevered": -0.068,
+    "marketCap": 1088184713216,
+    "debt": 64427180,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Samudera Indonesia  Tbk.",
+    "sector": "Transportation & Logistic",
+    "betaLevered": 0.231,
+    "marketCap": 5698709094400,
+    "debt": 485456192,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Trimuda Nuansa Citra Tbk.",
+    "sector": "Transportation & Logistic",
+    "betaLevered": 0.694,
+    "marketCap": 81798160384,
+    "debt": 1540516480,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Krida Jaringan Nusantara Tbk.",
+    "sector": "Transportation & Logistic",
+    "betaLevered": -2.046,
+    "marketCap": 67999997952,
+    "debt": 2275099904,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Garuda Indonesia (Persero) Tbk",
+    "sector": "Transportation & Logistic",
+    "betaLevered": -0.008,
+    "marketCap": 27682236530688,
+    "debt": 3684969984,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Mitra Investindo Tbk.",
+    "sector": "Transportation & Logistic",
+    "betaLevered": 0.644,
+    "marketCap": 930130624512,
+    "debt": 5797496320,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Guna Timur Raya Tbk.",
+    "sector": "Transportation & Logistic",
+    "betaLevered": 0.501,
+    "marketCap": 239249997824,
+    "debt": 9216864256,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Steady Safe Tbk",
+    "sector": "Transportation & Logistic",
+    "betaLevered": 0.694,
+    "marketCap": 266071228416,
+    "debt": 11621017600,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Logisticsplus International Tb",
+    "sector": "Transportation & Logistic",
+    "betaLevered": -0.085,
+    "marketCap": 130901344256,
+    "debt": 32262969344,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Mitra International Resources",
+    "sector": "Transportation & Logistic",
+    "betaLevered": -0.09,
+    "marketCap": 95074844672,
+    "debt": 41142329344,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Utama Radar Cahaya Tbk.",
+    "sector": "Transportation & Logistic",
+    "betaLevered": -0.707,
+    "marketCap": 83475005440,
+    "debt": 41950330880,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Jaya Trishindo Tbk.",
+    "sector": "Transportation & Logistic",
+    "betaLevered": 1.232,
+    "marketCap": 163241033728,
+    "debt": 76638396416,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Armada Berjaya Trans Tbk.",
+    "sector": "Transportation & Logistic",
+    "betaLevered": 0.45,
+    "marketCap": 107797413888,
+    "debt": 79989940224,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Mineral Sumberdaya Mandiri Tbk",
+    "sector": "Transportation & Logistic",
+    "betaLevered": 1.563,
+    "marketCap": 239040004096,
+    "debt": 81640955904,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Prima Globalindo Logistik Tbk.",
+    "sector": "Transportation & Logistic",
+    "betaLevered": 0.409,
+    "marketCap": 158862671872,
+    "debt": 89025363968,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Jasa Berdikari Logistics Tbk.",
+    "sector": "Transportation & Logistic",
+    "betaLevered": -0.772,
+    "marketCap": 174145388544,
+    "debt": 95195783168,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Sidomulyo Selaras Tbk.",
+    "sector": "Transportation & Logistic",
+    "betaLevered": 0.247,
+    "marketCap": 283587084288,
+    "debt": 97596866560,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "MPX Logistics International Tb",
+    "sector": "Transportation & Logistic",
+    "betaLevered": 0.232,
+    "marketCap": 324002381824,
+    "debt": 111195865088,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "WEHA Transportasi Indonesia Tb",
+    "sector": "Transportation & Logistic",
+    "betaLevered": 0.196,
+    "marketCap": 184029921280,
+    "debt": 116844724224,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Putra Rajawali Kencana Tbk.",
+    "sector": "Transportation & Logistic",
+    "betaLevered": 0.236,
+    "marketCap": 201661792256,
+    "debt": 129000824832,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Habco Trans Maritima Tbk.",
+    "sector": "Transportation & Logistic",
+    "betaLevered": 0.009,
+    "marketCap": 2656079970304,
+    "debt": 159938756608,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Satria Antaran Prima Tbk.",
+    "sector": "Transportation & Logistic",
+    "betaLevered": 0.604,
+    "marketCap": 209999986688,
+    "debt": 162430681088,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Pelayaran Kurnia Lautan Semest",
+    "sector": "Transportation & Logistic",
+    "betaLevered": 0.984,
+    "marketCap": 306130944000,
+    "debt": 186983038976,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Pelayaran Nasional Ekalya Purn",
+    "sector": "Transportation & Logistic",
+    "betaLevered": 0.514,
+    "marketCap": 14156919996416,
+    "debt": 309031010304,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Transkon Jaya Tbk.",
+    "sector": "Transportation & Logistic",
+    "betaLevered": 0.16,
+    "marketCap": 196326014976,
+    "debt": 322132082688,
+    "quality": "Data Pembanding Dibawah Rata-Rata Sektor"
+  },
+  {
+    "comparable": "Hasnur Internasional Shipping",
+    "sector": "Transportation & Logistic",
+    "betaLevered": 0.255,
+    "marketCap": 504240013312,
+    "debt": 543730368512,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Grahaprima Suksesmandiri Tbk.",
+    "sector": "Transportation & Logistic",
+    "betaLevered": 2.426,
+    "marketCap": 481171275776,
+    "debt": 727923163136,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Batavia Prosperindo Trans Tbk.",
+    "sector": "Transportation & Logistic",
+    "betaLevered": 0.523,
+    "marketCap": 296855994368,
+    "debt": 1551646588928,
+    "quality": "Data Pembanding Bersifat Moderat"
+  },
+  {
+    "comparable": "Temas Tbk.",
+    "sector": "Transportation & Logistic",
+    "betaLevered": -0.081,
+    "marketCap": 7165476077568,
+    "debt": 1716506984448,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Blue Bird Tbk.",
+    "sector": "Transportation & Logistic",
+    "betaLevered": 0.228,
+    "marketCap": 3865744506880,
+    "debt": 2274459910144,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Adi Sarana Armada Tbk.",
+    "sector": "Transportation & Logistic",
+    "betaLevered": 0.49,
+    "marketCap": 2971365801984,
+    "debt": 4359915569152,
+    "quality": "Data Pembanding Diatas Rata-Rata Sektor"
+  },
+  {
+    "comparable": "AirAsia Indonesia Tbk.",
+    "sector": "Transportation & Logistic",
+    "betaLevered": 0.073,
+    "marketCap": 854809968640,
+    "debt": 6584993316864,
+    "quality": "Bisa Dipertimbangkan sebagai Data Pembanding"
+  },
+  {
+    "comparable": "Indomobil Multi Jasa Tbk.",
+    "sector": "Transportation & Logistic",
+    "betaLevered": 0.33,
+    "marketCap": 2093907705856,
+    "debt": 26651085766656,
+    "quality": "Data Pembanding Bersifat Ideal"
+  }
+]
