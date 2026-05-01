@@ -216,7 +216,7 @@ export function calculateDcf(
       label: "PV terminal value",
       formula: "[Final FCFF x (1 + g) / (WACC - g)] / (1 + WACC)^5",
       value: terminalPv,
-      note: "Base terminal growth adalah 0%.",
+      note: "Terminal growth berasal dari input base case pengguna dan wajib lebih rendah dari WACC.",
     },
     {
       label: "Non-operating assets",
@@ -237,8 +237,8 @@ export function calculateDcf(
 
 export function calculateAllMethods(snapshot: FinancialStatementSnapshot) {
   const dcf = calculateDcf(snapshot);
-  const dcfNegativeGrowth = calculateDcf(snapshot, { terminalGrowth: -0.06200163015727912 });
-  const dcfGrowth3 = calculateDcf(snapshot, { terminalGrowth: 0.03 });
+  const dcfTerminalDownside = calculateDcf(snapshot, { terminalGrowth: snapshot.terminalGrowthDownside ?? snapshot.terminalGrowth });
+  const dcfTerminalUpside = calculateDcf(snapshot, { terminalGrowth: snapshot.terminalGrowthUpside ?? snapshot.terminalGrowth });
   const dcfNoIncrementalWorkingCapital = calculateDcf(snapshot, { includeWorkingCapitalChange: false });
   const dcfTaxPayableDebtLike = calculateDcf(snapshot, { debtLikeTaxPayable: true });
   const eemTaxPayableDebtLike = {
@@ -251,8 +251,8 @@ export function calculateAllMethods(snapshot: FinancialStatementSnapshot) {
     eem: calculateEem(snapshot),
     dcf,
     sensitivities: {
-      dcfNegativeGrowth,
-      dcfGrowth3,
+      dcfTerminalDownside,
+      dcfTerminalUpside,
       dcfNoIncrementalWorkingCapital,
       dcfTaxPayableDebtLike,
       eemTaxPayableDebtLike,

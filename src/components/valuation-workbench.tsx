@@ -85,11 +85,19 @@ import { buildValidationChecks } from "@/lib/valuation/validation-checks";
 import { workbookAuditFixture } from "@/lib/valuation/workbook-audit-fixture";
 import {
   buildTaxRateCandidates,
-  requiredReturnOnNtaCandidates,
-  terminalGrowthCandidates,
-  waccCandidates,
+  requiredReturnOnNtaInputReferences,
+  terminalGrowthInputReferences,
+  waccInputReferences,
   type AssumptionCandidate,
+  type AssumptionReference,
 } from "@/lib/valuation/assumption-candidates";
+import {
+  calculateRequiredReturnOnNtaAssumption,
+  calculateWaccAssumption,
+  readRateInput,
+  type RequiredReturnOnNtaCalculation,
+  type WaccCalculation,
+} from "@/lib/valuation/assumption-calculators";
 import type { AccountCategory, FormulaTrace } from "@/lib/valuation/types";
 const confidenceBandLabels: Record<ReturnType<typeof mapRow>["mapping"]["confidenceBand"], string> = {
   high: "Tinggi",
@@ -106,13 +114,29 @@ const assumptionKeys: Array<keyof AssumptionState> = [
   "terminalGrowth",
   "terminalGrowthSource",
   "terminalGrowthOverrideReason",
+  "terminalGrowthDownside",
+  "terminalGrowthUpside",
   "revenueGrowth",
   "wacc",
   "waccSource",
   "waccOverrideReason",
+  "waccRiskFreeRate",
+  "waccBeta",
+  "waccEquityRiskPremium",
+  "waccCountryRiskPremium",
+  "waccSpecificRiskPremium",
+  "waccPreTaxCostOfDebt",
+  "waccDebtWeight",
+  "waccEquityWeight",
   "requiredReturnOnNta",
   "requiredReturnOnNtaSource",
   "requiredReturnOnNtaOverrideReason",
+  "requiredReturnReceivablesCapacity",
+  "requiredReturnInventoryCapacity",
+  "requiredReturnFixedAssetCapacity",
+  "requiredReturnAdditionalCapacity",
+  "requiredReturnAfterTaxDebtCost",
+  "requiredReturnEquityCost",
   "arDays",
   "inventoryDays",
   "apDays",
@@ -217,15 +241,28 @@ export function ValuationWorkbench() {
   const methodCards = [results.aam, results.eem, results.dcf];
   const activePeriod = periods.find((period) => period.id === activePeriodId) ?? getDefaultActivePeriod(periods);
   const taxRateCandidates = useMemo(() => buildTaxRateCandidates(activePeriod?.valuationDate ?? ""), [activePeriod?.valuationDate]);
+  const waccCalculation = useMemo(() => calculateWaccAssumption(assumptions), [assumptions]);
+  const requiredReturnCalculation = useMemo(
+    () =>
+      calculateRequiredReturnOnNtaAssumption(assumptions, {
+        accountReceivable: snapshot.accountReceivable,
+        inventory: snapshot.inventory,
+        fixedAssetsNet: snapshot.fixedAssetsNet,
+      }),
+    [assumptions, snapshot.accountReceivable, snapshot.fixedAssetsNet, snapshot.inventory],
+  );
   const assumptionDriverSummaries = [
     buildAssumptionDriverSummary("Tax rate", assumptions.taxRate, assumptions.taxRateSource, taxRateCandidates),
-    buildAssumptionDriverSummary("WACC", assumptions.wacc, assumptions.waccSource, waccCandidates),
-    buildAssumptionDriverSummary("Terminal growth", assumptions.terminalGrowth, assumptions.terminalGrowthSource, terminalGrowthCandidates),
-    buildAssumptionDriverSummary(
+    buildCalculatedDriverSummary("WACC", waccCalculation?.wacc ?? readRateInput(assumptions.wacc), waccCalculation ? "Calculated from WACC inputs" : sourceLabelFromManual(assumptions.wacc)),
+    buildCalculatedDriverSummary(
+      "Terminal growth",
+      readRateInput(assumptions.terminalGrowth),
+      assumptions.terminalGrowth.trim() ? "User base case with sensitivity inputs" : "Belum dipilih",
+    ),
+    buildCalculatedDriverSummary(
       "Required return on NTA",
-      assumptions.requiredReturnOnNta,
-      assumptions.requiredReturnOnNtaSource,
-      requiredReturnOnNtaCandidates,
+      requiredReturnCalculation?.requiredReturn ?? readRateInput(assumptions.requiredReturnOnNta),
+      requiredReturnCalculation ? "Calculated from NTA capacity inputs" : sourceLabelFromManual(assumptions.requiredReturnOnNta),
     ),
   ];
   const nextHistoricalPeriodLabel = getPeriodLabel(getNextHistoricalPeriodOffset(periods)).replace("Tahun ", "");
@@ -901,7 +938,8 @@ export function ValuationWorkbench() {
             </div>
           </div>
           <ReadinessPanel status={readiness.assumptions} onNavigate={navigateToWorkflowTab} />
-          <div className="assumption-control-grid">
+          <AssumptionDriverMatrix drivers={assumptionDriverSummaries} />
+          <div className="assumption-tax-row">
             <AssumptionDriverCard
               label="Tax rate"
               value={assumptions.taxRate}
@@ -914,40 +952,29 @@ export function ValuationWorkbench() {
               onValueChange={(value) => updateAssumption("taxRate", value)}
               onReasonChange={(value) => updateAssumptionText("taxRateOverrideReason", value)}
             />
-            <AssumptionDriverCard
-              label="WACC"
-              value={assumptions.wacc}
-              sourceId={assumptions.waccSource}
-              reason={assumptions.waccOverrideReason}
-              candidates={waccCandidates}
-              emptyCandidateText="Belum ada kandidat WACC."
-              manualHint="Pilih kandidat aktif atau isi override beralasan."
-              onSelect={(candidate) => applyAssumptionCandidate("wacc", candidate)}
-              onValueChange={(value) => updateAssumption("wacc", value)}
+          </div>
+          <div className="assumption-calculator-grid">
+            <WaccCalculatorPanel
+              assumptions={assumptions}
+              calculation={waccCalculation}
+              onChange={updateAssumption}
               onReasonChange={(value) => updateAssumptionText("waccOverrideReason", value)}
             />
-            <AssumptionDriverCard
-              label="Terminal growth"
-              value={assumptions.terminalGrowth}
-              sourceId={assumptions.terminalGrowthSource}
-              reason={assumptions.terminalGrowthOverrideReason}
-              candidates={terminalGrowthCandidates}
-              emptyCandidateText="Belum ada skenario terminal growth."
-              manualHint="Terminal growth adalah assumption/sensitivity; override wajib dijelaskan."
-              onSelect={(candidate) => applyAssumptionCandidate("terminalGrowth", candidate)}
-              onValueChange={(value) => updateAssumption("terminalGrowth", value)}
+            <TerminalGrowthPanel
+              assumptions={assumptions}
+              wacc={snapshot.wacc}
+              onChange={updateAssumption}
               onReasonChange={(value) => updateAssumptionText("terminalGrowthOverrideReason", value)}
             />
-            <AssumptionDriverCard
-              label="Required return on NTA"
-              value={assumptions.requiredReturnOnNta}
-              sourceId={assumptions.requiredReturnOnNtaSource}
-              reason={assumptions.requiredReturnOnNtaOverrideReason}
-              candidates={requiredReturnOnNtaCandidates}
-              emptyCandidateText="Belum ada kandidat required return."
-              manualHint="Override required return berdampak langsung ke EEM."
-              onSelect={(candidate) => applyAssumptionCandidate("requiredReturnOnNta", candidate)}
-              onValueChange={(value) => updateAssumption("requiredReturnOnNta", value)}
+            <RequiredReturnOnNtaPanel
+              assumptions={assumptions}
+              calculation={requiredReturnCalculation}
+              balances={{
+                accountReceivable: snapshot.accountReceivable,
+                inventory: snapshot.inventory,
+                fixedAssetsNet: snapshot.fixedAssetsNet,
+              }}
+              onChange={updateAssumption}
               onReasonChange={(value) => updateAssumptionText("requiredReturnOnNtaOverrideReason", value)}
             />
           </div>
@@ -1010,7 +1037,7 @@ export function ValuationWorkbench() {
           <div className="panel-heading">
             <div>
               <p className="eyebrow">Sensitivitas</p>
-              <h3>Cakupan skenario final Excel</h3>
+              <h3>Cakupan skenario pengguna</h3>
             </div>
           </div>
           <div className="sensitivity-grid">
@@ -1019,12 +1046,12 @@ export function ValuationWorkbench() {
               <strong>{formatIdr(results.dcf.equityValue)}</strong>
             </div>
             <div>
-              <span>DCF g -6,20%</span>
-              <strong>{formatIdr(results.sensitivities.dcfNegativeGrowth.equityValue)}</strong>
+              <span>DCF terminal downside</span>
+              <strong>{formatIdr(results.sensitivities.dcfTerminalDownside.equityValue)}</strong>
             </div>
             <div>
-              <span>DCF g 3%</span>
-              <strong>{formatIdr(results.sensitivities.dcfGrowth3.equityValue)}</strong>
+              <span>DCF terminal upside</span>
+              <strong>{formatIdr(results.sensitivities.dcfTerminalUpside.equityValue)}</strong>
             </div>
             <div>
               <span>DCF no incremental WC</span>
@@ -2292,6 +2319,292 @@ function MappingTable({ mappedRows }: { mappedRows: MappedRow[] }) {
   );
 }
 
+function AssumptionDriverMatrix({
+  drivers,
+}: {
+  drivers: Array<{ label: string; valueLabel: string; sourceLabel: string }>;
+}) {
+  return (
+    <section className="assumption-driver-matrix" aria-label="Ringkasan driver valuasi">
+      {drivers.map((driver) => (
+        <div key={driver.label}>
+          <span>{driver.label}</span>
+          <strong>{driver.valueLabel}</strong>
+          <small>{driver.sourceLabel}</small>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function WaccCalculatorPanel({
+  assumptions,
+  calculation,
+  onChange,
+  onReasonChange,
+}: {
+  assumptions: AssumptionState;
+  calculation: WaccCalculation | null;
+  onChange: (key: keyof AssumptionState, value: string) => void;
+  onReasonChange: (value: string) => void;
+}) {
+  return (
+    <article className="assumption-calculator-card" data-testid="wacc-calculator">
+      <AssumptionCalculatorHeader
+        label="WACC calculator"
+        value={calculation ? formatPercent(calculation.wacc) : formatRateInput(assumptions.wacc)}
+        impact="DCF discount rate dan EEM capitalization rate"
+      />
+      <div className="calculator-input-grid">
+        <AssumptionInput label="Risk-free rate" value={assumptions.waccRiskFreeRate} onChange={(value) => onChange("waccRiskFreeRate", value)} />
+        <AssumptionInput label="Beta" value={assumptions.waccBeta} onChange={(value) => onChange("waccBeta", value)} />
+        <AssumptionInput
+          label="Equity risk premium"
+          value={assumptions.waccEquityRiskPremium}
+          onChange={(value) => onChange("waccEquityRiskPremium", value)}
+        />
+        <AssumptionInput
+          label="Country risk premium"
+          value={assumptions.waccCountryRiskPremium}
+          onChange={(value) => onChange("waccCountryRiskPremium", value)}
+        />
+        <AssumptionInput
+          label="Specific risk premium"
+          value={assumptions.waccSpecificRiskPremium}
+          onChange={(value) => onChange("waccSpecificRiskPremium", value)}
+        />
+        <AssumptionInput
+          label="Pre-tax cost of debt"
+          value={assumptions.waccPreTaxCostOfDebt}
+          onChange={(value) => onChange("waccPreTaxCostOfDebt", value)}
+        />
+        <AssumptionInput label="Debt weight" value={assumptions.waccDebtWeight} onChange={(value) => onChange("waccDebtWeight", value)} />
+        <AssumptionInput label="Equity weight" value={assumptions.waccEquityWeight} onChange={(value) => onChange("waccEquityWeight", value)} />
+      </div>
+      <MetricTraceGrid
+        metrics={[
+          ["Cost of equity", calculation ? formatPercent(calculation.costOfEquity) : "Belum dihitung"],
+          ["After-tax cost of debt", calculation ? formatPercent(calculation.afterTaxCostOfDebt) : "Belum dihitung"],
+          ["Formula", "E/(D+E) x Ke + D/(D+E) x Kd(1-t)"],
+        ]}
+      />
+      <ReferenceList references={waccInputReferences} />
+      <AssumptionReasonField
+        id="assumption-wacc-support"
+        label="Evidence / support"
+        placeholder="Sumber risk-free rate, beta, ERP, debt rate, dan bobot struktur modal."
+        value={assumptions.waccOverrideReason}
+        onChange={onReasonChange}
+      />
+    </article>
+  );
+}
+
+function TerminalGrowthPanel({
+  assumptions,
+  wacc,
+  onChange,
+  onReasonChange,
+}: {
+  assumptions: AssumptionState;
+  wacc: number;
+  onChange: (key: keyof AssumptionState, value: string) => void;
+  onReasonChange: (value: string) => void;
+}) {
+  const baseGrowth = readRateInput(assumptions.terminalGrowth);
+  const hasInvalidSpread = baseGrowth !== null && wacc > 0 && baseGrowth >= wacc;
+
+  return (
+    <article className="assumption-calculator-card" data-testid="terminal-growth-calculator">
+      <AssumptionCalculatorHeader
+        label="Terminal growth governance"
+        value={formatRateInput(assumptions.terminalGrowth)}
+        impact="DCF terminal value dan EEM capitalization spread"
+      />
+      <div className="calculator-input-grid">
+        <AssumptionInput label="Base terminal growth" value={assumptions.terminalGrowth} onChange={(value) => onChange("terminalGrowth", value)} />
+        <AssumptionInput
+          label="Downside terminal growth"
+          value={assumptions.terminalGrowthDownside}
+          onChange={(value) => onChange("terminalGrowthDownside", value)}
+        />
+        <AssumptionInput
+          label="Upside terminal growth"
+          value={assumptions.terminalGrowthUpside}
+          onChange={(value) => onChange("terminalGrowthUpside", value)}
+        />
+      </div>
+      <MetricTraceGrid
+        metrics={[
+          ["WACC spread", baseGrowth !== null && wacc > 0 ? formatPercent(wacc - baseGrowth) : "Belum dihitung"],
+          ["Validation", hasInvalidSpread ? "Terminal growth harus di bawah WACC" : "Spread valid bila WACC tersedia"],
+          ["Formula", "Terminal value = Final FCFF x (1 + g) / (WACC - g)"],
+        ]}
+      />
+      <ReferenceList references={terminalGrowthInputReferences} />
+      <AssumptionReasonField
+        id="assumption-terminal-growth-support"
+        label="Assumption basis"
+        placeholder="Dasar long-term growth, industri, inflasi, reinvestment, atau scenario memo."
+        value={assumptions.terminalGrowthOverrideReason}
+        onChange={onReasonChange}
+      />
+      {hasInvalidSpread ? <small className="field-warning">Terminal growth base tidak boleh sama dengan atau lebih tinggi dari WACC.</small> : null}
+    </article>
+  );
+}
+
+function RequiredReturnOnNtaPanel({
+  assumptions,
+  calculation,
+  balances,
+  onChange,
+  onReasonChange,
+}: {
+  assumptions: AssumptionState;
+  calculation: RequiredReturnOnNtaCalculation | null;
+  balances: { accountReceivable: number; inventory: number; fixedAssetsNet: number };
+  onChange: (key: keyof AssumptionState, value: string) => void;
+  onReasonChange: (value: string) => void;
+}) {
+  return (
+    <article className="assumption-calculator-card wide" data-testid="required-return-on-nta-calculator">
+      <AssumptionCalculatorHeader
+        label="Required return on NTA calculator"
+        value={calculation ? formatPercent(calculation.requiredReturn) : formatRateInput(assumptions.requiredReturnOnNta)}
+        impact="EEM capital charge atas operating net tangible assets"
+      />
+      <div className="driver-basis-strip">
+        <div>
+          <span>Account receivable</span>
+          <strong>{formatIdr(balances.accountReceivable)}</strong>
+        </div>
+        <div>
+          <span>Inventory</span>
+          <strong>{formatIdr(balances.inventory)}</strong>
+        </div>
+        <div>
+          <span>Fixed assets net</span>
+          <strong>{formatIdr(balances.fixedAssetsNet)}</strong>
+        </div>
+      </div>
+      <div className="calculator-input-grid">
+        <AssumptionInput
+          label="Receivables capacity"
+          value={assumptions.requiredReturnReceivablesCapacity}
+          onChange={(value) => onChange("requiredReturnReceivablesCapacity", value)}
+        />
+        <AssumptionInput
+          label="Inventory capacity"
+          value={assumptions.requiredReturnInventoryCapacity}
+          onChange={(value) => onChange("requiredReturnInventoryCapacity", value)}
+        />
+        <AssumptionInput
+          label="Fixed asset capacity"
+          value={assumptions.requiredReturnFixedAssetCapacity}
+          onChange={(value) => onChange("requiredReturnFixedAssetCapacity", value)}
+        />
+        <AssumptionInput
+          label="Additional capacity amount"
+          value={assumptions.requiredReturnAdditionalCapacity}
+          onChange={(value) => onChange("requiredReturnAdditionalCapacity", value)}
+        />
+        <AssumptionInput
+          label="After-tax debt cost"
+          value={assumptions.requiredReturnAfterTaxDebtCost}
+          onChange={(value) => onChange("requiredReturnAfterTaxDebtCost", value)}
+        />
+        <AssumptionInput
+          label="Tangible equity return"
+          value={assumptions.requiredReturnEquityCost}
+          onChange={(value) => onChange("requiredReturnEquityCost", value)}
+        />
+      </div>
+      <MetricTraceGrid
+        metrics={[
+          ["Tangible asset base", calculation ? formatIdr(calculation.tangibleAssetBase) : "Belum dihitung"],
+          ["Debt capacity", calculation ? formatIdr(calculation.debtCapacity) : "Belum dihitung"],
+          ["Capacity weights", calculation ? `${formatPercent(calculation.debtWeight)} debt / ${formatPercent(calculation.equityWeight)} equity` : "Belum dihitung"],
+          ["Formula", "Debt weight x Kd + equity weight x Ke"],
+        ]}
+      />
+      <ReferenceList references={requiredReturnOnNtaInputReferences} />
+      <AssumptionReasonField
+        id="assumption-required-return-support"
+        label="Evidence / support"
+        placeholder="Sumber capacity rate, biaya modal hutang, dan return ekuitas aset berwujud."
+        value={assumptions.requiredReturnOnNtaOverrideReason}
+        onChange={onReasonChange}
+      />
+    </article>
+  );
+}
+
+function AssumptionCalculatorHeader({ label, value, impact }: { label: string; value: string; impact: string }) {
+  return (
+    <div className="assumption-calculator-heading">
+      <div>
+        <span>{label}</span>
+        <strong>{value}</strong>
+      </div>
+      <small>{impact}</small>
+    </div>
+  );
+}
+
+function MetricTraceGrid({ metrics }: { metrics: Array<[string, string]> }) {
+  return (
+    <dl className="metric-trace-grid">
+      {metrics.map(([label, value]) => (
+        <div key={label}>
+          <dt>{label}</dt>
+          <dd>{value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function ReferenceList({ references }: { references: AssumptionReference[] }) {
+  return (
+    <div className="assumption-reference-list">
+      {references.map((reference) => (
+        <div key={reference.label}>
+          <span>{reference.label}</span>
+          <small>{reference.treatment}</small>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AssumptionReasonField({
+  id,
+  label,
+  placeholder,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  placeholder: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="field manual-reason-field" htmlFor={id}>
+      <span>{label}</span>
+      <textarea
+        id={id}
+        className="manual-reason-input"
+        placeholder={placeholder}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </label>
+  );
+}
+
 function AssumptionDriverCard({
   label,
   value,
@@ -2427,13 +2740,21 @@ function buildAssumptionDriverSummary(label: string, value: string, sourceId: st
   };
 }
 
+function buildCalculatedDriverSummary(label: string, value: number | null, sourceLabel: string) {
+  return {
+    label,
+    valueLabel: value === null ? "Belum dipilih" : formatPercent(value),
+    sourceLabel,
+  };
+}
+
 function sourceLabel(candidate: AssumptionCandidate): string {
   const source = candidate.sourceCell ? `${candidate.source} · ${candidate.sourceCell}` : candidate.source;
   return `${candidate.label} · ${source}`;
 }
 
 function sourceLabelFromManual(value: string): string {
-  return value.trim() ? "Manual override / legacy input" : "Belum dipilih";
+  return value.trim() ? "Legacy/sample direct input" : "Belum dipilih";
 }
 
 function formatRateInput(input: string): string {

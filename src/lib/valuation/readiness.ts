@@ -5,6 +5,7 @@ import type {
   MappedRow,
   Period,
 } from "./case-model";
+import { calculateRequiredReturnOnNtaAssumption, calculateWaccAssumption } from "./assumption-calculators";
 import type { AccountCategory, FinancialStatementSnapshot } from "./types";
 
 export type WorkbenchSectionId =
@@ -69,9 +70,15 @@ export function buildWorkbenchReadiness({
   const hasIncomeInput =
     rows.some((row) => row.statement === "income_statement") || snapshot.revenue !== 0 || snapshot.ebit !== 0 || snapshot.commercialNpat !== 0;
   const hasTaxRate = assumptions.taxRate.trim() !== "";
-  const hasWacc = assumptions.wacc.trim() !== "";
+  const hasWacc = assumptions.wacc.trim() !== "" || calculateWaccAssumption(assumptions) !== null;
   const hasTerminalGrowth = assumptions.terminalGrowth.trim() !== "";
-  const hasRequiredReturn = assumptions.requiredReturnOnNta.trim() !== "";
+  const hasRequiredReturn =
+    assumptions.requiredReturnOnNta.trim() !== "" ||
+    calculateRequiredReturnOnNtaAssumption(assumptions, {
+      accountReceivable: snapshot.accountReceivable,
+      inventory: snapshot.inventory,
+      fixedAssetsNet: snapshot.fixedAssetsNet,
+    }) !== null;
   const hasWorkingCapitalDays =
     assumptions.arDays.trim() !== "" ||
     assumptions.inventoryDays.trim() !== "" ||

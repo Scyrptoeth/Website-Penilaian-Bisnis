@@ -68,8 +68,8 @@ describe("valuation calculations", () => {
     const allMethods = calculateAllMethods(snapshot);
 
     assertAlmostEqual(taxPayableDebtLikeDcf.equityValue, baseDcf.equityValue - snapshot.taxPayable, 0.01);
-    assert.ok(allMethods.sensitivities.dcfNegativeGrowth);
-    assert.ok(allMethods.sensitivities.dcfGrowth3);
+    assert.ok(allMethods.sensitivities.dcfTerminalDownside);
+    assert.ok(allMethods.sensitivities.dcfTerminalUpside);
     assert.ok(allMethods.sensitivities.dcfNoIncrementalWorkingCapital);
     assert.ok(allMethods.sensitivities.dcfTaxPayableDebtLike);
     assert.ok(allMethods.sensitivities.eemTaxPayableDebtLike);

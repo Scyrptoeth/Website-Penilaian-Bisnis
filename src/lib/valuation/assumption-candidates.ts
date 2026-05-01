@@ -12,6 +12,11 @@ export type AssumptionCandidate = {
   requiresReason?: boolean;
 };
 
+export type AssumptionReference = {
+  label: string;
+  treatment: string;
+};
+
 export type TaxRateSuggestion = {
   year: number;
   rate: number;
@@ -19,91 +24,52 @@ export type TaxRateSuggestion = {
   note: string;
 };
 
-export const waccCandidates: AssumptionCandidate[] = [
+export const waccInputReferences: AssumptionReference[] = [
   {
-    id: "source-discount-rate",
-    label: "Source WACC",
-    value: 0.11463062037189403,
-    status: "recommended",
-    source: "Final review base case",
-    sourceCell: "DISCOUNT RATE!H10 / STAT_ASSUMPTIONS!B6",
-    formula: "Debt weight x after-tax cost of debt + equity weight x cost of equity",
-    note: "Dipakai final review sebagai base discount/capitalization rate untuk DCF dan EEM.",
+    label: "Interest-bearing debt",
+    treatment: "Bank loan short-term, bank loan long-term, interest payable, or market debt used only to support debt weight.",
   },
   {
-    id: "taxpayer-wacc",
-    label: "Taxpayer WACC",
-    value: 0.1031,
-    status: "warning",
-    source: "Workbook taxpayer input",
-    sourceCell: "WACC!E22",
-    formula: "Hardcoded workbook input",
-    note: "Angka menurut Wajib Pajak; tidak boleh dipilih tanpa review sumber eksternal.",
+    label: "Equity base",
+    treatment: "Paid-up capital, additional paid-in capital, retained earnings, or market equity used to support equity weight.",
   },
   {
-    id: "wacc-formula-row",
-    label: "WACC formula row",
-    value: 0.1094,
-    status: "warning",
-    source: "Workbook WACC sheet",
-    sourceCell: "WACC!E19:E20",
-    formula: "WACC debt row + WACC equity row",
-    note: "Audit workbook menemukan isu bobot struktur modal, sehingga kandidat ini perlu direbuild.",
+    label: "Cost of equity",
+    treatment: "Risk-free rate, beta, equity risk premium, and explicit country or company-specific risk premiums.",
   },
   {
-    id: "corrected-spread-sensitivity",
-    label: "Spread-added sensitivity",
-    value: 0.14869348033569196,
-    status: "sensitivity",
-    source: "Final review sensitivity",
-    sourceCell: "STAT_ASSUMPTIONS!B7",
-    formula: "Debt weight x Kd + equity weight x (Rf + beta x ERP + country/default spread)",
-    note: "Skenario koreksi jika country/default spread ditambahkan, bukan dikurangkan.",
+    label: "Cost of debt",
+    treatment: "External borrowing rate or lender evidence before tax, then adjusted by the active tax rate.",
   },
 ];
 
-export const terminalGrowthCandidates: AssumptionCandidate[] = [
+export const terminalGrowthInputReferences: AssumptionReference[] = [
   {
-    id: "base-zero",
-    label: "Base 0%",
-    value: 0,
-    status: "recommended",
-    source: "Final review base case",
-    sourceCell: "STAT_ASSUMPTIONS!B8",
-    formula: "User-confirmed long-term terminal growth",
-    note: "Base case final review dikunci 0%; sensitivities tetap ditampilkan terpisah.",
+    label: "Invested capital",
+    treatment: "Fixed assets net plus operating working capital as the operating capital base.",
   },
   {
-    id: "workbook-reinvestment-growth",
-    label: "Workbook reinvestment growth",
-    value: -0.06200163015727912,
-    status: "sensitivity",
-    source: "Workbook growth sheet",
-    sourceCell: "GROWTH RATE!B15",
-    formula: "Average net investment / invested capital",
-    note: "Lebih tepat sebagai sensitivity karena bukan long-term sustainable growth ekonomi/industri.",
+    label: "Net investment",
+    treatment: "Movement in fixed assets and operating working capital can be used as a cross-check, not a hardcoded terminal input.",
   },
   {
-    id: "upside-three-percent",
-    label: "Upside 3%",
-    value: 0.03,
-    status: "sensitivity",
-    source: "Final review sensitivity",
-    formula: "Reviewer scenario",
-    note: "Skenario upside untuk membaca sensitivitas terminal value.",
+    label: "Sustainable growth",
+    treatment: "Use long-term industry, inflation, ROIC, and reinvestment assumptions; base growth must stay below WACC.",
   },
 ];
 
-export const requiredReturnOnNtaCandidates: AssumptionCandidate[] = [
+export const requiredReturnOnNtaInputReferences: AssumptionReference[] = [
   {
-    id: "borrowing-capacity-return",
-    label: "Borrowing capacity return",
-    value: 0.08513891435570048,
-    status: "recommended",
-    source: "Workbook-derived EEM input",
-    sourceCell: "BORROWING CAP!F14 / STAT_ASSUMPTIONS!B10",
-    formula: "Weighted return from borrowing capacity capital mix",
-    note: "Dipakai sebagai required return atas operating net tangible assets dalam EEM.",
+    label: "Operating NTA",
+    treatment: "Receivables, inventory, and fixed assets support the tangible asset base reviewed for EEM.",
+  },
+  {
+    label: "Borrowing capacity",
+    treatment: "User-entered capacity rates convert pledgeable tangible assets into an implied debt/equity mix.",
+  },
+  {
+    label: "Capital charge",
+    treatment: "After-tax debt cost and tangible-asset equity return produce the required return on NTA.",
   },
 ];
 

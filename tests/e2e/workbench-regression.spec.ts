@@ -102,7 +102,7 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByText("Corrected NOPLAT basis")).toBeVisible();
 });
 
-test("assumption drivers expose statutory suggestions, workbook candidates, and active valuation sources", async ({ page }) => {
+test("assumption drivers expose statutory suggestions, input calculators, and active valuation sources", async ({ page }) => {
   await page.getByLabel("Tanggal valuasi").fill("2023-12-31");
   await openWorkflowTab(page, "Asumsi & Driver");
 
@@ -113,13 +113,16 @@ test("assumption drivers expose statutory suggestions, workbook candidates, and 
 
   await page.getByRole("button", { name: "Muat contoh workbook" }).click();
   await openWorkflowTab(page, "Asumsi & Driver");
-  await expect(page.getByTestId("assumption-card-wacc")).toContainText("Source WACC");
-  await expect(page.getByTestId("assumption-card-terminal-growth")).toContainText("Base 0%");
-  await expect(page.getByTestId("assumption-card-required-return-on-nta")).toContainText("BORROWING CAP!F14");
+  await expect(page.getByTestId("wacc-calculator")).toContainText("WACC calculator");
+  await expect(page.getByTestId("wacc-calculator")).toContainText("Risk-free rate");
+  await expect(page.getByTestId("terminal-growth-calculator")).toContainText("Terminal growth governance");
+  await expect(page.getByTestId("required-return-on-nta-calculator")).toContainText("Receivables capacity");
+  await expect(page.getByTestId("required-return-on-nta-calculator")).not.toContainText("BORROWING CAP");
+  await expect(page.locator("body")).not.toContainText("STAT_ASSUMPTIONS");
 
   await openWorkflowTab(page, "Valuasi");
-  await expect(page.getByLabel("Driver aktif valuasi")).toContainText("Source WACC");
-  await expect(page.getByLabel("Driver aktif valuasi")).toContainText("Final review base case");
+  await expect(page.getByLabel("Driver aktif valuasi")).toContainText("Calculated from WACC inputs");
+  await expect(page.getByLabel("Driver aktif valuasi")).toContainText("Calculated from NTA capacity inputs");
 });
 
 test("legacy positive income-statement expense drafts migrate once and remain user-editable", async ({ page }) => {

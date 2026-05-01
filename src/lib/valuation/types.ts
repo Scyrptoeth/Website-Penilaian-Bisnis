@@ -99,6 +99,8 @@ export interface FinancialStatementSnapshot {
   valuationDate: string;
   taxRate: number;
   terminalGrowth: number;
+  terminalGrowthDownside?: number;
+  terminalGrowthUpside?: number;
   revenueGrowth: number;
   wacc: number;
   requiredReturnOnNta: number;

@@ -3,9 +3,9 @@ import { describe, it } from "node:test";
 import {
   buildTaxRateCandidates,
   getStatutoryCorporateTaxRateSuggestion,
-  requiredReturnOnNtaCandidates,
-  terminalGrowthCandidates,
-  waccCandidates,
+  requiredReturnOnNtaInputReferences,
+  terminalGrowthInputReferences,
+  waccInputReferences,
 } from "../../src/lib/valuation/assumption-candidates";
 
 describe("assumption candidates", () => {
@@ -24,9 +24,17 @@ describe("assumption candidates", () => {
     assert.match(candidate.note, /override beralasan/i);
   });
 
-  it("exposes workbook-derived driver candidates with audit source cells", () => {
-    assert.equal(waccCandidates.find((candidate) => candidate.id === "source-discount-rate")?.value, 0.11463062037189403);
-    assert.equal(terminalGrowthCandidates.find((candidate) => candidate.id === "base-zero")?.value, 0);
-    assert.equal(requiredReturnOnNtaCandidates[0].sourceCell, "BORROWING CAP!F14 / STAT_ASSUMPTIONS!B10");
+  it("exposes input-first driver references without workbook source cells", () => {
+    assert.ok(waccInputReferences.some((reference) => reference.label === "Interest-bearing debt"));
+    assert.ok(terminalGrowthInputReferences.some((reference) => reference.label === "Invested capital"));
+    assert.ok(requiredReturnOnNtaInputReferences.some((reference) => reference.label === "Borrowing capacity"));
+
+    const serialized = JSON.stringify({
+      waccInputReferences,
+      terminalGrowthInputReferences,
+      requiredReturnOnNtaInputReferences,
+    });
+
+    assert.doesNotMatch(serialized, /STAT_ASSUMPTIONS|BORROWING CAP|GROWTH RATE|DISCOUNT RATE|WACC!/);
   });
 });

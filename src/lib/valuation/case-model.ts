@@ -1,4 +1,5 @@
 import { mapAccount, shouldAutoApplyMapping } from "./account-taxonomy";
+import { calculateRequiredReturnOnNtaAssumption, calculateWaccAssumption, readRateInput } from "./assumption-calculators";
 import { formatInputNumber } from "./format";
 import { sampleCase } from "./sample-case";
 import type { AccountCategory, FinancialStatementSnapshot } from "./types";
@@ -72,13 +73,29 @@ export type AssumptionState = {
   terminalGrowth: string;
   terminalGrowthSource: string;
   terminalGrowthOverrideReason: string;
+  terminalGrowthDownside: string;
+  terminalGrowthUpside: string;
   revenueGrowth: string;
   wacc: string;
   waccSource: string;
   waccOverrideReason: string;
+  waccRiskFreeRate: string;
+  waccBeta: string;
+  waccEquityRiskPremium: string;
+  waccCountryRiskPremium: string;
+  waccSpecificRiskPremium: string;
+  waccPreTaxCostOfDebt: string;
+  waccDebtWeight: string;
+  waccEquityWeight: string;
   requiredReturnOnNta: string;
   requiredReturnOnNtaSource: string;
   requiredReturnOnNtaOverrideReason: string;
+  requiredReturnReceivablesCapacity: string;
+  requiredReturnInventoryCapacity: string;
+  requiredReturnFixedAssetCapacity: string;
+  requiredReturnAdditionalCapacity: string;
+  requiredReturnAfterTaxDebtCost: string;
+  requiredReturnEquityCost: string;
   arDays: string;
   inventoryDays: string;
   apDays: string;
@@ -109,13 +126,29 @@ export const emptyAssumptions: AssumptionState = {
   terminalGrowth: "",
   terminalGrowthSource: "",
   terminalGrowthOverrideReason: "",
+  terminalGrowthDownside: "",
+  terminalGrowthUpside: "",
   revenueGrowth: "",
   wacc: "",
   waccSource: "",
   waccOverrideReason: "",
+  waccRiskFreeRate: "",
+  waccBeta: "",
+  waccEquityRiskPremium: "",
+  waccCountryRiskPremium: "",
+  waccSpecificRiskPremium: "",
+  waccPreTaxCostOfDebt: "",
+  waccDebtWeight: "",
+  waccEquityWeight: "",
   requiredReturnOnNta: "",
   requiredReturnOnNtaSource: "",
   requiredReturnOnNtaOverrideReason: "",
+  requiredReturnReceivablesCapacity: "",
+  requiredReturnInventoryCapacity: "",
+  requiredReturnFixedAssetCapacity: "",
+  requiredReturnAdditionalCapacity: "",
+  requiredReturnAfterTaxDebtCost: "",
+  requiredReturnEquityCost: "",
   arDays: "",
   inventoryDays: "",
   apDays: "",
@@ -349,15 +382,31 @@ export function buildSampleAssumptions(): AssumptionState {
     taxRateSource: "statutory-general",
     taxRateOverrideReason: "",
     terminalGrowth: formatInputNumber(sampleCase.terminalGrowth),
-    terminalGrowthSource: "base-zero",
+    terminalGrowthSource: "sample-workbook-terminal-growth",
     terminalGrowthOverrideReason: "",
+    terminalGrowthDownside: formatInputNumber(-0.06200163015727912),
+    terminalGrowthUpside: formatInputNumber(0.03),
     revenueGrowth: formatInputNumber(sampleCase.revenueGrowth),
     wacc: formatInputNumber(sampleCase.wacc),
-    waccSource: "source-discount-rate",
+    waccSource: "computed-wacc",
     waccOverrideReason: "",
+    waccRiskFreeRate: formatInputNumber(0.064795),
+    waccBeta: formatInputNumber(1.09),
+    waccEquityRiskPremium: formatInputNumber(0.0738),
+    waccCountryRiskPremium: formatInputNumber(-0.0207),
+    waccSpecificRiskPremium: formatInputNumber(0),
+    waccPreTaxCostOfDebt: formatInputNumber(0.088),
+    waccDebtWeight: formatInputNumber(0.17722560473918053),
+    waccEquityWeight: formatInputNumber(0.8227743952608195),
     requiredReturnOnNta: formatInputNumber(sampleCase.requiredReturnOnNta),
-    requiredReturnOnNtaSource: "borrowing-capacity-return",
+    requiredReturnOnNtaSource: "computed-required-return-on-nta",
     requiredReturnOnNtaOverrideReason: "",
+    requiredReturnReceivablesCapacity: formatInputNumber(1),
+    requiredReturnInventoryCapacity: formatInputNumber(0),
+    requiredReturnFixedAssetCapacity: formatInputNumber(0.7),
+    requiredReturnAdditionalCapacity: formatInputNumber(sampleCase.employeeReceivable),
+    requiredReturnAfterTaxDebtCost: formatInputNumber(0.06864),
+    requiredReturnEquityCost: formatInputNumber(0.124537),
     arDays: formatInputNumber(sampleCase.arDays),
     inventoryDays: formatInputNumber(sampleCase.inventoryDays),
     apDays: formatInputNumber(sampleCase.apDays),
@@ -593,14 +642,22 @@ export function buildSnapshot(
   const additionalPaidInCapital = amount(activeAggregate("PENAMBAHAN_MODAL_DISETOR"));
   const retainedEarningsSurplus = amount(activeAggregate("RETAINED_EARNINGS_SURPLUS"));
   const retainedEarningsCurrentProfit = amount(activeAggregate("RETAINED_EARNINGS_CURRENT_PROFIT"));
+  const waccCalculation = calculateWaccAssumption(assumptions);
+  const requiredReturnCalculation = calculateRequiredReturnOnNtaAssumption(assumptions, {
+    accountReceivable,
+    inventory,
+    fixedAssetsNet,
+  });
 
   return {
     valuationDate: activePeriod?.valuationDate || activePeriod?.label || "",
     taxRate: parseRate(assumptions.taxRate),
     terminalGrowth: parseRate(assumptions.terminalGrowth),
+    terminalGrowthDownside: readRateInput(assumptions.terminalGrowthDownside) ?? undefined,
+    terminalGrowthUpside: readRateInput(assumptions.terminalGrowthUpside) ?? undefined,
     revenueGrowth: parseRate(assumptions.revenueGrowth) || historicalDrivers.revenueGrowth,
-    wacc: parseRate(assumptions.wacc),
-    requiredReturnOnNta: parseRate(assumptions.requiredReturnOnNta),
+    wacc: waccCalculation?.wacc ?? parseRate(assumptions.wacc),
+    requiredReturnOnNta: requiredReturnCalculation?.requiredReturn ?? parseRate(assumptions.requiredReturnOnNta),
     cogsMargin: historicalDrivers.cogsMargin || (revenue ? -cogsAmount / revenue : 0),
     gaMargin: historicalDrivers.gaMargin || (revenue ? -(sellingExpense + gaOverheads) / revenue : 0),
     depreciationMargin: historicalDrivers.depreciationMargin || (revenue ? -depreciation / revenue : 0),

@@ -1188,6 +1188,175 @@ select {
   margin-bottom: 12px;
 }
 
+.assumption-driver-matrix {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  margin-bottom: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--line);
+}
+
+.assumption-driver-matrix div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 9px;
+  background: var(--surface);
+}
+
+.assumption-driver-matrix span,
+.assumption-driver-matrix small {
+  color: var(--muted);
+}
+
+.assumption-driver-matrix strong {
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.assumption-driver-matrix small {
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
+
+.assumption-tax-row {
+  margin-bottom: 12px;
+}
+
+.assumption-calculator-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.assumption-calculator-card {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-raised);
+}
+
+.assumption-calculator-card.wide {
+  grid-column: 1 / -1;
+}
+
+.assumption-calculator-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 0.58fr);
+  gap: 10px;
+  align-items: start;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.assumption-calculator-heading div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.assumption-calculator-heading span,
+.assumption-calculator-heading small {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.assumption-calculator-heading strong {
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono), monospace;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.assumption-calculator-heading small {
+  line-height: 1.35;
+}
+
+.calculator-input-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.metric-trace-grid,
+.driver-basis-strip {
+  display: grid;
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--line);
+}
+
+.metric-trace-grid {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+
+.driver-basis-strip {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.metric-trace-grid div,
+.driver-basis-strip div {
+  min-width: 0;
+  padding: 8px;
+  background: var(--surface);
+}
+
+.metric-trace-grid dt,
+.driver-basis-strip span {
+  display: block;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.metric-trace-grid dd,
+.driver-basis-strip strong {
+  display: block;
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono), monospace;
+  font-size: 10.4px;
+  font-weight: 600;
+}
+
+.assumption-reference-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.assumption-reference-list div {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.assumption-reference-list span {
+  display: block;
+  color: var(--ink);
+  font-weight: 750;
+}
+
+.assumption-reference-list small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  line-height: 1.36;
+}
+
 .compact-driver-grid {
   padding-top: 12px;
   border-top: 1px solid var(--line);
@@ -1873,8 +2042,15 @@ td span {
   .review-band,
   .risk-grid,
   .assumption-grid,
+  .assumption-driver-matrix,
   .assumption-control-grid,
+  .assumption-calculator-grid,
+  .assumption-calculator-heading,
   .assumption-form-grid,
+  .calculator-input-grid,
+  .metric-trace-grid,
+  .driver-basis-strip,
+  .assumption-reference-list,
   .sensitivity-grid,
   .active-driver-strip,
   .audit-reference-grid,
