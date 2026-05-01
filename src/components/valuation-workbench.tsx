@@ -53,6 +53,7 @@ import {
   statementLabels,
   type AccountRow,
   type AssumptionState,
+  type BalanceSheetClassification,
   type FixedAssetPeriodAmounts,
   type FixedAssetScheduleRow,
   type FixedAssetScheduleSummary,
@@ -173,6 +174,31 @@ const confidenceBandLabels: Record<ReturnType<typeof mapRow>["mapping"]["confide
 };
 const categoryValueSet = new Set<AccountCategory>(categoryOptions.map((option) => option.value));
 const statementValueSet = new Set<StatementType>(["balance_sheet", "income_statement", "fixed_asset"]);
+const balanceSheetClassificationOptions: Array<{ value: BalanceSheetClassification; label: string }> = [
+  { value: "current_asset", label: "Current Asset" },
+  { value: "non_current_asset", label: "Non-current Asset" },
+  { value: "asset_total", label: "Total Asset / Override" },
+  { value: "current_liability", label: "Current Liability" },
+  { value: "non_current_liability", label: "Non-current Liability" },
+  { value: "liability_total", label: "Total Liability / Override" },
+  { value: "equity", label: "Equity" },
+];
+const balanceSheetClassificationLabelMap = new Map(balanceSheetClassificationOptions.map((option) => [option.value, option.label]));
+const balanceSheetClassificationValueSet = new Set<BalanceSheetClassification>(balanceSheetClassificationOptions.map((option) => option.value));
+const balanceSheetClassificationLabelIds: Partial<Record<BalanceSheetClassification, AccountLabelId>> = {
+  current_asset: "fs:current-asset",
+  non_current_asset: "fs:non-current-asset",
+  current_liability: "fs:current-liability",
+  non_current_liability: "fs:non-current-liability",
+  equity: "fs:equity",
+};
+const balanceSheetDetailLabelIds = new Set<AccountLabelId>([
+  "fs:current-asset",
+  "fs:non-current-asset",
+  "fs:current-liability",
+  "fs:non-current-liability",
+  "fs:equity",
+]);
 const assumptionKeys: Array<keyof AssumptionState> = [
   "taxRate",
   "terminalGrowth",
@@ -208,6 +234,7 @@ type BalanceSheetLine = {
   label: string;
   categoryId: AccountCategory | "DERIVED_FIXED_ASSET";
   category: string;
+  balanceSheetClassification: BalanceSheetClassification | "";
   source: string;
   values: Record<string, number>;
   affectsTotal?: boolean;
@@ -282,6 +309,118 @@ const equityCategories = new Set<AccountCategory>([
   "RETAINED_EARNINGS_SURPLUS",
   "RETAINED_EARNINGS_CURRENT_PROFIT",
 ]);
+
+function inferBalanceSheetClassification(category: AccountCategory): BalanceSheetClassification | "" {
+  if (category === "TOTAL_ASSETS") {
+    return "asset_total";
+  }
+
+  if (category === "TOTAL_LIABILITIES") {
+    return "liability_total";
+  }
+
+  if (
+    category === "CURRENT_ASSET" ||
+    category === "CASH_ON_HAND" ||
+    category === "CASH_ON_BANK" ||
+    category === "ACCOUNT_RECEIVABLE" ||
+    category === "EMPLOYEE_RECEIVABLE" ||
+    category === "INVENTORY" ||
+    category === "EXCESS_CASH" ||
+    category === "MARKETABLE_SECURITIES" ||
+    category === "SURPLUS_ASSET_CASH"
+  ) {
+    return "current_asset";
+  }
+
+  if (
+    category === "NON_CURRENT_ASSET" ||
+    category === "FIXED_ASSET" ||
+    category === "FIXED_ASSET_ACQUISITION" ||
+    category === "ACCUMULATED_DEPRECIATION" ||
+    category === "NON_OPERATING_FIXED_ASSETS" ||
+    category === "INTANGIBLE_ASSETS"
+  ) {
+    return "non_current_asset";
+  }
+
+  if (
+    category === "CURRENT_LIABILITIES" ||
+    category === "BANK_LOAN_SHORT_TERM" ||
+    category === "ACCOUNT_PAYABLE" ||
+    category === "TAX_PAYABLE" ||
+    category === "OTHER_PAYABLE" ||
+    category === "INTEREST_PAYABLE"
+  ) {
+    return "current_liability";
+  }
+
+  if (category === "NON_CURRENT_LIABILITIES" || category === "BANK_LOAN_LONG_TERM" || category === "INTEREST_BEARING_DEBT") {
+    return "non_current_liability";
+  }
+
+  if (equityCategories.has(category)) {
+    return "equity";
+  }
+
+  return "";
+}
+
+function getBalanceSheetClassificationOptions(category: AccountCategory): Array<{ value: BalanceSheetClassification; label: string }> {
+  if (category === "TOTAL_ASSETS") {
+    return balanceSheetClassificationOptions.filter((option) => option.value === "asset_total");
+  }
+
+  if (category === "TOTAL_LIABILITIES") {
+    return balanceSheetClassificationOptions.filter((option) => option.value === "liability_total");
+  }
+
+  if (assetCategories.has(category)) {
+    return balanceSheetClassificationOptions.filter((option) => option.value === "current_asset" || option.value === "non_current_asset");
+  }
+
+  if (liabilityCategories.has(category)) {
+    return balanceSheetClassificationOptions.filter((option) => option.value === "current_liability" || option.value === "non_current_liability");
+  }
+
+  if (equityCategories.has(category)) {
+    return balanceSheetClassificationOptions.filter((option) => option.value === "equity");
+  }
+
+  return balanceSheetClassificationOptions.filter(
+    (option) =>
+      option.value === "current_asset" ||
+      option.value === "non_current_asset" ||
+      option.value === "current_liability" ||
+      option.value === "non_current_liability",
+  );
+}
+
+function getEffectiveBalanceSheetClassification(item: MappedRow): BalanceSheetClassification | "" {
+  const options = getBalanceSheetClassificationOptions(item.effectiveCategory);
+  const allowedValues = new Set(options.map((option) => option.value));
+  const override = item.row.balanceSheetClassification;
+
+  if (override && allowedValues.has(override)) {
+    return override;
+  }
+
+  return inferBalanceSheetClassification(item.effectiveCategory);
+}
+
+function applyBalanceSheetClassificationToDisplayLabels(
+  statement: StatementType,
+  labels: AccountLabelId[],
+  classification: BalanceSheetClassification | "",
+): AccountLabelId[] {
+  const classificationLabelId = classification ? balanceSheetClassificationLabelIds[classification] : undefined;
+
+  if (statement !== "balance_sheet" || !classificationLabelId) {
+    return labels;
+  }
+
+  return Array.from(new Set([...labels.filter((labelId) => !balanceSheetDetailLabelIds.has(labelId)), classificationLabelId]));
+}
 
 export function ValuationWorkbench() {
   const [periods, setPeriods] = useState<Period[]>(initialPeriods);
@@ -1293,6 +1432,10 @@ function sanitizeRows(value: unknown): AccountRow[] {
         statement,
         accountName: row.accountName,
         categoryOverride,
+        balanceSheetClassification:
+          statement === "balance_sheet" && balanceSheetClassificationValueSet.has(row.balanceSheetClassification as BalanceSheetClassification)
+            ? (row.balanceSheetClassification as BalanceSheetClassification)
+            : "",
         labelOverrides: sanitizeAccountLabels(row.labelOverrides),
         values: sanitizeStringRecord(row.values),
       },
@@ -1411,6 +1554,7 @@ function buildBalanceSheetView(periods: Period[], mappedRows: MappedRow[], fixed
       label: item.row.accountName || categoryLabelMap.get(item.effectiveCategory) || item.effectiveCategory,
       categoryId: item.effectiveCategory,
       category: categoryLabelMap.get(item.effectiveCategory) || item.effectiveCategory,
+      balanceSheetClassification: getEffectiveBalanceSheetClassification(item),
       source: "Input akun",
       values,
       affectsTotal: item.effectiveCategory !== "FIXED_ASSET_ACQUISITION" && item.effectiveCategory !== "ACCUMULATED_DEPRECIATION",
@@ -1473,6 +1617,7 @@ function buildBalanceSheetView(periods: Period[], mappedRows: MappedRow[], fixed
         label: "Fixed Assets, Net",
         categoryId: "DERIVED_FIXED_ASSET",
         category: "Net fixed assets from detail",
+        balanceSheetClassification: "non_current_asset",
         source: "Input akun",
         values: derivedManualFixedAssetNetValues,
         affectsTotal: true,
@@ -1529,6 +1674,7 @@ function buildDerivedFixedAssetLine(
     label,
     categoryId: "DERIVED_FIXED_ASSET",
     category,
+    balanceSheetClassification: "non_current_asset",
     source: "Fixed Asset Schedule",
     values: Object.fromEntries(
       periods.map((period) => [period.id, getValue(fixedAssetSchedule.totals[period.id] ?? emptyFixedAssetAmounts())]),
@@ -1553,6 +1699,33 @@ function sumLineValues(periods: Period[], lines: BalanceSheetLine[]): Record<str
   );
 }
 
+function groupBalanceSheetLines(lines: BalanceSheetLine[]): Array<{ key: string; label: string; lines: BalanceSheetLine[] }> {
+  const groupOrder: Array<BalanceSheetClassification | "unclassified"> = [
+    "current_asset",
+    "non_current_asset",
+    "asset_total",
+    "current_liability",
+    "non_current_liability",
+    "liability_total",
+    "equity",
+    "unclassified",
+  ];
+  const groupedLines = new Map<string, BalanceSheetLine[]>();
+
+  lines.forEach((line) => {
+    const key = line.balanceSheetClassification || "unclassified";
+    groupedLines.set(key, [...(groupedLines.get(key) ?? []), line]);
+  });
+
+  return Array.from(groupedLines.entries())
+    .sort(([left], [right]) => groupOrder.indexOf(left as BalanceSheetClassification | "unclassified") - groupOrder.indexOf(right as BalanceSheetClassification | "unclassified"))
+    .map(([key, grouped]) => ({
+      key,
+      label: key === "unclassified" ? "Belum diklasifikasi" : balanceSheetClassificationLabelMap.get(key as BalanceSheetClassification) ?? key,
+      lines: grouped,
+    }));
+}
+
 function BalanceSheetPositionTable({ periods, view }: { periods: Period[]; view: BalanceSheetView }) {
   if (!view.hasRows) {
     return null;
@@ -1572,10 +1745,13 @@ function BalanceSheetPositionTable({ periods, view }: { periods: Period[]; view:
           <thead>
             <tr>
               <th>Pos</th>
+              <th>Detail</th>
               <th>Akun / komponen</th>
               <th>Sumber</th>
               {periods.map((period) => (
-                <th key={period.id}>{period.label || "Periode"}</th>
+                <th className="period-column" key={period.id}>
+                  {period.label || "Periode"}
+                </th>
               ))}
               <th>Status</th>
             </tr>
@@ -1584,41 +1760,51 @@ function BalanceSheetPositionTable({ periods, view }: { periods: Period[]; view:
             {view.sections.map((section) => (
               <Fragment key={section.title}>
                 <tr className="balance-section-row">
-                  <td colSpan={periods.length + 4}>{section.title}</td>
+                  <td colSpan={periods.length + 5}>{section.title}</td>
                 </tr>
                 {section.lines.length === 0 ? (
                   <tr>
                     <td>{section.title}</td>
-                    <td colSpan={periods.length + 3}>Belum ada akun pada kelompok ini.</td>
+                    <td colSpan={periods.length + 4}>Belum ada akun pada kelompok ini.</td>
                   </tr>
                 ) : (
-                  section.lines.map((line, index) => (
-                    <tr key={`${section.title}-${line.label}-${index}`}>
-                      <td>{section.title}</td>
-                      <td>
-                        <strong>{line.label}</strong>
-                        <span>{line.category}</span>
-                      </td>
-                      <td>{line.source}</td>
-                      {periods.map((period) => (
-                        <td className="numeric-cell" key={period.id}>
-                          {formatInputNumber(line.values[period.id] ?? 0)}
-                        </td>
+                  groupBalanceSheetLines(section.lines).map((group) => (
+                    <Fragment key={`${section.title}-${group.key}`}>
+                      <tr className="balance-detail-row">
+                        <td>{section.title}</td>
+                        <td colSpan={periods.length + 4}>{group.label}</td>
+                      </tr>
+                      {group.lines.map((line, index) => (
+                        <tr key={`${section.title}-${group.key}-${line.label}-${index}`}>
+                          <td>{section.title}</td>
+                          <td>{balanceSheetClassificationLabelMap.get(line.balanceSheetClassification as BalanceSheetClassification) ?? group.label}</td>
+                          <td>
+                            <strong>{line.label}</strong>
+                            <span>{line.category}</span>
+                          </td>
+                          <td>{line.source}</td>
+                          {periods.map((period) => (
+                            <td className="numeric-cell period-column" key={period.id}>
+                              {formatInputNumber(line.values[period.id] ?? 0)}
+                            </td>
+                          ))}
+                          <td>
+                            <span className={line.isDerived ? "badge ok" : line.isOverride ? "badge warning" : "badge muted"}>
+                              {line.isDerived ? "Otomatis" : line.isOverride ? "Override" : "Input"}
+                            </span>
+                          </td>
+                        </tr>
                       ))}
-                      <td>
-                        <span className={line.isDerived ? "badge ok" : line.isOverride ? "badge warning" : "badge muted"}>
-                          {line.isDerived ? "Otomatis" : line.isOverride ? "Override" : "Input"}
-                        </span>
-                      </td>
-                    </tr>
+                    </Fragment>
                   ))
                 )}
                 <tr className="total-row">
                   <td>{section.title}</td>
+                  <td>Total</td>
                   <td>{section.totalLabel}</td>
                   <td>Model</td>
                   {periods.map((period) => (
-                    <td className="numeric-cell" key={period.id}>
+                    <td className="numeric-cell period-column" key={period.id}>
                       {formatInputNumber(section.totalValues[period.id] ?? 0)}
                     </td>
                   ))}
@@ -1628,6 +1814,7 @@ function BalanceSheetPositionTable({ periods, view }: { periods: Period[]; view:
             ))}
             <tr className="balance-check-row">
               <td>Check</td>
+              <td>Model</td>
               <td>Assets - Liabilities - Equity</td>
               <td>Model</td>
               {periods.map((period) => {
@@ -1635,7 +1822,7 @@ function BalanceSheetPositionTable({ periods, view }: { periods: Period[]; view:
                 const isBalanced = Math.abs(value) <= Math.max(1, Math.abs(view.totalAssets[period.id] ?? 0) * 0.001);
 
                 return (
-                  <td className={isBalanced ? "numeric-cell ok-text" : "numeric-cell warning-text"} key={period.id}>
+                  <td className={isBalanced ? "numeric-cell period-column ok-text" : "numeric-cell period-column warning-text"} key={period.id}>
                     {formatInputNumber(value)}
                   </td>
                 );
@@ -1670,12 +1857,15 @@ function AccountInputTable({
     return <div className="empty-state">{emptyMessage}</div>;
   }
 
+  const hasBalanceSheetClassificationColumn = mappedRows.some((item) => item.row.statement === "balance_sheet");
+
   return (
     <div className="table-wrap">
-      <table className="account-entry-table">
+      <table className={hasBalanceSheetClassificationColumn ? "account-entry-table balance-entry-table" : "account-entry-table"}>
         <thead>
           <tr>
             <th>Sumber</th>
+            {hasBalanceSheetClassificationColumn ? <th className="balance-classification-column">Klasifikasi neraca</th> : null}
             <th>Nama akun dari laporan</th>
             <th>Kategori utama</th>
             <th>Label & dampak</th>
@@ -1688,13 +1878,21 @@ function AccountInputTable({
         <tbody>
           {mappedRows.map((item) => {
             const { row, mapping, effectiveCategory } = item;
+            const balanceSheetClassification = getEffectiveBalanceSheetClassification(item);
+            const balanceSheetClassificationOptionsForRow = getBalanceSheetClassificationOptions(effectiveCategory);
 
             return (
               <tr key={row.id}>
                 <td>
                   <select
                     value={row.statement}
-                    onChange={(event) => onUpdateRow(row.id, { statement: event.target.value as StatementType, categoryOverride: "" })}
+                    onChange={(event) =>
+                      onUpdateRow(row.id, {
+                        statement: event.target.value as StatementType,
+                        categoryOverride: "",
+                        balanceSheetClassification: "",
+                      })
+                    }
                   >
                     {Object.entries(statementLabels).map(([value, label]) => (
                       <option key={value} value={value}>
@@ -1703,6 +1901,34 @@ function AccountInputTable({
                     ))}
                   </select>
                 </td>
+                {hasBalanceSheetClassificationColumn ? (
+                  <td className="balance-classification-column">
+                    {row.statement === "balance_sheet" ? (
+                      <div className="balance-classification-cell">
+                        <select
+                          value={balanceSheetClassification}
+                          onChange={(event) =>
+                            onUpdateRow(row.id, { balanceSheetClassification: event.target.value as BalanceSheetClassification | "" })
+                          }
+                        >
+                          <option value="">Pilih detail neraca</option>
+                          {balanceSheetClassificationOptionsForRow.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="row-hint">
+                          {balanceSheetClassification
+                            ? `Detail: ${balanceSheetClassificationLabelMap.get(balanceSheetClassification)}`
+                            : "Khusus Balance Sheet"}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="row-hint">Tidak berlaku</span>
+                    )}
+                  </td>
+                ) : null}
                 <td>
                   <input
                     className="account-name-input"
@@ -1717,7 +1943,15 @@ function AccountInputTable({
                 <td>
                   <select
                     value={row.categoryOverride || effectiveCategory}
-                    onChange={(event) => onUpdateRow(row.id, { categoryOverride: event.target.value as AccountCategory })}
+                    onChange={(event) => {
+                      const nextCategory = event.target.value as AccountCategory;
+
+                      onUpdateRow(row.id, {
+                        categoryOverride: nextCategory,
+                        balanceSheetClassification:
+                          row.statement === "balance_sheet" ? inferBalanceSheetClassification(nextCategory) : "",
+                      });
+                    }}
                   >
                     {getCategoryOptionsForStatement(row.statement).map((option) => (
                       <option key={option.value} value={option.value}>
@@ -1767,12 +2001,15 @@ function AccountLabelImpactCell({ item, onToggleLabel }: { item: MappedRow; onTo
   const profile = getCategoryLabelProfile(effectiveCategory);
   const labels = resolveAccountLabels(row.statement, effectiveCategory, row.labelOverrides);
   const defaultLabels = new Set(resolveAccountLabels(row.statement, effectiveCategory));
-  const visibleLabels = labels.slice(0, 7);
+  const balanceSheetClassification = getEffectiveBalanceSheetClassification(item);
+  const displayLabels = applyBalanceSheetClassificationToDisplayLabels(row.statement, labels, balanceSheetClassification);
+  const visibleLabels = displayLabels.slice(0, 7);
 
   return (
     <div className="label-impact-cell">
       <div className="impact-chip-row">
         <span className="impact-chip">Posisi: {profile.placement}</span>
+        {balanceSheetClassification ? <span className="impact-chip">Detail: {balanceSheetClassificationLabelMap.get(balanceSheetClassification)}</span> : null}
         <span className="impact-chip">Treatment: {profile.treatment}</span>
         <span className="impact-chip">Sign: {profile.signBehavior}</span>
         {row.categoryOverride ? <span className="impact-chip warning">Manual override</span> : null}
@@ -1784,7 +2021,7 @@ function AccountLabelImpactCell({ item, onToggleLabel }: { item: MappedRow; onTo
             {getAccountLabelDefinition(labelId)?.label ?? labelId}
           </span>
         ))}
-        {labels.length > visibleLabels.length ? <span className="label-chip muted">+{labels.length - visibleLabels.length}</span> : null}
+        {displayLabels.length > visibleLabels.length ? <span className="label-chip muted">+{displayLabels.length - visibleLabels.length}</span> : null}
       </div>
       {mapping.alternatives.length > 0 ? (
         <span className="row-hint">Alternatif: {mapping.alternatives.map((candidate) => `${candidate.displayName} ${formatScore(candidate.confidence)}`).join(", ")}</span>
@@ -1836,6 +2073,11 @@ function MappingTable({ mappedRows }: { mappedRows: MappedRow[] }) {
         <tbody>
           {mappedRows.map(({ row, mapping, effectiveCategory }) => {
             const needsReview = effectiveCategory === "UNMAPPED" || (!row.categoryOverride && mapping.needsReview);
+            const displayLabels = applyBalanceSheetClassificationToDisplayLabels(
+              row.statement,
+              resolveAccountLabels(row.statement, effectiveCategory, row.labelOverrides),
+              row.statement === "balance_sheet" ? getEffectiveBalanceSheetClassification({ row, mapping, effectiveCategory }) : "",
+            );
 
             return (
               <tr key={row.id}>
@@ -1853,13 +2095,11 @@ function MappingTable({ mappedRows }: { mappedRows: MappedRow[] }) {
                 <td>{categoryLabelMap.get(effectiveCategory) ?? effectiveCategory}</td>
                 <td>
                   <div className="label-chip-row compact">
-                    {resolveAccountLabels(row.statement, effectiveCategory, row.labelOverrides)
-                      .slice(0, 5)
-                      .map((labelId) => (
-                        <span className="label-chip" key={labelId}>
-                          {getAccountLabelDefinition(labelId)?.label ?? labelId}
-                        </span>
-                      ))}
+                    {displayLabels.slice(0, 5).map((labelId) => (
+                      <span className="label-chip" key={labelId}>
+                        {getAccountLabelDefinition(labelId)?.label ?? labelId}
+                      </span>
+                    ))}
                   </div>
                 </td>
                 <td>

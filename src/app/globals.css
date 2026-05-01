@@ -716,23 +716,34 @@ select {
 }
 
 .balance-sheet-table {
-  min-width: 920px;
+  min-width: 1160px;
   table-layout: fixed;
 }
 
 .balance-sheet-table th:first-child,
 .balance-sheet-table td:first-child {
-  width: 94px;
+  width: 88px;
 }
 
 .balance-sheet-table th:nth-child(2),
 .balance-sheet-table td:nth-child(2) {
-  width: 240px;
+  width: 148px;
 }
 
 .balance-sheet-table th:nth-child(3),
 .balance-sheet-table td:nth-child(3) {
+  width: 260px;
+}
+
+.balance-sheet-table th:nth-child(4),
+.balance-sheet-table td:nth-child(4) {
   width: 132px;
+}
+
+.balance-sheet-table th.period-column,
+.balance-sheet-table td.period-column {
+  width: 132px;
+  text-align: right;
 }
 
 .balance-sheet-table th:last-child,
@@ -744,6 +755,14 @@ select {
   border-top-color: var(--line-strong);
   background: var(--surface-muted);
   color: var(--accent-ink);
+  font-family: var(--font-mono), monospace;
+  font-size: 8.4px;
+  font-weight: 600;
+}
+
+.balance-detail-row td {
+  background: var(--surface-raised);
+  color: var(--ink-soft);
   font-family: var(--font-mono), monospace;
   font-size: 8.4px;
   font-weight: 600;
@@ -769,6 +788,10 @@ select {
 .account-entry-table {
   min-width: 1040px;
   table-layout: fixed;
+}
+
+.account-entry-table.balance-entry-table {
+  min-width: 1220px;
 }
 
 .account-entry-table th,
@@ -812,6 +835,48 @@ select {
 .account-entry-table td:last-child {
   width: 44px;
   text-align: center;
+}
+
+.account-entry-table.balance-entry-table th.balance-classification-column,
+.account-entry-table.balance-entry-table td.balance-classification-column {
+  width: 164px;
+}
+
+.account-entry-table.balance-entry-table th:nth-child(3),
+.account-entry-table.balance-entry-table td:nth-child(3) {
+  width: 220px;
+}
+
+.account-entry-table.balance-entry-table th:nth-child(4),
+.account-entry-table.balance-entry-table td:nth-child(4) {
+  width: 210px;
+}
+
+.account-entry-table.balance-entry-table th:nth-child(5),
+.account-entry-table.balance-entry-table td:nth-child(5) {
+  width: 280px;
+}
+
+.account-entry-table.balance-entry-table th:not(:nth-child(-n + 5)):not(:last-child),
+.account-entry-table.balance-entry-table td:not(:nth-child(-n + 5)):not(:last-child) {
+  width: 102px;
+}
+
+.account-entry-table.balance-entry-table td:not(:nth-child(-n + 5)):not(:last-child) input {
+  padding-inline: 3px;
+  font-family: var(--font-mono), monospace;
+  font-size: 8.4px;
+  text-align: right;
+}
+
+.account-entry-table.balance-entry-table td:nth-child(5) input {
+  padding: 0;
+  text-align: left;
+}
+
+.balance-classification-cell {
+  display: grid;
+  gap: 4px;
 }
 
 .account-entry-table select {

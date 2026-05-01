@@ -6,6 +6,15 @@ import type { AccountLabelId } from "./account-labels";
 
 export type StatementType = "balance_sheet" | "income_statement" | "fixed_asset";
 
+export type BalanceSheetClassification =
+  | "current_asset"
+  | "non_current_asset"
+  | "asset_total"
+  | "current_liability"
+  | "non_current_liability"
+  | "liability_total"
+  | "equity";
+
 export type Period = {
   id: string;
   label: string;
@@ -18,6 +27,7 @@ export type AccountRow = {
   statement: StatementType;
   accountName: string;
   categoryOverride: AccountCategory | "";
+  balanceSheetClassification: BalanceSheetClassification | "";
   labelOverrides: AccountLabelId[];
   values: Record<string, string>;
 };
@@ -119,6 +129,7 @@ export function createRow(statement: StatementType, periods: Period[]): AccountR
     statement,
     accountName: "",
     categoryOverride: "",
+    balanceSheetClassification: "",
     labelOverrides: [],
     values: Object.fromEntries(periods.map((period) => [period.id, ""])),
   };
@@ -342,6 +353,7 @@ export function buildSampleRows(): AccountRow[] {
     statement,
     accountName,
     categoryOverride,
+    balanceSheetClassification: "",
     labelOverrides: [],
     values: Object.fromEntries(Object.entries(values).map(([periodId, value]) => [periodId, formatInputNumber(Math.abs(value))])),
   });
