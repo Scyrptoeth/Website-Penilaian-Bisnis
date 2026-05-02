@@ -1610,6 +1610,67 @@ select {
   border-top: 1px solid var(--line);
 }
 
+.smart-checkpoint-strip,
+.driver-override-guidance {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  margin-bottom: 12px;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.smart-checkpoint-strip {
+  border-color: rgba(15, 118, 110, 0.22);
+  background: var(--accent-soft);
+}
+
+.smart-checkpoint-strip.muted {
+  border-color: var(--line);
+  background: var(--surface-muted);
+}
+
+.driver-override-guidance {
+  align-items: flex-start;
+  flex-direction: column;
+  border-color: rgba(161, 98, 7, 0.24);
+  background: var(--review-soft);
+}
+
+.smart-checkpoint-strip div:first-child,
+.driver-override-guidance {
+  min-width: 0;
+}
+
+.smart-checkpoint-strip strong,
+.driver-override-guidance strong {
+  display: block;
+  color: var(--ink);
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.smart-checkpoint-strip span,
+.driver-override-guidance span {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 9.2px;
+  line-height: 1.36;
+  overflow-wrap: anywhere;
+}
+
+.smart-checkpoint-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
 .assumption-driver-card {
   display: grid;
   gap: 8px;
@@ -2528,6 +2589,15 @@ td span {
   .toolbar {
     justify-content: flex-start;
     width: 100%;
+  }
+
+  .smart-checkpoint-strip {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .smart-checkpoint-actions {
+    justify-content: flex-start;
   }
 }
 

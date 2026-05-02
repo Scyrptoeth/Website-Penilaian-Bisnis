@@ -269,6 +269,7 @@ const requiredReturnSuggestionOrder: RequiredReturnOnNtaSuggestionKey[] = [
 const WORKBENCH_STORAGE_KEY = "penilaian-valuasi-bisnis.workbench.v1";
 const WORKBENCH_SCROLL_STORAGE_KEY = "penilaian-valuasi-bisnis.scroll.v1";
 const WORKBENCH_SIDEBAR_STORAGE_KEY = "penilaian-valuasi-bisnis.sidebar.v1";
+const WORKBENCH_CHECKPOINT_STORAGE_KEY = "penilaian-valuasi-bisnis.smart-suggestion-checkpoint.v1";
 const WORKBENCH_STORAGE_VERSION = 3;
 
 type PersistedWorkbenchState = {
@@ -284,6 +285,11 @@ type PersistedWorkbenchState = {
 };
 
 type WorkbenchCoreState = Omit<PersistedWorkbenchState, "version" | "savedAt">;
+
+type WorkbenchCheckpointState = WorkbenchCoreState & {
+  savedAt: string;
+  label: string;
+};
 
 type WorkflowTabId = WorkbenchSectionId;
 
@@ -317,6 +323,7 @@ export function ValuationWorkbench() {
   const [activeWorkflowTab, setActiveWorkflowTab] = useState<WorkflowTabId>("periods");
   const [undoStack, setUndoStack] = useState<WorkbenchCoreState[]>([]);
   const [redoStack, setRedoStack] = useState<WorkbenchCoreState[]>([]);
+  const [smartSuggestionCheckpoint, setSmartSuggestionCheckpoint] = useState<WorkbenchCheckpointState | null>(null);
 
   const mappedRows = useMemo(() => rows.map((row) => mapRow(row)), [rows]);
   const caseProfileDerived = useMemo(() => buildCaseProfileDerived(caseProfile), [caseProfile]);
@@ -548,6 +555,36 @@ export function ValuationWorkbench() {
     applyCoreState(cloneCoreState(next));
   }
 
+  function createSmartSuggestionCheckpoint(label = "Checkpoint manual sebelum smart suggestion", overwrite = true) {
+    const checkpoint = buildCheckpointState(getCurrentCoreState(), label);
+
+    setSmartSuggestionCheckpoint((current) => {
+      if (current && !overwrite) {
+        return current;
+      }
+
+      persistWorkbenchCheckpoint(checkpoint);
+      return checkpoint;
+    });
+  }
+
+  function ensureSmartSuggestionCheckpoint(label: string) {
+    createSmartSuggestionCheckpoint(label, false);
+  }
+
+  function restoreSmartSuggestionCheckpoint() {
+    if (!smartSuggestionCheckpoint) {
+      return;
+    }
+
+    commitCoreState(() => checkpointToCoreState(smartSuggestionCheckpoint));
+  }
+
+  function clearSmartSuggestionCheckpoint() {
+    setSmartSuggestionCheckpoint(null);
+    clearPersistedWorkbenchCheckpoint();
+  }
+
   function navigateToWorkflowTab(tabId: WorkflowTabId) {
     setActiveWorkflowTab(tabId);
 
@@ -581,6 +618,7 @@ export function ValuationWorkbench() {
       setRedoStack([]);
     }
 
+    setSmartSuggestionCheckpoint(readPersistedWorkbenchCheckpoint());
     setIsSidebarCollapsed(readStoredSidebarState());
     setIsDraftRestored(true);
   }, []);
@@ -860,6 +898,7 @@ export function ValuationWorkbench() {
   }
 
   function applySectorComparableSuggestions() {
+    ensureSmartSuggestionCheckpoint("Sebelum smart comparable WACC");
     commitCoreState((current) => ({
       ...current,
       assumptions: applyIdxComparableSuggestions(current.assumptions, current.caseProfile.companySector, "replace"),
@@ -885,6 +924,7 @@ export function ValuationWorkbench() {
     const averageDebtRate = averageInvestmentLoanRate(suggestion);
     const sourceNote = `Saran rata-rata tahunan ${suggestion.year}; ERP/default spread dari Damodaran, proxy SUN dari bukti pasar, dan proxy SBDK pinjaman investasi dari OJK.`;
 
+    ensureSmartSuggestionCheckpoint(`Sebelum smart suggestion WACC ${suggestion.year}`);
     commitCoreState((current) => ({
       ...current,
       assumptions: {
@@ -905,6 +945,7 @@ export function ValuationWorkbench() {
   }
 
   function applyTerminalGrowthSuggestion(suggestion: TerminalGrowthSuggestion) {
+    ensureSmartSuggestionCheckpoint("Sebelum smart suggestion terminal growth");
     commitCoreState((current) => ({
       ...current,
       assumptions: {
@@ -934,6 +975,8 @@ export function ValuationWorkbench() {
 
   function resetForm() {
     clearPersistedWorkbenchState();
+    clearPersistedWorkbenchCheckpoint();
+    setSmartSuggestionCheckpoint(null);
     commitCoreState(() => ({
       periods: initialPeriods,
       activePeriodId: initialPeriods[0].id,
@@ -1005,6 +1048,13 @@ export function ValuationWorkbench() {
               </button>
               <button className="icon-button" type="button" onClick={redoCoreChange} disabled={redoStack.length === 0} title="Redo perubahan data">
                 <Redo2 size={18} />
+              </button>
+              <button className="button ghost" type="button" onClick={() => createSmartSuggestionCheckpoint()}>
+                <GitBranch size={18} />
+                Buat checkpoint
+              </button>
+              <button className="button ghost" type="button" onClick={restoreSmartSuggestionCheckpoint} disabled={!smartSuggestionCheckpoint}>
+                Kembali checkpoint
               </button>
               <button className="button secondary" type="button" onClick={loadSample}>
                 <Upload size={18} />
@@ -1254,6 +1304,7 @@ export function ValuationWorkbench() {
             </div>
           </div>
           <ReadinessPanel status={readiness.eemDcfAssumptions} onNavigate={navigateToWorkflowTab} />
+          <SmartSuggestionCheckpointStrip checkpoint={smartSuggestionCheckpoint} onRestore={restoreSmartSuggestionCheckpoint} onClear={clearSmartSuggestionCheckpoint} />
           <AssumptionDriverMatrix drivers={assumptionDriverSummaries} />
           <div className="assumption-tax-row">
             <AssumptionDriverCard
@@ -1294,14 +1345,56 @@ export function ValuationWorkbench() {
               onReasonChange={(value) => updateAssumptionText("requiredReturnOnNtaOverrideReason", value)}
             />
           </div>
+          <DriverOverrideGuidance />
           <div className="assumption-form-grid compact-driver-grid">
-            <AssumptionInput label="Override pertumbuhan pendapatan" value={assumptions.revenueGrowth} onChange={(value) => updateAssumption("revenueGrowth", value)} />
-            <AssumptionInput label="Hari piutang (AR days)" value={assumptions.arDays} onChange={(value) => updateAssumption("arDays", value)} />
-            <AssumptionInput label="Hari persediaan" value={assumptions.inventoryDays} onChange={(value) => updateAssumption("inventoryDays", value)} />
-            <AssumptionInput label="Hari utang usaha (AP days)" value={assumptions.apDays} onChange={(value) => updateAssumption("apDays", value)} />
             <AssumptionInput
-              label="Hari utang lain-lain"
+              label="Override pertumbuhan pendapatan (opsional)"
+              value={assumptions.revenueGrowth}
+              note={buildOptionalDriverNote({
+                inputValue: assumptions.revenueGrowth,
+                effectiveLabel: formatPercent(snapshot.revenueGrowth),
+                fallbackSource: "histori pendapatan aktif",
+              })}
+              onChange={(value) => updateAssumption("revenueGrowth", value)}
+            />
+            <AssumptionInput
+              label="Hari piutang / AR days (override opsional)"
+              value={assumptions.arDays}
+              note={buildOptionalDriverNote({
+                inputValue: assumptions.arDays,
+                effectiveLabel: formatDays(snapshot.arDays),
+                fallbackSource: "saldo piutang dan pendapatan historis",
+              })}
+              onChange={(value) => updateAssumption("arDays", value)}
+            />
+            <AssumptionInput
+              label="Hari persediaan (override opsional)"
+              value={assumptions.inventoryDays}
+              note={buildOptionalDriverNote({
+                inputValue: assumptions.inventoryDays,
+                effectiveLabel: formatDays(snapshot.inventoryDays),
+                fallbackSource: "saldo persediaan dan COGS historis",
+              })}
+              onChange={(value) => updateAssumption("inventoryDays", value)}
+            />
+            <AssumptionInput
+              label="Hari utang usaha / AP days (override opsional)"
+              value={assumptions.apDays}
+              note={buildOptionalDriverNote({
+                inputValue: assumptions.apDays,
+                effectiveLabel: formatDays(snapshot.apDays),
+                fallbackSource: "saldo utang usaha dan COGS historis",
+              })}
+              onChange={(value) => updateAssumption("apDays", value)}
+            />
+            <AssumptionInput
+              label="Hari utang lain-lain (override opsional)"
               value={assumptions.otherPayableDays}
+              note={buildOptionalDriverNote({
+                inputValue: assumptions.otherPayableDays,
+                effectiveLabel: formatDays(snapshot.otherPayableDays),
+                fallbackSource: "saldo utang lain-lain dan beban operasional historis",
+              })}
               onChange={(value) => updateAssumption("otherPayableDays", value)}
             />
           </div>
@@ -2114,6 +2207,47 @@ function readPersistedWorkbenchState(): PersistedWorkbenchState | null {
   }
 }
 
+function readPersistedWorkbenchCheckpoint(): WorkbenchCheckpointState | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(WORKBENCH_CHECKPOINT_STORAGE_KEY);
+
+    if (!raw) {
+      return null;
+    }
+
+    const parsed: unknown = JSON.parse(raw);
+
+    if (!isRecord(parsed)) {
+      return null;
+    }
+
+    const periods = normalizePeriods(sanitizePeriods(parsed.periods));
+    const rows = sanitizeRows(parsed.rows);
+    const fixedAssetScheduleRows = ensureFixedAssetSchedulePeriods(sanitizeFixedAssetScheduleRows(parsed.fixedAssetScheduleRows), periods);
+    const activePeriodId = typeof parsed.activePeriodId === "string" ? parsed.activePeriodId : "";
+    const isFixedAssetScheduleEnabled =
+      typeof parsed.isFixedAssetScheduleEnabled === "boolean" ? parsed.isFixedAssetScheduleEnabled : fixedAssetScheduleRows.length > 0;
+
+    return {
+      savedAt: typeof parsed.savedAt === "string" ? parsed.savedAt : "",
+      label: typeof parsed.label === "string" ? parsed.label : "Checkpoint smart suggestion",
+      periods,
+      activePeriodId,
+      rows,
+      isFixedAssetScheduleEnabled,
+      fixedAssetScheduleRows,
+      assumptions: sanitizeAssumptions(parsed.assumptions),
+      caseProfile: sanitizeCaseProfile(parsed.caseProfile),
+    };
+  } catch {
+    return null;
+  }
+}
+
 function migrateLegacyIncomeStatementSigns(rows: AccountRow[]): AccountRow[] {
   return rows.map((row) => {
     if (row.statement !== "income_statement") {
@@ -2136,6 +2270,10 @@ function persistWorkbenchState(state: PersistedWorkbenchState) {
   safeSetLocalStorage(WORKBENCH_STORAGE_KEY, JSON.stringify(state));
 }
 
+function persistWorkbenchCheckpoint(state: WorkbenchCheckpointState) {
+  safeSetLocalStorage(WORKBENCH_CHECKPOINT_STORAGE_KEY, JSON.stringify(state));
+}
+
 function clearPersistedWorkbenchState() {
   if (typeof window === "undefined") {
     return;
@@ -2144,6 +2282,18 @@ function clearPersistedWorkbenchState() {
   try {
     window.localStorage.removeItem(WORKBENCH_STORAGE_KEY);
     window.localStorage.removeItem(WORKBENCH_SCROLL_STORAGE_KEY);
+  } catch {
+    // Storage can be unavailable in private or restricted browser contexts.
+  }
+}
+
+function clearPersistedWorkbenchCheckpoint() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.removeItem(WORKBENCH_CHECKPOINT_STORAGE_KEY);
   } catch {
     // Storage can be unavailable in private or restricted browser contexts.
   }
@@ -2242,6 +2392,26 @@ function sanitizeRows(value: unknown): AccountRow[] {
 
 function cloneCoreState(state: WorkbenchCoreState): WorkbenchCoreState {
   return JSON.parse(JSON.stringify(state)) as WorkbenchCoreState;
+}
+
+function buildCheckpointState(state: WorkbenchCoreState, label: string): WorkbenchCheckpointState {
+  return {
+    ...cloneCoreState(state),
+    savedAt: new Date().toISOString(),
+    label,
+  };
+}
+
+function checkpointToCoreState(checkpoint: WorkbenchCheckpointState): WorkbenchCoreState {
+  return cloneCoreState({
+    periods: checkpoint.periods,
+    activePeriodId: checkpoint.activePeriodId,
+    rows: checkpoint.rows,
+    isFixedAssetScheduleEnabled: checkpoint.isFixedAssetScheduleEnabled,
+    fixedAssetScheduleRows: checkpoint.fixedAssetScheduleRows,
+    assumptions: checkpoint.assumptions,
+    caseProfile: checkpoint.caseProfile,
+  });
 }
 
 function sanitizeFixedAssetScheduleRows(value: unknown): FixedAssetScheduleRow[] {
@@ -3850,6 +4020,56 @@ function AssumptionDriverCard({
   );
 }
 
+function SmartSuggestionCheckpointStrip({
+  checkpoint,
+  onRestore,
+  onClear,
+}: {
+  checkpoint: WorkbenchCheckpointState | null;
+  onRestore: () => void;
+  onClear: () => void;
+}) {
+  if (!checkpoint) {
+    return (
+      <div className="smart-checkpoint-strip muted" data-testid="smart-checkpoint-strip">
+        <div>
+          <strong>Checkpoint smart suggestion belum dibuat</strong>
+          <span>Buat checkpoint sebelum mencoba saran otomatis agar basis normal dapat dipulihkan.</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="smart-checkpoint-strip" data-testid="smart-checkpoint-strip">
+      <div>
+        <strong>{checkpoint.label}</strong>
+        <span>Tersimpan {formatCheckpointTime(checkpoint.savedAt)}. Jika hasil smart suggestion tidak wajar, kembalikan basis ini.</span>
+      </div>
+      <div className="smart-checkpoint-actions">
+        <button className="button ghost compact-button" type="button" onClick={onRestore}>
+          Kembalikan
+        </button>
+        <button className="button ghost compact-button" type="button" onClick={onClear}>
+          Hapus
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function DriverOverrideGuidance() {
+  return (
+    <div className="driver-override-guidance" data-testid="driver-override-guidance">
+      <strong>Override opsional, bukan angka wajib</strong>
+      <span>
+        Kosongkan driver di bawah untuk memakai fallback sistem dari data historis aktif. Isi hanya jika ada dasar yang lebih kuat, seperti
+        proyeksi manajemen, kontrak, data industri, atau analisis penilai.
+      </span>
+    </div>
+  );
+}
+
 function AssumptionInput({ label, value, note, onChange }: { label: string; value: string; note?: string; onChange: (value: string) => void }) {
   const inputId = `assumption-${slugifyLabel(label)}`;
 
@@ -3860,6 +4080,39 @@ function AssumptionInput({ label, value, note, onChange }: { label: string; valu
       {note ? <small className="auto-source-note">{note}</small> : null}
     </label>
   );
+}
+
+function buildOptionalDriverNote({
+  inputValue,
+  effectiveLabel,
+  fallbackSource,
+}: {
+  inputValue: string;
+  effectiveLabel: string;
+  fallbackSource: string;
+}): string {
+  if (inputValue.trim()) {
+    return `Nilai dipakai: ${effectiveLabel} - nilai eksplisit di field. Pastikan dasar pendukung tersedia jika berbeda dari fallback historis.`;
+  }
+
+  return `Nilai dipakai: ${effectiveLabel} - fallback sistem dari ${fallbackSource}. Biarkan kosong jika tidak ada dasar override yang lebih kuat.`;
+}
+
+function formatDays(value: number): string {
+  return `${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 2 }).format(value)} hari`;
+}
+
+function formatCheckpointTime(value: string): string {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "di sesi ini";
+  }
+
+  return new Intl.DateTimeFormat("id-ID", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
 }
 
 function formatCaseProfileValue(key: keyof CaseProfile, value: string): string {
