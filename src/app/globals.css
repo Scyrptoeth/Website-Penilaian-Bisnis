@@ -1887,6 +1887,68 @@ select {
   padding: 12px;
 }
 
+.assumption-audit-panel {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(161, 98, 7, 0.28);
+  border-radius: var(--radius);
+  background: #fffdf4;
+}
+
+.assumption-audit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.assumption-audit-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 64px;
+  padding: 9px;
+  border: 1px solid rgba(22, 101, 52, 0.18);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ok);
+}
+
+.assumption-audit-item.warning {
+  border-color: rgba(161, 98, 7, 0.28);
+  color: var(--review);
+}
+
+.assumption-audit-item div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.assumption-audit-item span,
+.assumption-audit-item strong,
+.assumption-audit-item small {
+  min-width: 0;
+}
+
+.assumption-audit-item span {
+  color: var(--ink-soft);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.assumption-audit-item strong {
+  color: var(--ink);
+  font-family: var(--font-mono), monospace;
+  font-size: 10.4px;
+}
+
+.assumption-audit-item small {
+  color: var(--muted);
+  line-height: 1.35;
+}
+
 .readiness-panel {
   display: grid;
   gap: 10px;
@@ -2281,6 +2343,7 @@ td span {
   .split-panel,
   .review-band,
   .risk-grid,
+  .assumption-audit-grid,
   .assumption-grid,
   .assumption-driver-matrix,
   .assumption-control-grid,
@@ -2336,8 +2399,18 @@ td span {
 
   .panel,
   .metric-card,
-  .review-band {
+  .review-band,
+  .assumption-audit-panel {
     padding: 14px;
+  }
+
+  .assumption-audit-item {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .assumption-audit-item .button {
+    grid-column: 2;
+    justify-self: flex-start;
   }
 
   .formula-row {

@@ -399,6 +399,16 @@ export function ValuationWorkbench() {
       }),
     [resolvedAssumptions, snapshot.accountReceivable, snapshot.fixedAssetsNet, snapshot.inventory],
   );
+  const eemDcfAuditItems = useMemo(
+    () =>
+      buildEemDcfAuditItems({
+        snapshot,
+        results,
+        requiredReturnCalculation,
+        hasRevenueGrowthOverride: assumptions.revenueGrowth.trim() !== "",
+      }),
+    [assumptions.revenueGrowth, requiredReturnCalculation, results, snapshot],
+  );
   const terminalGrowthSuggestion = useMemo(
     () =>
       buildTerminalGrowthSuggestion({
@@ -1368,6 +1378,30 @@ export function ValuationWorkbench() {
               <small>{driver.sourceLabel}</small>
             </div>
           ))}
+        </section>
+
+        <section className="assumption-audit-panel" aria-label="Audit asumsi material EEM dan DCF">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Audit asumsi material</p>
+              <h3>Kenapa EEM/DCF bergerak jauh</h3>
+            </div>
+          </div>
+          <div className="assumption-audit-grid">
+            {eemDcfAuditItems.map((item) => (
+              <div className={item.status === "warning" ? "assumption-audit-item warning" : "assumption-audit-item ok"} key={item.label}>
+                {item.status === "warning" ? <AlertTriangle size={18} /> : <CheckCircle2 size={18} />}
+                <div>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                  <small>{item.note}</small>
+                </div>
+                <button className="button ghost compact-button" type="button" onClick={() => navigateToWorkflowTab(item.targetTab)}>
+                  Review
+                </button>
+              </div>
+            ))}
+          </div>
         </section>
 
         <section className="review-band compact-review">
@@ -3536,6 +3570,84 @@ function MetricTraceGrid({ metrics }: { metrics: Array<[string, string]> }) {
       ))}
     </dl>
   );
+}
+
+type EemDcfAuditItem = {
+  label: string;
+  value: string;
+  note: string;
+  status: "ok" | "warning";
+  targetTab: WorkflowTabId;
+};
+
+function buildEemDcfAuditItems({
+  snapshot,
+  results,
+  requiredReturnCalculation,
+  hasRevenueGrowthOverride,
+}: {
+  snapshot: ReturnType<typeof buildSnapshot>;
+  results: ReturnType<typeof calculateAllMethods>;
+  requiredReturnCalculation: RequiredReturnOnNtaCalculation | null;
+  hasRevenueGrowthOverride: boolean;
+}): EemDcfAuditItem[] {
+  const capRate = snapshot.wacc - snapshot.terminalGrowth;
+  const explicitPv = getTraceValue(results.dcf.traces, "Explicit PV of FCFF");
+  const terminalPv = getTraceValue(results.dcf.traces, "PV terminal value");
+  const terminalWeight = terminalPv > 0 && explicitPv + terminalPv !== 0 ? terminalPv / (explicitPv + terminalPv) : 0;
+  const growthStatus = snapshot.revenueGrowth > 0.25 || (!hasRevenueGrowthOverride && snapshot.revenueGrowth > 0.2) ? "warning" : "ok";
+  const capRateStatus = capRate <= 0 || capRate < 0.075 ? "warning" : "ok";
+  const terminalStatus = terminalWeight > 0.8 ? "warning" : "ok";
+  const requiredReturnStatus = requiredReturnCalculation?.basis === "capacity_evidence" ? "ok" : "warning";
+
+  return [
+    {
+      label: "EEM capitalization spread",
+      value: capRate > 0 ? formatPercent(capRate) : "Tidak valid",
+      note:
+        capRateStatus === "warning"
+          ? "WACC dikurangi terminal growth masih sempit, sehingga excess earnings dikapitalisasi menjadi nilai besar."
+          : "Spread kapitalisasi memadai terhadap terminal growth aktif.",
+      status: capRateStatus,
+      targetTab: "eemDcfAssumptions",
+    },
+    {
+      label: "Revenue growth driver",
+      value: formatPercent(snapshot.revenueGrowth),
+      note:
+        growthStatus === "warning"
+          ? hasRevenueGrowthOverride
+            ? "Growth override tinggi; pastikan didukung memo proyeksi."
+            : "Growth otomatis berasal dari CAGR historis. Isi override bila historis tidak representatif."
+          : "Growth driver berada dalam rentang yang lebih terkendali.",
+      status: growthStatus,
+      targetTab: "eemDcfAssumptions",
+    },
+    {
+      label: "DCF terminal dependence",
+      value: formatPercent(terminalWeight),
+      note:
+        terminalStatus === "warning"
+          ? "Lebih dari 80% PV DCF berasal dari terminal value; WACC, growth, dan terminal growth wajib direview."
+          : "Porsi terminal value belum mendominasi DCF secara ekstrem.",
+      status: terminalStatus,
+      targetTab: "valuationEemDcf",
+    },
+    {
+      label: "Required return on NTA basis",
+      value: requiredReturnCalculation?.basisLabel ?? "Belum dihitung",
+      note:
+        requiredReturnStatus === "warning"
+          ? "Nilai memakai fallback karena capacity evidence belum lengkap; hasil EEM dapat berbeda jauh dari capacity-based workbook."
+          : "Required return memakai capacity evidence dari input AR, inventory, fixed assets, dan additional capacity.",
+      status: requiredReturnStatus,
+      targetTab: "eemDcfAssumptions",
+    },
+  ];
+}
+
+function getTraceValue(traces: FormulaTrace[], label: string): number {
+  return traces.find((trace) => trace.label === label)?.value ?? 0;
 }
 
 function ReferenceList({ references }: { references: AssumptionReference[] }) {
