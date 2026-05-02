@@ -118,6 +118,36 @@ describe("case model", () => {
     assertAlmostEqual(drivers.apDays, 73, 1e-12);
   });
 
+  it("derives depreciation margin from the fixed asset schedule when depreciation rows are absent", () => {
+    const mappedRows = [
+      rowFixture({ id: "revenue", statement: "income_statement", accountName: "Penjualan", category: "REVENUE", values: { p0: "100", p1: "120" } }),
+    ].map(mapRow);
+    const schedule = buildFixedAssetScheduleSummary(basePeriods, [
+      {
+        id: "fa1",
+        assetName: "Factory equipment",
+        values: {
+          p0: {
+            acquisitionBeginning: "100",
+            acquisitionAdditions: "50",
+            depreciationBeginning: "10",
+            depreciationAdditions: "5",
+          },
+          p1: {
+            acquisitionBeginning: "",
+            acquisitionAdditions: "20",
+            depreciationBeginning: "",
+            depreciationAdditions: "8",
+          },
+        },
+      },
+    ]);
+
+    const drivers = deriveHistoricalDrivers(basePeriods, mappedRows, schedule);
+
+    assertAlmostEqual(drivers.depreciationMargin, (5 / 100 + 8 / 120) / 2, 1e-12);
+  });
+
   it("derives initial case formulas from workbook HOME inputs", () => {
     const derived = buildCaseProfileDerived({
       ...emptyCaseProfile,

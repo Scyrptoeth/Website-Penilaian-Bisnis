@@ -749,7 +749,7 @@ export function buildSnapshot(
   const aggregate = (periodId: string, ...categories: AccountCategory[]) =>
     aggregateForPeriod(mappedRows, periodId, categories);
   const activeAggregate = (...categories: AccountCategory[]) => aggregate(effectiveActivePeriodId, ...categories);
-  const historicalDrivers = deriveHistoricalDrivers(periods, mappedRows);
+  const historicalDrivers = deriveHistoricalDrivers(periods, mappedRows, fixedAssetSchedule);
 
   const cashOnHand = amount(activeAggregate("CASH_ON_HAND"));
   const cashOnBankDeposit = amount(activeAggregate("CASH_ON_BANK"));
@@ -890,7 +890,7 @@ export function aggregateForPeriod(mappedRows: MappedRow[], periodId: string, ca
   }, 0);
 }
 
-export function deriveHistoricalDrivers(periods: Period[], mappedRows: MappedRow[]) {
+export function deriveHistoricalDrivers(periods: Period[], mappedRows: MappedRow[], fixedAssetSchedule?: FixedAssetScheduleSummary) {
   const chronologicalPeriods = getChronologicalPeriods(periods);
   const periodMetrics = chronologicalPeriods.map((period) => {
     const aggregate = (...categories: AccountCategory[]) => aggregateForPeriod(mappedRows, period.id, categories);
@@ -898,7 +898,10 @@ export function deriveHistoricalDrivers(periods: Period[], mappedRows: MappedRow
     const cogs = aggregate("COST_OF_GOOD_SOLD");
     const selling = aggregate("SELLING_EXPENSE");
     const ga = aggregate("GENERAL_ADMINISTRATIVE_OVERHEADS", "OPERATING_EXPENSE");
-    const depreciation = aggregate("DEPRECIATION_EXPENSE");
+    const depreciationInput = aggregate("DEPRECIATION_EXPENSE");
+    const depreciation =
+      depreciationInput ||
+      (fixedAssetSchedule?.hasInput ? -amount(fixedAssetSchedule.totals[period.id]?.depreciationAdditions ?? 0) : 0);
     const ar = amount(aggregate("ACCOUNT_RECEIVABLE"));
     const inventory = amount(aggregate("INVENTORY"));
     const ap = amount(aggregate("ACCOUNT_PAYABLE"));
