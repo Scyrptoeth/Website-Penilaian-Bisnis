@@ -3082,7 +3082,7 @@ function WaccCalculatorPanel({
         <AssumptionInput
           label="Fallback beta (jika beta pembanding tidak lengkap)"
           value={assumptions.waccBeta}
-          note="Dipakai hanya jika beta relevered dari pembanding tidak tersedia; gunakan DISCOUNT RATE!C4 dari workbook atau bukti beta lain."
+          note="Dipakai hanya jika beta relevered dari pembanding tidak tersedia; isi dengan beta manual yang memiliki sumber dan justifikasi penilai."
           onChange={(value) => onChange("waccBeta", value)}
         />
       </div>

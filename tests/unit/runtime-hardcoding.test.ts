@@ -16,6 +16,9 @@ describe("runtime hardcoding guard", () => {
       "35_961_239_620",
       "136_826_441_989",
       "workbookAuditFixture",
+      "DISCOUNT RATE!",
+      "WACC!",
+      "STAT_ASSUMPTIONS",
     ];
 
     for (const fragment of forbiddenFragments) {
