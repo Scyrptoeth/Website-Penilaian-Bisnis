@@ -7,6 +7,16 @@ type DcfOptions = {
   debtLikeTaxPayable?: boolean;
 };
 
+type AamOptions = {
+  assetAdjustment?: number;
+  liabilityAdjustment?: number;
+  missingAdjustmentNotes?: number;
+};
+
+type CalculationOptions = {
+  aam?: AamOptions;
+};
+
 export function adjustedTotalAssets(snapshot: FinancialStatementSnapshot): number {
   const componentTotal =
     snapshot.cashOnHand +
@@ -68,28 +78,59 @@ export function normalizedNoplat(snapshot: FinancialStatementSnapshot): number {
   return snapshot.ebit * (1 - snapshot.taxRate);
 }
 
-export function calculateAam(snapshot: FinancialStatementSnapshot): MethodOutput {
-  const totalAssets = adjustedTotalAssets(snapshot);
-  const totalLiabilities = adjustedTotalLiabilities(snapshot);
+export function calculateAam(snapshot: FinancialStatementSnapshot, options: AamOptions = {}): MethodOutput {
+  const historicalAssets = adjustedTotalAssets(snapshot);
+  const historicalLiabilities = adjustedTotalLiabilities(snapshot);
+  const assetAdjustment = options.assetAdjustment ?? 0;
+  const liabilityAdjustment = options.liabilityAdjustment ?? 0;
+  const totalAssets = historicalAssets + assetAdjustment;
+  const totalLiabilities = historicalLiabilities + liabilityAdjustment;
   const equityValue = totalAssets - totalLiabilities;
   const traces: FormulaTrace[] = [
     {
-      label: "Total aset disesuaikan",
+      label: "Aset historis basis AAM",
       formula: "Input total aset atau jumlah komponen aset bila total aset kosong",
-      value: totalAssets,
-      note: "Penyesuaian FMV tetap nol sampai appraisal aset independen tersedia.",
+      value: historicalAssets,
+      note: "Basis historis berasal dari Neraca & Aset Tetap pada periode aktif.",
     },
     {
-      label: "Total liabilitas",
+      label: "Penyesuaian aset AAM",
+      formula: "Jumlah kolom Penyesuaian untuk pos aset AAM",
+      value: assetAdjustment,
+      note: "Nilai positif menaikkan aset disesuaikan; nilai negatif menurunkan aset disesuaikan.",
+    },
+    {
+      label: "Liabilitas historis basis AAM",
       formula: "Input total liabilitas atau jumlah komponen liabilitas bila total liabilitas kosong",
+      value: historicalLiabilities,
+      note: "AAM mengurangkan seluruh liabilitas, termasuk utang pajak dan utang berbunga.",
+    },
+    {
+      label: "Penyesuaian liabilitas AAM",
+      formula: "Jumlah kolom Penyesuaian untuk pos liabilitas AAM",
+      value: liabilityAdjustment,
+      note: "Nilai positif menaikkan liabilitas; nilai negatif menurunkan liabilitas.",
+    },
+    {
+      label: "Total aset disesuaikan",
+      formula: "Aset historis + penyesuaian aset",
+      value: totalAssets,
+      note: "Adjustment AAM tidak mengubah snapshot global untuk EEM/DCF.",
+    },
+    {
+      label: "Total liabilitas disesuaikan",
+      formula: "Liabilitas historis + penyesuaian liabilitas",
       value: totalLiabilities,
-      note: "AAM mengurangkan seluruh liabilitas, termasuk utang pajak.",
+      note: "Adjustment AAM hanya berlaku di metode AAM dan jejak audit AAM.",
     },
     {
       label: "Nilai Ekuitas 100% - AAM",
-      formula: "Total aset disesuaikan - total liabilitas",
+      formula: "Total aset disesuaikan - total liabilitas disesuaikan",
       value: equityValue,
-      note: "DLOM/DLOC tidak diterapkan.",
+      note:
+        options.missingAdjustmentNotes && options.missingAdjustmentNotes > 0
+          ? `${options.missingAdjustmentNotes} penyesuaian masih perlu catatan/alasan. DLOM/DLOC tidak diterapkan.`
+          : "DLOM/DLOC tidak diterapkan.",
     },
   ];
 
@@ -235,7 +276,7 @@ export function calculateDcf(
   return { method: "DCF", equityValue, traces, forecast };
 }
 
-export function calculateAllMethods(snapshot: FinancialStatementSnapshot) {
+export function calculateAllMethods(snapshot: FinancialStatementSnapshot, options: CalculationOptions = {}) {
   const dcf = calculateDcf(snapshot);
   const dcfTerminalDownside = calculateDcf(snapshot, { terminalGrowth: snapshot.terminalGrowthDownside ?? snapshot.terminalGrowth });
   const dcfTerminalUpside = calculateDcf(snapshot, { terminalGrowth: snapshot.terminalGrowthUpside ?? snapshot.terminalGrowth });
@@ -247,7 +288,7 @@ export function calculateAllMethods(snapshot: FinancialStatementSnapshot) {
   };
 
   return {
-    aam: calculateAam(snapshot),
+    aam: calculateAam(snapshot, options.aam),
     eem: calculateEem(snapshot),
     dcf,
     sensitivities: {

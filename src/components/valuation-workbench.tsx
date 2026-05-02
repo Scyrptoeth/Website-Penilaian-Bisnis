@@ -45,6 +45,12 @@ import {
 } from "@/lib/valuation/account-labels";
 import { calculateAllMethods, normalizedNoplat } from "@/lib/valuation/calculations";
 import {
+  aamAdjustmentLineIds,
+  buildAamAdjustmentModel,
+  type AamAdjustmentLine,
+  type AamAdjustmentState,
+} from "@/lib/valuation/aam-adjustments";
+import {
   buildFixedAssetScheduleSummary,
   buildCaseProfileDerived,
   buildSampleCaseProfile,
@@ -270,7 +276,7 @@ const WORKBENCH_STORAGE_KEY = "penilaian-valuasi-bisnis.workbench.v1";
 const WORKBENCH_SCROLL_STORAGE_KEY = "penilaian-valuasi-bisnis.scroll.v1";
 const WORKBENCH_SIDEBAR_STORAGE_KEY = "penilaian-valuasi-bisnis.sidebar.v1";
 const WORKBENCH_CHECKPOINT_STORAGE_KEY = "penilaian-valuasi-bisnis.smart-suggestion-checkpoint.v1";
-const WORKBENCH_STORAGE_VERSION = 3;
+const WORKBENCH_STORAGE_VERSION = 4;
 
 type PersistedWorkbenchState = {
   version: typeof WORKBENCH_STORAGE_VERSION;
@@ -280,6 +286,7 @@ type PersistedWorkbenchState = {
   rows: AccountRow[];
   isFixedAssetScheduleEnabled: boolean;
   fixedAssetScheduleRows: FixedAssetScheduleRow[];
+  aamAdjustments: AamAdjustmentState;
   assumptions: AssumptionState;
   caseProfile: CaseProfile;
 };
@@ -316,6 +323,7 @@ export function ValuationWorkbench() {
   const [rows, setRows] = useState<AccountRow[]>([]);
   const [isFixedAssetScheduleEnabled, setIsFixedAssetScheduleEnabled] = useState(false);
   const [fixedAssetScheduleRows, setFixedAssetScheduleRows] = useState<FixedAssetScheduleRow[]>([]);
+  const [aamAdjustments, setAamAdjustments] = useState<AamAdjustmentState>({});
   const [assumptions, setAssumptions] = useState<AssumptionState>(emptyAssumptions);
   const [caseProfile, setCaseProfile] = useState<CaseProfile>(emptyCaseProfile);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -384,7 +392,23 @@ export function ValuationWorkbench() {
     () => buildSnapshot(periods, activePeriodId, rows, resolvedAssumptions, fixedAssetScheduleRows),
     [periods, activePeriodId, rows, resolvedAssumptions, fixedAssetScheduleRows],
   );
-  const results = useMemo(() => calculateAllMethods(snapshot), [snapshot]);
+  const aamAdjustmentModel = useMemo(() => buildAamAdjustmentModel(snapshot, aamAdjustments), [aamAdjustments, snapshot]);
+  const results = useMemo(
+    () =>
+      calculateAllMethods(snapshot, {
+        aam: {
+          assetAdjustment: aamAdjustmentModel.assetAdjustmentTotal,
+          liabilityAdjustment: aamAdjustmentModel.liabilityAdjustmentTotal,
+          missingAdjustmentNotes: aamAdjustmentModel.missingNoteCount,
+        },
+      }),
+    [
+      aamAdjustmentModel.assetAdjustmentTotal,
+      aamAdjustmentModel.liabilityAdjustmentTotal,
+      aamAdjustmentModel.missingNoteCount,
+      snapshot,
+    ],
+  );
   const sectionAnalysis = useMemo(
     () => buildSectionAnalysis(periods, rows, assumptions, fixedAssetScheduleRows),
     [periods, rows, assumptions, fixedAssetScheduleRows],
@@ -481,6 +505,7 @@ export function ValuationWorkbench() {
     rows.length > 0 ||
     fixedAssetScheduleRows.length > 0 ||
     fixedAssetSchedule.hasInput ||
+    Object.values(aamAdjustments).some((entry) => entry.adjustment.trim() !== "" || entry.note.trim() !== "") ||
     periods.length !== 1 ||
     periods.some(
       (period) =>
@@ -503,6 +528,7 @@ export function ValuationWorkbench() {
       rows,
       isFixedAssetScheduleEnabled,
       fixedAssetScheduleRows,
+      aamAdjustments,
       assumptions,
       caseProfile,
     };
@@ -514,6 +540,7 @@ export function ValuationWorkbench() {
     setRows(state.rows);
     setIsFixedAssetScheduleEnabled(state.isFixedAssetScheduleEnabled);
     setFixedAssetScheduleRows(state.fixedAssetScheduleRows);
+    setAamAdjustments(state.aamAdjustments);
     setAssumptions(state.assumptions);
     setCaseProfile(state.caseProfile);
   }
@@ -612,6 +639,7 @@ export function ValuationWorkbench() {
       setRows(storedState.rows);
       setIsFixedAssetScheduleEnabled(storedState.isFixedAssetScheduleEnabled || storedState.fixedAssetScheduleRows.length > 0);
       setFixedAssetScheduleRows(storedState.fixedAssetScheduleRows);
+      setAamAdjustments(storedState.aamAdjustments);
       setAssumptions(storedState.assumptions);
       setCaseProfile(storedState.caseProfile);
       setUndoStack([]);
@@ -636,10 +664,11 @@ export function ValuationWorkbench() {
       rows,
       isFixedAssetScheduleEnabled,
       fixedAssetScheduleRows,
+      aamAdjustments,
       assumptions,
       caseProfile,
     });
-  }, [activePeriodId, assumptions, caseProfile, fixedAssetScheduleRows, isDraftRestored, isFixedAssetScheduleEnabled, periods, rows]);
+  }, [aamAdjustments, activePeriodId, assumptions, caseProfile, fixedAssetScheduleRows, isDraftRestored, isFixedAssetScheduleEnabled, periods, rows]);
 
   useEffect(() => {
     if (!isDraftRestored) {
@@ -822,6 +851,29 @@ export function ValuationWorkbench() {
     }));
   }
 
+  function updateAamAdjustment(lineId: string, patch: Partial<AamAdjustmentState[string]>) {
+    commitCoreState((current) => {
+      const currentEntry = current.aamAdjustments[lineId] ?? { adjustment: "", note: "" };
+      const nextEntry = {
+        ...currentEntry,
+        ...patch,
+        adjustment: patch.adjustment !== undefined ? formatEditableNumber(patch.adjustment) : currentEntry.adjustment,
+      };
+      const nextAdjustments = { ...current.aamAdjustments };
+
+      if (!nextEntry.adjustment.trim() && !nextEntry.note.trim()) {
+        delete nextAdjustments[lineId];
+      } else {
+        nextAdjustments[lineId] = nextEntry;
+      }
+
+      return {
+        ...current,
+        aamAdjustments: nextAdjustments,
+      };
+    });
+  }
+
   function updateRow(id: string, patch: Partial<AccountRow>) {
     commitCoreState((current) => ({
       ...current,
@@ -968,6 +1020,7 @@ export function ValuationWorkbench() {
       rows: buildSampleRows(),
       isFixedAssetScheduleEnabled: false,
       fixedAssetScheduleRows: [],
+      aamAdjustments: {},
       assumptions: buildSampleAssumptions(),
       caseProfile: buildSampleCaseProfile(),
     }));
@@ -983,6 +1036,7 @@ export function ValuationWorkbench() {
       rows: [],
       isFixedAssetScheduleEnabled: false,
       fixedAssetScheduleRows: [],
+      aamAdjustments: {},
       assumptions: emptyAssumptions,
       caseProfile: emptyCaseProfile,
     }));
@@ -1418,9 +1472,53 @@ export function ValuationWorkbench() {
               <Banknote size={20} />
               <span>Neraca basis</span>
             </div>
-            <strong>{formatIdr(results.adjustedTotalAssets - results.adjustedTotalLiabilities)}</strong>
-            <p>Aset dikurangi seluruh liabilitas; tidak memakai WACC, tarif pajak, terminal growth, atau required return on NTA.</p>
+            <strong>{formatIdr(aamAdjustmentModel.historicalEquityValue)}</strong>
+            <p>Aset historis dikurangi seluruh liabilitas historis; tidak memakai WACC, tarif pajak, terminal growth, atau required return on NTA.</p>
           </article>
+          <article className="metric-card">
+            <div className="card-title">
+              <TableProperties size={20} />
+              <span>Penyesuaian bersih</span>
+            </div>
+            <strong>{formatIdr(aamAdjustmentModel.assetAdjustmentTotal - aamAdjustmentModel.liabilityAdjustmentTotal)}</strong>
+            <p>
+              {aamAdjustmentModel.missingNoteCount > 0
+                ? `${aamAdjustmentModel.missingNoteCount} penyesuaian masih perlu catatan.`
+                : "Semua penyesuaian non-zero sudah memiliki catatan."}
+            </p>
+          </article>
+        </section>
+
+        <section id="aam-adjustments" className="panel aam-adjustment-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Penyesuaian AAM</p>
+              <h3>Historis + Penyesuaian = Disesuaikan</h3>
+            </div>
+            <TableProperties size={22} />
+          </div>
+          {aamAdjustmentModel.missingNoteCount > 0 ? (
+            <div className="aam-adjustment-warning" role="status">
+              <AlertTriangle size={16} />
+              <span>Penyesuaian AAM bernilai tidak nol wajib memiliki catatan/alasan agar jejak audit lengkap.</span>
+            </div>
+          ) : null}
+          <AamAdjustmentTable
+            title="Aset"
+            lines={aamAdjustmentModel.assetLines}
+            historicalTotal={aamAdjustmentModel.historicalAssetTotal}
+            adjustmentTotal={aamAdjustmentModel.assetAdjustmentTotal}
+            adjustedTotal={aamAdjustmentModel.adjustedAssetTotal}
+            onUpdate={updateAamAdjustment}
+          />
+          <AamAdjustmentTable
+            title="Liabilitas"
+            lines={aamAdjustmentModel.liabilityLines}
+            historicalTotal={aamAdjustmentModel.historicalLiabilityTotal}
+            adjustmentTotal={aamAdjustmentModel.liabilityAdjustmentTotal}
+            adjustedTotal={aamAdjustmentModel.adjustedLiabilityTotal}
+            onUpdate={updateAamAdjustment}
+          />
         </section>
 
         <section id="aam" className="split-panel">
@@ -1437,18 +1535,20 @@ export function ValuationWorkbench() {
           <article className="panel">
             <div className="panel-heading">
               <div>
-                <p className="eyebrow">Batasan</p>
-                <h3>Ruang lingkup metode AAM</h3>
+                <p className="eyebrow">Rekonsiliasi</p>
+                <h3>Ekuitas dan cakupan metode</h3>
               </div>
               <FileSearch size={22} />
             </div>
             <MetricTraceGrid
               metrics={[
-                ["Input minimum", "Periode, neraca, aset tetap bila tersedia, dan pemetaan akun"],
+                ["Ekuitas buku", formatIdr(aamAdjustmentModel.bookEquity)],
+                ["Selisih nilai AAM disesuaikan ke ekuitas buku", formatIdr(aamAdjustmentModel.adjustedBookEquityGap)],
                 ["Tidak diperlukan", "WACC, terminal growth, tarif pajak, required return on NTA"],
-                ["Judgment utama", "Penyesuaian FMV aset/liabilitas dan tinjauan aset non-operasional"],
+                ["Cakupan adjustment", "Hanya memengaruhi AAM; EEM/DCF tetap memakai snapshot historis/normalized"],
               ]}
             />
+            <AamEquityReconciliation lines={aamAdjustmentModel.equityLines} />
           </article>
         </section>
         </>
@@ -2185,6 +2285,7 @@ function readPersistedWorkbenchState(): PersistedWorkbenchState | null {
     const periods = normalizePeriods(sanitizePeriods(parsed.periods));
     const rows = parsed.version < 2 ? migrateLegacyIncomeStatementSigns(sanitizeRows(parsed.rows)) : sanitizeRows(parsed.rows);
     const fixedAssetScheduleRows = ensureFixedAssetSchedulePeriods(sanitizeFixedAssetScheduleRows(parsed.fixedAssetScheduleRows), periods);
+    const aamAdjustments = sanitizeAamAdjustments(parsed.aamAdjustments);
     const assumptions = sanitizeAssumptions(parsed.assumptions);
     const caseProfile = sanitizeCaseProfile(parsed.caseProfile);
     const activePeriodId = typeof parsed.activePeriodId === "string" ? parsed.activePeriodId : "";
@@ -2199,6 +2300,7 @@ function readPersistedWorkbenchState(): PersistedWorkbenchState | null {
       rows,
       isFixedAssetScheduleEnabled,
       fixedAssetScheduleRows,
+      aamAdjustments,
       assumptions,
       caseProfile,
     };
@@ -2228,6 +2330,7 @@ function readPersistedWorkbenchCheckpoint(): WorkbenchCheckpointState | null {
     const periods = normalizePeriods(sanitizePeriods(parsed.periods));
     const rows = sanitizeRows(parsed.rows);
     const fixedAssetScheduleRows = ensureFixedAssetSchedulePeriods(sanitizeFixedAssetScheduleRows(parsed.fixedAssetScheduleRows), periods);
+    const aamAdjustments = sanitizeAamAdjustments(parsed.aamAdjustments);
     const activePeriodId = typeof parsed.activePeriodId === "string" ? parsed.activePeriodId : "";
     const isFixedAssetScheduleEnabled =
       typeof parsed.isFixedAssetScheduleEnabled === "boolean" ? parsed.isFixedAssetScheduleEnabled : fixedAssetScheduleRows.length > 0;
@@ -2240,6 +2343,7 @@ function readPersistedWorkbenchCheckpoint(): WorkbenchCheckpointState | null {
       rows,
       isFixedAssetScheduleEnabled,
       fixedAssetScheduleRows,
+      aamAdjustments,
       assumptions: sanitizeAssumptions(parsed.assumptions),
       caseProfile: sanitizeCaseProfile(parsed.caseProfile),
     };
@@ -2409,6 +2513,7 @@ function checkpointToCoreState(checkpoint: WorkbenchCheckpointState): WorkbenchC
     rows: checkpoint.rows,
     isFixedAssetScheduleEnabled: checkpoint.isFixedAssetScheduleEnabled,
     fixedAssetScheduleRows: checkpoint.fixedAssetScheduleRows,
+    aamAdjustments: checkpoint.aamAdjustments,
     assumptions: checkpoint.assumptions,
     caseProfile: checkpoint.caseProfile,
   });
@@ -2451,6 +2556,29 @@ function sanitizeFixedAssetScheduleRows(value: unknown): FixedAssetScheduleRow[]
       },
     ];
   });
+}
+
+function sanitizeAamAdjustments(value: unknown): AamAdjustmentState {
+  if (!isRecord(value)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).flatMap(([lineId, entry]) => {
+      if (!aamAdjustmentLineIds.has(lineId) || !isRecord(entry)) {
+        return [];
+      }
+
+      const adjustment = typeof entry.adjustment === "string" ? formatEditableNumber(entry.adjustment) : "";
+      const note = typeof entry.note === "string" ? entry.note : "";
+
+      if (!adjustment.trim() && !note.trim()) {
+        return [];
+      }
+
+      return [[lineId, { adjustment, note }]];
+    }),
+  );
 }
 
 function sanitizeAssumptions(value: unknown): AssumptionState {
@@ -3835,6 +3963,106 @@ function MetricTraceGrid({ metrics }: { metrics: Array<[string, string]> }) {
         </div>
       ))}
     </dl>
+  );
+}
+
+function AamAdjustmentTable({
+  title,
+  lines,
+  historicalTotal,
+  adjustmentTotal,
+  adjustedTotal,
+  onUpdate,
+}: {
+  title: string;
+  lines: AamAdjustmentLine[];
+  historicalTotal: number;
+  adjustmentTotal: number;
+  adjustedTotal: number;
+  onUpdate: (lineId: string, patch: Partial<AamAdjustmentState[string]>) => void;
+}) {
+  return (
+    <div className="aam-adjustment-section" data-testid={`aam-adjustment-${slugifyLabel(title)}`}>
+      <div className="subpanel-heading">
+        <div>
+          <span>{title}</span>
+          <h4>{formatIdr(adjustedTotal)}</h4>
+        </div>
+        <small>{formatIdr(historicalTotal)} historis · {formatIdr(adjustmentTotal)} penyesuaian</small>
+      </div>
+      <div className="table-wrap aam-adjustment-table-wrap">
+        <table className="aam-adjustment-table">
+          <thead>
+            <tr>
+              <th>Kelompok</th>
+              <th>Akun / pos</th>
+              <th>Historis</th>
+              <th>Penyesuaian</th>
+              <th>Disesuaikan</th>
+              <th>Catatan / alasan</th>
+            </tr>
+          </thead>
+          <tbody>
+            {lines.map((line) => (
+              <tr className={line.requiresNote ? "aam-row-needs-note" : ""} key={line.id}>
+                <td>
+                  {line.section}
+                  {line.isBridgeLine ? <span className="badge warning">Rekonsiliasi total</span> : null}
+                </td>
+                <td>
+                  <strong>{line.label}</strong>
+                  <span>{line.source}</span>
+                </td>
+                <td className="numeric-cell">{formatIdr(line.historical)}</td>
+                <td>
+                  <input
+                    aria-label={`Penyesuaian ${line.label}`}
+                    inputMode="decimal"
+                    placeholder="0"
+                    value={line.adjustmentInput}
+                    onChange={(event) => onUpdate(line.id, { adjustment: event.target.value })}
+                  />
+                </td>
+                <td className="numeric-cell">{formatIdr(line.adjusted)}</td>
+                <td>
+                  <textarea
+                    aria-label={`Catatan ${line.label}`}
+                    className={line.requiresNote ? "aam-note warning" : "aam-note"}
+                    placeholder="Catatan jika ada adjustment"
+                    value={line.note}
+                    onChange={(event) => onUpdate(line.id, { note: event.target.value })}
+                    rows={1}
+                  />
+                  {line.requiresNote ? <small className="field-warning">Catatan wajib untuk adjustment non-zero.</small> : null}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colSpan={2}>Total {title.toLowerCase()}</td>
+              <td className="numeric-cell">{formatIdr(historicalTotal)}</td>
+              <td className="numeric-cell">{formatIdr(adjustmentTotal)}</td>
+              <td className="numeric-cell">{formatIdr(adjustedTotal)}</td>
+              <td />
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function AamEquityReconciliation({ lines }: { lines: Array<{ label: string; value: number }> }) {
+  return (
+    <div className="aam-equity-reconciliation">
+      {lines.map((line) => (
+        <div key={line.label}>
+          <span>{line.label}</span>
+          <strong>{formatIdr(line.value)}</strong>
+        </div>
+      ))}
+    </div>
   );
 }
 

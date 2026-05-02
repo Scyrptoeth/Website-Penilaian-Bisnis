@@ -117,10 +117,24 @@ test("AAM valuation remains available without WACC or EEM/DCF driver inputs", as
 
   await openWorkflowTab(page, "Penilaian AAM");
   await expect(page.getByText("Asset Accumulation Method (AAM)")).toBeVisible();
+  await expect(page.getByText("Historis + Penyesuaian = Disesuaikan")).toBeVisible();
+  await expect(page.getByTestId("aam-adjustment-aset")).toContainText("Kas di tangan");
+  await page.getByLabel("Penyesuaian Kas di tangan").fill("100000");
+  await expect(page.getByText("1 penyesuaian masih perlu catatan.")).toBeVisible();
+  await page.getByLabel("Catatan Kas di tangan").fill("FMV cash count after cut-off");
+  await expect(page.getByText("Semua penyesuaian non-zero sudah memiliki catatan.")).toBeVisible();
+  await expect(page.getByTestId("aam-adjustment-aset")).toContainText("1.100.000");
+  await expect(page.getByText(/850\.000/).first()).toBeVisible();
   await expect(page.getByText("Tidak diperlukan")).toBeVisible();
 
   await openWorkflowTab(page, "Penilaian EEM/DCF");
   await expect(page.getByTestId("readiness-valuationEemDcf")).toContainText("Masih diperlukan");
+
+  await page.reload();
+  await expect(page.getByTestId("valuation-workbench")).toBeVisible();
+  await openWorkflowTab(page, "Penilaian AAM");
+  await expect(page.getByLabel("Penyesuaian Kas di tangan")).toHaveValue("100.000");
+  await expect(page.getByLabel("Catatan Kas di tangan")).toHaveValue("FMV cash count after cut-off");
 });
 
 test("added analysis sections use readiness gates before sample data and render formula-derived bridges after loading sample", async ({ page }) => {
@@ -264,7 +278,7 @@ test("legacy positive income-statement expense drafts migrate once and remain us
   await amountInput.press("Home");
   await amountInput.press("Delete");
   await expect(amountInput).toHaveValue("100");
-  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(3);
+  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(4);
 
   await page.reload();
   await openWorkflowTab(page, "Laba Rugi");

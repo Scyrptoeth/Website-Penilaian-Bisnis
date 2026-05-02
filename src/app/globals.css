@@ -2453,6 +2453,126 @@ td span {
   text-align: right;
 }
 
+.aam-adjustment-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.aam-adjustment-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid rgba(161, 98, 7, 0.24);
+  border-radius: var(--radius);
+  background: var(--review-soft);
+  color: var(--review);
+  line-height: 1.35;
+}
+
+.aam-adjustment-section {
+  display: grid;
+  gap: 8px;
+}
+
+.aam-adjustment-section .subpanel-heading {
+  padding-top: 2px;
+}
+
+.aam-adjustment-section .subpanel-heading small {
+  color: var(--muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 8.4px;
+}
+
+.aam-adjustment-table {
+  min-width: 980px;
+}
+
+.aam-adjustment-table th:nth-child(1) {
+  width: 14%;
+}
+
+.aam-adjustment-table th:nth-child(2) {
+  width: 22%;
+}
+
+.aam-adjustment-table th:nth-child(3),
+.aam-adjustment-table th:nth-child(4),
+.aam-adjustment-table th:nth-child(5) {
+  width: 13%;
+}
+
+.aam-adjustment-table input,
+.aam-adjustment-table textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: #ffffff;
+  color: var(--ink);
+  font-family: var(--font-mono), monospace;
+}
+
+.aam-adjustment-table input {
+  height: 30px;
+  padding: 0 7px;
+  text-align: right;
+}
+
+.aam-adjustment-table textarea {
+  min-height: 34px;
+  padding: 6px 7px;
+  resize: vertical;
+  line-height: 1.35;
+}
+
+.aam-adjustment-table textarea.warning {
+  border-color: rgba(161, 98, 7, 0.55);
+  background: #fffdf4;
+}
+
+.aam-adjustment-table tfoot td {
+  border-top-color: var(--line-strong);
+  background: var(--accent-soft);
+  font-weight: 700;
+}
+
+.aam-row-needs-note td {
+  background: #fffdf4;
+}
+
+.aam-equity-reconciliation {
+  display: grid;
+  gap: 1px;
+  margin-top: 10px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--line);
+}
+
+.aam-equity-reconciliation div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px;
+  background: var(--surface);
+}
+
+.aam-equity-reconciliation span {
+  color: var(--muted);
+}
+
+.aam-equity-reconciliation strong {
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono), monospace;
+  font-weight: 500;
+  text-align: right;
+}
+
 .compact-table {
   display: grid;
   gap: 6px;
