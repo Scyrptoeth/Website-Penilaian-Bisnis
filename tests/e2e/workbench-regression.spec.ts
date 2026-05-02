@@ -71,7 +71,7 @@ test("period workflow, scoped categories, and display-only balance sheet classif
 test("fixed asset schedule remains empty until user adds a class and then rolls forward values", async ({ page }) => {
   await page.getByRole("button", { name: /Tambah Y-1/ }).click();
   await openWorkflowTab(page, "Neraca & Fixed Asset");
-  await page.getByRole("button", { name: "Fixed Asset Schedule" }).click();
+  await expect(page.getByRole("button", { name: "Fixed Asset Schedule" })).toHaveCount(0);
   await expect(page.getByTestId("fixed-asset-empty")).toBeVisible();
 
   await page.getByRole("button", { name: "Tambah kelas aset" }).click();
@@ -90,6 +90,7 @@ test("fixed asset schedule remains empty until user adds a class and then rolls 
   await expect(page.getByTestId("fixed-asset-net-value-table")).toContainText("135");
   await expect(page.getByTestId("fixed-asset-net-value-table")).toContainText("147");
   await expect(page.getByTestId("balance-sheet-position-table")).toContainText("Fixed Assets, Net");
+  expect(await hasNoRootHorizontalOverflow(page)).toBe(true);
 });
 
 test("AAM valuation remains available without WACC or EEM/DCF driver inputs", async ({ page }) => {

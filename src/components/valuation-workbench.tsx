@@ -330,7 +330,6 @@ export function ValuationWorkbench() {
     () => buildFixedAssetScheduleSummary(periods, fixedAssetScheduleRows),
     [fixedAssetScheduleRows, periods],
   );
-  const shouldShowFixedAssetSchedule = isFixedAssetScheduleEnabled || fixedAssetScheduleRows.length > 0;
   const accountingSnapshot = useMemo(
     () => buildSnapshot(periods, activePeriodId, rows, assumptions, fixedAssetScheduleRows),
     [periods, activePeriodId, rows, assumptions, fixedAssetScheduleRows],
@@ -473,7 +472,6 @@ export function ValuationWorkbench() {
   const balanceSheetGap = results.adjustedTotalAssets - results.adjustedTotalLiabilities - equityBookComponents;
   const hasAnyInput =
     rows.length > 0 ||
-    isFixedAssetScheduleEnabled ||
     fixedAssetScheduleRows.length > 0 ||
     fixedAssetSchedule.hasInput ||
     periods.length !== 1 ||
@@ -745,14 +743,9 @@ export function ValuationWorkbench() {
     commitCoreState((current) => ({ ...current, rows: [...current.rows, createRow(statement, current.periods)] }));
   }
 
-  function loadFixedAssetTemplate() {
-    commitCoreState((current) => ({ ...current, isFixedAssetScheduleEnabled: true }));
-  }
-
   function addFixedAssetScheduleRow() {
     commitCoreState((current) => ({
       ...current,
-      isFixedAssetScheduleEnabled: true,
       fixedAssetScheduleRows: [...current.fixedAssetScheduleRows, createFixedAssetScheduleRow(current.periods)],
     }));
   }
@@ -1124,25 +1117,17 @@ export function ValuationWorkbench() {
               <p className="eyebrow">Langkah 2</p>
               <h3>Neraca dan fixed asset</h3>
             </div>
-            <div className="toolbar">
-              <button className="button secondary" type="button" onClick={loadFixedAssetTemplate}>
-                <Plus size={18} />
-                Fixed Asset Schedule
-              </button>
-            </div>
           </div>
           <ReadinessPanel status={readiness.balance} onNavigate={navigateToWorkflowTab} />
 
-          {shouldShowFixedAssetSchedule ? (
-            <FixedAssetScheduleEditor
-              periods={periods}
-              schedule={fixedAssetSchedule}
-              onAddRow={addFixedAssetScheduleRow}
-              onRemoveRow={removeFixedAssetScheduleRow}
-              onUpdateRow={updateFixedAssetScheduleRow}
-              onUpdateValue={updateFixedAssetScheduleValue}
-            />
-          ) : null}
+          <FixedAssetScheduleEditor
+            periods={periods}
+            schedule={fixedAssetSchedule}
+            onAddRow={addFixedAssetScheduleRow}
+            onRemoveRow={removeFixedAssetScheduleRow}
+            onUpdateRow={updateFixedAssetScheduleRow}
+            onUpdateValue={updateFixedAssetScheduleValue}
+          />
 
           <div className="subpanel-heading account-input-heading">
             <div>
@@ -4163,6 +4148,16 @@ function FixedAssetSectionTable({
   onUpdateRow: (id: string, patch: Partial<FixedAssetScheduleRow>) => void;
   onUpdateValue: (rowId: string, periodId: string, key: FixedAssetScheduleValueKey, value: string) => void;
 }) {
+  const getPeriodGroupClassName = (periodIndex: number, position: "start" | "middle" | "end") =>
+    [
+      "fixed-asset-period-cell",
+      periodIndex === 0 ? "first-period-group" : "",
+      position === "start" ? "period-group-start" : "",
+      position === "end" ? "period-group-end" : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+
   return (
     <div className="fixed-asset-section">
       <h5>{title}</h5>
@@ -4171,18 +4166,18 @@ function FixedAssetSectionTable({
           <thead>
             <tr>
               <th rowSpan={2}>Asset class</th>
-              {periods.map((period) => (
-                <th colSpan={3} key={period.id}>
+              {periods.map((period, periodIndex) => (
+                <th className={getPeriodGroupClassName(periodIndex, "end")} colSpan={3} key={period.id}>
                   {period.label || "Periode"}
                 </th>
               ))}
             </tr>
             <tr>
-              {periods.map((period) => (
+              {periods.map((period, periodIndex) => (
                 <Fragment key={period.id}>
-                  <th>Beginning</th>
-                  <th>Additions</th>
-                  <th>Ending</th>
+                  <th className={getPeriodGroupClassName(periodIndex, "start")}>Beginning</th>
+                  <th className={getPeriodGroupClassName(periodIndex, "middle")}>Additions</th>
+                  <th className={getPeriodGroupClassName(periodIndex, "end")}>Ending</th>
                 </Fragment>
               ))}
             </tr>
@@ -4205,14 +4200,14 @@ function FixedAssetSectionTable({
                     ) : null}
                   </div>
                 </td>
-                {periods.map((period) => {
+                {periods.map((period, periodIndex) => {
                   const values = row.values[period.id] ?? emptyFixedAssetInputValues();
                   const computed = amounts[period.id] ?? emptyFixedAssetAmounts();
                   const isManualBeginning = period.id === firstPeriodId;
 
                   return (
                     <Fragment key={period.id}>
-                      <td>
+                      <td className={getPeriodGroupClassName(periodIndex, "start")}>
                         {isManualBeginning ? (
                           <input
                             aria-label={`${title} ${period.label || "Periode"} Beginning`}
@@ -4225,7 +4220,7 @@ function FixedAssetSectionTable({
                           <output>{formatInputNumber(computed[beginningKey])}</output>
                         )}
                       </td>
-                      <td>
+                      <td className={getPeriodGroupClassName(periodIndex, "middle")}>
                         <input
                           aria-label={`${title} ${period.label || "Periode"} Additions`}
                           inputMode="decimal"
@@ -4234,7 +4229,7 @@ function FixedAssetSectionTable({
                           placeholder="0"
                         />
                       </td>
-                      <td>
+                      <td className={getPeriodGroupClassName(periodIndex, "end")}>
                         <output>{formatInputNumber(computed[endingKey])}</output>
                       </td>
                     </Fragment>
@@ -4244,14 +4239,14 @@ function FixedAssetSectionTable({
             ))}
             <tr className="total-row">
               <td>Total</td>
-              {periods.map((period) => {
+              {periods.map((period, periodIndex) => {
                 const totals = schedule.totals[period.id] ?? emptyFixedAssetAmounts();
 
                 return (
                   <Fragment key={period.id}>
-                    <td>{formatInputNumber(totals[beginningKey])}</td>
-                    <td>{formatInputNumber(totals[additionsKey])}</td>
-                    <td>{formatInputNumber(totals[endingKey])}</td>
+                    <td className={getPeriodGroupClassName(periodIndex, "start")}>{formatInputNumber(totals[beginningKey])}</td>
+                    <td className={getPeriodGroupClassName(periodIndex, "middle")}>{formatInputNumber(totals[additionsKey])}</td>
+                    <td className={getPeriodGroupClassName(periodIndex, "end")}>{formatInputNumber(totals[endingKey])}</td>
                   </Fragment>
                 );
               })}
@@ -4264,6 +4259,11 @@ function FixedAssetSectionTable({
 }
 
 function FixedAssetNetValueTable({ periods, schedule }: { periods: Period[]; schedule: FixedAssetScheduleSummary }) {
+  const getNetValuePeriodClassName = (periodIndex: number) =>
+    ["fixed-asset-period-cell", periodIndex === 0 ? "first-period-group" : "", "period-group-start", "period-group-end"]
+      .filter(Boolean)
+      .join(" ");
+
   return (
     <div className="fixed-asset-section">
       <h5>Net Value Fixed Assets</h5>
@@ -4272,8 +4272,8 @@ function FixedAssetNetValueTable({ periods, schedule }: { periods: Period[]; sch
           <thead>
             <tr>
               <th>Asset class</th>
-              {periods.map((period) => (
-                <th key={period.id}>{period.label || "Periode"}</th>
+              {periods.map((period, periodIndex) => (
+                <th className={getNetValuePeriodClassName(periodIndex)} key={period.id}>{period.label || "Periode"}</th>
               ))}
             </tr>
           </thead>
@@ -4281,11 +4281,11 @@ function FixedAssetNetValueTable({ periods, schedule }: { periods: Period[]; sch
             {schedule.rows.map(({ row, amounts }) => (
               <tr key={row.id}>
                 <td>{row.assetName || "Belum dinamai"}</td>
-                {periods.map((period) => {
+                {periods.map((period, periodIndex) => {
                   const computed = amounts[period.id] ?? emptyFixedAssetAmounts();
 
                   return (
-                    <td key={period.id}>
+                    <td className={getNetValuePeriodClassName(periodIndex)} key={period.id}>
                       <output>{formatInputNumber(computed.netValue)}</output>
                     </td>
                   );
@@ -4294,8 +4294,8 @@ function FixedAssetNetValueTable({ periods, schedule }: { periods: Period[]; sch
             ))}
             <tr className="total-row">
               <td>Total</td>
-              {periods.map((period) => (
-                <td key={period.id}>{formatInputNumber((schedule.totals[period.id] ?? emptyFixedAssetAmounts()).netValue)}</td>
+              {periods.map((period, periodIndex) => (
+                <td className={getNetValuePeriodClassName(periodIndex)} key={period.id}>{formatInputNumber((schedule.totals[period.id] ?? emptyFixedAssetAmounts()).netValue)}</td>
               ))}
             </tr>
           </tbody>

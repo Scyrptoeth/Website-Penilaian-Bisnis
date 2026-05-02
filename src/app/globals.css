@@ -714,6 +714,7 @@ select {
   display: grid;
   gap: 6px;
   min-width: 0;
+  max-width: 100%;
 }
 
 .fixed-asset-section h5 {
@@ -722,11 +723,16 @@ select {
 }
 
 .fixed-asset-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
   background: var(--surface);
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
 }
 
 .fixed-asset-table {
-  min-width: 980px;
+  width: max-content;
+  min-width: 100%;
   table-layout: fixed;
 }
 
@@ -737,13 +743,37 @@ select {
 
 .fixed-asset-table th:first-child,
 .fixed-asset-table td:first-child {
-  width: 280px;
+  width: 520px;
 }
 
 .fixed-asset-table th:not(:first-child),
 .fixed-asset-table td:not(:first-child) {
-  width: 104px;
+  width: 132px;
   text-align: right;
+}
+
+.fixed-asset-table th.fixed-asset-period-cell,
+.fixed-asset-table td.fixed-asset-period-cell {
+  background-clip: padding-box;
+}
+
+.fixed-asset-table th.period-group-start,
+.fixed-asset-table td.period-group-start {
+  border-left: 2px solid rgba(15, 118, 110, 0.26);
+}
+
+.fixed-asset-table th.period-group-end,
+.fixed-asset-table td.period-group-end {
+  border-right: 2px solid rgba(15, 118, 110, 0.26);
+}
+
+.fixed-asset-table thead th.fixed-asset-period-cell {
+  background: var(--surface-muted);
+}
+
+.fixed-asset-table thead th.period-group-start,
+.fixed-asset-table thead th.first-period-group {
+  background: #e7eee9;
 }
 
 .fixed-asset-table input {
@@ -762,19 +792,28 @@ select {
   font-family: var(--font-mono), monospace;
   font-size: 8.4px;
   text-align: right;
+  white-space: nowrap;
 }
 
 .fixed-asset-table output {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
   min-height: 30px;
-  padding: 7px 6px 0;
-  overflow-wrap: anywhere;
+  padding: 0 6px;
+  overflow: hidden;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface-muted);
   color: var(--ink-soft);
   font-family: var(--font-mono), monospace;
   font-size: 8.4px;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.fixed-asset-table .total-row td:not(:first-child) {
+  white-space: nowrap;
 }
 
 .asset-name-cell {
@@ -793,19 +832,22 @@ select {
 
 .net-value-table th:not(:first-child),
 .net-value-table td:not(:first-child) {
-  width: 120px;
+  width: 144px;
 }
 
 .balance-sheet-position {
   display: grid;
   gap: 8px;
+  min-width: 0;
+  max-width: 100%;
   margin-top: 12px;
   padding-top: 10px;
   border-top: 1px solid var(--line);
 }
 
 .balance-sheet-table {
-  min-width: 1160px;
+  width: max-content;
+  min-width: 100%;
   table-layout: fixed;
 }
 
