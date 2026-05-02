@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { calculateWaccAssumption, calculateWaccComparableBetaAssumption } from "../../src/lib/valuation/assumption-calculators";
+import {
+  buildRequiredReturnOnNtaSuggestion,
+  calculateRequiredReturnOnNtaAssumption,
+  calculateWaccAssumption,
+  calculateWaccComparableBetaAssumption,
+} from "../../src/lib/valuation/assumption-calculators";
 import { emptyAssumptions } from "../../src/lib/valuation/case-model";
 import { assertAlmostEqual } from "./test-utils";
 
@@ -45,5 +50,47 @@ describe("assumption calculators", () => {
     assertAlmostEqual(calculation.preTaxCostOfDebt, 0.09, 1e-12);
     assertAlmostEqual(calculation.ratingBasedDefaultSpread, 0.02, 1e-12);
     assert.equal(Number.isFinite(calculation.wacc), true);
+  });
+
+  it("suggests required return on NTA inputs from workbook borrowing capacity logic", () => {
+    const balances = {
+      accountReceivable: 191_055_111,
+      employeeReceivable: 21_000_000,
+      inventory: 0,
+      fixedAssetsNet: 16_011_357_394,
+    };
+    const suggestion = buildRequiredReturnOnNtaSuggestion({
+      ...balances,
+      waccCalculation: {
+        afterTaxCostOfDebt: 0.06864,
+        costOfEquity: 0.124537,
+      },
+    });
+
+    assert.equal(suggestion.fields.requiredReturnReceivablesCapacity?.value, 1);
+    assert.equal(suggestion.fields.requiredReturnInventoryCapacity?.value, 0);
+    assert.equal(suggestion.fields.requiredReturnFixedAssetCapacity?.value, 0.7);
+    assert.equal(suggestion.fields.requiredReturnAdditionalCapacity?.value, balances.employeeReceivable);
+    assert.equal(suggestion.fields.requiredReturnAfterTaxDebtCost?.value, 0.06864);
+    assert.equal(suggestion.fields.requiredReturnEquityCost?.value, 0.124537);
+    assert.deepEqual(suggestion.waitingFor, []);
+
+    const calculation = calculateRequiredReturnOnNtaAssumption(
+      {
+        ...emptyAssumptions,
+        requiredReturnReceivablesCapacity: "1",
+        requiredReturnInventoryCapacity: "0",
+        requiredReturnFixedAssetCapacity: "0.7",
+        requiredReturnAdditionalCapacity: "21000000",
+        requiredReturnAfterTaxDebtCost: "0.06864",
+        requiredReturnEquityCost: "0.124537",
+      },
+      balances,
+    );
+
+    assert.ok(calculation);
+    assertAlmostEqual(calculation.tangibleAssetBase, 16_202_412_505, 1e-6);
+    assertAlmostEqual(calculation.debtCapacity, 11_420_005_286.8, 1e-6);
+    assertAlmostEqual(calculation.requiredReturn, 0.08513891435570048, 1e-12);
   });
 });

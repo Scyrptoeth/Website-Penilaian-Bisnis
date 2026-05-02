@@ -108,10 +108,14 @@ import {
   type MarketAssumptionSuggestion,
 } from "@/lib/valuation/market-assumption-suggestions";
 import {
+  buildRequiredReturnOnNtaSuggestion,
   calculateRequiredReturnOnNtaAssumption,
   calculateWaccComparableBetaAssumption,
   calculateWaccAssumption,
   readRateInput,
+  type RequiredReturnOnNtaSuggestion,
+  type RequiredReturnOnNtaSuggestionField,
+  type RequiredReturnOnNtaSuggestionKey,
   type WaccComparableBetaCalculation,
   type RequiredReturnOnNtaCalculation,
   type WaccCalculation,
@@ -246,6 +250,15 @@ const waccComparableSlots: WaccComparableSlot[] = [
   { name: "waccComparable3Name", beta: "waccComparable3BetaLevered", marketCap: "waccComparable3MarketCap", debt: "waccComparable3Debt" },
 ];
 
+const requiredReturnSuggestionOrder: RequiredReturnOnNtaSuggestionKey[] = [
+  "requiredReturnReceivablesCapacity",
+  "requiredReturnInventoryCapacity",
+  "requiredReturnFixedAssetCapacity",
+  "requiredReturnAdditionalCapacity",
+  "requiredReturnAfterTaxDebtCost",
+  "requiredReturnEquityCost",
+];
+
 const WORKBENCH_STORAGE_KEY = "penilaian-valuasi-bisnis.workbench.v1";
 const WORKBENCH_SCROLL_STORAGE_KEY = "penilaian-valuasi-bisnis.scroll.v1";
 const WORKBENCH_SIDEBAR_STORAGE_KEY = "penilaian-valuasi-bisnis.sidebar.v1";
@@ -327,9 +340,32 @@ export function ValuationWorkbench() {
       accountingSnapshot.totalLiabilities,
     ],
   );
-  const resolvedAssumptions = useMemo(
+  const waccResolvedAssumptions = useMemo(
     () => resolveAutoWaccCapitalValues(assumptions, autoWaccCapitalValues),
     [assumptions, autoWaccCapitalValues],
+  );
+  const waccCalculation = useMemo(() => calculateWaccAssumption(waccResolvedAssumptions), [waccResolvedAssumptions]);
+  const waccComparableBeta = useMemo(() => calculateWaccComparableBetaAssumption(waccResolvedAssumptions), [waccResolvedAssumptions]);
+  const requiredReturnSuggestion = useMemo(
+    () =>
+      buildRequiredReturnOnNtaSuggestion({
+        accountReceivable: accountingSnapshot.accountReceivable,
+        employeeReceivable: accountingSnapshot.employeeReceivable,
+        inventory: accountingSnapshot.inventory,
+        fixedAssetsNet: accountingSnapshot.fixedAssetsNet,
+        waccCalculation,
+      }),
+    [
+      accountingSnapshot.accountReceivable,
+      accountingSnapshot.employeeReceivable,
+      accountingSnapshot.fixedAssetsNet,
+      accountingSnapshot.inventory,
+      waccCalculation,
+    ],
+  );
+  const resolvedAssumptions = useMemo(
+    () => resolveAutoRequiredReturnOnNtaValues(waccResolvedAssumptions, requiredReturnSuggestion),
+    [requiredReturnSuggestion, waccResolvedAssumptions],
   );
   const snapshot = useMemo(
     () => buildSnapshot(periods, activePeriodId, rows, resolvedAssumptions, fixedAssetScheduleRows),
@@ -354,16 +390,14 @@ export function ValuationWorkbench() {
     () => getMarketAssumptionSuggestion(effectiveValuationDate),
     [effectiveValuationDate],
   );
-  const waccCalculation = useMemo(() => calculateWaccAssumption(resolvedAssumptions), [resolvedAssumptions]);
-  const waccComparableBeta = useMemo(() => calculateWaccComparableBetaAssumption(resolvedAssumptions), [resolvedAssumptions]);
   const requiredReturnCalculation = useMemo(
     () =>
-      calculateRequiredReturnOnNtaAssumption(assumptions, {
+      calculateRequiredReturnOnNtaAssumption(resolvedAssumptions, {
         accountReceivable: snapshot.accountReceivable,
         inventory: snapshot.inventory,
         fixedAssetsNet: snapshot.fixedAssetsNet,
       }),
-    [assumptions, snapshot.accountReceivable, snapshot.fixedAssetsNet, snapshot.inventory],
+    [resolvedAssumptions, snapshot.accountReceivable, snapshot.fixedAssetsNet, snapshot.inventory],
   );
   const terminalGrowthSuggestion = useMemo(
     () =>
@@ -1230,6 +1264,7 @@ export function ValuationWorkbench() {
             <RequiredReturnOnNtaPanel
               assumptions={assumptions}
               calculation={requiredReturnCalculation}
+              suggestion={requiredReturnSuggestion}
               balances={{
                 accountReceivable: snapshot.accountReceivable,
                 inventory: snapshot.inventory,
@@ -3330,16 +3365,20 @@ function TerminalGrowthSuggestionBlock({
 function RequiredReturnOnNtaPanel({
   assumptions,
   calculation,
+  suggestion,
   balances,
   onChange,
   onReasonChange,
 }: {
   assumptions: AssumptionState;
   calculation: RequiredReturnOnNtaCalculation | null;
+  suggestion: RequiredReturnOnNtaSuggestion;
   balances: { accountReceivable: number; inventory: number; fixedAssetsNet: number };
   onChange: (key: keyof AssumptionState, value: string) => void;
   onReasonChange: (value: string) => void;
 }) {
+  const suggestedValue = (key: RequiredReturnOnNtaSuggestionKey) => formatRequiredReturnSuggestionInput(suggestion.fields[key]);
+
   return (
     <article className="assumption-calculator-card wide" data-testid="required-return-on-nta-calculator">
       <AssumptionCalculatorHeader
@@ -3361,35 +3400,42 @@ function RequiredReturnOnNtaPanel({
           <strong>{formatIdr(balances.fixedAssetsNet)}</strong>
         </div>
       </div>
+      <RequiredReturnOnNtaSuggestionBlock suggestion={suggestion} />
       <div className="calculator-input-grid">
         <AssumptionInput
           label="Receivables capacity"
-          value={assumptions.requiredReturnReceivablesCapacity}
+          value={assumptions.requiredReturnReceivablesCapacity || suggestedValue("requiredReturnReceivablesCapacity")}
+          note={buildSuggestionInputNote(assumptions.requiredReturnReceivablesCapacity, suggestion.fields.requiredReturnReceivablesCapacity)}
           onChange={(value) => onChange("requiredReturnReceivablesCapacity", value)}
         />
         <AssumptionInput
           label="Inventory capacity"
-          value={assumptions.requiredReturnInventoryCapacity}
+          value={assumptions.requiredReturnInventoryCapacity || suggestedValue("requiredReturnInventoryCapacity")}
+          note={buildSuggestionInputNote(assumptions.requiredReturnInventoryCapacity, suggestion.fields.requiredReturnInventoryCapacity)}
           onChange={(value) => onChange("requiredReturnInventoryCapacity", value)}
         />
         <AssumptionInput
           label="Fixed asset capacity"
-          value={assumptions.requiredReturnFixedAssetCapacity}
+          value={assumptions.requiredReturnFixedAssetCapacity || suggestedValue("requiredReturnFixedAssetCapacity")}
+          note={buildSuggestionInputNote(assumptions.requiredReturnFixedAssetCapacity, suggestion.fields.requiredReturnFixedAssetCapacity)}
           onChange={(value) => onChange("requiredReturnFixedAssetCapacity", value)}
         />
         <AssumptionInput
           label="Additional capacity amount"
-          value={assumptions.requiredReturnAdditionalCapacity}
+          value={assumptions.requiredReturnAdditionalCapacity || suggestedValue("requiredReturnAdditionalCapacity")}
+          note={buildSuggestionInputNote(assumptions.requiredReturnAdditionalCapacity, suggestion.fields.requiredReturnAdditionalCapacity)}
           onChange={(value) => onChange("requiredReturnAdditionalCapacity", value)}
         />
         <AssumptionInput
           label="After-tax debt cost"
-          value={assumptions.requiredReturnAfterTaxDebtCost}
+          value={assumptions.requiredReturnAfterTaxDebtCost || suggestedValue("requiredReturnAfterTaxDebtCost")}
+          note={buildSuggestionInputNote(assumptions.requiredReturnAfterTaxDebtCost, suggestion.fields.requiredReturnAfterTaxDebtCost)}
           onChange={(value) => onChange("requiredReturnAfterTaxDebtCost", value)}
         />
         <AssumptionInput
           label="Tangible equity return"
-          value={assumptions.requiredReturnEquityCost}
+          value={assumptions.requiredReturnEquityCost || suggestedValue("requiredReturnEquityCost")}
+          note={buildSuggestionInputNote(assumptions.requiredReturnEquityCost, suggestion.fields.requiredReturnEquityCost)}
           onChange={(value) => onChange("requiredReturnEquityCost", value)}
         />
       </div>
@@ -3410,6 +3456,47 @@ function RequiredReturnOnNtaPanel({
         onChange={onReasonChange}
       />
     </article>
+  );
+}
+
+function RequiredReturnOnNtaSuggestionBlock({ suggestion }: { suggestion: RequiredReturnOnNtaSuggestion }) {
+  const suggestedFields = requiredReturnSuggestionOrder
+    .map((key) => suggestion.fields[key])
+    .filter((field): field is RequiredReturnOnNtaSuggestionField => Boolean(field));
+
+  return (
+    <div className="terminal-growth-suggestion required-return-suggestion" data-testid="required-return-suggestion-card">
+      <div className="terminal-growth-suggestion-heading">
+        <div>
+          <span>Smart auto suggestion</span>
+          <strong>Workbook BORROWING CAP bridge</strong>
+        </div>
+        <em className={`source-badge ${suggestion.waitingFor.length === 0 ? "recommended" : "sensitivity"}`}>
+          {suggestion.waitingFor.length === 0 ? "complete" : "partial"}
+        </em>
+      </div>
+      <p className="assumption-empty-note">{suggestion.summary}</p>
+      <div className="terminal-growth-suggestion-grid required-return-suggestion-grid" aria-label="Required return on NTA smart suggestions">
+        {suggestedFields.map((field) => (
+          <div key={field.key}>
+            <span>{field.label}</span>
+            <strong>{formatRequiredReturnSuggestionDisplay(field)}</strong>
+            <small>{field.sourceCell}</small>
+            <small>{field.formula}</small>
+          </div>
+        ))}
+      </div>
+      <dl className="driver-trace">
+        <div>
+          <dt>Workbook basis</dt>
+          <dd>Receivables + inventory + fixed assets define borrowing capacity; Kd and Ke come from WACC inputs.</dd>
+        </div>
+        <div>
+          <dt>Status</dt>
+          <dd>{suggestion.waitingFor.length > 0 ? suggestion.waitingFor.join(" ") : "Semua field kosong dapat memakai suggestion otomatis."}</dd>
+        </div>
+      </dl>
+    </div>
   );
 }
 
@@ -3577,13 +3664,14 @@ function AssumptionDriverCard({
   );
 }
 
-function AssumptionInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+function AssumptionInput({ label, value, note, onChange }: { label: string; value: string; note?: string; onChange: (value: string) => void }) {
   const inputId = `assumption-${slugifyLabel(label)}`;
 
   return (
     <label className="field" htmlFor={inputId}>
       <span>{label}</span>
       <input id={inputId} inputMode="decimal" placeholder="Opsional" value={value} onChange={(event) => onChange(event.target.value)} />
+      {note ? <small className="auto-source-note">{note}</small> : null}
     </label>
   );
 }
@@ -3626,6 +3714,44 @@ function resolveAutoWaccCapitalValues(assumptions: AssumptionState, autoCapitalV
     waccDebtMarketValue: assumptions.waccDebtMarketValue.trim() || formatAutoCapitalValue(autoCapitalValues.debtMarketValue),
     waccEquityMarketValue: assumptions.waccEquityMarketValue.trim() || formatAutoCapitalValue(autoCapitalValues.equityMarketValue),
   };
+}
+
+function resolveAutoRequiredReturnOnNtaValues(
+  assumptions: AssumptionState,
+  suggestion: RequiredReturnOnNtaSuggestion,
+): AssumptionState {
+  return requiredReturnSuggestionOrder.reduce((nextAssumptions, key) => {
+    const field = suggestion.fields[key];
+
+    if (!field || nextAssumptions[key].trim()) {
+      return nextAssumptions;
+    }
+
+    return {
+      ...nextAssumptions,
+      [key]: formatInputNumber(field.value),
+    };
+  }, assumptions);
+}
+
+function formatRequiredReturnSuggestionInput(field: RequiredReturnOnNtaSuggestionField | undefined): string {
+  return field ? formatInputNumber(field.value) : "";
+}
+
+function formatRequiredReturnSuggestionDisplay(field: RequiredReturnOnNtaSuggestionField): string {
+  if (field.key === "requiredReturnAdditionalCapacity") {
+    return formatIdr(field.value);
+  }
+
+  return formatPercent(field.value);
+}
+
+function buildSuggestionInputNote(currentValue: string, field: RequiredReturnOnNtaSuggestionField | undefined): string | undefined {
+  if (!field || currentValue.trim()) {
+    return undefined;
+  }
+
+  return `Auto ${field.sourceCell}: ${field.source}`;
 }
 
 function applyIdxComparableSuggestions(

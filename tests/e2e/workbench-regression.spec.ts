@@ -164,7 +164,9 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await openWorkflowTab(page, "Asumsi EEM/DCF");
   await expect(page.getByTestId("terminal-growth-calculator")).toContainText("Terminal growth governance");
   await expect(page.getByTestId("required-return-on-nta-calculator")).toContainText("Receivables capacity");
-  await expect(page.getByTestId("required-return-on-nta-calculator")).not.toContainText("BORROWING CAP");
+  await expect(page.getByTestId("required-return-suggestion-card")).toContainText("Workbook BORROWING CAP bridge");
+  await expect(page.getByTestId("required-return-suggestion-card")).toContainText("BORROWING CAP!E7");
+  await expect(page.getByLabel("Fixed asset capacity")).toHaveValue("0,7");
   await expect(page.locator("body")).not.toContainText("STAT_ASSUMPTIONS");
 
   await openWorkflowTab(page, "Valuasi EEM/DCF");

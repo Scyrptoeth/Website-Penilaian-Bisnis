@@ -1654,6 +1654,10 @@ select {
   background: var(--line);
 }
 
+.required-return-suggestion-grid {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
 .terminal-growth-suggestion-grid div {
   display: grid;
   gap: 3px;

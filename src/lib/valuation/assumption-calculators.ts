@@ -45,6 +45,36 @@ export type RequiredReturnOnNtaBalances = {
   fixedAssetsNet: number;
 };
 
+export type RequiredReturnOnNtaSuggestionKey =
+  | "requiredReturnReceivablesCapacity"
+  | "requiredReturnInventoryCapacity"
+  | "requiredReturnFixedAssetCapacity"
+  | "requiredReturnAdditionalCapacity"
+  | "requiredReturnAfterTaxDebtCost"
+  | "requiredReturnEquityCost";
+
+export type RequiredReturnOnNtaSuggestionField = {
+  key: RequiredReturnOnNtaSuggestionKey;
+  label: string;
+  value: number;
+  source: string;
+  sourceCell: string;
+  formula: string;
+  note: string;
+  status: "workbook" | "derived" | "waiting";
+};
+
+export type RequiredReturnOnNtaSuggestion = {
+  fields: Partial<Record<RequiredReturnOnNtaSuggestionKey, RequiredReturnOnNtaSuggestionField>>;
+  summary: string;
+  waitingFor: string[];
+};
+
+export type RequiredReturnOnNtaSuggestionInputs = RequiredReturnOnNtaBalances & {
+  employeeReceivable: number;
+  waccCalculation: Pick<WaccCalculation, "afterTaxCostOfDebt" | "costOfEquity"> | null;
+};
+
 export function calculateWaccAssumption(assumptions: AssumptionState): WaccCalculation | null {
   const taxRate = readRateInput(assumptions.taxRate);
   const riskFreeRate = readRateInput(assumptions.waccRiskFreeRate);
@@ -164,6 +194,95 @@ export function calculateRequiredReturnOnNtaAssumption(
     debtWeight,
     equityWeight,
     requiredReturn,
+  };
+}
+
+export function buildRequiredReturnOnNtaSuggestion({
+  accountReceivable,
+  employeeReceivable,
+  inventory,
+  fixedAssetsNet,
+  waccCalculation,
+}: RequiredReturnOnNtaSuggestionInputs): RequiredReturnOnNtaSuggestion {
+  const fields: RequiredReturnOnNtaSuggestion["fields"] = {
+    requiredReturnReceivablesCapacity: {
+      key: "requiredReturnReceivablesCapacity",
+      label: "Receivables capacity",
+      value: 1,
+      source: "Workbook BORROWING CAP receivables bucket",
+      sourceCell: "BORROWING CAP!E5/F5",
+      formula: "AR capacity = trade AR x 100%; other receivable routed as additional capacity",
+      note: "Workbook combines trade AR and employee receivable in borrowing capacity. The website keeps the AR rate capped at 100% and carries employee receivable separately for traceability.",
+      status: "workbook",
+    },
+    requiredReturnInventoryCapacity: {
+      key: "requiredReturnInventoryCapacity",
+      label: "Inventory capacity",
+      value: positive(inventory) > 0 ? 1 : 0,
+      source: "Workbook BORROWING CAP inventory bucket",
+      sourceCell: "BORROWING CAP!E6/F6",
+      formula: positive(inventory) > 0 ? "Inventory capacity = current inventory / current inventory" : "IFERROR(inventory capacity, 0)",
+      note: positive(inventory) > 0
+        ? "Workbook supports an inventory bucket, but collateral haircut should be overridden when stock aging, pledgeability, or lender evidence is available."
+        : "Inventory is zero in the active balance sheet, so the workbook-style suggestion keeps this capacity at 0%.",
+      status: "workbook",
+    },
+    requiredReturnFixedAssetCapacity: {
+      key: "requiredReturnFixedAssetCapacity",
+      label: "Fixed asset capacity",
+      value: 0.7,
+      source: "Workbook fixed asset borrowing capacity",
+      sourceCell: "BORROWING CAP!E7",
+      formula: "Fixed assets net x 70%",
+      note: "Workbook applies a 70% capacity rate to operating fixed assets net. Override if appraisal, collateral haircut, or lender covenant evidence indicates otherwise.",
+      status: "workbook",
+    },
+    requiredReturnAdditionalCapacity: {
+      key: "requiredReturnAdditionalCapacity",
+      label: "Additional capacity amount",
+      value: positive(employeeReceivable),
+      source: "Workbook receivables capacity bridge",
+      sourceCell: "BALANCE SHEET!E11 via BORROWING CAP!F5",
+      formula: "Additional capacity = employee / other receivable included in workbook receivables capacity",
+      note: "This preserves the workbook result without inflating the trade receivable capacity rate above 100%.",
+      status: "derived",
+    },
+  };
+  const waitingFor: string[] = [];
+
+  if (waccCalculation) {
+    fields.requiredReturnAfterTaxDebtCost = {
+      key: "requiredReturnAfterTaxDebtCost",
+      label: "After-tax debt cost",
+      value: waccCalculation.afterTaxCostOfDebt,
+      source: "WACC calculator",
+      sourceCell: "DISCOUNT RATE!H4/G7",
+      formula: "Kd after tax = pre-tax debt rate x (1 - tax rate)",
+      note: "Generated from the active WACC inputs, including tax rate and debt-rate evidence.",
+      status: "derived",
+    };
+    fields.requiredReturnEquityCost = {
+      key: "requiredReturnEquityCost",
+      label: "Tangible equity return",
+      value: waccCalculation.costOfEquity,
+      source: "WACC calculator",
+      sourceCell: "DISCOUNT RATE!H3/G8",
+      formula: "Ke = risk-free rate + beta x ERP + country/company risk adjustment",
+      note: "Generated from the active WACC cost-of-equity path and used as the equity return inside the NTA capital charge.",
+      status: "derived",
+    };
+  } else {
+    waitingFor.push("Lengkapi Tax Rate dan WACC agar Kd after tax serta Ke bisa disarankan otomatis.");
+  }
+
+  if (positive(accountReceivable) <= 0 && positive(inventory) <= 0 && positive(fixedAssetsNet) <= 0) {
+    waitingFor.push("Isi Neraca atau Fixed Asset agar tangible asset base NTA tersedia.");
+  }
+
+  return {
+    fields,
+    summary: "Smart suggestion follows the workbook BORROWING CAP structure while keeping every source bucket auditable.",
+    waitingFor,
   };
 }
 
