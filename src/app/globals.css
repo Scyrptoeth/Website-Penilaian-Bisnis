@@ -1608,6 +1608,71 @@ select {
   line-height: 1.38;
 }
 
+.terminal-growth-suggestion {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.terminal-growth-suggestion-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.terminal-growth-suggestion-heading div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.terminal-growth-suggestion-heading span,
+.terminal-growth-suggestion-grid span {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 750;
+}
+
+.terminal-growth-suggestion-heading strong {
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+
+.terminal-growth-suggestion-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--line);
+}
+
+.terminal-growth-suggestion-grid div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 8px;
+  background: var(--surface-raised);
+}
+
+.terminal-growth-suggestion-grid strong {
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+}
+
+.terminal-growth-suggestion-grid small {
+  color: var(--muted);
+  line-height: 1.32;
+}
+
 .candidate-list {
   display: grid;
   gap: 6px;
@@ -2222,6 +2287,7 @@ td span {
   .metric-trace-grid,
   .driver-basis-strip,
   .assumption-reference-list,
+  .terminal-growth-suggestion-grid,
   .sensitivity-grid,
   .active-driver-strip,
   .audit-reference-grid,

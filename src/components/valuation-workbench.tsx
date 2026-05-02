@@ -43,7 +43,7 @@ import {
   sanitizeAccountLabels,
   type AccountLabelId,
 } from "@/lib/valuation/account-labels";
-import { calculateAllMethods } from "@/lib/valuation/calculations";
+import { calculateAllMethods, normalizedNoplat } from "@/lib/valuation/calculations";
 import {
   buildFixedAssetScheduleSummary,
   buildCaseProfileDerived,
@@ -123,6 +123,10 @@ import {
   getSuggestedIdxComparables,
   type IdxComparableCompany,
 } from "@/lib/valuation/idx-comparable-suggestions";
+import {
+  buildTerminalGrowthSuggestion,
+  type TerminalGrowthSuggestion,
+} from "@/lib/valuation/terminal-growth-suggestions";
 import type { AccountCategory, FormulaTrace } from "@/lib/valuation/types";
 const confidenceBandLabels: Record<ReturnType<typeof mapRow>["mapping"]["confidenceBand"], string> = {
   high: "Tinggi",
@@ -361,13 +365,32 @@ export function ValuationWorkbench() {
       }),
     [assumptions, snapshot.accountReceivable, snapshot.fixedAssetsNet, snapshot.inventory],
   );
+  const terminalGrowthSuggestion = useMemo(
+    () =>
+      buildTerminalGrowthSuggestion({
+        sector: caseProfile.companySector,
+        revenue: snapshot.revenue,
+        netProfit: snapshot.commercialNpat || normalizedNoplat(snapshot),
+        wacc: snapshot.wacc,
+        existingDownside: readRateInput(assumptions.terminalGrowthDownside),
+        existingUpside: readRateInput(assumptions.terminalGrowthUpside),
+      }),
+    [
+      assumptions.terminalGrowthDownside,
+      assumptions.terminalGrowthUpside,
+      caseProfile.companySector,
+      snapshot,
+    ],
+  );
   const assumptionDriverSummaries = [
     buildAssumptionDriverSummary("Tax rate", assumptions.taxRate, assumptions.taxRateSource, taxRateCandidates),
     buildCalculatedDriverSummary("WACC", waccCalculation?.wacc ?? readRateInput(assumptions.wacc), waccCalculation ? "Calculated from WACC inputs" : sourceLabelFromManual(assumptions.wacc)),
     buildCalculatedDriverSummary(
       "Terminal growth",
       readRateInput(assumptions.terminalGrowth),
-      assumptions.terminalGrowth.trim() ? "User base case with sensitivity inputs" : "Belum dipilih",
+      assumptions.terminalGrowthSource === terminalGrowthSuggestion?.sourceId
+        ? "Sector-calibrated suggestion with downside/upside band"
+        : assumptions.terminalGrowth.trim() ? "User base case with sensitivity inputs" : "Belum dipilih",
     ),
     buildCalculatedDriverSummary(
       "Required return on NTA",
@@ -818,6 +841,20 @@ export function ValuationWorkbench() {
     }));
   }
 
+  function applyTerminalGrowthSuggestion(suggestion: TerminalGrowthSuggestion) {
+    commitCoreState((current) => ({
+      ...current,
+      assumptions: {
+        ...current.assumptions,
+        terminalGrowth: formatInputNumber(suggestion.baseGrowth),
+        terminalGrowthDownside: formatInputNumber(suggestion.downsideGrowth),
+        terminalGrowthUpside: formatInputNumber(suggestion.upsideGrowth),
+        terminalGrowthSource: suggestion.sourceId,
+        terminalGrowthOverrideReason: suggestion.reason,
+      },
+    }));
+  }
+
   function loadSample() {
     const samplePeriods = buildSamplePeriods();
     commitCoreState((current) => ({
@@ -1185,7 +1222,9 @@ export function ValuationWorkbench() {
             <TerminalGrowthPanel
               assumptions={assumptions}
               wacc={snapshot.wacc}
+              suggestion={terminalGrowthSuggestion}
               onChange={updateAssumption}
+              onApplySuggestion={applyTerminalGrowthSuggestion}
               onReasonChange={(value) => updateAssumptionText("terminalGrowthOverrideReason", value)}
             />
             <RequiredReturnOnNtaPanel
@@ -3143,12 +3182,16 @@ function WaccCapitalStructureTable({
 function TerminalGrowthPanel({
   assumptions,
   wacc,
+  suggestion,
   onChange,
+  onApplySuggestion,
   onReasonChange,
 }: {
   assumptions: AssumptionState;
   wacc: number;
+  suggestion: TerminalGrowthSuggestion | null;
   onChange: (key: keyof AssumptionState, value: string) => void;
+  onApplySuggestion: (suggestion: TerminalGrowthSuggestion) => void;
   onReasonChange: (value: string) => void;
 }) {
   const baseGrowth = readRateInput(assumptions.terminalGrowth);
@@ -3161,6 +3204,7 @@ function TerminalGrowthPanel({
         value={formatRateInput(assumptions.terminalGrowth)}
         impact="DCF terminal value dan EEM capitalization spread"
       />
+      <TerminalGrowthSuggestionBlock suggestion={suggestion} onApply={onApplySuggestion} />
       <div className="calculator-input-grid">
         <AssumptionInput label="Base terminal growth" value={assumptions.terminalGrowth} onChange={(value) => onChange("terminalGrowth", value)} />
         <AssumptionInput
@@ -3191,6 +3235,95 @@ function TerminalGrowthPanel({
       />
       {hasInvalidSpread ? <small className="field-warning">Terminal growth base tidak boleh sama dengan atau lebih tinggi dari WACC.</small> : null}
     </article>
+  );
+}
+
+function TerminalGrowthSuggestionBlock({
+  suggestion,
+  onApply,
+}: {
+  suggestion: TerminalGrowthSuggestion | null;
+  onApply: (suggestion: TerminalGrowthSuggestion) => void;
+}) {
+  if (!suggestion) {
+    return (
+      <div className="terminal-growth-suggestion" data-testid="terminal-growth-suggestion-card">
+        <div className="terminal-growth-suggestion-heading">
+          <div>
+            <span>Smart auto suggestion</span>
+            <strong>Sector evidence belum tersedia</strong>
+          </div>
+          <em className="source-badge manual">Menunggu sektor</em>
+        </div>
+        <p className="assumption-empty-note">Suggestion muncul setelah sektor perusahaan sesuai klasifikasi IDX tersedia di Data Awal.</p>
+      </div>
+    );
+  }
+
+  const { evidence } = suggestion;
+
+  return (
+    <div className="terminal-growth-suggestion" data-testid="terminal-growth-suggestion-card">
+      <div className="terminal-growth-suggestion-heading">
+        <div>
+          <span>Smart auto suggestion</span>
+          <strong>{evidence.sector}</strong>
+        </div>
+        <em className={`source-badge ${suggestion.confidence === "high" ? "recommended" : "sensitivity"}`}>
+          {suggestion.confidence} confidence
+        </em>
+      </div>
+      <div className="terminal-growth-suggestion-grid" aria-label="Terminal growth sector evidence">
+        <div>
+          <span>Base</span>
+          <strong>{formatPercent(suggestion.baseGrowth)}</strong>
+          <small>{suggestion.quality} sector case</small>
+        </div>
+        <div>
+          <span>Downside</span>
+          <strong>{formatPercent(suggestion.downsideGrowth)}</strong>
+          <small>Stress band</small>
+        </div>
+        <div>
+          <span>Upside</span>
+          <strong>{formatPercent(suggestion.upsideGrowth)}</strong>
+          <small>Capped below WACC</small>
+        </div>
+        <div>
+          <span>Peer set</span>
+          <strong>
+            {evidence.validCompanies}/{evidence.totalCompanies}
+          </strong>
+          <small>{formatPercent(evidence.positiveProfitRatio)} profitable</small>
+        </div>
+        <div>
+          <span>Median net margin</span>
+          <strong>{formatPercent(evidence.medianNetMargin)}</strong>
+          <small>
+            IQR {formatPercent(evidence.p25NetMargin)} - {formatPercent(evidence.p75NetMargin)}
+          </small>
+        </div>
+        <div>
+          <span>Target vs sector</span>
+          <strong>{suggestion.companyRevenueScale === null ? "N/A" : `${formatNumber(suggestion.companyRevenueScale)}x`}</strong>
+          <small>Revenue scale</small>
+        </div>
+      </div>
+      <dl className="driver-trace">
+        <div>
+          <dt>Sumber</dt>
+          <dd>{suggestion.source}</dd>
+        </div>
+        <div>
+          <dt>Basis</dt>
+          <dd>{suggestion.reason}</dd>
+        </div>
+      </dl>
+      <button className="button secondary" type="button" onClick={() => onApply(suggestion)}>
+        <CheckCircle2 size={18} />
+        Terapkan sector suggestion
+      </button>
+    </div>
   );
 }
 

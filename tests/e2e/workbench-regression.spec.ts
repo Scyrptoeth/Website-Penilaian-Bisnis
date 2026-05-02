@@ -134,6 +134,7 @@ test("added analysis sections use readiness gates before sample data and render 
 });
 
 test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators, and active valuation sources", async ({ page }) => {
+  await page.getByLabel("Sektor Perusahaan").selectOption("Consumer Cyclicals");
   await page.getByLabel("Tanggal valuasi").fill("2023-12-31");
   await openWorkflowTab(page, "Asumsi EEM/DCF");
 
@@ -141,6 +142,12 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await expect(taxCard).toContainText("Statutory general 2023");
   await taxCard.getByRole("button", { name: /Statutory general 2023/ }).click();
   await expect(taxCard.getByLabel("Manual override")).toHaveValue("0,22");
+  await expect(page.getByTestId("terminal-growth-suggestion-card")).toContainText("Consumer Cyclicals");
+  await expect(page.getByTestId("terminal-growth-suggestion-card")).toContainText("118/121");
+  await page.getByRole("button", { name: "Terapkan sector suggestion" }).click();
+  await expect(page.getByLabel("Base terminal growth")).toHaveValue("0");
+  await expect(page.getByLabel("Downside terminal growth")).toHaveValue("-0,05");
+  await expect(page.getByLabel("Upside terminal growth")).toHaveValue("0,02");
 
   await openWorkflowTab(page, "WACC");
   await expect(page.getByTestId("wacc-suggestion-card")).toContainText("2023");
