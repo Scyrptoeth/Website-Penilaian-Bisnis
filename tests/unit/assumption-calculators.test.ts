@@ -52,6 +52,35 @@ describe("assumption calculators", () => {
     assert.equal(Number.isFinite(calculation.wacc), true);
   });
 
+  it("lets explicit fallback capital weights override smart comparable weights", () => {
+    const assumptions = {
+      ...emptyAssumptions,
+      taxRate: "22%",
+      waccRiskFreeRate: "6%",
+      waccEquityRiskPremium: "7%",
+      waccRatingBasedDefaultSpread: "0%",
+      waccCountryRiskPremium: "0%",
+      waccSpecificRiskPremium: "0%",
+      waccPreTaxCostOfDebt: "9%",
+      waccDebtWeight: "25%",
+      waccEquityWeight: "75%",
+      waccComparable1Name: "Comparable A",
+      waccComparable1BetaLevered: "1",
+      waccComparable1MarketCap: "100",
+      waccComparable1Debt: "100",
+    };
+
+    const comparableBeta = calculateWaccComparableBetaAssumption(assumptions);
+    const calculation = calculateWaccAssumption(assumptions);
+
+    assert.ok(comparableBeta.capitalWeights);
+    assert.ok(calculation);
+    assertAlmostEqual(comparableBeta.capitalWeights.debtWeight, 0.25, 1e-12);
+    assertAlmostEqual(comparableBeta.capitalWeights.equityWeight, 0.75, 1e-12);
+    assertAlmostEqual(calculation.debtWeight, 0.25, 1e-12);
+    assertAlmostEqual(calculation.equityWeight, 0.75, 1e-12);
+  });
+
   it("keeps required return on NTA capacity inputs user-evidence driven while deriving Kd and Ke from WACC", () => {
     const balances = {
       accountReceivable: 191_055_111,

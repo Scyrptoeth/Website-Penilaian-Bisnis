@@ -2988,7 +2988,7 @@ function WaccMarketSuggestionPanel({
           <thead>
             <tr>
               <th>Input</th>
-              <th>Saran</th>
+              <th className="numeric-cell">Saran</th>
               <th>Metode</th>
               <th>Sumber</th>
             </tr>
@@ -3079,7 +3079,12 @@ function WaccCalculatorPanel({
           value={assumptions.waccSpecificRiskPremium}
           onChange={(value) => onChange("waccSpecificRiskPremium", value)}
         />
-        <AssumptionInput label="Fallback beta" value={assumptions.waccBeta} onChange={(value) => onChange("waccBeta", value)} />
+        <AssumptionInput
+          label="Fallback beta (jika beta pembanding tidak lengkap)"
+          value={assumptions.waccBeta}
+          note="Dipakai hanya jika beta relevered dari pembanding tidak tersedia; gunakan DISCOUNT RATE!C4 dari workbook atau bukti beta lain."
+          onChange={(value) => onChange("waccBeta", value)}
+        />
       </div>
       <WaccComparableTable
         assumptions={assumptions}
@@ -3276,8 +3281,12 @@ function WaccCapitalStructureTable({
 }) {
   const debtMarketValue = assumptions.waccDebtMarketValue.trim() || formatAutoCapitalValue(autoCapitalValues.debtMarketValue);
   const equityMarketValue = assumptions.waccEquityMarketValue.trim() || formatAutoCapitalValue(autoCapitalValues.equityMarketValue);
+  const debtWeightInput = assumptions.waccDebtWeight.trim() || formatAutoCapitalWeight(calculation?.debtWeight);
+  const equityWeightInput = assumptions.waccEquityWeight.trim() || formatAutoCapitalWeight(calculation?.equityWeight);
   const isDebtAuto = !assumptions.waccDebtMarketValue.trim() && autoCapitalValues.debtMarketValue > 0;
   const isEquityAuto = !assumptions.waccEquityMarketValue.trim() && autoCapitalValues.equityMarketValue > 0;
+  const debtWeightNote = buildAutoCapitalWeightNote(assumptions.waccDebtWeight, calculation?.debtWeight);
+  const equityWeightNote = buildAutoCapitalWeightNote(assumptions.waccEquityWeight, calculation?.equityWeight);
 
   return (
     <div className="table-wrap wacc-model-table" data-testid="wacc-capital-structure-table">
@@ -3299,8 +3308,7 @@ function WaccCapitalStructureTable({
               {isDebtAuto ? <small className="auto-source-note">Auto Neraca: liabilitas lancar + liabilitas tidak lancar.</small> : null}
             </td>
             <td>
-              <AssumptionInput label="Fallback bobot utang" value={assumptions.waccDebtWeight} onChange={(value) => onChange("waccDebtWeight", value)} />
-              <span>{calculation ? formatPercent(calculation.debtWeight) : "Belum dihitung"}</span>
+              <AssumptionInput label="Fallback bobot utang" value={debtWeightInput} note={debtWeightNote} onChange={(value) => onChange("waccDebtWeight", value)} />
             </td>
             <td>{calculation ? formatPercent(calculation.afterTaxCostOfDebt) : "Belum dihitung"}</td>
             <td>{calculation ? formatPercent(calculation.debtWeight * calculation.afterTaxCostOfDebt) : "Belum dihitung"}</td>
@@ -3312,8 +3320,7 @@ function WaccCapitalStructureTable({
               {isEquityAuto ? <small className="auto-source-note">Auto Neraca: book equity aktif.</small> : null}
             </td>
             <td>
-              <AssumptionInput label="Fallback bobot ekuitas" value={assumptions.waccEquityWeight} onChange={(value) => onChange("waccEquityWeight", value)} />
-              <span>{calculation ? formatPercent(calculation.equityWeight) : "Belum dihitung"}</span>
+              <AssumptionInput label="Fallback bobot ekuitas" value={equityWeightInput} note={equityWeightNote} onChange={(value) => onChange("waccEquityWeight", value)} />
             </td>
             <td>{calculation ? formatPercent(calculation.costOfEquity) : "Belum dihitung"}</td>
             <td>{calculation ? formatPercent(calculation.equityWeight * calculation.costOfEquity) : "Belum dihitung"}</td>
@@ -3885,6 +3892,18 @@ function formatDerivedDate(value: string): string {
 
 function formatAutoCapitalValue(value: number): string {
   return value > 0 ? formatInputNumber(value) : "";
+}
+
+function formatAutoCapitalWeight(value: number | undefined): string {
+  return typeof value === "number" && Number.isFinite(value) ? formatInputNumber(value) : "";
+}
+
+function buildAutoCapitalWeightNote(currentValue: string, value: number | undefined): string | undefined {
+  if (currentValue.trim() || typeof value !== "number" || !Number.isFinite(value)) {
+    return undefined;
+  }
+
+  return `Auto aktif: ${formatPercent(value)}. Edit bila basis struktur kapital berbeda.`;
 }
 
 function resolveAutoWaccCapitalValues(assumptions: AssumptionState, autoCapitalValues: AutoWaccCapitalValues): AssumptionState {

@@ -171,6 +171,12 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await expect(page.getByTestId("wacc-calculator")).toContainText("Default spread berbasis rating");
   await expect(page.getByTestId("wacc-comparable-table")).toContainText("Perusahaan Pembanding");
   await expect(page.getByTestId("wacc-capital-structure-table")).toContainText("Struktur Kapital");
+  await page.getByTestId("wacc-comparable-table").getByRole("button", { name: "Terapkan Saran" }).click();
+  await expect(page.getByLabel("Fallback bobot utang")).toHaveValue(/0,\d+/);
+  await expect(page.getByLabel("Fallback bobot ekuitas")).toHaveValue(/0,\d+/);
+  await page.getByLabel("Fallback bobot utang").fill("0,25");
+  await page.getByLabel("Fallback bobot ekuitas").fill("0,75");
+  await expect(page.getByTestId("wacc-comparable-table")).toContainText("25% utang / 75% ekuitas");
 
   await openWorkflowTab(page, "Asumsi EEM/DCF");
   await expect(page.getByTestId("required-return-suggestion-card")).toContainText("Basis required return on NTA");
@@ -203,7 +209,7 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await expect(page.locator("body")).not.toContainText("STAT_ASSUMPTIONS");
 
   await openWorkflowTab(page, "Penilaian EEM/DCF");
-  await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Basis governed dari input pasar");
+  await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Dihitung dari input WACC");
   await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Proxy kapasitas aset berwujud yang di-govern");
 });
 

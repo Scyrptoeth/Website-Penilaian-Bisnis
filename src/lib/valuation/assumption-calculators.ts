@@ -130,13 +130,18 @@ export function calculateWaccComparableBetaAssumption(assumptions: AssumptionSta
   ];
   const aggregateMarketCap = sumComparableValues(rows.map((row) => row.marketCap));
   const aggregateDebt = sumComparableValues(rows.map((row) => row.debt));
-  const capitalWeights =
+  const explicitCapitalWeights = readCapitalWeights(assumptions.waccDebtWeight, assumptions.waccEquityWeight);
+  const comparableCapitalWeights =
     aggregateMarketCap !== null && aggregateDebt !== null && aggregateMarketCap + aggregateDebt > 0
       ? {
           debtWeight: aggregateDebt / (aggregateDebt + aggregateMarketCap),
           equityWeight: aggregateMarketCap / (aggregateDebt + aggregateMarketCap),
         }
-      : readCapitalWeightsFromValues(assumptions.waccDebtMarketValue, assumptions.waccEquityMarketValue);
+      : null;
+  const capitalWeights =
+    explicitCapitalWeights
+    ?? comparableCapitalWeights
+    ?? readCapitalWeightsFromValues(assumptions.waccDebtMarketValue, assumptions.waccEquityMarketValue);
   const validUnleveredBetas = rows
     .map((row) => row.unleveredBeta)
     .filter((value): value is number => value !== null && Number.isFinite(value));

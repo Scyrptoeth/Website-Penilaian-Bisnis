@@ -1457,6 +1457,7 @@ select {
 .wacc-source-table th:nth-child(2),
 .wacc-source-table td:nth-child(2) {
   width: 110px;
+  text-align: right;
 }
 
 .wacc-source-table th:nth-child(4),
