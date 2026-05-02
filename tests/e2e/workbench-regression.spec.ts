@@ -122,15 +122,19 @@ test("added analysis sections use readiness gates before sample data and render 
   await page.getByRole("button", { name: "Muat contoh workbook" }).click();
   await openWorkflowTab(page, "Payables & Cash Flow");
   await expect(page.getByText("Corrected cash-flow bridge")).toBeVisible();
+  await expect(page.getByText("System audit reference")).toBeVisible();
+  await expect(page.locator("body")).not.toContainText("Workbook audit reference");
   await expect(page.getByText(/3\.150\.000\.000/).first()).toBeVisible();
 
   await openWorkflowTab(page, "NOPLAT & FCF");
   await expect(page.getByText("Free cash flow to firm")).toBeVisible();
   await expect(page.getByText("Commercial statutory basis")).toBeVisible();
+  await expect(page.getByText("System audit reference")).toBeVisible();
 
   await openWorkflowTab(page, "Ratios & Capital Efficiency");
   await expect(page.getByText("Capital efficiency bridge")).toBeVisible();
   await expect(page.getByText("Corrected NOPLAT basis")).toBeVisible();
+  await expect(page.getByText("System audit reference")).toBeVisible();
 });
 
 test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators, and active valuation sources", async ({ page }) => {
