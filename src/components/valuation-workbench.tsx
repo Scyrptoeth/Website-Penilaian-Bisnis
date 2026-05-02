@@ -3198,7 +3198,7 @@ function TerminalGrowthPanel({
   const hasInvalidSpread = baseGrowth !== null && wacc > 0 && baseGrowth >= wacc;
 
   return (
-    <article className="assumption-calculator-card" data-testid="terminal-growth-calculator">
+    <article className="assumption-calculator-card wide" data-testid="terminal-growth-calculator">
       <AssumptionCalculatorHeader
         label="Terminal growth governance"
         value={formatRateInput(assumptions.terminalGrowth)}
