@@ -79,6 +79,12 @@ test("fixed asset schedule remains empty until user adds a class and then rolls 
 
   const acquisition = page.getByTestId("fixed-asset-acquisition-table");
   const depreciation = page.getByTestId("fixed-asset-depreciation-table");
+  const firstPeriodColumnWidths = await acquisition.evaluate((table) =>
+    Array.from(table.querySelectorAll("thead tr:nth-child(2) th"))
+      .slice(0, 3)
+      .map((cell) => Math.round(cell.getBoundingClientRect().width)),
+  );
+  expect(Math.max(...firstPeriodColumnWidths) - Math.min(...firstPeriodColumnWidths)).toBeLessThanOrEqual(2);
   await acquisition.getByLabel("Asset class").fill("Factory equipment");
   await acquisition.getByLabel("A. Acquisition Costs Tahun Y-1 Beginning").fill("100");
   await acquisition.getByLabel("A. Acquisition Costs Tahun Y-1 Additions").fill("50");
@@ -89,6 +95,10 @@ test("fixed asset schedule remains empty until user adds a class and then rolls 
 
   await expect(page.getByTestId("fixed-asset-net-value-table")).toContainText("135");
   await expect(page.getByTestId("fixed-asset-net-value-table")).toContainText("147");
+  const netValuePeriodWidths = await page.getByTestId("fixed-asset-net-value-table").evaluate((table) =>
+    Array.from(table.querySelectorAll("thead th:not(.fixed-asset-asset-column)")).map((cell) => Math.round(cell.getBoundingClientRect().width)),
+  );
+  expect(Math.max(...netValuePeriodWidths) - Math.min(...netValuePeriodWidths)).toBeLessThanOrEqual(2);
   await expect(page.getByTestId("balance-sheet-position-table")).toContainText("Fixed Assets, Net");
   expect(await hasNoRootHorizontalOverflow(page)).toBe(true);
 });
@@ -267,6 +277,8 @@ test("localStorage persistence, fixed header, and root overflow checks remain st
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
   const headerBox = await page.getByTestId("workspace-header").boundingBox();
   expect(headerBox?.y ?? 999).toBeLessThanOrEqual(2);
+  const panelBox = await page.locator(".workspace > .panel").first().boundingBox();
+  expect(Math.abs((headerBox?.x ?? 0) - (panelBox?.x ?? 0))).toBeLessThanOrEqual(1);
 
   expect(await hasNoRootHorizontalOverflow(page)).toBe(true);
   await page.setViewportSize({ width: 390, height: 844 });

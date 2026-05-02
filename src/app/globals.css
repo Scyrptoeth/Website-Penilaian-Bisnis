@@ -22,6 +22,7 @@
   --sidebar-width: 196px;
   --sidebar-collapsed-width: 44px;
   --sticky-header-reserved: 92px;
+  --workspace-inline-padding: clamp(10px, 1vw, 16px);
 }
 
 * {
@@ -269,27 +270,30 @@ svg {
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  padding: var(--sticky-header-reserved) clamp(10px, 1vw, 16px) 24px;
+  padding: var(--sticky-header-reserved) var(--workspace-inline-padding) 24px;
 }
 
 .sticky-workspace-header {
   position: fixed;
   top: 0;
-  right: 0;
-  left: var(--sidebar-width);
+  right: var(--workspace-inline-padding);
+  left: calc(var(--sidebar-width) + var(--workspace-inline-padding));
   z-index: 30;
   display: grid;
   gap: 10px;
   min-width: 0;
-  padding: 14px clamp(10px, 1vw, 16px) 10px;
+  padding: 14px 0 10px;
   background: rgba(245, 246, 244, 0.94);
   border-bottom: 1px solid rgba(217, 222, 216, 0.82);
   box-shadow: 0 8px 24px rgba(21, 24, 22, 0.06);
   backdrop-filter: blur(16px);
+  transition:
+    left 180ms ease,
+    right 180ms ease;
 }
 
 .app-shell.sidebar-collapsed .sticky-workspace-header {
-  left: var(--sidebar-collapsed-width);
+  left: calc(var(--sidebar-collapsed-width) + var(--workspace-inline-padding));
 }
 
 .topbar {
@@ -741,13 +745,16 @@ select {
   padding: 5px 6px;
 }
 
-.fixed-asset-table th:first-child,
-.fixed-asset-table td:first-child {
+.fixed-asset-table .fixed-asset-asset-column {
   width: 520px;
 }
 
-.fixed-asset-table th:not(:first-child),
-.fixed-asset-table td:not(:first-child) {
+.fixed-asset-table .fixed-asset-period-group-heading {
+  width: 396px;
+}
+
+.fixed-asset-table thead tr:nth-child(2) th.fixed-asset-period-cell,
+.fixed-asset-table tbody td.fixed-asset-period-cell {
   width: 132px;
   text-align: right;
 }
@@ -2483,7 +2490,7 @@ td span {
   }
 
   .sticky-workspace-header {
-    left: 0;
+    left: var(--workspace-inline-padding);
   }
 
   .mobile-workflow-tabs {
@@ -2502,8 +2509,12 @@ td span {
 }
 
 @media (max-width: 640px) {
+  :root {
+    --workspace-inline-padding: 12px;
+  }
+
   .workspace {
-    padding: var(--sticky-header-reserved) 12px 28px;
+    padding: var(--sticky-header-reserved) var(--workspace-inline-padding) 28px;
   }
 
   .panel,

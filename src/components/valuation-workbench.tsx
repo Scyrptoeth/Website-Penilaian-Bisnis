@@ -4165,9 +4165,9 @@ function FixedAssetSectionTable({
         <table className="fixed-asset-table" data-testid={title.startsWith("A.") ? "fixed-asset-acquisition-table" : "fixed-asset-depreciation-table"}>
           <thead>
             <tr>
-              <th rowSpan={2}>Asset class</th>
+              <th className="fixed-asset-asset-column" rowSpan={2}>Asset class</th>
               {periods.map((period, periodIndex) => (
-                <th className={getPeriodGroupClassName(periodIndex, "end")} colSpan={3} key={period.id}>
+                <th className={`${getPeriodGroupClassName(periodIndex, "end")} fixed-asset-period-group-heading`} colSpan={3} key={period.id}>
                   {period.label || "Periode"}
                 </th>
               ))}
@@ -4185,7 +4185,7 @@ function FixedAssetSectionTable({
           <tbody>
             {schedule.rows.map(({ row, amounts }) => (
               <tr data-testid="fixed-asset-row" key={row.id}>
-                <td>
+                <td className="fixed-asset-asset-column">
                   <div className="asset-name-cell">
                     <input
                       aria-label="Asset class"
@@ -4238,7 +4238,7 @@ function FixedAssetSectionTable({
               </tr>
             ))}
             <tr className="total-row">
-              <td>Total</td>
+              <td className="fixed-asset-asset-column">Total</td>
               {periods.map((period, periodIndex) => {
                 const totals = schedule.totals[period.id] ?? emptyFixedAssetAmounts();
 
@@ -4271,7 +4271,7 @@ function FixedAssetNetValueTable({ periods, schedule }: { periods: Period[]; sch
         <table className="fixed-asset-table net-value-table" data-testid="fixed-asset-net-value-table">
           <thead>
             <tr>
-              <th>Asset class</th>
+              <th className="fixed-asset-asset-column">Asset class</th>
               {periods.map((period, periodIndex) => (
                 <th className={getNetValuePeriodClassName(periodIndex)} key={period.id}>{period.label || "Periode"}</th>
               ))}
@@ -4280,7 +4280,7 @@ function FixedAssetNetValueTable({ periods, schedule }: { periods: Period[]; sch
           <tbody>
             {schedule.rows.map(({ row, amounts }) => (
               <tr key={row.id}>
-                <td>{row.assetName || "Belum dinamai"}</td>
+                <td className="fixed-asset-asset-column">{row.assetName || "Belum dinamai"}</td>
                 {periods.map((period, periodIndex) => {
                   const computed = amounts[period.id] ?? emptyFixedAssetAmounts();
 
@@ -4293,7 +4293,7 @@ function FixedAssetNetValueTable({ periods, schedule }: { periods: Period[]; sch
               </tr>
             ))}
             <tr className="total-row">
-              <td>Total</td>
+              <td className="fixed-asset-asset-column">Total</td>
               {periods.map((period, periodIndex) => (
                 <td className={getNetValuePeriodClassName(periodIndex)} key={period.id}>{formatInputNumber((schedule.totals[period.id] ?? emptyFixedAssetAmounts()).netValue)}</td>
               ))}
