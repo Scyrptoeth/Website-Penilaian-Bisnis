@@ -433,20 +433,34 @@ export function ValuationWorkbench() {
       snapshot,
     ],
   );
+  const rawWaccValue = waccCalculation?.wacc ?? readRateInput(assumptions.wacc);
+  const rawTerminalGrowthValue = readRateInput(assumptions.terminalGrowth);
+  const rawRequiredReturnValue = requiredReturnCalculation?.requiredReturn ?? readRateInput(assumptions.requiredReturnOnNta);
+  const isGovernedWacc = rawWaccValue !== null && Math.abs(rawWaccValue - snapshot.wacc) > 0.0001;
+  const isGovernedTerminalGrowth = rawTerminalGrowthValue !== null && Math.abs(rawTerminalGrowthValue - snapshot.terminalGrowth) > 0.0001;
+  const isGovernedRequiredReturn = rawRequiredReturnValue !== null && Math.abs(rawRequiredReturnValue - snapshot.requiredReturnOnNta) > 0.0001;
   const assumptionDriverSummaries = [
     buildAssumptionDriverSummary("Tax rate", assumptions.taxRate, assumptions.taxRateSource, taxRateCandidates),
-    buildCalculatedDriverSummary("WACC", waccCalculation?.wacc ?? readRateInput(assumptions.wacc), waccCalculation ? "Calculated from WACC inputs" : sourceLabelFromManual(assumptions.wacc)),
+    buildCalculatedDriverSummary(
+      "WACC",
+      snapshot.wacc,
+      isGovernedWacc ? "Governed base from market inputs" : waccCalculation ? "Calculated from WACC inputs" : sourceLabelFromManual(assumptions.wacc),
+    ),
     buildCalculatedDriverSummary(
       "Terminal growth",
-      readRateInput(assumptions.terminalGrowth),
-      assumptions.terminalGrowthSource === terminalGrowthSuggestion?.sourceId
+      snapshot.terminalGrowth,
+      isGovernedTerminalGrowth
+        ? "Governed base capped from sector suggestion"
+        : assumptions.terminalGrowthSource === terminalGrowthSuggestion?.sourceId
         ? "Sector-calibrated suggestion with downside/upside band"
         : assumptions.terminalGrowth.trim() ? "User base case with sensitivity inputs" : "Belum dipilih",
     ),
     buildCalculatedDriverSummary(
       "Required return on NTA",
-      requiredReturnCalculation?.requiredReturn ?? readRateInput(assumptions.requiredReturnOnNta),
-      requiredReturnCalculation ? requiredReturnCalculation.basisLabel : sourceLabelFromManual(assumptions.requiredReturnOnNta),
+      snapshot.requiredReturnOnNta,
+      isGovernedRequiredReturn
+        ? "Governed tangible capacity proxy"
+        : requiredReturnCalculation ? requiredReturnCalculation.basisLabel : sourceLabelFromManual(assumptions.requiredReturnOnNta),
     ),
   ];
   const nextHistoricalPeriodLabel = getPeriodLabel(getNextHistoricalPeriodOffset(periods)).replace("Tahun ", "");

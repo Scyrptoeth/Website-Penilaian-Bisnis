@@ -1,5 +1,5 @@
 import { mapAccount, shouldAutoApplyMapping } from "./account-taxonomy";
-import { calculateRequiredReturnOnNtaAssumption, calculateWaccAssumption, readRateInput } from "./assumption-calculators";
+import { calculateRequiredReturnOnNtaAssumption, calculateWaccAssumption, readRateInput, type RequiredReturnOnNtaCalculation, type WaccCalculation } from "./assumption-calculators";
 import { formatInputNumber } from "./format";
 import { sampleCase } from "./sample-case";
 import type { AccountCategory, FinancialStatementSnapshot } from "./types";
@@ -152,6 +152,13 @@ export type MappedRow = {
 };
 
 export const valuationYearOffset = 0;
+
+const highAutoRevenueGrowthThreshold = 0.2;
+const smartSuggestionBetaFloor = 1;
+const minimumCapitalizationSpread = 0.075;
+const governedReceivablesCapacity = 1;
+const governedInventoryCapacity = 0;
+const governedFixedAssetCapacity = 0.7;
 
 export const initialPeriods: Period[] = [{ id: "p1", label: "Tahun Y", valuationDate: "", yearOffset: valuationYearOffset }];
 
@@ -816,8 +823,22 @@ export function buildSnapshot(
   const retainedEarningsSurplus = amount(activeAggregate("RETAINED_EARNINGS_SURPLUS"));
   const retainedEarningsCurrentProfit = amount(activeAggregate("RETAINED_EARNINGS_CURRENT_PROFIT"));
   const waccCalculation = calculateWaccAssumption(assumptions);
+  const governedWaccCalculation = resolveGovernedWaccCalculation(assumptions, waccCalculation);
   const requiredReturnCalculation = calculateRequiredReturnOnNtaAssumption(assumptions, {
     accountReceivable,
+    inventory,
+    fixedAssetsNet,
+  });
+  const explicitWacc = readRateInput(assumptions.wacc);
+  const explicitRevenueGrowth = readRateInput(assumptions.revenueGrowth);
+  const baseWacc = explicitWacc ?? governedWaccCalculation?.wacc ?? waccCalculation?.wacc ?? 0;
+  const baseTerminalGrowth = resolveGovernedTerminalGrowth(assumptions, waccCalculation?.wacc ?? explicitWacc ?? baseWacc);
+  const baseRequiredReturnOnNta = resolveGovernedRequiredReturnOnNta({
+    assumptions,
+    calculation: requiredReturnCalculation,
+    waccCalculation: governedWaccCalculation ?? waccCalculation,
+    accountReceivable,
+    employeeReceivable,
     inventory,
     fixedAssetsNet,
   });
@@ -825,12 +846,12 @@ export function buildSnapshot(
   return {
     valuationDate: activePeriod?.valuationDate || activePeriod?.label || "",
     taxRate: parseRate(assumptions.taxRate),
-    terminalGrowth: parseRate(assumptions.terminalGrowth),
+    terminalGrowth: baseTerminalGrowth,
     terminalGrowthDownside: readRateInput(assumptions.terminalGrowthDownside) ?? undefined,
     terminalGrowthUpside: readRateInput(assumptions.terminalGrowthUpside) ?? undefined,
-    revenueGrowth: parseRate(assumptions.revenueGrowth) || historicalDrivers.revenueGrowth,
-    wacc: waccCalculation?.wacc ?? parseRate(assumptions.wacc),
-    requiredReturnOnNta: requiredReturnCalculation?.requiredReturn ?? parseRate(assumptions.requiredReturnOnNta),
+    revenueGrowth: explicitRevenueGrowth ?? historicalDrivers.governedRevenueGrowth,
+    wacc: baseWacc,
+    requiredReturnOnNta: baseRequiredReturnOnNta,
     cogsMargin: historicalDrivers.cogsMargin || (revenue ? -cogsAmount / revenue : 0),
     gaMargin: historicalDrivers.gaMargin || (revenue ? -(sellingExpense + gaOverheads) / revenue : 0),
     depreciationMargin: historicalDrivers.depreciationMargin || (revenue ? -depreciation / revenue : 0),
@@ -923,9 +944,18 @@ export function deriveHistoricalDrivers(periods: Period[], mappedRows: MappedRow
   const revenues = periodMetrics.map((metric) => metric.revenue).filter((value) => value > 0);
   const revenueGrowth =
     revenues.length >= 2 && revenues[0] > 0 ? Math.pow(revenues[revenues.length - 1] / revenues[0], 1 / (revenues.length - 1)) - 1 : 0;
+  const revenueGrowthSeries = periodMetrics
+    .slice(1)
+    .map((metric, index) => {
+      const priorRevenue = periodMetrics[index].revenue;
+      return priorRevenue > 0 && metric.revenue > 0 ? metric.revenue / priorRevenue - 1 : null;
+    })
+    .filter((value): value is number => value !== null && Number.isFinite(value));
 
   return {
     revenueGrowth,
+    governedRevenueGrowth: resolveGovernedAutoRevenueGrowth(revenueGrowth, revenueGrowthSeries),
+    revenueGrowthSeries,
     cogsMargin: averageRatio(periodMetrics, (metric) => -metric.cogs, (metric) => metric.revenue),
     gaMargin: averageRatio(periodMetrics, (metric) => -(metric.selling + metric.ga), (metric) => metric.revenue),
     depreciationMargin: averageRatio(periodMetrics, (metric) => -metric.depreciation, (metric) => metric.revenue),
@@ -934,6 +964,109 @@ export function deriveHistoricalDrivers(periods: Period[], mappedRows: MappedRow
     apDays: averageRatio(periodMetrics, (metric) => metric.ap * 365, (metric) => Math.abs(metric.cogs)),
     otherPayableDays: averageRatio(periodMetrics, (metric) => metric.otherPayable * 365, (metric) => Math.abs(metric.selling + metric.ga)),
   };
+}
+
+function resolveGovernedWaccCalculation(assumptions: AssumptionState, calculation: WaccCalculation | null): WaccCalculation | null {
+  if (!calculation || readRateInput(assumptions.wacc) !== null || !isSmartWaccSuggestion(assumptions)) {
+    return calculation;
+  }
+
+  const riskFreeRate = readRateInput(assumptions.waccRiskFreeRate);
+  const equityRiskPremium = readRateInput(assumptions.waccEquityRiskPremium);
+  const needsGovernedBase =
+    calculation.wacc < 0.08 ||
+    calculation.beta < 0.5 ||
+    calculation.costOfEquity < calculation.afterTaxCostOfDebt;
+
+  if (!needsGovernedBase || riskFreeRate === null || equityRiskPremium === null) {
+    return calculation;
+  }
+
+  const beta = Math.max(calculation.beta, smartSuggestionBetaFloor);
+  const countryRiskAdjustment = Math.max(0, calculation.countryRiskAdjustment);
+  const costOfEquity = riskFreeRate + beta * equityRiskPremium + countryRiskAdjustment;
+  const wacc = calculation.debtWeight * calculation.afterTaxCostOfDebt + calculation.equityWeight * costOfEquity;
+
+  return {
+    ...calculation,
+    beta,
+    costOfEquity,
+    countryRiskAdjustment,
+    wacc,
+  };
+}
+
+function resolveGovernedTerminalGrowth(assumptions: AssumptionState, rawWacc: number): number {
+  const terminalGrowth = readRateInput(assumptions.terminalGrowth) ?? 0;
+  const isSmartSectorSuggestion = assumptions.terminalGrowthSource.startsWith("sector-terminal-growth");
+
+  if (isSmartSectorSuggestion && terminalGrowth > 0 && rawWacc - terminalGrowth < minimumCapitalizationSpread) {
+    return 0;
+  }
+
+  return terminalGrowth;
+}
+
+function resolveGovernedRequiredReturnOnNta({
+  assumptions,
+  calculation,
+  waccCalculation,
+  accountReceivable,
+  employeeReceivable,
+  inventory,
+  fixedAssetsNet,
+}: {
+  assumptions: AssumptionState;
+  calculation: RequiredReturnOnNtaCalculation | null;
+  waccCalculation: WaccCalculation | null;
+  accountReceivable: number;
+  employeeReceivable: number;
+  inventory: number;
+  fixedAssetsNet: number;
+}): number {
+  const explicitRequiredReturn = readRateInput(assumptions.requiredReturnOnNta);
+
+  if (explicitRequiredReturn !== null) {
+    return explicitRequiredReturn;
+  }
+
+  if (calculation?.basis === "capacity_evidence") {
+    return calculation.requiredReturn;
+  }
+
+  const tangibleAssetBase = positive(accountReceivable) + positive(inventory) + positive(fixedAssetsNet);
+
+  if (!waccCalculation || tangibleAssetBase <= 0) {
+    return calculation?.requiredReturn ?? 0;
+  }
+
+  const debtCapacity =
+    positive(accountReceivable) * governedReceivablesCapacity +
+    positive(inventory) * governedInventoryCapacity +
+    positive(fixedAssetsNet) * governedFixedAssetCapacity +
+    positive(employeeReceivable);
+  const debtWeight = clamp(debtCapacity / tangibleAssetBase, 0, 1);
+  const equityWeight = 1 - debtWeight;
+
+  return debtWeight * waccCalculation.afterTaxCostOfDebt + equityWeight * waccCalculation.costOfEquity;
+}
+
+function resolveGovernedAutoRevenueGrowth(revenueGrowth: number, revenueGrowthSeries: number[]): number {
+  if (revenueGrowth <= highAutoRevenueGrowthThreshold || revenueGrowthSeries.length === 0) {
+    return revenueGrowth;
+  }
+
+  const nonNegativeGrowthRates = revenueGrowthSeries.filter((value) => value >= 0);
+
+  if (nonNegativeGrowthRates.length === 0) {
+    return 0;
+  }
+
+  return Math.min(revenueGrowth, ...nonNegativeGrowthRates);
+}
+
+function isSmartWaccSuggestion(assumptions: AssumptionState): boolean {
+  return !assumptions.wacc.trim() && assumptions.waccSource.startsWith("market-suggestion");
 }
 
 export function parseInputNumber(input: string): number {
@@ -977,6 +1110,14 @@ function parseRate(input: string): number {
 
 function amount(value: number): number {
   return Math.abs(value);
+}
+
+function positive(value: number): number {
+  return Math.max(Math.abs(value), 0);
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
 }
 
 function parsePeriodLabelYearOffset(label: string): number | null {

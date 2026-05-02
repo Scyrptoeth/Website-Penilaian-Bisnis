@@ -188,8 +188,8 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await expect(page.locator("body")).not.toContainText("STAT_ASSUMPTIONS");
 
   await openWorkflowTab(page, "Valuasi EEM/DCF");
-  await expect(page.getByLabel("Driver aktif valuasi")).toContainText("Calculated from WACC inputs");
-  await expect(page.getByLabel("Driver aktif valuasi")).toContainText("WACC capital structure fallback");
+  await expect(page.getByLabel("Driver aktif valuasi")).toContainText("Governed base from market inputs");
+  await expect(page.getByLabel("Driver aktif valuasi")).toContainText("Governed tangible capacity proxy");
 });
 
 test("legacy positive income-statement expense drafts migrate once and remain user-editable", async ({ page }) => {
