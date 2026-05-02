@@ -144,7 +144,7 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await expect(taxCard.getByLabel("Manual override")).toHaveValue("0,22");
   await expect(page.getByTestId("terminal-growth-suggestion-card")).toContainText("Consumer Cyclicals");
   await expect(page.getByTestId("terminal-growth-suggestion-card")).toContainText("118/121");
-  await page.getByRole("button", { name: "Terapkan sector suggestion" }).click();
+  await page.getByRole("button", { name: "Isi sector suggestion" }).click();
   await expect(page.getByLabel("Base terminal growth")).toHaveValue("0");
   await expect(page.getByLabel("Downside terminal growth")).toHaveValue("-0,05");
   await expect(page.getByLabel("Upside terminal growth")).toHaveValue("0,02");
@@ -152,7 +152,7 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await openWorkflowTab(page, "WACC");
   await expect(page.getByTestId("wacc-suggestion-card")).toContainText("2023");
   await expect(page.getByTestId("wacc-suggestion-card")).toContainText("Equity Risk Premium");
-  await page.getByRole("button", { name: /Terapkan suggestion 2023/ }).click();
+  await page.getByRole("button", { name: /Isi input pasar 2023/ }).click();
   await expect(page.getByTestId("wacc-calculator")).toContainText("Rating-based default spread");
   await expect(page.getByTestId("wacc-comparable-table")).toContainText("Perusahaan Pembanding");
   await expect(page.getByTestId("wacc-capital-structure-table")).toContainText("Struktur Kapital");
