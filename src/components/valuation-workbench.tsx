@@ -429,7 +429,7 @@ export function ValuationWorkbench() {
     buildCalculatedDriverSummary(
       "Required return on NTA",
       requiredReturnCalculation?.requiredReturn ?? readRateInput(assumptions.requiredReturnOnNta),
-      requiredReturnCalculation ? "Calculated from NTA capacity inputs" : sourceLabelFromManual(assumptions.requiredReturnOnNta),
+      requiredReturnCalculation ? requiredReturnCalculation.basisLabel : sourceLabelFromManual(assumptions.requiredReturnOnNta),
     ),
   ];
   const nextHistoricalPeriodLabel = getPeriodLabel(getNextHistoricalPeriodOffset(periods)).replace("Tahun ", "");
@@ -3441,10 +3441,11 @@ function RequiredReturnOnNtaPanel({
       </div>
       <MetricTraceGrid
         metrics={[
+          ["Basis", calculation ? calculation.basisLabel : "Belum dihitung"],
           ["Tangible asset base", calculation ? formatIdr(calculation.tangibleAssetBase) : "Belum dihitung"],
           ["Debt capacity", calculation ? formatIdr(calculation.debtCapacity) : "Belum dihitung"],
           ["Capacity weights", calculation ? `${formatPercent(calculation.debtWeight)} debt / ${formatPercent(calculation.equityWeight)} equity` : "Belum dihitung"],
-          ["Formula", "Debt weight x Kd + equity weight x Ke"],
+          ["Formula", calculation ? formatRequiredReturnFormulaLabel(calculation) : "Debt weight x Kd + equity weight x Ke"],
         ]}
       />
       <ReferenceList references={requiredReturnOnNtaInputReferences} />
@@ -3493,11 +3494,23 @@ function RequiredReturnOnNtaSuggestionBlock({ suggestion }: { suggestion: Requir
         </div>
         <div>
           <dt>Status</dt>
-          <dd>{suggestion.waitingFor.length > 0 ? suggestion.waitingFor.join(" ") : "Biaya modal tersedia dari WACC. Capacity rate tetap diisi dari bukti kasus aktif."}</dd>
+          <dd>{suggestion.waitingFor.length > 0 ? suggestion.waitingFor.join(" ") : "Biaya modal tersedia dari WACC. Jika capacity evidence belum tersedia, WACC capital structure menjadi fallback."}</dd>
         </div>
       </dl>
     </div>
   );
+}
+
+function formatRequiredReturnFormulaLabel(calculation: RequiredReturnOnNtaCalculation): string {
+  if (calculation.basis === "capacity_evidence") {
+    return "Capacity debt weight x Kd + equity weight x Ke";
+  }
+
+  if (calculation.basis === "wacc_capital_structure") {
+    return "WACC debt weight x Kd + WACC equity weight x Ke";
+  }
+
+  return "100% equity x Ke";
 }
 
 function AssumptionCalculatorHeader({ label, value, impact }: { label: string; value: string; impact: string }) {

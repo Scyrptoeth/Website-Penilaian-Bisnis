@@ -37,6 +37,8 @@ export type RequiredReturnOnNtaCalculation = {
   debtWeight: number;
   equityWeight: number;
   requiredReturn: number;
+  basis: "capacity_evidence" | "wacc_capital_structure" | "all_equity";
+  basisLabel: string;
 };
 
 export type RequiredReturnOnNtaBalances = {
@@ -167,34 +169,70 @@ export function calculateRequiredReturnOnNtaAssumption(
   const additionalCapacity = readNumberInput(assumptions.requiredReturnAdditionalCapacity) ?? 0;
   const afterTaxDebtCost = readRateInput(assumptions.requiredReturnAfterTaxDebtCost);
   const equityReturn = readRateInput(assumptions.requiredReturnEquityCost);
-  const tangibleAssetBase = positive(balances.accountReceivable) + positive(balances.inventory) + positive(balances.fixedAssetsNet);
+  const accountReceivable = positive(balances.accountReceivable);
+  const inventory = positive(balances.inventory);
+  const fixedAssetsNet = positive(balances.fixedAssetsNet);
+  const tangibleAssetBase = accountReceivable + inventory + fixedAssetsNet;
 
-  if (
-    receivablesCapacity === null ||
-    inventoryCapacity === null ||
-    fixedAssetCapacity === null ||
-    afterTaxDebtCost === null ||
-    equityReturn === null ||
-    tangibleAssetBase <= 0
-  ) {
+  if (afterTaxDebtCost === null || equityReturn === null || tangibleAssetBase <= 0) {
     return null;
   }
 
-  const debtCapacity =
-    positive(balances.accountReceivable) * receivablesCapacity +
-    positive(balances.inventory) * inventoryCapacity +
-    positive(balances.fixedAssetsNet) * fixedAssetCapacity +
-    additionalCapacity;
-  const debtWeight = clamp(debtCapacity / tangibleAssetBase, 0, 1);
-  const equityWeight = 1 - debtWeight;
-  const requiredReturn = debtWeight * afterTaxDebtCost + equityWeight * equityReturn;
+  const hasCapacityEvidence =
+    (accountReceivable <= 0 || receivablesCapacity !== null) &&
+    (inventory <= 0 || inventoryCapacity !== null) &&
+    (fixedAssetsNet <= 0 || fixedAssetCapacity !== null);
+
+  if (hasCapacityEvidence) {
+    const debtCapacity =
+      accountReceivable * (receivablesCapacity ?? 0) +
+      inventory * (inventoryCapacity ?? 0) +
+      fixedAssetsNet * (fixedAssetCapacity ?? 0) +
+      additionalCapacity;
+    const debtWeight = clamp(debtCapacity / tangibleAssetBase, 0, 1);
+    const equityWeight = 1 - debtWeight;
+    const requiredReturn = debtWeight * afterTaxDebtCost + equityWeight * equityReturn;
+
+    return {
+      tangibleAssetBase,
+      debtCapacity,
+      debtWeight,
+      equityWeight,
+      requiredReturn,
+      basis: "capacity_evidence",
+      basisLabel: "Capacity evidence",
+    };
+  }
+
+  const waccCalculation = calculateWaccAssumption(assumptions);
+
+  if (waccCalculation) {
+    const debtWeight = waccCalculation.debtWeight;
+    const equityWeight = waccCalculation.equityWeight;
+    const debtCapacity = tangibleAssetBase * debtWeight;
+    const requiredReturn = debtWeight * afterTaxDebtCost + equityWeight * equityReturn;
+
+    return {
+      tangibleAssetBase,
+      debtCapacity,
+      debtWeight,
+      equityWeight,
+      requiredReturn,
+      basis: "wacc_capital_structure",
+      basisLabel: "WACC capital structure fallback",
+    };
+  }
+
+  const requiredReturn = equityReturn;
 
   return {
     tangibleAssetBase,
-    debtCapacity,
-    debtWeight,
-    equityWeight,
+    debtCapacity: 0,
+    debtWeight: 0,
+    equityWeight: 1,
     requiredReturn,
+    basis: "all_equity",
+    basisLabel: "All-equity conservative fallback",
   };
 }
 
@@ -290,7 +328,7 @@ export function buildRequiredReturnOnNtaSuggestion({
 
   return {
     fields,
-    summary: "Isi capacity rate dari bukti kasus aktif; biaya modal dapat ditarik dari WACC agar NTA capital charge tetap konsisten dan audit-friendly.",
+    summary: "Isi capacity rate dari bukti kasus aktif. Jika bukti belum tersedia, WACC capital structure dipakai sebagai fallback agar EEM/DCF tetap dapat dihitung dan direview.",
     waitingFor,
   };
 }

@@ -178,11 +178,18 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await expect(page.getByLabel("After-tax debt cost")).toHaveValue("0,06864");
   await expect(page.getByTestId("required-return-on-nta-calculator")).not.toContainText("BORROWING CAP");
   await expect(page.getByTestId("required-return-on-nta-calculator")).not.toContainText("DISCOUNT RATE");
+
+  await page.getByLabel("Receivables capacity").fill("");
+  await page.getByLabel("Inventory capacity").fill("");
+  await page.getByLabel("Fixed asset capacity").fill("");
+  await page.getByLabel("Additional capacity amount").fill("");
+  await expect(page.getByTestId("required-return-on-nta-calculator")).toContainText("WACC capital structure fallback");
+  await expect(page.getByTestId("required-return-on-nta-calculator")).toContainText("WACC debt weight x Kd");
   await expect(page.locator("body")).not.toContainText("STAT_ASSUMPTIONS");
 
   await openWorkflowTab(page, "Valuasi EEM/DCF");
   await expect(page.getByLabel("Driver aktif valuasi")).toContainText("Calculated from WACC inputs");
-  await expect(page.getByLabel("Driver aktif valuasi")).toContainText("Calculated from NTA capacity inputs");
+  await expect(page.getByLabel("Driver aktif valuasi")).toContainText("WACC capital structure fallback");
 });
 
 test("legacy positive income-statement expense drafts migrate once and remain user-editable", async ({ page }) => {

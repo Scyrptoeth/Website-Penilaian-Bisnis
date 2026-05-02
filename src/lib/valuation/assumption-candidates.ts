@@ -65,7 +65,7 @@ export const requiredReturnOnNtaInputReferences: AssumptionReference[] = [
   },
   {
     label: "Borrowing capacity",
-    treatment: "User-entered capacity rates convert pledgeable tangible assets into an implied debt/equity mix.",
+    treatment: "User-entered capacity rates convert pledgeable tangible assets into an implied debt/equity mix; if unavailable, use WACC capital structure as a documented fallback.",
   },
   {
     label: "Capital charge",

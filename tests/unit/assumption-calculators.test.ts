@@ -93,8 +93,42 @@ describe("assumption calculators", () => {
     );
 
     assert.ok(calculation);
+    assert.equal(calculation.basis, "capacity_evidence");
     assertAlmostEqual(calculation.tangibleAssetBase, 16_202_412_505, 1e-6);
     assertAlmostEqual(calculation.debtCapacity, 11_420_005_286.8, 1e-6);
     assertAlmostEqual(calculation.requiredReturn, 0.08513891435570048, 1e-12);
+  });
+
+  it("falls back to WACC capital structure when NTA capacity evidence is unavailable", () => {
+    const calculation = calculateRequiredReturnOnNtaAssumption(
+      {
+        ...emptyAssumptions,
+        taxRate: "22%",
+        waccRiskFreeRate: "6%",
+        waccBeta: "1",
+        waccEquityRiskPremium: "7%",
+        waccRatingBasedDefaultSpread: "0%",
+        waccCountryRiskPremium: "0%",
+        waccSpecificRiskPremium: "0%",
+        waccPreTaxCostOfDebt: "9%",
+        waccDebtWeight: "25%",
+        waccEquityWeight: "75%",
+        requiredReturnAfterTaxDebtCost: "7,02%",
+        requiredReturnEquityCost: "13%",
+      },
+      {
+        accountReceivable: 100,
+        inventory: 0,
+        fixedAssetsNet: 900,
+      },
+    );
+
+    assert.ok(calculation);
+    assert.equal(calculation.basis, "wacc_capital_structure");
+    assertAlmostEqual(calculation.tangibleAssetBase, 1000, 1e-12);
+    assertAlmostEqual(calculation.debtCapacity, 250, 1e-12);
+    assertAlmostEqual(calculation.debtWeight, 0.25, 1e-12);
+    assertAlmostEqual(calculation.equityWeight, 0.75, 1e-12);
+    assertAlmostEqual(calculation.requiredReturn, 0.11505, 1e-12);
   });
 });
