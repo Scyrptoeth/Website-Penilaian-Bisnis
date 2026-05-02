@@ -1896,6 +1896,25 @@ select {
   background: #fffdf4;
 }
 
+.assumption-audit-panel.ok {
+  border-color: rgba(22, 101, 52, 0.18);
+  background: var(--ok-soft);
+}
+
+.assumption-audit-panel.review,
+.assumption-audit-panel.critical {
+  border-color: rgba(161, 98, 7, 0.28);
+  background: #fffdf4;
+}
+
+.assumption-audit-panel .panel-heading small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
 .assumption-audit-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1915,7 +1934,8 @@ select {
   color: var(--ok);
 }
 
-.assumption-audit-item.warning {
+.assumption-audit-item.review,
+.assumption-audit-item.critical {
   border-color: rgba(161, 98, 7, 0.28);
   color: var(--review);
 }
@@ -1947,6 +1967,39 @@ select {
 .assumption-audit-item small {
   color: var(--muted);
   line-height: 1.35;
+}
+
+.inline-governance-list {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid rgba(161, 98, 7, 0.24);
+  border-radius: var(--radius);
+  background: #fffdf4;
+}
+
+.inline-governance-list > strong {
+  color: var(--ink-soft);
+  font-size: 10px;
+}
+
+.inline-governance-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 6px;
+  color: var(--ok);
+  line-height: 1.35;
+}
+
+.inline-governance-item.review,
+.inline-governance-item.critical {
+  color: var(--review);
+}
+
+.inline-governance-item span {
+  min-width: 0;
+  color: var(--ink-soft);
 }
 
 .readiness-panel {

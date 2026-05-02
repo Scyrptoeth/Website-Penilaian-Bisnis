@@ -328,7 +328,7 @@ export function buildRequiredReturnOnNtaSuggestion({
 
   return {
     fields,
-    summary: "Isi capacity rate dari bukti kasus aktif. Jika bukti belum tersedia, WACC capital structure dipakai sebagai fallback agar EEM/DCF tetap dapat dihitung dan direview.",
+    summary: "Isi capacity rate dari bukti kasus aktif. Jika bukti belum tersedia, WACC capital structure hanya menjadi fallback provisional agar EEM/DCF dapat dihitung untuk review, bukan base case final otomatis.",
     waitingFor,
   };
 }

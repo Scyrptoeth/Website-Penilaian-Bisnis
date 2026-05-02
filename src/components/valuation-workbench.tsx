@@ -94,6 +94,12 @@ import { buildSectionAnalysis, type AnalysisRow, type AnalysisValue, type RatioR
 import { buildValidationChecks } from "@/lib/valuation/validation-checks";
 import { workbookAuditFixture } from "@/lib/valuation/workbook-audit-fixture";
 import {
+  buildAssumptionGovernance,
+  type AssumptionGovernanceItem,
+  type AssumptionGovernanceResult,
+  type AssumptionGovernanceTarget,
+} from "@/lib/valuation/assumption-governance";
+import {
   buildTaxRateCandidates,
   requiredReturnOnNtaInputReferences,
   terminalGrowthInputReferences,
@@ -399,15 +405,16 @@ export function ValuationWorkbench() {
       }),
     [resolvedAssumptions, snapshot.accountReceivable, snapshot.fixedAssetsNet, snapshot.inventory],
   );
-  const eemDcfAuditItems = useMemo(
+  const assumptionGovernance = useMemo(
     () =>
-      buildEemDcfAuditItems({
+      buildAssumptionGovernance({
         snapshot,
-        results,
+        waccCalculation,
         requiredReturnCalculation,
+        dcfTraces: results.dcf.traces,
         hasRevenueGrowthOverride: assumptions.revenueGrowth.trim() !== "",
       }),
-    [assumptions.revenueGrowth, requiredReturnCalculation, results, snapshot],
+    [assumptions.revenueGrowth, requiredReturnCalculation, results.dcf.traces, snapshot, waccCalculation],
   );
   const terminalGrowthSuggestion = useMemo(
     () =>
@@ -534,6 +541,10 @@ export function ValuationWorkbench() {
     if (typeof window !== "undefined") {
       window.scrollTo({ top: 0 });
     }
+  }
+
+  function navigateToGovernanceTarget(target: AssumptionGovernanceTarget) {
+    navigateToWorkflowTab(target);
   }
 
   useEffect(() => {
@@ -1230,6 +1241,7 @@ export function ValuationWorkbench() {
             comparableOptions={sectorComparableOptions}
             comparableSuggestions={sectorComparableSuggestions}
             autoCapitalValues={autoWaccCapitalValues}
+            governance={assumptionGovernance}
             onChange={updateAssumption}
             onComparableNameChange={updateWaccComparableName}
             onApplyComparableSuggestions={applySectorComparableSuggestions}
@@ -1267,6 +1279,7 @@ export function ValuationWorkbench() {
               assumptions={assumptions}
               wacc={snapshot.wacc}
               suggestion={terminalGrowthSuggestion}
+              governance={assumptionGovernance}
               onChange={updateAssumption}
               onApplySuggestion={applyTerminalGrowthSuggestion}
               onReasonChange={(value) => updateAssumptionText("terminalGrowthOverrideReason", value)}
@@ -1280,6 +1293,7 @@ export function ValuationWorkbench() {
                 inventory: snapshot.inventory,
                 fixedAssetsNet: snapshot.fixedAssetsNet,
               }}
+              governance={assumptionGovernance}
               onChange={updateAssumption}
               onReasonChange={(value) => updateAssumptionText("requiredReturnOnNtaOverrideReason", value)}
             />
@@ -1380,26 +1394,20 @@ export function ValuationWorkbench() {
           ))}
         </section>
 
-        <section className="assumption-audit-panel" aria-label="Audit asumsi material EEM dan DCF">
+        <section className={`assumption-audit-panel ${assumptionGovernance.level}`} aria-label="Audit asumsi material EEM dan DCF">
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">Audit asumsi material</p>
-              <h3>Kenapa EEM/DCF bergerak jauh</h3>
+              <p className="eyebrow">Assumption governance engine</p>
+              <h3>{assumptionGovernance.title}</h3>
+              <small>{assumptionGovernance.summary}</small>
             </div>
+            <em className={`source-badge ${assumptionGovernance.level === "critical" ? "warning" : assumptionGovernance.level === "review" ? "sensitivity" : "recommended"}`}>
+              {assumptionGovernance.criticalCount} critical · {assumptionGovernance.reviewCount} review
+            </em>
           </div>
           <div className="assumption-audit-grid">
-            {eemDcfAuditItems.map((item) => (
-              <div className={item.status === "warning" ? "assumption-audit-item warning" : "assumption-audit-item ok"} key={item.label}>
-                {item.status === "warning" ? <AlertTriangle size={18} /> : <CheckCircle2 size={18} />}
-                <div>
-                  <span>{item.label}</span>
-                  <strong>{item.value}</strong>
-                  <small>{item.note}</small>
-                </div>
-                <button className="button ghost compact-button" type="button" onClick={() => navigateToWorkflowTab(item.targetTab)}>
-                  Review
-                </button>
-              </div>
+            {assumptionGovernance.items.map((item) => (
+              <AssumptionGovernanceCard item={item} key={item.id} onNavigate={navigateToGovernanceTarget} />
             ))}
           </div>
         </section>
@@ -2905,7 +2913,7 @@ function WaccMarketSuggestionPanel({
       <AssumptionCalculatorHeader
         label="Smart auto suggestion"
         value={`${suggestion.year}`}
-        impact="Default memakai rata-rata tahunan dan tetap dapat dioverride dengan alasan."
+        impact="Input pasar tahunan; hasil WACC tetap harus melewati governance review."
       />
       <div className="table-wrap wacc-source-table">
         <table>
@@ -2938,7 +2946,7 @@ function WaccMarketSuggestionPanel({
       </div>
       <button className="button secondary" type="button" onClick={() => onApply(suggestion)}>
         <CheckCircle2 size={18} />
-        Terapkan suggestion {suggestion.year}
+        Isi input pasar {suggestion.year}
       </button>
     </article>
   );
@@ -2952,6 +2960,7 @@ function WaccCalculatorPanel({
   comparableOptions,
   comparableSuggestions,
   autoCapitalValues,
+  governance,
   onChange,
   onComparableNameChange,
   onApplyComparableSuggestions,
@@ -2964,11 +2973,14 @@ function WaccCalculatorPanel({
   comparableOptions: IdxComparableCompany[];
   comparableSuggestions: IdxComparableCompany[];
   autoCapitalValues: AutoWaccCapitalValues;
+  governance: AssumptionGovernanceResult;
   onChange: (key: keyof AssumptionState, value: string) => void;
   onComparableNameChange: (slot: WaccComparableSlot, value: string) => void;
   onApplyComparableSuggestions: () => void;
   onReasonChange: (value: string) => void;
 }) {
+  const waccGovernanceItems = governance.items.filter((item) => item.target === "wacc");
+
   return (
     <article className="assumption-calculator-card wide" data-testid="wacc-calculator">
       <AssumptionCalculatorHeader
@@ -2976,6 +2988,7 @@ function WaccCalculatorPanel({
         value={calculation ? formatPercent(calculation.wacc) : formatRateInput(assumptions.wacc)}
         impact="DCF discount rate dan EEM capitalization rate"
       />
+      <InlineGovernanceList title="WACC governance" items={waccGovernanceItems} />
       <div className="calculator-input-grid">
         <AssumptionInput label="Risk-free rate" value={assumptions.waccRiskFreeRate} onChange={(value) => onChange("waccRiskFreeRate", value)} />
         <AssumptionInput
@@ -3252,6 +3265,7 @@ function TerminalGrowthPanel({
   assumptions,
   wacc,
   suggestion,
+  governance,
   onChange,
   onApplySuggestion,
   onReasonChange,
@@ -3259,12 +3273,14 @@ function TerminalGrowthPanel({
   assumptions: AssumptionState;
   wacc: number;
   suggestion: TerminalGrowthSuggestion | null;
+  governance: AssumptionGovernanceResult;
   onChange: (key: keyof AssumptionState, value: string) => void;
   onApplySuggestion: (suggestion: TerminalGrowthSuggestion) => void;
   onReasonChange: (value: string) => void;
 }) {
   const baseGrowth = readRateInput(assumptions.terminalGrowth);
   const hasInvalidSpread = baseGrowth !== null && wacc > 0 && baseGrowth >= wacc;
+  const assumptionGovernanceItems = governance.items.filter((item) => item.target === "eemDcfAssumptions");
 
   return (
     <article className="assumption-calculator-card wide" data-testid="terminal-growth-calculator">
@@ -3273,6 +3289,7 @@ function TerminalGrowthPanel({
         value={formatRateInput(assumptions.terminalGrowth)}
         impact="DCF terminal value dan EEM capitalization spread"
       />
+      <InlineGovernanceList title="EEM/DCF assumption governance" items={assumptionGovernanceItems} />
       <TerminalGrowthSuggestionBlock suggestion={suggestion} onApply={onApplySuggestion} />
       <div className="calculator-input-grid">
         <AssumptionInput label="Base terminal growth" value={assumptions.terminalGrowth} onChange={(value) => onChange("terminalGrowth", value)} />
@@ -3338,8 +3355,8 @@ function TerminalGrowthSuggestionBlock({
           <span>Smart auto suggestion</span>
           <strong>{evidence.sector}</strong>
         </div>
-        <em className={`source-badge ${suggestion.confidence === "high" ? "recommended" : "sensitivity"}`}>
-          {suggestion.confidence} confidence
+        <em className="source-badge sensitivity">
+          {suggestion.confidence} evidence
         </em>
       </div>
       <div className="terminal-growth-suggestion-grid" aria-label="Terminal growth sector evidence">
@@ -3390,7 +3407,7 @@ function TerminalGrowthSuggestionBlock({
       </dl>
       <button className="button secondary" type="button" onClick={() => onApply(suggestion)}>
         <CheckCircle2 size={18} />
-        Terapkan sector suggestion
+        Isi sector suggestion
       </button>
     </div>
   );
@@ -3401,6 +3418,7 @@ function RequiredReturnOnNtaPanel({
   calculation,
   suggestion,
   balances,
+  governance,
   onChange,
   onReasonChange,
 }: {
@@ -3408,10 +3426,12 @@ function RequiredReturnOnNtaPanel({
   calculation: RequiredReturnOnNtaCalculation | null;
   suggestion: RequiredReturnOnNtaSuggestion;
   balances: { accountReceivable: number; inventory: number; fixedAssetsNet: number };
+  governance: AssumptionGovernanceResult;
   onChange: (key: keyof AssumptionState, value: string) => void;
   onReasonChange: (value: string) => void;
 }) {
   const suggestedValue = (key: RequiredReturnOnNtaSuggestionKey) => formatRequiredReturnSuggestionInput(suggestion.fields[key]);
+  const ntaGovernanceItems = governance.items.filter((item) => item.id === "nta-return-fallback");
 
   return (
     <article className="assumption-calculator-card wide" data-testid="required-return-on-nta-calculator">
@@ -3420,6 +3440,7 @@ function RequiredReturnOnNtaPanel({
         value={calculation ? formatPercent(calculation.requiredReturn) : formatRateInput(assumptions.requiredReturnOnNta)}
         impact="EEM capital charge atas operating net tangible assets"
       />
+      <InlineGovernanceList title="NTA return governance" items={ntaGovernanceItems} />
       <div className="driver-basis-strip">
         <div>
           <span>Account receivable</span>
@@ -3572,82 +3593,45 @@ function MetricTraceGrid({ metrics }: { metrics: Array<[string, string]> }) {
   );
 }
 
-type EemDcfAuditItem = {
-  label: string;
-  value: string;
-  note: string;
-  status: "ok" | "warning";
-  targetTab: WorkflowTabId;
-};
+function InlineGovernanceList({ title, items }: { title: string; items: AssumptionGovernanceItem[] }) {
+  if (items.length === 0) {
+    return null;
+  }
 
-function buildEemDcfAuditItems({
-  snapshot,
-  results,
-  requiredReturnCalculation,
-  hasRevenueGrowthOverride,
-}: {
-  snapshot: ReturnType<typeof buildSnapshot>;
-  results: ReturnType<typeof calculateAllMethods>;
-  requiredReturnCalculation: RequiredReturnOnNtaCalculation | null;
-  hasRevenueGrowthOverride: boolean;
-}): EemDcfAuditItem[] {
-  const capRate = snapshot.wacc - snapshot.terminalGrowth;
-  const explicitPv = getTraceValue(results.dcf.traces, "Explicit PV of FCFF");
-  const terminalPv = getTraceValue(results.dcf.traces, "PV terminal value");
-  const terminalWeight = terminalPv > 0 && explicitPv + terminalPv !== 0 ? terminalPv / (explicitPv + terminalPv) : 0;
-  const growthStatus = snapshot.revenueGrowth > 0.25 || (!hasRevenueGrowthOverride && snapshot.revenueGrowth > 0.2) ? "warning" : "ok";
-  const capRateStatus = capRate <= 0 || capRate < 0.075 ? "warning" : "ok";
-  const terminalStatus = terminalWeight > 0.8 ? "warning" : "ok";
-  const requiredReturnStatus = requiredReturnCalculation?.basis === "capacity_evidence" ? "ok" : "warning";
-
-  return [
-    {
-      label: "EEM capitalization spread",
-      value: capRate > 0 ? formatPercent(capRate) : "Tidak valid",
-      note:
-        capRateStatus === "warning"
-          ? "WACC dikurangi terminal growth masih sempit, sehingga excess earnings dikapitalisasi menjadi nilai besar."
-          : "Spread kapitalisasi memadai terhadap terminal growth aktif.",
-      status: capRateStatus,
-      targetTab: "eemDcfAssumptions",
-    },
-    {
-      label: "Revenue growth driver",
-      value: formatPercent(snapshot.revenueGrowth),
-      note:
-        growthStatus === "warning"
-          ? hasRevenueGrowthOverride
-            ? "Growth override tinggi; pastikan didukung memo proyeksi."
-            : "Growth otomatis berasal dari CAGR historis. Isi override bila historis tidak representatif."
-          : "Growth driver berada dalam rentang yang lebih terkendali.",
-      status: growthStatus,
-      targetTab: "eemDcfAssumptions",
-    },
-    {
-      label: "DCF terminal dependence",
-      value: formatPercent(terminalWeight),
-      note:
-        terminalStatus === "warning"
-          ? "Lebih dari 80% PV DCF berasal dari terminal value; WACC, growth, dan terminal growth wajib direview."
-          : "Porsi terminal value belum mendominasi DCF secara ekstrem.",
-      status: terminalStatus,
-      targetTab: "valuationEemDcf",
-    },
-    {
-      label: "Required return on NTA basis",
-      value: requiredReturnCalculation?.basisLabel ?? "Belum dihitung",
-      note:
-        requiredReturnStatus === "warning"
-          ? "Nilai memakai fallback karena capacity evidence belum lengkap; hasil EEM dapat berbeda jauh dari capacity-based workbook."
-          : "Required return memakai capacity evidence dari input AR, inventory, fixed assets, dan additional capacity.",
-      status: requiredReturnStatus,
-      targetTab: "eemDcfAssumptions",
-    },
-  ];
+  return (
+    <div className="inline-governance-list">
+      <strong>{title}</strong>
+      {items.map((item) => (
+        <div className={`inline-governance-item ${item.level}`} key={item.id}>
+          {item.level === "ok" ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+          <span>{item.message}</span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
-function getTraceValue(traces: FormulaTrace[], label: string): number {
-  return traces.find((trace) => trace.label === label)?.value ?? 0;
+function AssumptionGovernanceCard({
+  item,
+  onNavigate,
+}: {
+  item: AssumptionGovernanceItem;
+  onNavigate: (target: AssumptionGovernanceTarget) => void;
+}) {
+  return (
+    <div className={`assumption-audit-item ${item.level}`}>
+      {item.level === "ok" ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
+      <div>
+        <span>{item.label}</span>
+        <strong>{item.valueLabel}</strong>
+        <small>{item.message}</small>
+        <small>{item.action}</small>
+      </div>
+      <button className="button ghost compact-button" type="button" onClick={() => onNavigate(item.target)}>
+        Review
+      </button>
+    </div>
+  );
 }
 
 function ReferenceList({ references }: { references: AssumptionReference[] }) {
