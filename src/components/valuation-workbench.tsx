@@ -70,6 +70,7 @@ import {
   mapRow,
   normalizePeriods,
   parseInputNumber,
+  shareOwnershipTypeOptions,
   subjectTaxpayerTypeOptions,
   statementLabels,
   transferTypeOptions,
@@ -207,6 +208,7 @@ const caseProfileKeys: Array<keyof CaseProfile> = [
   "subjectTaxpayerName",
   "subjectTaxpayerNpwp",
   "subjectTaxpayerType",
+  "shareOwnershipType",
   "transferType",
   "capitalBaseFull",
   "capitalBaseValued",
@@ -292,8 +294,8 @@ const workflowTabs: Array<{ id: WorkflowTabId; label: string }> = [
   { id: "mapping", label: "Mapping & Label" },
   { id: "wacc", label: "WACC" },
   { id: "eemDcfAssumptions", label: "Asumsi EEM/DCF" },
-  { id: "valuationAam", label: "Valuasi AAM" },
-  { id: "valuationEemDcf", label: "Valuasi EEM/DCF" },
+  { id: "valuationAam", label: "Penilaian AAM" },
+  { id: "valuationEemDcf", label: "Penilaian EEM/DCF" },
   { id: "payablesCashFlow", label: "Payables & Cash Flow" },
   { id: "noplatFcf", label: "NOPLAT & FCF" },
   { id: "ratiosCapital", label: "Ratios & Capital Efficiency" },
@@ -973,8 +975,7 @@ export function ValuationWorkbench() {
           <div className="brand-block">
             <div className="brand-mark">PVB</div>
             <div className="brand-copy">
-              <p className="eyebrow">Penilaian Valuasi Bisnis</p>
-              <h1>Ruang Kerja Dinamis</h1>
+              <h1>PENILAIAN BISNIS II</h1>
             </div>
             <button
               className="sidebar-toggle"
@@ -1004,11 +1005,7 @@ export function ValuationWorkbench() {
 
       <section className="workspace">
         <div className="sticky-workspace-header" data-testid="workspace-header">
-          <header className="topbar">
-            <div>
-              <p className="eyebrow">100% equity · controlling marketable basis · no DLOM/DLOC</p>
-              <h2>Input Akun Fleksibel</h2>
-            </div>
+          <header className="topbar toolbar-only">
             <div className="toolbar">
               <button className="icon-button" type="button" onClick={undoCoreChange} disabled={undoStack.length === 0} title="Undo perubahan data">
                 <Undo2 size={18} />
@@ -1027,7 +1024,7 @@ export function ValuationWorkbench() {
             </div>
           </header>
 
-          <div className="workflow-tabs mobile-workflow-tabs" role="tablist" aria-label="Workflow valuasi">
+          <div className="workflow-tabs mobile-workflow-tabs" role="tablist" aria-label="Workflow penilaian">
             {workflowTabs.map((tab) => (
               <button
                 className={activeWorkflowTab === tab.id ? "active" : ""}
@@ -1063,7 +1060,7 @@ export function ValuationWorkbench() {
           />
           <div className="period-section-heading">
             <div>
-              <p className="eyebrow">Periode valuasi</p>
+              <p className="eyebrow">Periode penilaian</p>
               <h4>Periode input laporan keuangan</h4>
             </div>
             {caseProfileDerived.cutOffDate ? (
@@ -1091,7 +1088,7 @@ export function ValuationWorkbench() {
                   </label>
                   {isValuationYear ? (
                     <label>
-                      <span>Tanggal valuasi</span>
+                      <span>Tanggal penilaian</span>
                       <input
                         type="date"
                         value={period.valuationDate}
@@ -1280,7 +1277,7 @@ export function ValuationWorkbench() {
               sourceId={assumptions.taxRateSource}
               reason={assumptions.taxRateOverrideReason}
               candidates={taxRateCandidates}
-              emptyCandidateText="Isi tahun transaksi di Data Awal atau tanggal valuasi untuk memunculkan statutory general rate."
+              emptyCandidateText="Isi tahun transaksi di Data Awal atau tanggal penilaian untuk memunculkan statutory general rate."
               manualHint="Override fasilitas khusus wajib diberi alasan."
               onSelect={(candidate) => applyAssumptionCandidate("taxRate", candidate)}
               onValueChange={(value) => updateAssumption("taxRate", value)}
@@ -1397,7 +1394,7 @@ export function ValuationWorkbench() {
           ))}
         </section>
 
-        <section className="active-driver-strip" aria-label="Driver aktif valuasi">
+        <section className="active-driver-strip" aria-label="Driver aktif penilaian">
           {assumptionDriverSummaries.map((driver) => (
             <div key={driver.label}>
               <span>{driver.label}</span>
@@ -1563,7 +1560,7 @@ export function ValuationWorkbench() {
               <dd>{activePeriod?.label || "Belum diisi"}</dd>
             </div>
             <div>
-              <dt>Tanggal valuasi</dt>
+              <dt>Tanggal penilaian</dt>
               <dd>{formatDisplayDate(snapshot.valuationDate) || "Belum diisi"}</dd>
             </div>
             <div>
@@ -2796,7 +2793,7 @@ function AssumptionDriverMatrix({
   drivers: Array<{ label: string; valueLabel: string; sourceLabel: string }>;
 }) {
   return (
-    <section className="assumption-driver-matrix" aria-label="Ringkasan driver valuasi">
+    <section className="assumption-driver-matrix" aria-label="Ringkasan driver penilaian">
       {drivers.map((driver) => (
         <div key={driver.label}>
           <span>{driver.label}</span>
@@ -2845,6 +2842,12 @@ function CaseProfilePanel({
             value={profile.subjectTaxpayerType}
             options={subjectTaxpayerTypeOptions}
             onChange={(value) => onChange("subjectTaxpayerType", value)}
+          />
+          <CaseProfileSelect
+            label="Jenis Kepemilikan Saham"
+            value={profile.shareOwnershipType}
+            options={shareOwnershipTypeOptions}
+            onChange={(value) => onChange("shareOwnershipType", value)}
           />
         </div>
       </article>
@@ -2954,7 +2957,7 @@ function DerivedCaseField({
   return (
     <div className={state === "invalid" ? "derived-field invalid" : "derived-field"}>
       <span>{label}</span>
-      <strong>{value}</strong>
+      <output>{value}</output>
     </div>
   );
 }
@@ -2980,8 +2983,8 @@ function WaccMarketSuggestionPanel({
         />
         <p className="assumption-empty-note">
           {valuationDate.trim()
-            ? "Tanggal valuasi berada di luar library tahunan 2018-2025."
-            : "Isi Tahun Transaksi Pengalihan di Data Awal atau tanggal valuasi untuk memunculkan suggestion WACC tahunan."}
+            ? "Tanggal penilaian berada di luar library tahunan 2018-2025."
+            : "Isi Tahun Transaksi Pengalihan di Data Awal atau tanggal penilaian untuk memunculkan suggestion WACC tahunan."}
         </p>
       </article>
     );

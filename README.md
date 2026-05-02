@@ -1,6 +1,6 @@
-# Penilaian Valuasi Bisnis
+# Penilaian Bisnis II
 
-Website untuk mengubah framework Excel penilaian bisnis menjadi sistem valuasi berbasis web yang lebih terstruktur, traceable, dan mudah direview.
+Website untuk mengubah framework Excel penilaian bisnis menjadi sistem penilaian berbasis web yang lebih terstruktur, traceable, dan mudah direview.
 
 Fokus awal:
 

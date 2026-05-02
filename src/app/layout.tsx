@@ -16,8 +16,8 @@ const dmMono = DM_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Penilaian Valuasi Bisnis",
-  description: "Aplikasi web untuk AAM, EEM, DCF, account mapping, dan audit valuasi bisnis.",
+  title: "Penilaian Bisnis II",
+  description: "Aplikasi web untuk AAM, EEM, DCF, account mapping, dan audit penilaian bisnis.",
 };
 
 export default function RootLayout({

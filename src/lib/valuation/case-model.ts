@@ -32,6 +32,7 @@ export type CaseProfile = {
   subjectTaxpayerName: string;
   subjectTaxpayerNpwp: string;
   subjectTaxpayerType: string;
+  shareOwnershipType: string;
   transferType: string;
   capitalBaseFull: string;
   capitalBaseValued: string;
@@ -174,6 +175,8 @@ export const companyTypeOptions = ["Tertutup", "Terbuka (Tbk)"];
 
 export const subjectTaxpayerTypeOptions = ["Orang Pribadi", "Badan"];
 
+export const shareOwnershipTypeOptions = ["Minoritas", "Mayoritas"];
+
 export const transferTypeOptions = ["Lembar Saham", "Modal Disetor"];
 
 export const valuationObjectOptions = ["Saham", "Bisnis"];
@@ -186,6 +189,7 @@ export const emptyCaseProfile: CaseProfile = {
   subjectTaxpayerName: "",
   subjectTaxpayerNpwp: "",
   subjectTaxpayerType: "",
+  shareOwnershipType: "",
   transferType: "",
   capitalBaseFull: "",
   capitalBaseValued: "",
@@ -524,6 +528,7 @@ export function buildSampleCaseProfile(): CaseProfile {
     subjectTaxpayerName: "Helga",
     subjectTaxpayerNpwp: "211437892119000",
     subjectTaxpayerType: "Orang Pribadi",
+    shareOwnershipType: "Minoritas",
     transferType: "Modal Disetor",
     capitalBaseFull: formatInputNumber(5_280_000_000),
     capitalBaseValued: formatInputNumber(1_600_000_000),

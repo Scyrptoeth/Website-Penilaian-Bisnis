@@ -147,8 +147,8 @@ export function buildWorkbenchReadiness({
       requiredReturn,
       workingCapitalDays,
     ]),
-    valuationAam: status("valuationAam", "Valuasi AAM", [period, balance, mapped]),
-    valuationEemDcf: status("valuationEemDcf", "Valuasi EEM/DCF", [
+    valuationAam: status("valuationAam", "Penilaian AAM", [period, balance, mapped]),
+    valuationEemDcf: status("valuationEemDcf", "Penilaian EEM/DCF", [
       period,
       balance,
       income,

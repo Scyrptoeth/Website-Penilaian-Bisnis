@@ -14,7 +14,7 @@ test("period workflow, scoped categories, and display-only balance sheet classif
   await page.getByLabel("Sektor Perusahaan").selectOption("Basic Materials");
   await page.getByLabel("Tahun Transaksi Pengalihan").fill("2022");
   await expect(page.getByText("31 Desember 2021").first()).toBeVisible();
-  await expect(page.getByLabel("Tanggal valuasi")).toHaveValue("2021-12-31");
+  await expect(page.getByLabel("Tanggal penilaian")).toHaveValue("2021-12-31");
   await expect(page.getByTestId("period-card")).toHaveCount(1);
   await page.getByRole("button", { name: /Tambah Y-1/ }).click();
   await page.getByRole("button", { name: /Tambah Y-2/ }).click();
@@ -93,7 +93,7 @@ test("fixed asset schedule remains empty until user adds a class and then rolls 
 });
 
 test("AAM valuation remains available without WACC or EEM/DCF driver inputs", async ({ page }) => {
-  await page.getByLabel("Tanggal valuasi").fill("2021-12-31");
+  await page.getByLabel("Tanggal penilaian").fill("2021-12-31");
   await openWorkflowTab(page, "Neraca & Fixed Asset");
   await page.getByRole("button", { name: "Balance Sheet" }).first().click();
   let balanceRow = page.getByTestId("balance-account-table-row").last();
@@ -104,11 +104,11 @@ test("AAM valuation remains available without WACC or EEM/DCF driver inputs", as
   await balanceRow.getByLabel("Nama akun").fill("Utang usaha");
   await balanceRow.getByLabel("Tahun Y amount").fill("250000");
 
-  await openWorkflowTab(page, "Valuasi AAM");
+  await openWorkflowTab(page, "Penilaian AAM");
   await expect(page.getByText("Asset accumulation method")).toBeVisible();
   await expect(page.getByText("Tidak diperlukan")).toBeVisible();
 
-  await openWorkflowTab(page, "Valuasi EEM/DCF");
+  await openWorkflowTab(page, "Penilaian EEM/DCF");
   await expect(page.getByTestId("readiness-valuationEemDcf")).toContainText("Masih diperlukan");
 });
 
@@ -139,7 +139,7 @@ test("added analysis sections use readiness gates before sample data and render 
 
 test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators, and active valuation sources", async ({ page }) => {
   await page.getByLabel("Sektor Perusahaan").selectOption("Consumer Cyclicals");
-  await page.getByLabel("Tanggal valuasi").fill("2023-12-31");
+  await page.getByLabel("Tanggal penilaian").fill("2023-12-31");
   await openWorkflowTab(page, "Asumsi EEM/DCF");
 
   const taxCard = page.getByTestId("assumption-card-tax-rate");
@@ -191,9 +191,9 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await expect(page.getByTestId("required-return-on-nta-calculator")).toContainText("WACC debt weight x Kd");
   await expect(page.locator("body")).not.toContainText("STAT_ASSUMPTIONS");
 
-  await openWorkflowTab(page, "Valuasi EEM/DCF");
-  await expect(page.getByLabel("Driver aktif valuasi")).toContainText("Governed base from market inputs");
-  await expect(page.getByLabel("Driver aktif valuasi")).toContainText("Governed tangible capacity proxy");
+  await openWorkflowTab(page, "Penilaian EEM/DCF");
+  await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Governed base from market inputs");
+  await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Governed tangible capacity proxy");
 });
 
 test("legacy positive income-statement expense drafts migrate once and remain user-editable", async ({ page }) => {

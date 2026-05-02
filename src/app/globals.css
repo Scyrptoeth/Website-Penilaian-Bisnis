@@ -301,6 +301,11 @@ svg {
   min-width: 0;
 }
 
+.topbar.toolbar-only {
+  justify-content: flex-end;
+  align-items: center;
+}
+
 .topbar > div:first-child,
 .panel-heading > div:first-child,
 .card-title > span {
@@ -494,11 +499,6 @@ select:focus-visible,
   display: grid;
   gap: 4px;
   min-width: 0;
-  min-height: 54px;
-  padding: 7px 8px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
 }
 
 .derived-field span {
@@ -507,8 +507,18 @@ select:focus-visible,
   font-weight: 700;
 }
 
-.derived-field strong {
+.derived-field output {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  min-height: 32px;
+  padding: 0 8px;
   overflow-wrap: anywhere;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
   align-self: center;
   font-family: var(--font-mono), monospace;
   font-size: 10.4px;
@@ -516,6 +526,10 @@ select:focus-visible,
 }
 
 .derived-field.invalid {
+  color: var(--danger);
+}
+
+.derived-field.invalid output {
   border-color: rgba(180, 35, 24, 0.32);
   background: var(--danger-soft);
   color: var(--danger);
