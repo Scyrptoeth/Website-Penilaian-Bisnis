@@ -66,7 +66,7 @@ describe("balance sheet classification and view", () => {
     assert.equal(grouped[0].key, "non_current_asset");
   });
 
-  it("shows fixed asset detail rows without double-counting Beginning and Accumulated Depreciations", () => {
+  it("shows fixed asset detail rows without double-counting opening balances and accumulated depreciation", () => {
     const scheduleRow: FixedAssetScheduleRow = {
       id: "fa1",
       assetName: "Factory equipment",
@@ -90,9 +90,9 @@ describe("balance sheet classification and view", () => {
     const view = buildBalanceSheetView(basePeriods, [mapRow(cash)], schedule);
     const assetLines = view.sections[0].lines;
 
-    assert.equal(assetLines.some((line) => line.label === "Beginning" && line.affectsTotal === false), true);
-    assert.equal(assetLines.some((line) => line.label === "Accumulated Depreciations" && line.affectsTotal === false), true);
-    assert.equal(assetLines.some((line) => line.label === "Fixed Assets, Net" && line.affectsTotal !== false), true);
+    assert.equal(assetLines.some((line) => line.label === "Saldo awal" && line.affectsTotal === false), true);
+    assert.equal(assetLines.some((line) => line.label === "Akumulasi penyusutan" && line.affectsTotal === false), true);
+    assert.equal(assetLines.some((line) => line.label === "Nilai buku bersih aset tetap" && line.affectsTotal !== false), true);
     assert.equal(view.totalAssets.p1, 1_500);
   });
 
@@ -126,6 +126,6 @@ describe("balance sheet classification and view", () => {
     const snapshot = buildSnapshot(basePeriods, "p1", [fixedAssetNet], { ...emptyAssumptions, taxRate: "22%", wacc: "10%" }, [scheduleRow]);
     const checks = buildValidationChecks([fixedAssetNet], mappedRows, { ...emptyAssumptions, taxRate: "22%", wacc: "10%" }, snapshot, 0, schedule);
 
-    assert.equal(checks.find((check) => check.label === "Tidak double count fixed asset")?.ok, false);
+    assert.equal(checks.find((check) => check.label === "Tidak ada penghitungan ganda aset tetap")?.ok, false);
   });
 });

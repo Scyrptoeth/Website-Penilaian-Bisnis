@@ -3,13 +3,13 @@ import type { BalanceSheetClassification, MappedRow, StatementType } from "./cas
 import type { AccountCategory } from "./types";
 
 export const balanceSheetClassificationOptions: Array<{ value: BalanceSheetClassification; label: string }> = [
-  { value: "current_asset", label: "Current Asset" },
-  { value: "non_current_asset", label: "Non-current Asset" },
-  { value: "asset_total", label: "Total Asset / Override" },
-  { value: "current_liability", label: "Current Liability" },
-  { value: "non_current_liability", label: "Non-current Liability" },
-  { value: "liability_total", label: "Total Liability / Override" },
-  { value: "equity", label: "Equity" },
+  { value: "current_asset", label: "Aset lancar" },
+  { value: "non_current_asset", label: "Aset tidak lancar" },
+  { value: "asset_total", label: "Total aset / override" },
+  { value: "current_liability", label: "Liabilitas lancar" },
+  { value: "non_current_liability", label: "Liabilitas tidak lancar" },
+  { value: "liability_total", label: "Total liabilitas / override" },
+  { value: "equity", label: "Ekuitas" },
 ];
 
 export const balanceSheetClassificationLabelMap = new Map(balanceSheetClassificationOptions.map((option) => [option.value, option.label]));

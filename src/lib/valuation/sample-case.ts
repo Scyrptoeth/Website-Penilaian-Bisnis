@@ -56,11 +56,11 @@ export const sampleCase: FinancialStatementSnapshot = {
 };
 
 export const sampleAccountLabels = [
-  "Cash on Hands (Kas + Kas)",
-  "Cash on Bank (Bank Danomon A/C 006600669813 + Deposito Bank Danamon)",
+  "Kas tunai",
+  "Bank dan deposito (Bank Danamon A/C 006600669813 + Deposito Bank Danamon)",
   "Inventaris Bangunan Mess",
   "Invt Bangunan Mess",
-  "Bank Loan-Short Term",
+  "Pinjaman bank jangka pendek",
   "Pendapatan Bunga Deposito",
   "Beban Jasa Giro",
   "Penjualan",

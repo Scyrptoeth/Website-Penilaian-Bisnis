@@ -289,16 +289,16 @@ type WorkflowTabId = WorkbenchSectionId;
 
 const workflowTabs: Array<{ id: WorkflowTabId; label: string }> = [
   { id: "periods", label: "Data Awal" },
-  { id: "balance", label: "Neraca & Fixed Asset" },
+  { id: "balance", label: "Neraca & Aset Tetap" },
   { id: "income", label: "Laba Rugi" },
-  { id: "mapping", label: "Mapping & Label" },
+  { id: "mapping", label: "Pemetaan & Label" },
   { id: "wacc", label: "WACC" },
   { id: "eemDcfAssumptions", label: "Asumsi EEM/DCF" },
   { id: "valuationAam", label: "Penilaian AAM" },
   { id: "valuationEemDcf", label: "Penilaian EEM/DCF" },
-  { id: "payablesCashFlow", label: "Payables & Cash Flow" },
+  { id: "payablesCashFlow", label: "Utang & Arus Kas" },
   { id: "noplatFcf", label: "NOPLAT & FCF" },
-  { id: "ratiosCapital", label: "Ratios & Capital Efficiency" },
+  { id: "ratiosCapital", label: "Rasio & Efisiensi Modal" },
   { id: "audit", label: "Audit" },
 ];
 
@@ -440,26 +440,26 @@ export function ValuationWorkbench() {
   const isGovernedTerminalGrowth = rawTerminalGrowthValue !== null && Math.abs(rawTerminalGrowthValue - snapshot.terminalGrowth) > 0.0001;
   const isGovernedRequiredReturn = rawRequiredReturnValue !== null && Math.abs(rawRequiredReturnValue - snapshot.requiredReturnOnNta) > 0.0001;
   const assumptionDriverSummaries = [
-    buildAssumptionDriverSummary("Tax rate", assumptions.taxRate, assumptions.taxRateSource, taxRateCandidates),
+    buildAssumptionDriverSummary("Tarif pajak", assumptions.taxRate, assumptions.taxRateSource, taxRateCandidates),
     buildCalculatedDriverSummary(
       "WACC",
       snapshot.wacc,
-      isGovernedWacc ? "Governed base from market inputs" : waccCalculation ? "Calculated from WACC inputs" : sourceLabelFromManual(assumptions.wacc),
+      isGovernedWacc ? "Basis governed dari input pasar" : waccCalculation ? "Dihitung dari input WACC" : sourceLabelFromManual(assumptions.wacc),
     ),
     buildCalculatedDriverSummary(
       "Terminal growth",
       snapshot.terminalGrowth,
       isGovernedTerminalGrowth
-        ? "Governed base capped from sector suggestion"
+        ? "Basis governed dengan cap dari saran sektor"
         : assumptions.terminalGrowthSource === terminalGrowthSuggestion?.sourceId
-        ? "Sector-calibrated suggestion with downside/upside band"
-        : assumptions.terminalGrowth.trim() ? "User base case with sensitivity inputs" : "Belum dipilih",
+        ? "Saran terkalibrasi sektor dengan band downside/upside"
+        : assumptions.terminalGrowth.trim() ? "Base case pengguna dengan input sensitivitas" : "Belum dipilih",
     ),
     buildCalculatedDriverSummary(
       "Required return on NTA",
       snapshot.requiredReturnOnNta,
       isGovernedRequiredReturn
-        ? "Governed tangible capacity proxy"
+        ? "Proxy kapasitas aset berwujud yang di-govern"
         : requiredReturnCalculation ? requiredReturnCalculation.basisLabel : sourceLabelFromManual(assumptions.requiredReturnOnNta),
     ),
   ];
@@ -883,7 +883,7 @@ export function ValuationWorkbench() {
 
   function applyWaccMarketSuggestion(suggestion: MarketAssumptionSuggestion) {
     const averageDebtRate = averageInvestmentLoanRate(suggestion);
-    const sourceNote = `Annual average suggestion ${suggestion.year}; ERP/default spread from Damodaran, SUN proxy from market evidence, SBDK investment-loan proxy from OJK.`;
+    const sourceNote = `Saran rata-rata tahunan ${suggestion.year}; ERP/default spread dari Damodaran, proxy SUN dari bukti pasar, dan proxy SBDK pinjaman investasi dari OJK.`;
 
     commitCoreState((current) => ({
       ...current,
@@ -1115,7 +1115,7 @@ export function ValuationWorkbench() {
           <div className="panel-heading">
             <div>
               <p className="eyebrow">Langkah 2</p>
-              <h3>Neraca dan fixed asset</h3>
+              <h3>Neraca dan aset tetap</h3>
             </div>
           </div>
           <ReadinessPanel status={readiness.balance} onNavigate={navigateToWorkflowTab} />
@@ -1131,17 +1131,17 @@ export function ValuationWorkbench() {
 
           <div className="subpanel-heading account-input-heading">
             <div>
-              <p className="eyebrow">Balance Sheet</p>
+              <p className="eyebrow">Neraca</p>
               <h4>Akun neraca manual</h4>
             </div>
             <button className="button secondary" type="button" onClick={() => addRow("balance_sheet")}>
               <Plus size={18} />
-              Balance Sheet
+              Tambah akun neraca
             </button>
           </div>
 
           <AccountInputTable
-            emptyMessage="Belum ada akun neraca. Tambahkan baris dari tombol Balance Sheet di atas."
+            emptyMessage="Belum ada akun neraca. Tambahkan baris dari tombol Tambah akun neraca di atas."
             mappedRows={balanceSheetRows}
             periods={periods}
             testId="balance-account-table"
@@ -1154,7 +1154,7 @@ export function ValuationWorkbench() {
           <div className="account-input-footer">
             <button className="button secondary" type="button" onClick={() => addRow("balance_sheet")}>
               <Plus size={18} />
-              Balance Sheet
+              Tambah akun neraca
             </button>
           </div>
 
@@ -1171,12 +1171,12 @@ export function ValuationWorkbench() {
             </div>
             <button className="button secondary" type="button" onClick={() => addRow("income_statement")}>
               <Plus size={18} />
-              Income Statement
+              Tambah akun laba rugi
             </button>
           </div>
           <ReadinessPanel status={readiness.income} onNavigate={navigateToWorkflowTab} />
           <AccountInputTable
-            emptyMessage="Belum ada akun laba rugi. Tambahkan baris Income Statement."
+            emptyMessage="Belum ada akun laba rugi. Tambahkan baris akun laba rugi."
             mappedRows={incomeStatementRows}
             periods={periods}
             testId="income-account-table"
@@ -1188,7 +1188,7 @@ export function ValuationWorkbench() {
           <div className="account-input-footer">
             <button className="button secondary" type="button" onClick={() => addRow("income_statement")}>
               <Plus size={18} />
-              Income Statement
+              Tambah akun laba rugi
             </button>
           </div>
           <IncomeStatementReportTable periods={periods} view={incomeStatementView} />
@@ -1219,7 +1219,7 @@ export function ValuationWorkbench() {
           <div className="panel-heading">
             <div>
               <p className="eyebrow">WACC</p>
-              <h3>Weighted average cost of capital</h3>
+              <h3>Biaya modal rata-rata tertimbang (WACC)</h3>
             </div>
           </div>
           <ReadinessPanel status={readiness.wacc} onNavigate={navigateToWorkflowTab} />
@@ -1257,13 +1257,14 @@ export function ValuationWorkbench() {
           <AssumptionDriverMatrix drivers={assumptionDriverSummaries} />
           <div className="assumption-tax-row">
             <AssumptionDriverCard
-              label="Tax rate"
+              label="Tarif pajak"
               value={assumptions.taxRate}
               sourceId={assumptions.taxRateSource}
               reason={assumptions.taxRateOverrideReason}
               candidates={taxRateCandidates}
-              emptyCandidateText="Isi tahun transaksi di Data Awal atau tanggal penilaian untuk memunculkan statutory general rate."
+              emptyCandidateText="Isi tahun transaksi di Data Awal atau tanggal penilaian untuk memunculkan tarif statutory umum."
               manualHint="Override fasilitas khusus wajib diberi alasan."
+              testIdSlug="tax-rate"
               onSelect={(candidate) => applyAssumptionCandidate("taxRate", candidate)}
               onValueChange={(value) => updateAssumption("taxRate", value)}
               onReasonChange={(value) => updateAssumptionText("taxRateOverrideReason", value)}
@@ -1294,12 +1295,12 @@ export function ValuationWorkbench() {
             />
           </div>
           <div className="assumption-form-grid compact-driver-grid">
-            <AssumptionInput label="Revenue growth override" value={assumptions.revenueGrowth} onChange={(value) => updateAssumption("revenueGrowth", value)} />
-            <AssumptionInput label="AR days" value={assumptions.arDays} onChange={(value) => updateAssumption("arDays", value)} />
-            <AssumptionInput label="Inventory days" value={assumptions.inventoryDays} onChange={(value) => updateAssumption("inventoryDays", value)} />
-            <AssumptionInput label="AP days" value={assumptions.apDays} onChange={(value) => updateAssumption("apDays", value)} />
+            <AssumptionInput label="Override pertumbuhan pendapatan" value={assumptions.revenueGrowth} onChange={(value) => updateAssumption("revenueGrowth", value)} />
+            <AssumptionInput label="Hari piutang (AR days)" value={assumptions.arDays} onChange={(value) => updateAssumption("arDays", value)} />
+            <AssumptionInput label="Hari persediaan" value={assumptions.inventoryDays} onChange={(value) => updateAssumption("inventoryDays", value)} />
+            <AssumptionInput label="Hari utang usaha (AP days)" value={assumptions.apDays} onChange={(value) => updateAssumption("apDays", value)} />
             <AssumptionInput
-              label="Other payable days"
+              label="Hari utang lain-lain"
               value={assumptions.otherPayableDays}
               onChange={(value) => updateAssumption("otherPayableDays", value)}
             />
@@ -1317,7 +1318,7 @@ export function ValuationWorkbench() {
               <span>AAM</span>
             </div>
             <strong>{formatIdr(results.aam.equityValue)}</strong>
-            <p>{activePeriod?.label || "Periode aktif"} · Equity Value 100%</p>
+            <p>{activePeriod?.label || "Periode aktif"} · Nilai Ekuitas 100%</p>
           </article>
           <article className="metric-card">
             <div className="card-title">
@@ -1325,7 +1326,7 @@ export function ValuationWorkbench() {
               <span>Neraca basis</span>
             </div>
             <strong>{formatIdr(results.adjustedTotalAssets - results.adjustedTotalLiabilities)}</strong>
-            <p>Aset dikurangi seluruh liabilitas; tidak memakai WACC, tax rate, terminal growth, atau required return on NTA.</p>
+            <p>Aset dikurangi seluruh liabilitas; tidak memakai WACC, tarif pajak, terminal growth, atau required return on NTA.</p>
           </article>
         </section>
 
@@ -1333,8 +1334,8 @@ export function ValuationWorkbench() {
           <article className="panel">
             <div className="panel-heading">
               <div>
-                <p className="eyebrow">AAM trace</p>
-                <h3>Asset accumulation method</h3>
+                <p className="eyebrow">Jejak AAM</p>
+                <h3>Asset Accumulation Method (AAM)</h3>
               </div>
               <Banknote size={22} />
             </div>
@@ -1344,15 +1345,15 @@ export function ValuationWorkbench() {
             <div className="panel-heading">
               <div>
                 <p className="eyebrow">Batasan</p>
-                <h3>Scope metode AAM</h3>
+                <h3>Ruang lingkup metode AAM</h3>
               </div>
               <FileSearch size={22} />
             </div>
             <MetricTraceGrid
               metrics={[
-                ["Input minimum", "Periode, neraca, fixed asset bila tersedia, dan mapping akun"],
-                ["Tidak diperlukan", "WACC, terminal growth, tax rate, required return on NTA"],
-                ["Judgment utama", "FMV adjustment aset/liabilitas dan review aset non-operating"],
+                ["Input minimum", "Periode, neraca, aset tetap bila tersedia, dan pemetaan akun"],
+                ["Tidak diperlukan", "WACC, terminal growth, tarif pajak, required return on NTA"],
+                ["Judgment utama", "Penyesuaian FMV aset/liabilitas dan tinjauan aset non-operasional"],
               ]}
             />
           </article>
@@ -1374,7 +1375,7 @@ export function ValuationWorkbench() {
                 <span>{method.method}</span>
               </div>
               <strong>{formatIdr(method.equityValue)}</strong>
-              <p>{activePeriod?.label || "Periode aktif"} · Equity Value 100%</p>
+              <p>{activePeriod?.label || "Periode aktif"} · Nilai Ekuitas 100%</p>
             </article>
           ))}
         </section>
@@ -1392,12 +1393,12 @@ export function ValuationWorkbench() {
         <section className={`assumption-audit-panel ${assumptionGovernance.level}`} aria-label="Audit asumsi material EEM dan DCF">
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">Assumption governance engine</p>
+              <p className="eyebrow">Mesin tata kelola asumsi</p>
               <h3>{assumptionGovernance.title}</h3>
               <small>{assumptionGovernance.summary}</small>
             </div>
             <em className={`source-badge ${assumptionGovernance.level === "critical" ? "warning" : assumptionGovernance.level === "review" ? "sensitivity" : "recommended"}`}>
-              {assumptionGovernance.criticalCount} critical · {assumptionGovernance.reviewCount} review
+              {assumptionGovernance.criticalCount} kritis · {assumptionGovernance.reviewCount} tinjauan
             </em>
           </div>
           <div className="assumption-audit-grid">
@@ -1431,27 +1432,27 @@ export function ValuationWorkbench() {
           </div>
           <div className="sensitivity-grid">
             <div>
-              <span>DCF base</span>
+              <span>DCF - skenario dasar</span>
               <strong>{formatIdr(results.dcf.equityValue)}</strong>
             </div>
             <div>
-              <span>DCF terminal downside</span>
+              <span>DCF - terminal downside</span>
               <strong>{formatIdr(results.sensitivities.dcfTerminalDownside.equityValue)}</strong>
             </div>
             <div>
-              <span>DCF terminal upside</span>
+              <span>DCF - terminal upside</span>
               <strong>{formatIdr(results.sensitivities.dcfTerminalUpside.equityValue)}</strong>
             </div>
             <div>
-              <span>DCF no incremental WC</span>
+              <span>DCF tanpa WC incremental</span>
               <strong>{formatIdr(results.sensitivities.dcfNoIncrementalWorkingCapital.equityValue)}</strong>
             </div>
             <div>
-              <span>DCF tax payable debt-like</span>
+              <span>DCF utang pajak debt-like</span>
               <strong>{formatIdr(results.sensitivities.dcfTaxPayableDebtLike.equityValue)}</strong>
             </div>
             <div>
-              <span>EEM tax payable debt-like</span>
+              <span>EEM utang pajak debt-like</span>
               <strong>{formatIdr(results.sensitivities.eemTaxPayableDebtLike.equityValue)}</strong>
             </div>
           </div>
@@ -1461,8 +1462,8 @@ export function ValuationWorkbench() {
           <article className="panel">
             <div className="panel-heading">
               <div>
-                <p className="eyebrow">EEM trace</p>
-                <h3>Excess earning method</h3>
+                <p className="eyebrow">Jejak EEM</p>
+                <h3>Excess Earnings Method (EEM)</h3>
               </div>
               <FileSearch size={22} />
             </div>
@@ -1472,8 +1473,8 @@ export function ValuationWorkbench() {
           <article className="panel">
             <div className="panel-heading">
               <div>
-                <p className="eyebrow">DCF trace</p>
-                <h3>Discounted cash flow</h3>
+                <p className="eyebrow">Jejak DCF</p>
+                <h3>Discounted Cash Flow (DCF)</h3>
               </div>
               <TableProperties size={22} />
             </div>
@@ -1486,7 +1487,7 @@ export function ValuationWorkbench() {
             <div className="panel-heading">
               <div>
                 <p className="eyebrow">Proyeksi</p>
-                <h3>FCFF projection</h3>
+                <h3>Proyeksi FCFF</h3>
               </div>
             </div>
             <div className="compact-table">
@@ -1553,23 +1554,23 @@ export function ValuationWorkbench() {
               <dd>{mappedRows.filter((item) => item.effectiveCategory !== "UNMAPPED").length}</dd>
             </div>
             <div>
-              <dt>Adjusted total assets</dt>
+              <dt>Total aset disesuaikan</dt>
               <dd>{formatIdr(results.adjustedTotalAssets)}</dd>
             </div>
             <div>
-              <dt>Fixed asset net value</dt>
+              <dt>Nilai buku bersih aset tetap</dt>
               <dd>{formatIdr(snapshot.fixedAssetsNet)}</dd>
             </div>
             <div>
-              <dt>Adjusted total liabilities</dt>
+              <dt>Total liabilitas disesuaikan</dt>
               <dd>{formatIdr(results.adjustedTotalLiabilities)}</dd>
             </div>
             <div>
-              <dt>Book equity components</dt>
+              <dt>Komponen ekuitas buku</dt>
               <dd>{formatIdr(equityBookComponents)}</dd>
             </div>
             <div>
-              <dt>Balance sheet gap</dt>
+              <dt>Selisih neraca</dt>
               <dd>{formatIdr(balanceSheetGap)}</dd>
             </div>
             <div>
@@ -1577,23 +1578,23 @@ export function ValuationWorkbench() {
               <dd>{formatIdr(snapshot.ebit)}</dd>
             </div>
             <div>
-              <dt>Tax rate</dt>
+              <dt>Tarif pajak</dt>
               <dd>{formatPercent(snapshot.taxRate)}</dd>
             </div>
             <div>
-              <dt>Revenue growth driver</dt>
+              <dt>Driver pertumbuhan pendapatan</dt>
               <dd>{formatPercent(snapshot.revenueGrowth)}</dd>
             </div>
             <div>
-              <dt>COGS margin driver</dt>
+              <dt>Driver margin COGS</dt>
               <dd>{formatPercent(snapshot.cogsMargin)}</dd>
             </div>
             <div>
-              <dt>Opex margin driver</dt>
+              <dt>Driver margin opex</dt>
               <dd>{formatPercent(snapshot.gaMargin)}</dd>
             </div>
             <div>
-              <dt>Depreciation margin driver</dt>
+              <dt>Driver margin penyusutan</dt>
               <dd>{formatPercent(snapshot.depreciationMargin)}</dd>
             </div>
             <div>
@@ -1601,7 +1602,7 @@ export function ValuationWorkbench() {
               <dd>{formatIdr(results.operatingWorkingCapital)}</dd>
             </div>
             <div>
-              <dt>Interest-bearing debt</dt>
+              <dt>Utang berbunga</dt>
               <dd>{formatIdr(results.interestBearingDebt)}</dd>
             </div>
           </dl>
@@ -1743,9 +1744,9 @@ function PayablesCashFlowSection({ analysis }: { analysis: SectionAnalysis }) {
           <div className="panel-heading">
             <div>
               <p className="eyebrow">ACC PAYABLES</p>
-              <h3>Debt and payable movement schedule</h3>
+              <h3>Jadwal mutasi pinjaman dan utang</h3>
             </div>
-            <span className="status-pill muted">Corrected movement basis</span>
+            <span className="status-pill muted">Basis mutasi terkoreksi</span>
           </div>
           <AnalysisTable rows={analysis.payablesRows} periods={analysis.periods} />
         </article>
@@ -1753,25 +1754,25 @@ function PayablesCashFlowSection({ analysis }: { analysis: SectionAnalysis }) {
         <article className="panel">
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">System audit reference</p>
-              <h3>Cash-flow movement checks</h3>
+              <p className="eyebrow">Referensi audit sistem</p>
+              <h3>Pemeriksaan mutasi arus kas</h3>
             </div>
           </div>
           <EngineAuditReference
-            sourceLabel="Current case engine"
-            summary="Reference values are recalculated from current periods, not copied from the prototype workbook."
+            sourceLabel="Mesin kasus aktif"
+            summary="Nilai referensi dihitung ulang dari periode aktif, bukan disalin dari prototype workbook."
             metrics={[
-              { label: "Equity injection movement", value: equityMovement },
-              { label: "Cash roll-forward gap", value: latest?.cashFlowRollforwardGap ?? null },
+              { label: "Mutasi setoran ekuitas", value: equityMovement },
+              { label: "Selisih roll-forward kas", value: latest?.cashFlowRollforwardGap ?? null },
               {
-                label: "Interest-bearing debt",
+                label: "Utang berbunga",
                 value: latest ? latest.loanMovement.shortTermEnding + latest.loanMovement.longTermEnding : null,
               },
             ]}
             notes={[
-              "Financing uses paid-up and additional capital movement between periods.",
-              "Cash gap compares corrected net cash flow against cash-on-hand plus bank movement.",
-              "Debt is sourced from mapped bank loan and interest-bearing debt lines.",
+              "Pendanaan memakai mutasi modal disetor dan tambahan modal antarperiode.",
+              "Selisih kas membandingkan arus kas bersih terkoreksi dengan mutasi kas di tangan plus bank.",
+              "Utang bersumber dari pinjaman bank dan line utang berbunga yang sudah dipetakan.",
             ]}
           />
         </article>
@@ -1779,10 +1780,10 @@ function PayablesCashFlowSection({ analysis }: { analysis: SectionAnalysis }) {
 
       <section className="panel">
         <div className="panel-heading">
-          <div>
-            <p className="eyebrow">CASH FLOW STATEMENT</p>
-            <h3>Corrected cash-flow bridge</h3>
-          </div>
+            <div>
+              <p className="eyebrow">CASH FLOW STATEMENT</p>
+              <h3>Bridge arus kas terkoreksi</h3>
+            </div>
           <span className="status-pill muted">Movement antar periode</span>
         </div>
         <AnalysisTable rows={analysis.cashFlowRows} periods={analysis.periods} />
@@ -1801,9 +1802,9 @@ function NoplatFcfSection({ analysis }: { analysis: SectionAnalysis }) {
           <div className="panel-heading">
             <div>
               <p className="eyebrow">NOPLAT</p>
-              <h3>Normalized operating profit after tax</h3>
+              <h3>Normalized Operating Profit After Tax (NOPLAT)</h3>
             </div>
-            <span className="status-pill muted">Commercial statutory basis</span>
+            <span className="status-pill muted">Basis statutory komersial</span>
           </div>
           <AnalysisTable rows={analysis.noplatRows} periods={analysis.periods} />
         </article>
@@ -1811,22 +1812,22 @@ function NoplatFcfSection({ analysis }: { analysis: SectionAnalysis }) {
         <article className="panel">
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">System audit reference</p>
-              <h3>NOPLAT bridge</h3>
+              <p className="eyebrow">Referensi audit sistem</p>
+              <h3>Bridge NOPLAT</h3>
             </div>
           </div>
           <EngineAuditReference
-            sourceLabel="Current case engine"
-            summary="Operating profit is normalized from mapped income statement lines and active tax assumption."
+            sourceLabel="Mesin kasus aktif"
+            summary="Laba operasi dinormalisasi dari line laba rugi yang sudah dipetakan dan asumsi pajak aktif."
             metrics={[
-              { label: "Commercial NPAT", value: latest?.snapshot.commercialNpat ?? null },
-              { label: "Normalized NOPLAT", value: latest?.normalizedNoplat ?? null },
-              { label: "Free cash flow", value: latest?.freeCashFlow ?? null },
+              { label: "NPAT komersial", value: latest?.snapshot.commercialNpat ?? null },
+              { label: "NOPLAT ternormalisasi", value: latest?.normalizedNoplat ?? null },
+              { label: "Free Cash Flow (FCF)", value: latest?.freeCashFlow ?? null },
             ]}
             notes={[
-              "Interest and non-operating items are excluded from NOPLAT.",
-              "Tax uses active statutory or reviewed tax-rate assumption.",
-              "FCFF uses NOPLAT, depreciation add-back, working-capital movement, and capex.",
+              "Bunga dan item non-operasional dikeluarkan dari NOPLAT.",
+              "Pajak memakai tarif statutory aktif atau asumsi tarif pajak yang telah ditinjau.",
+              "FCFF memakai NOPLAT, add-back penyusutan, mutasi working capital, dan capex.",
             ]}
           />
         </article>
@@ -1834,11 +1835,11 @@ function NoplatFcfSection({ analysis }: { analysis: SectionAnalysis }) {
 
       <section className="panel">
         <div className="panel-heading">
-          <div>
-            <p className="eyebrow">FCF</p>
-            <h3>Free cash flow to firm</h3>
+            <div>
+              <p className="eyebrow">FCF</p>
+              <h3>Free Cash Flow to Firm (FCFF)</h3>
           </div>
-          <span className="status-pill muted">NOPLAT + depreciation + WC - capex</span>
+          <span className="status-pill muted">NOPLAT + penyusutan + WC - capex</span>
         </div>
         <AnalysisTable rows={analysis.fcfRows} periods={analysis.periods} />
       </section>
@@ -1863,11 +1864,11 @@ function RatiosCapitalSection({
 
       <section className="panel">
         <div className="panel-heading">
-          <div>
-            <p className="eyebrow">FINANCIAL RATIO</p>
-            <h3>Profitability · liquidity · leverage · cash flow</h3>
+            <div>
+              <p className="eyebrow">FINANCIAL RATIO</p>
+              <h3>Profitabilitas · likuiditas · leverage · arus kas</h3>
           </div>
-          <span className="status-pill muted">Average mengikuti periode tersedia</span>
+          <span className="status-pill muted">Rata-rata mengikuti periode tersedia</span>
         </div>
         <RatioTable rows={analysis.ratioRows} periods={analysis.periods} />
       </section>
@@ -1877,9 +1878,9 @@ function RatiosCapitalSection({
           <div className="panel-heading">
             <div>
               <p className="eyebrow">ROIC</p>
-              <h3>Capital efficiency bridge</h3>
+              <h3>Bridge efisiensi modal</h3>
             </div>
-            <span className="status-pill muted">Corrected NOPLAT basis</span>
+            <span className="status-pill muted">Basis NOPLAT terkoreksi</span>
           </div>
           <AnalysisTable rows={analysis.roicRows} periods={analysis.periods} percentRowKeys={new Set(["roic"])} />
         </article>
@@ -1887,22 +1888,22 @@ function RatiosCapitalSection({
         <article className="panel">
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">System audit reference</p>
-              <h3>ROIC capital base</h3>
+              <p className="eyebrow">Referensi audit sistem</p>
+              <h3>Basis kapital ROIC</h3>
             </div>
           </div>
           <EngineAuditReference
-            sourceLabel="Current case engine"
-            summary="Capital efficiency references are recalculated from current case classifications."
+            sourceLabel="Mesin kasus aktif"
+            summary="Referensi efisiensi modal dihitung ulang dari klasifikasi kasus aktif."
             metrics={[
               { label: "Operating NWC", value: latest?.operatingWorkingCapital ?? null },
-              { label: "Invested capital end", value: latest?.investedCapitalEnd ?? null },
+              { label: "Invested capital akhir", value: latest?.investedCapitalEnd ?? null },
               { label: "ROIC", value: latest?.roic ?? null, display: "percent" },
             ]}
             notes={[
-              "Operating NWC uses account receivable plus inventory minus account payable and other payable.",
-              "Invested capital combines fixed assets net and operating working capital.",
-              "ROIC uses beginning invested capital when a prior period is available.",
+              "Operating NWC memakai piutang usaha plus persediaan dikurangi utang usaha dan utang lain-lain.",
+              "Invested capital menggabungkan aset tetap neto dan operating working capital.",
+              "ROIC memakai invested capital awal saat periode pembanding tersedia.",
             ]}
           />
         </article>
@@ -1976,14 +1977,14 @@ function RatioTable({ rows, periods }: { rows: RatioRow[]; periods: Period[] }) 
       <table className="analysis-table ratio-table">
         <thead>
           <tr>
-            <th>Ratio</th>
+            <th>Rasio</th>
             <th>Formula</th>
             {periods.map((period) => (
               <th className="period-column" key={period.id}>
                 {period.label || "Periode"}
               </th>
             ))}
-            <th>Average</th>
+            <th>Rata-rata</th>
           </tr>
         </thead>
         <tbody>
@@ -2402,9 +2403,9 @@ function BalanceSheetPositionTable({ periods, view }: { periods: Period[]; view:
               </Fragment>
             ))}
             <tr className="balance-check-row">
-              <td>Check</td>
+              <td>Pemeriksaan</td>
               <td>Model</td>
-              <td>Assets - Liabilities - Equity</td>
+              <td>Aset - Liabilitas - Ekuitas</td>
               <td>Model</td>
               {periods.map((period) => {
                 const value = view.balanceGap[period.id] ?? 0;
@@ -2435,7 +2436,7 @@ function IncomeStatementReportTable({ periods, view }: { periods: Period[]; view
       <div className="subpanel-heading">
         <div>
           <p className="eyebrow">Laporan Laba Rugi</p>
-          <h4>Revenue · EBITDA · EBIT · Net Profit After Tax</h4>
+          <h4>Pendapatan · EBITDA · EBIT · NPAT</h4>
         </div>
         <span className="status-pill muted">Terstruktur dari mapping akun</span>
       </div>
@@ -2572,7 +2573,7 @@ function AccountInputTable({
                         <span className="row-hint">
                           {balanceSheetClassification
                             ? `Detail: ${balanceSheetClassificationLabelMap.get(balanceSheetClassification)}`
-                            : "Khusus Balance Sheet"}
+                            : "Khusus neraca"}
                         </span>
                       </div>
                     ) : (
@@ -2664,9 +2665,9 @@ function AccountLabelImpactCell({ item, onToggleLabel }: { item: MappedRow; onTo
       <div className="impact-chip-row">
         <span className="impact-chip">Posisi: {profile.placement}</span>
         {balanceSheetClassification ? <span className="impact-chip">Detail: {balanceSheetClassificationLabelMap.get(balanceSheetClassification)}</span> : null}
-        <span className="impact-chip">Treatment: {profile.treatment}</span>
-        <span className="impact-chip">Sign: {profile.signBehavior}</span>
-        {row.categoryOverride ? <span className="impact-chip warning">Manual override</span> : null}
+        <span className="impact-chip">Perlakuan: {profile.treatment}</span>
+        <span className="impact-chip">Tanda: {profile.signBehavior}</span>
+        {row.categoryOverride ? <span className="impact-chip warning">Override manual</span> : null}
         {mapping.needsReview || effectiveCategory === "UNMAPPED" ? <span className="impact-chip warning">Perlu ditinjau</span> : null}
       </div>
       <div className="label-chip-row">
@@ -2872,7 +2873,7 @@ function CaseProfilePanel({
             inputMode="numeric"
             onChange={(value) => onChange("transactionYear", value)}
           />
-          <DerivedCaseField label="Cut off Date" value={formatDerivedDate(derived.cutOffDate)} />
+          <DerivedCaseField label="Tanggal cut-off" value={formatDerivedDate(derived.cutOffDate)} />
           <DerivedCaseField label="Akhir Periode Proyeksi Pertama" value={formatDerivedDate(derived.firstProjectionEndDate)} />
           <CaseProfileSelect label="Objek Penilaian" value={profile.valuationObject} options={valuationObjectOptions} onChange={(value) => onChange("valuationObject", value)} />
         </div>
@@ -2962,14 +2963,14 @@ function WaccMarketSuggestionPanel({
     return (
       <article className="assumption-calculator-card wacc-suggestion-card" data-testid="wacc-suggestion-card">
         <AssumptionCalculatorHeader
-          label="Smart auto suggestion"
+          label="Saran otomatis"
           value="Belum tersedia"
           impact={`Data tersedia untuk ${supportedYears[0]}-${supportedYears[supportedYears.length - 1]}`}
         />
         <p className="assumption-empty-note">
           {valuationDate.trim()
             ? "Tanggal penilaian berada di luar library tahunan 2018-2025."
-            : "Isi Tahun Transaksi Pengalihan di Data Awal atau tanggal penilaian untuk memunculkan suggestion WACC tahunan."}
+            : "Isi Tahun Transaksi Pengalihan di Data Awal atau tanggal penilaian untuk memunculkan saran WACC tahunan."}
         </p>
       </article>
     );
@@ -2978,16 +2979,16 @@ function WaccMarketSuggestionPanel({
   return (
     <article className="assumption-calculator-card wacc-suggestion-card" data-testid="wacc-suggestion-card">
       <AssumptionCalculatorHeader
-        label="Smart auto suggestion"
+        label="Saran otomatis"
         value={`${suggestion.year}`}
-        impact="Input pasar tahunan; hasil WACC tetap harus melewati governance review."
+        impact="Input pasar tahunan; hasil WACC tetap harus melewati tinjauan tata kelola."
       />
       <div className="table-wrap wacc-source-table">
         <table>
           <thead>
             <tr>
               <th>Input</th>
-              <th>Suggestion</th>
+              <th>Saran</th>
               <th>Metode</th>
               <th>Sumber</th>
             </tr>
@@ -3051,30 +3052,30 @@ function WaccCalculatorPanel({
   return (
     <article className="assumption-calculator-card wide" data-testid="wacc-calculator">
       <AssumptionCalculatorHeader
-        label="WACC calculator"
+        label="Kalkulator WACC"
         value={calculation ? formatPercent(calculation.wacc) : formatRateInput(assumptions.wacc)}
         impact="DCF discount rate dan EEM capitalization rate"
       />
-      <InlineGovernanceList title="WACC governance" items={waccGovernanceItems} />
+      <InlineGovernanceList title="Tata kelola WACC" items={waccGovernanceItems} />
       <div className="calculator-input-grid">
-        <AssumptionInput label="Risk-free rate" value={assumptions.waccRiskFreeRate} onChange={(value) => onChange("waccRiskFreeRate", value)} />
+        <AssumptionInput label="Risk-free rate (tingkat bebas risiko)" value={assumptions.waccRiskFreeRate} onChange={(value) => onChange("waccRiskFreeRate", value)} />
         <AssumptionInput
-          label="Equity risk premium"
+          label="Equity risk premium (premi risiko ekuitas)"
           value={assumptions.waccEquityRiskPremium}
           onChange={(value) => onChange("waccEquityRiskPremium", value)}
         />
         <AssumptionInput
-          label="Rating-based default spread"
+          label="Default spread berbasis rating"
           value={assumptions.waccRatingBasedDefaultSpread}
           onChange={(value) => onChange("waccRatingBasedDefaultSpread", value)}
         />
         <AssumptionInput
-          label="Country risk premium"
+          label="Premi risiko negara"
           value={assumptions.waccCountryRiskPremium}
           onChange={(value) => onChange("waccCountryRiskPremium", value)}
         />
         <AssumptionInput
-          label="Specific risk premium"
+          label="Premi risiko spesifik"
           value={assumptions.waccSpecificRiskPremium}
           onChange={(value) => onChange("waccSpecificRiskPremium", value)}
         />
@@ -3092,22 +3093,22 @@ function WaccCalculatorPanel({
       />
       <div className="calculator-input-grid">
         <AssumptionInput
-          label="Bank Persero investment loan"
+          label="Pinjaman investasi Bank Persero"
           value={assumptions.waccBankPerseroInvestmentLoanRate}
           onChange={(value) => onChange("waccBankPerseroInvestmentLoanRate", value)}
         />
         <AssumptionInput
-          label="Bank Swasta investment loan"
+          label="Pinjaman investasi Bank Swasta"
           value={assumptions.waccBankSwastaInvestmentLoanRate}
           onChange={(value) => onChange("waccBankSwastaInvestmentLoanRate", value)}
         />
         <AssumptionInput
-          label="Bank Umum investment loan"
+          label="Pinjaman investasi Bank Umum"
           value={assumptions.waccBankUmumInvestmentLoanRate}
           onChange={(value) => onChange("waccBankUmumInvestmentLoanRate", value)}
         />
         <AssumptionInput
-          label="Pre-tax cost of debt override"
+          label="Override pre-tax cost of debt"
           value={assumptions.waccPreTaxCostOfDebt}
           onChange={(value) => onChange("waccPreTaxCostOfDebt", value)}
         />
@@ -3115,7 +3116,7 @@ function WaccCalculatorPanel({
       <WaccCapitalStructureTable assumptions={assumptions} calculation={calculation} autoCapitalValues={autoCapitalValues} onChange={onChange} />
       <MetricTraceGrid
         metrics={[
-          ["Beta applied", calculation ? formatNumber(calculation.beta) : "Belum dihitung"],
+          ["Beta terpakai", calculation ? formatNumber(calculation.beta) : "Belum dihitung"],
           ["Cost of equity", calculation ? formatPercent(calculation.costOfEquity) : "Belum dihitung"],
           ["Pre-tax cost of debt", calculation ? formatPercent(calculation.preTaxCostOfDebt) : "Belum dihitung"],
           ["After-tax cost of debt", calculation ? formatPercent(calculation.afterTaxCostOfDebt) : "Belum dihitung"],
@@ -3125,7 +3126,7 @@ function WaccCalculatorPanel({
       <ReferenceList references={waccInputReferences} />
       <AssumptionReasonField
         id="assumption-wacc-support"
-        label="Evidence / support"
+        label="Bukti / dasar pendukung"
         placeholder="Sumber risk-free rate, beta, ERP, debt rate, dan bobot struktur modal."
         value={assumptions.waccOverrideReason}
         onChange={onReasonChange}
@@ -3174,7 +3175,7 @@ function WaccComparableTable({
             <tr>
               <th>Perusahaan Pembanding</th>
               <th>BL</th>
-              <th>Market Cap</th>
+              <th>Market cap</th>
               <th>Debt</th>
               <th>BU</th>
             </tr>
@@ -3198,7 +3199,7 @@ function WaccComparableTable({
                   </td>
                   <td>
                     <AssumptionInput
-                      label={`Market Cap ${index + 1}`}
+                      label={`Market cap ${index + 1}`}
                       value={assumptions[keys.marketCap]}
                       onChange={(value) => onChange(keys.marketCap, value)}
                     />
@@ -3215,7 +3216,7 @@ function WaccComparableTable({
               <td>{comparableBeta.averageUnleveredBeta !== null ? formatNumber(comparableBeta.averageUnleveredBeta) : "Belum dihitung"}</td>
               <td colSpan={2}>
                 {comparableBeta.capitalWeights
-                  ? `${formatPercent(comparableBeta.capitalWeights.debtWeight)} debt / ${formatPercent(comparableBeta.capitalWeights.equityWeight)} equity`
+                  ? `${formatPercent(comparableBeta.capitalWeights.debtWeight)} utang / ${formatPercent(comparableBeta.capitalWeights.equityWeight)} ekuitas`
                   : "Bobot struktur kapital belum tersedia."}
               </td>
               <td className="numeric-cell">{comparableBeta.releveredBeta !== null ? formatNumber(comparableBeta.releveredBeta) : "Belum dihitung"}</td>
@@ -3243,7 +3244,7 @@ function ComparableNameInput({
 
   return (
     <label className="field" htmlFor={inputId}>
-      <span>{`Comparable ${index}`}</span>
+      <span>{`Pembanding ${index}`}</span>
       <input
         id={inputId}
         list={listId}
@@ -3294,11 +3295,11 @@ function WaccCapitalStructureTable({
           <tr>
             <td>Hutang</td>
             <td>
-              <AssumptionInput label="Debt market value" value={debtMarketValue} onChange={(value) => onChange("waccDebtMarketValue", value)} />
-              {isDebtAuto ? <small className="auto-source-note">Auto Neraca: current liabilities + non-current liabilities.</small> : null}
+              <AssumptionInput label="Nilai pasar utang" value={debtMarketValue} onChange={(value) => onChange("waccDebtMarketValue", value)} />
+              {isDebtAuto ? <small className="auto-source-note">Auto Neraca: liabilitas lancar + liabilitas tidak lancar.</small> : null}
             </td>
             <td>
-              <AssumptionInput label="Debt weight fallback" value={assumptions.waccDebtWeight} onChange={(value) => onChange("waccDebtWeight", value)} />
+              <AssumptionInput label="Fallback bobot utang" value={assumptions.waccDebtWeight} onChange={(value) => onChange("waccDebtWeight", value)} />
               <span>{calculation ? formatPercent(calculation.debtWeight) : "Belum dihitung"}</span>
             </td>
             <td>{calculation ? formatPercent(calculation.afterTaxCostOfDebt) : "Belum dihitung"}</td>
@@ -3307,18 +3308,18 @@ function WaccCapitalStructureTable({
           <tr>
             <td>Ekuitas</td>
             <td>
-              <AssumptionInput label="Equity market value" value={equityMarketValue} onChange={(value) => onChange("waccEquityMarketValue", value)} />
+              <AssumptionInput label="Nilai pasar ekuitas" value={equityMarketValue} onChange={(value) => onChange("waccEquityMarketValue", value)} />
               {isEquityAuto ? <small className="auto-source-note">Auto Neraca: book equity aktif.</small> : null}
             </td>
             <td>
-              <AssumptionInput label="Equity weight fallback" value={assumptions.waccEquityWeight} onChange={(value) => onChange("waccEquityWeight", value)} />
+              <AssumptionInput label="Fallback bobot ekuitas" value={assumptions.waccEquityWeight} onChange={(value) => onChange("waccEquityWeight", value)} />
               <span>{calculation ? formatPercent(calculation.equityWeight) : "Belum dihitung"}</span>
             </td>
             <td>{calculation ? formatPercent(calculation.costOfEquity) : "Belum dihitung"}</td>
             <td>{calculation ? formatPercent(calculation.equityWeight * calculation.costOfEquity) : "Belum dihitung"}</td>
           </tr>
           <tr className="total-row">
-            <td>Weighted Average Cost of Capital (WACC)</td>
+            <td>Biaya Modal Rata-rata Tertimbang (WACC)</td>
             <td colSpan={3}>Hutang + Ekuitas</td>
             <td>{calculation ? formatPercent(calculation.wacc) : formatRateInput(assumptions.wacc)}</td>
           </tr>
@@ -3352,36 +3353,36 @@ function TerminalGrowthPanel({
   return (
     <article className="assumption-calculator-card wide" data-testid="terminal-growth-calculator">
       <AssumptionCalculatorHeader
-        label="Terminal growth governance"
+        label="Tata kelola terminal growth"
         value={formatRateInput(assumptions.terminalGrowth)}
         impact="DCF terminal value dan EEM capitalization spread"
       />
-      <InlineGovernanceList title="EEM/DCF assumption governance" items={assumptionGovernanceItems} />
+      <InlineGovernanceList title="Tata kelola asumsi EEM/DCF" items={assumptionGovernanceItems} />
       <TerminalGrowthSuggestionBlock suggestion={suggestion} onApply={onApplySuggestion} />
       <div className="calculator-input-grid">
-        <AssumptionInput label="Base terminal growth" value={assumptions.terminalGrowth} onChange={(value) => onChange("terminalGrowth", value)} />
+        <AssumptionInput label="Terminal growth dasar" value={assumptions.terminalGrowth} onChange={(value) => onChange("terminalGrowth", value)} />
         <AssumptionInput
-          label="Downside terminal growth"
+          label="Terminal growth skenario bawah"
           value={assumptions.terminalGrowthDownside}
           onChange={(value) => onChange("terminalGrowthDownside", value)}
         />
         <AssumptionInput
-          label="Upside terminal growth"
+          label="Terminal growth skenario atas"
           value={assumptions.terminalGrowthUpside}
           onChange={(value) => onChange("terminalGrowthUpside", value)}
         />
       </div>
       <MetricTraceGrid
         metrics={[
-          ["WACC spread", baseGrowth !== null && wacc > 0 ? formatPercent(wacc - baseGrowth) : "Belum dihitung"],
-          ["Validation", hasInvalidSpread ? "Terminal growth harus di bawah WACC" : "Spread valid bila WACC tersedia"],
-          ["Formula", "Terminal value = Final FCFF x (1 + g) / (WACC - g)"],
+          ["Spread WACC", baseGrowth !== null && wacc > 0 ? formatPercent(wacc - baseGrowth) : "Belum dihitung"],
+          ["Validasi", hasInvalidSpread ? "Terminal growth harus di bawah WACC" : "Spread valid bila WACC tersedia"],
+          ["Formula", "Nilai terminal = FCFF final x (1 + g) / (WACC - g)"],
         ]}
       />
       <ReferenceList references={terminalGrowthInputReferences} />
       <AssumptionReasonField
         id="assumption-terminal-growth-support"
-        label="Assumption basis"
+        label="Basis asumsi"
         placeholder="Dasar long-term growth, industri, inflasi, reinvestment, atau scenario memo."
         value={assumptions.terminalGrowthOverrideReason}
         onChange={onReasonChange}
@@ -3403,12 +3404,12 @@ function TerminalGrowthSuggestionBlock({
       <div className="terminal-growth-suggestion" data-testid="terminal-growth-suggestion-card">
         <div className="terminal-growth-suggestion-heading">
           <div>
-            <span>Smart auto suggestion</span>
-            <strong>Sector evidence belum tersedia</strong>
+        <span>Saran otomatis</span>
+            <strong>Bukti sektor belum tersedia</strong>
           </div>
           <em className="source-badge manual">Menunggu sektor</em>
         </div>
-        <p className="assumption-empty-note">Suggestion muncul setelah sektor perusahaan sesuai klasifikasi IDX tersedia di Data Awal.</p>
+        <p className="assumption-empty-note">Saran muncul setelah sektor perusahaan sesuai klasifikasi IDX tersedia di Data Awal.</p>
       </div>
     );
   }
@@ -3419,47 +3420,47 @@ function TerminalGrowthSuggestionBlock({
     <div className="terminal-growth-suggestion" data-testid="terminal-growth-suggestion-card">
       <div className="terminal-growth-suggestion-heading">
         <div>
-          <span>Smart auto suggestion</span>
+          <span>Saran otomatis</span>
           <strong>{evidence.sector}</strong>
         </div>
         <em className="source-badge sensitivity">
           {suggestion.confidence} evidence
         </em>
       </div>
-      <div className="terminal-growth-suggestion-grid" aria-label="Terminal growth sector evidence">
+      <div className="terminal-growth-suggestion-grid" aria-label="Bukti sektor terminal growth">
         <div>
           <span>Base</span>
           <strong>{formatPercent(suggestion.baseGrowth)}</strong>
-          <small>{suggestion.quality} sector case</small>
+          <small>{suggestion.quality} kasus sektor</small>
         </div>
         <div>
           <span>Downside</span>
           <strong>{formatPercent(suggestion.downsideGrowth)}</strong>
-          <small>Stress band</small>
+          <small>Band stres</small>
         </div>
         <div>
           <span>Upside</span>
           <strong>{formatPercent(suggestion.upsideGrowth)}</strong>
-          <small>Capped below WACC</small>
+          <small>Dibatasi di bawah WACC</small>
         </div>
         <div>
-          <span>Peer set</span>
+          <span>Kelompok pembanding</span>
           <strong>
             {evidence.validCompanies}/{evidence.totalCompanies}
           </strong>
-          <small>{formatPercent(evidence.positiveProfitRatio)} profitable</small>
+          <small>{formatPercent(evidence.positiveProfitRatio)} laba positif</small>
         </div>
         <div>
-          <span>Median net margin</span>
+          <span>Median margin laba bersih</span>
           <strong>{formatPercent(evidence.medianNetMargin)}</strong>
           <small>
             IQR {formatPercent(evidence.p25NetMargin)} - {formatPercent(evidence.p75NetMargin)}
           </small>
         </div>
         <div>
-          <span>Target vs sector</span>
+          <span>Target vs sektor</span>
           <strong>{suggestion.companyRevenueScale === null ? "N/A" : `${formatNumber(suggestion.companyRevenueScale)}x`}</strong>
-          <small>Revenue scale</small>
+          <small>Skala revenue</small>
         </div>
       </div>
       <dl className="driver-trace">
@@ -3474,7 +3475,7 @@ function TerminalGrowthSuggestionBlock({
       </dl>
       <button className="button secondary" type="button" onClick={() => onApply(suggestion)}>
         <CheckCircle2 size={18} />
-        Isi sector suggestion
+        Gunakan saran sektor
       </button>
     </div>
   );
@@ -3503,47 +3504,47 @@ function RequiredReturnOnNtaPanel({
   return (
     <article className="assumption-calculator-card wide" data-testid="required-return-on-nta-calculator">
       <AssumptionCalculatorHeader
-        label="Required return on NTA calculator"
+        label="Kalkulator required return on NTA"
         value={calculation ? formatPercent(calculation.requiredReturn) : formatRateInput(assumptions.requiredReturnOnNta)}
         impact="EEM capital charge atas operating net tangible assets"
       />
-      <InlineGovernanceList title="NTA return governance" items={ntaGovernanceItems} />
+      <InlineGovernanceList title="Tata kelola return NTA" items={ntaGovernanceItems} />
       <div className="driver-basis-strip">
         <div>
-          <span>Account receivable</span>
+          <span>Piutang usaha</span>
           <strong>{formatIdr(balances.accountReceivable)}</strong>
         </div>
         <div>
-          <span>Inventory</span>
+          <span>Persediaan</span>
           <strong>{formatIdr(balances.inventory)}</strong>
         </div>
         <div>
-          <span>Fixed assets net</span>
+          <span>Aset tetap neto</span>
           <strong>{formatIdr(balances.fixedAssetsNet)}</strong>
         </div>
       </div>
       <RequiredReturnOnNtaSuggestionBlock suggestion={suggestion} />
       <div className="calculator-input-grid">
         <AssumptionInput
-          label="Receivables capacity"
+          label="Kapasitas piutang"
           value={assumptions.requiredReturnReceivablesCapacity || suggestedValue("requiredReturnReceivablesCapacity")}
           note={buildSuggestionInputNote(assumptions.requiredReturnReceivablesCapacity, suggestion.fields.requiredReturnReceivablesCapacity)}
           onChange={(value) => onChange("requiredReturnReceivablesCapacity", value)}
         />
         <AssumptionInput
-          label="Inventory capacity"
+          label="Kapasitas persediaan"
           value={assumptions.requiredReturnInventoryCapacity || suggestedValue("requiredReturnInventoryCapacity")}
           note={buildSuggestionInputNote(assumptions.requiredReturnInventoryCapacity, suggestion.fields.requiredReturnInventoryCapacity)}
           onChange={(value) => onChange("requiredReturnInventoryCapacity", value)}
         />
         <AssumptionInput
-          label="Fixed asset capacity"
+          label="Kapasitas aset tetap"
           value={assumptions.requiredReturnFixedAssetCapacity || suggestedValue("requiredReturnFixedAssetCapacity")}
           note={buildSuggestionInputNote(assumptions.requiredReturnFixedAssetCapacity, suggestion.fields.requiredReturnFixedAssetCapacity)}
           onChange={(value) => onChange("requiredReturnFixedAssetCapacity", value)}
         />
         <AssumptionInput
-          label="Additional capacity amount"
+          label="Jumlah kapasitas tambahan"
           value={assumptions.requiredReturnAdditionalCapacity || suggestedValue("requiredReturnAdditionalCapacity")}
           note={buildSuggestionInputNote(assumptions.requiredReturnAdditionalCapacity, suggestion.fields.requiredReturnAdditionalCapacity)}
           onChange={(value) => onChange("requiredReturnAdditionalCapacity", value)}
@@ -3555,7 +3556,7 @@ function RequiredReturnOnNtaPanel({
           onChange={(value) => onChange("requiredReturnAfterTaxDebtCost", value)}
         />
         <AssumptionInput
-          label="Tangible equity return"
+          label="Return ekuitas aset berwujud"
           value={assumptions.requiredReturnEquityCost || suggestedValue("requiredReturnEquityCost")}
           note={buildSuggestionInputNote(assumptions.requiredReturnEquityCost, suggestion.fields.requiredReturnEquityCost)}
           onChange={(value) => onChange("requiredReturnEquityCost", value)}
@@ -3564,16 +3565,16 @@ function RequiredReturnOnNtaPanel({
       <MetricTraceGrid
         metrics={[
           ["Basis", calculation ? calculation.basisLabel : "Belum dihitung"],
-          ["Tangible asset base", calculation ? formatIdr(calculation.tangibleAssetBase) : "Belum dihitung"],
-          ["Debt capacity", calculation ? formatIdr(calculation.debtCapacity) : "Belum dihitung"],
-          ["Capacity weights", calculation ? `${formatPercent(calculation.debtWeight)} debt / ${formatPercent(calculation.equityWeight)} equity` : "Belum dihitung"],
-          ["Formula", calculation ? formatRequiredReturnFormulaLabel(calculation) : "Debt weight x Kd + equity weight x Ke"],
+          ["Basis aset berwujud", calculation ? formatIdr(calculation.tangibleAssetBase) : "Belum dihitung"],
+          ["Kapasitas utang", calculation ? formatIdr(calculation.debtCapacity) : "Belum dihitung"],
+          ["Bobot kapasitas", calculation ? `${formatPercent(calculation.debtWeight)} utang / ${formatPercent(calculation.equityWeight)} ekuitas` : "Belum dihitung"],
+          ["Formula", calculation ? formatRequiredReturnFormulaLabel(calculation) : "Bobot utang x Kd + bobot ekuitas x Ke"],
         ]}
       />
       <ReferenceList references={requiredReturnOnNtaInputReferences} />
       <AssumptionReasonField
         id="assumption-required-return-support"
-        label="Evidence / support"
+        label="Bukti / dasar pendukung"
         placeholder="Sumber capacity rate, biaya modal hutang, dan return ekuitas aset berwujud."
         value={assumptions.requiredReturnOnNtaOverrideReason}
         onChange={onReasonChange}
@@ -3591,15 +3592,15 @@ function RequiredReturnOnNtaSuggestionBlock({ suggestion }: { suggestion: Requir
     <div className="terminal-growth-suggestion required-return-suggestion" data-testid="required-return-suggestion-card">
       <div className="terminal-growth-suggestion-heading">
         <div>
-          <span>Input guidance</span>
-          <strong>Required return on NTA basis</strong>
+          <span>Panduan input</span>
+          <strong>Basis required return on NTA</strong>
         </div>
         <em className={`source-badge ${suggestion.waitingFor.length === 0 ? "manual" : "sensitivity"}`}>
           {suggestion.waitingFor.length === 0 ? "input-first" : "butuh input"}
         </em>
       </div>
       <p className="assumption-empty-note">{suggestion.summary}</p>
-      <div className="terminal-growth-suggestion-grid required-return-suggestion-grid" aria-label="Required return on NTA smart suggestions">
+      <div className="terminal-growth-suggestion-grid required-return-suggestion-grid" aria-label="Saran otomatis required return on NTA">
         {suggestedFields.map((field) => (
           <div key={field.key}>
             <span>{field.label}</span>
@@ -3612,11 +3613,11 @@ function RequiredReturnOnNtaSuggestionBlock({ suggestion }: { suggestion: Requir
       <dl className="driver-trace">
         <div>
           <dt>Input yang dibutuhkan</dt>
-          <dd>Capacity rate untuk piutang, inventory, dan fixed assets; tambahan kapasitas bila ada; Kd dan Ke dari WACC atau override beralasan.</dd>
+          <dd>Capacity rate untuk piutang, persediaan, dan aset tetap; tambahan kapasitas bila ada; Kd dan Ke dari WACC atau override beralasan.</dd>
         </div>
         <div>
           <dt>Status</dt>
-          <dd>{suggestion.waitingFor.length > 0 ? suggestion.waitingFor.join(" ") : "Biaya modal tersedia dari WACC. Jika capacity evidence belum tersedia, WACC capital structure menjadi fallback."}</dd>
+          <dd>{suggestion.waitingFor.length > 0 ? suggestion.waitingFor.join(" ") : "Biaya modal tersedia dari WACC. Jika capacity evidence belum tersedia, struktur kapital WACC menjadi fallback."}</dd>
         </div>
       </dl>
     </div>
@@ -3625,14 +3626,14 @@ function RequiredReturnOnNtaSuggestionBlock({ suggestion }: { suggestion: Requir
 
 function formatRequiredReturnFormulaLabel(calculation: RequiredReturnOnNtaCalculation): string {
   if (calculation.basis === "capacity_evidence") {
-    return "Capacity debt weight x Kd + equity weight x Ke";
+    return "Bobot utang kapasitas x Kd + bobot ekuitas x Ke";
   }
 
   if (calculation.basis === "wacc_capital_structure") {
-    return "WACC debt weight x Kd + WACC equity weight x Ke";
+    return "Bobot utang WACC x Kd + bobot ekuitas WACC x Ke";
   }
 
-  return "100% equity x Ke";
+  return "100% ekuitas x Ke";
 }
 
 function AssumptionCalculatorHeader({ label, value, impact }: { label: string; value: string; impact: string }) {
@@ -3695,7 +3696,7 @@ function AssumptionGovernanceCard({
         <small>{item.action}</small>
       </div>
       <button className="button ghost compact-button" type="button" onClick={() => onNavigate(item.target)}>
-        Review
+        Tinjau
       </button>
     </div>
   );
@@ -3749,6 +3750,7 @@ function AssumptionDriverCard({
   candidates,
   emptyCandidateText,
   manualHint,
+  testIdSlug,
   onSelect,
   onValueChange,
   onReasonChange,
@@ -3760,6 +3762,7 @@ function AssumptionDriverCard({
   candidates: AssumptionCandidate[];
   emptyCandidateText: string;
   manualHint: string;
+  testIdSlug?: string;
   onSelect: (candidate: AssumptionCandidate) => void;
   onValueChange: (value: string) => void;
   onReasonChange: (value: string) => void;
@@ -3771,7 +3774,7 @@ function AssumptionDriverCard({
   const reasonId = `assumption-${slugifyLabel(label)}-reason`;
 
   return (
-    <article className="assumption-driver-card" data-testid={`assumption-card-${slugifyLabel(label)}`}>
+    <article className="assumption-driver-card" data-testid={`assumption-card-${testIdSlug ?? slugifyLabel(label)}`}>
       <div className="assumption-driver-heading">
         <div>
           <span>{label}</span>
@@ -3782,7 +3785,7 @@ function AssumptionDriverCard({
         </em>
       </div>
       <p className="assumption-source-line">{activeCandidate ? sourceLabel(activeCandidate) : sourceLabelFromManual(value)}</p>
-      <div className="candidate-list" aria-label={`${label} candidates`}>
+      <div className="candidate-list" aria-label={`Kandidat ${label}`}>
         {candidates.length > 0 ? (
           candidates.map((candidate) => (
             <button
@@ -3805,7 +3808,7 @@ function AssumptionDriverCard({
       <dl className="driver-trace">
         <div>
           <dt>Formula</dt>
-          <dd>{activeCandidate?.formula ?? "Manual override"}</dd>
+          <dd>{activeCandidate?.formula ?? "Override manual"}</dd>
         </div>
         <div>
           <dt>Catatan</dt>
@@ -3813,7 +3816,7 @@ function AssumptionDriverCard({
         </div>
       </dl>
       <label className="field manual-driver-field" htmlFor={inputId}>
-        <span>Manual override</span>
+        <span>Override manual</span>
         <input
           id={inputId}
           inputMode="decimal"
@@ -4009,7 +4012,7 @@ function sourceLabel(candidate: AssumptionCandidate): string {
 }
 
 function sourceLabelFromManual(value: string): string {
-  return value.trim() ? "Legacy/sample direct input" : "Belum dipilih";
+  return value.trim() ? "Input langsung dari data legacy/contoh" : "Belum dipilih";
 }
 
 function formatRateInput(input: string): string {
@@ -4079,11 +4082,11 @@ function FixedAssetScheduleEditor({
     <div className="fixed-asset-editor" data-testid="fixed-asset-editor">
       <div className="subpanel-heading">
         <div>
-          <p className="eyebrow">Fixed Asset Schedule</p>
-          <h4>A. Acquisition Costs · B. Depreciation · Net Value</h4>
+          <p className="eyebrow">Jadwal Aset Tetap</p>
+          <h4>A. Biaya Perolehan · B. Penyusutan · Nilai Buku Neto</h4>
         </div>
         <div className="toolbar">
-          <span className="status-pill muted">Ending dan net value otomatis</span>
+          <span className="status-pill muted">Saldo akhir dan nilai neto otomatis</span>
           <button className="button ghost compact-button" type="button" onClick={onAddRow}>
             <Plus size={16} />
             Tambah kelas aset
@@ -4092,11 +4095,11 @@ function FixedAssetScheduleEditor({
       </div>
 
       {schedule.rows.length === 0 ? (
-        <div className="empty-state" data-testid="fixed-asset-empty">Belum ada kelas aset. Gunakan tombol Tambah kelas aset untuk mulai menginput fixed asset.</div>
+        <div className="empty-state" data-testid="fixed-asset-empty">Belum ada kelas aset. Gunakan tombol Tambah kelas aset untuk mulai menginput aset tetap.</div>
       ) : (
         <>
           <FixedAssetSectionTable
-            title="A. Acquisition Costs"
+            title="A. Biaya Perolehan"
             beginningKey="acquisitionBeginning"
             additionsKey="acquisitionAdditions"
             endingKey="acquisitionEnding"
@@ -4108,7 +4111,7 @@ function FixedAssetScheduleEditor({
             onUpdateValue={onUpdateValue}
           />
           <FixedAssetSectionTable
-            title="B. Depreciation"
+            title="B. Penyusutan"
             beginningKey="depreciationBeginning"
             additionsKey="depreciationAdditions"
             endingKey="depreciationEnding"
@@ -4165,7 +4168,7 @@ function FixedAssetSectionTable({
         <table className="fixed-asset-table" data-testid={title.startsWith("A.") ? "fixed-asset-acquisition-table" : "fixed-asset-depreciation-table"}>
           <thead>
             <tr>
-              <th className="fixed-asset-asset-column" rowSpan={2}>Asset class</th>
+              <th className="fixed-asset-asset-column" rowSpan={2}>Kelas aset</th>
               {periods.map((period, periodIndex) => (
                 <th className={`${getPeriodGroupClassName(periodIndex, "end")} fixed-asset-period-group-heading`} colSpan={3} key={period.id}>
                   {period.label || "Periode"}
@@ -4175,9 +4178,9 @@ function FixedAssetSectionTable({
             <tr>
               {periods.map((period, periodIndex) => (
                 <Fragment key={period.id}>
-                  <th className={getPeriodGroupClassName(periodIndex, "start")}>Beginning</th>
-                  <th className={getPeriodGroupClassName(periodIndex, "middle")}>Additions</th>
-                  <th className={getPeriodGroupClassName(periodIndex, "end")}>Ending</th>
+                  <th className={getPeriodGroupClassName(periodIndex, "start")}>Saldo awal</th>
+                  <th className={getPeriodGroupClassName(periodIndex, "middle")}>Penambahan</th>
+                  <th className={getPeriodGroupClassName(periodIndex, "end")}>Saldo akhir</th>
                 </Fragment>
               ))}
             </tr>
@@ -4188,7 +4191,7 @@ function FixedAssetSectionTable({
                 <td className="fixed-asset-asset-column">
                   <div className="asset-name-cell">
                     <input
-                      aria-label="Asset class"
+                      aria-label="Kelas aset"
                       value={row.assetName}
                       onChange={(event) => onUpdateRow(row.id, { assetName: event.target.value })}
                       placeholder="Nama kelas aset"
@@ -4210,7 +4213,7 @@ function FixedAssetSectionTable({
                       <td className={getPeriodGroupClassName(periodIndex, "start")}>
                         {isManualBeginning ? (
                           <input
-                            aria-label={`${title} ${period.label || "Periode"} Beginning`}
+                            aria-label={`${title} ${period.label || "Periode"} Saldo awal`}
                             inputMode="decimal"
                             value={values[beginningKey] ?? ""}
                             onChange={(event) => onUpdateValue(row.id, period.id, beginningKey, event.target.value)}
@@ -4222,7 +4225,7 @@ function FixedAssetSectionTable({
                       </td>
                       <td className={getPeriodGroupClassName(periodIndex, "middle")}>
                         <input
-                          aria-label={`${title} ${period.label || "Periode"} Additions`}
+                          aria-label={`${title} ${period.label || "Periode"} Penambahan`}
                           inputMode="decimal"
                           value={values[additionsKey] ?? ""}
                           onChange={(event) => onUpdateValue(row.id, period.id, additionsKey, event.target.value)}
@@ -4266,12 +4269,12 @@ function FixedAssetNetValueTable({ periods, schedule }: { periods: Period[]; sch
 
   return (
     <div className="fixed-asset-section">
-      <h5>Net Value Fixed Assets</h5>
+      <h5>Nilai buku neto aset tetap</h5>
       <div className="table-wrap fixed-asset-table-wrap">
         <table className="fixed-asset-table net-value-table" data-testid="fixed-asset-net-value-table">
           <thead>
             <tr>
-              <th className="fixed-asset-asset-column">Asset class</th>
+              <th className="fixed-asset-asset-column">Kelas aset</th>
               {periods.map((period, periodIndex) => (
                 <th className={getNetValuePeriodClassName(periodIndex)} key={period.id}>{period.label || "Periode"}</th>
               ))}

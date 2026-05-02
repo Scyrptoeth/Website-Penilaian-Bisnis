@@ -259,9 +259,9 @@ export const emptyAssumptions: AssumptionState = {
 };
 
 export const statementLabels: Record<StatementType, string> = {
-  balance_sheet: "Balance Sheet",
-  income_statement: "Income Statement",
-  fixed_asset: "Fixed Asset Schedule",
+  balance_sheet: "Neraca",
+  income_statement: "Laba Rugi",
+  fixed_asset: "Jadwal Aset Tetap",
 };
 
 export function mapRow(row: AccountRow): MappedRow {
@@ -727,7 +727,7 @@ export function buildSampleRows(): AccountRow[] {
       p2020: 0,
       p2021: sampleCase.nonOperatingIncome,
     }),
-    row("sample-corporate-tax", "income_statement", "Corporate Tax", "CORPORATE_TAX", {
+    row("sample-corporate-tax", "income_statement", "Pajak penghasilan badan", "CORPORATE_TAX", {
       p2019: -305_333_971,
       p2020: -165_937_126,
       p2021: sampleCase.corporateTax,

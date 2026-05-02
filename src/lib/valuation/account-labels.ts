@@ -2,43 +2,43 @@ import type { AccountCategory } from "./types";
 import type { StatementType } from "./case-model";
 
 export const accountLabelDefinitions = [
-  { id: "source:balance-sheet", label: "Balance Sheet", group: "Sumber" },
-  { id: "source:income-statement", label: "Income Statement", group: "Sumber" },
-  { id: "source:fixed-asset", label: "Fixed Asset Schedule", group: "Sumber" },
-  { id: "fs:asset", label: "Asset", group: "Struktur laporan" },
-  { id: "fs:current-asset", label: "Current Asset", group: "Struktur laporan" },
-  { id: "fs:non-current-asset", label: "Non-current Asset", group: "Struktur laporan" },
-  { id: "fs:liability", label: "Liability", group: "Struktur laporan" },
-  { id: "fs:current-liability", label: "Current Liability", group: "Struktur laporan" },
-  { id: "fs:non-current-liability", label: "Non-current Liability", group: "Struktur laporan" },
-  { id: "fs:equity", label: "Equity", group: "Struktur laporan" },
-  { id: "fs:revenue", label: "Revenue", group: "Struktur laporan" },
-  { id: "fs:expense", label: "Expense", group: "Struktur laporan" },
-  { id: "fs:cash", label: "Cash", group: "Substansi akun" },
-  { id: "fs:fixed-asset", label: "Fixed Asset", group: "Substansi akun" },
-  { id: "fs:intangible", label: "Intangible Asset", group: "Substansi akun" },
-  { id: "treatment:operating", label: "Operating", group: "Treatment valuasi" },
-  { id: "treatment:non-operating", label: "Non-operating", group: "Treatment valuasi" },
-  { id: "treatment:financing", label: "Financing", group: "Treatment valuasi" },
-  { id: "treatment:equity", label: "Equity", group: "Treatment valuasi" },
-  { id: "treatment:debt-like", label: "Debt-like", group: "Treatment valuasi" },
-  { id: "treatment:working-capital", label: "Working Capital", group: "Treatment valuasi" },
-  { id: "formula:neraca", label: "Neraca", group: "Formula usage" },
-  { id: "formula:fixed-asset", label: "Fixed Asset", group: "Formula usage" },
-  { id: "formula:aam", label: "AAM", group: "Formula usage" },
-  { id: "formula:eem", label: "EEM", group: "Formula usage" },
-  { id: "formula:dcf", label: "DCF", group: "Formula usage" },
-  { id: "formula:noplat", label: "NOPLAT", group: "Formula usage" },
-  { id: "formula:nta", label: "NTA", group: "Formula usage" },
-  { id: "formula:excess-earnings", label: "Excess Earnings", group: "Formula usage" },
-  { id: "formula:fcff", label: "FCFF", group: "Formula usage" },
-  { id: "sign:debit-positive", label: "Debit positive", group: "Sign behavior" },
-  { id: "sign:credit-positive", label: "Credit positive", group: "Sign behavior" },
-  { id: "sign:contra-negative", label: "Contra negative", group: "Sign behavior" },
-  { id: "sign:expense-negative", label: "Expense negative", group: "Sign behavior" },
-  { id: "sign:bridge-negative", label: "Bridge negative", group: "Sign behavior" },
-  { id: "review:judgment", label: "Needs judgment", group: "Review" },
-  { id: "review:sak-ifrs", label: "SAK/IFRS review", group: "Review" },
+  { id: "source:balance-sheet", label: "Neraca", group: "Sumber" },
+  { id: "source:income-statement", label: "Laba Rugi", group: "Sumber" },
+  { id: "source:fixed-asset", label: "Jadwal Aset Tetap", group: "Sumber" },
+  { id: "fs:asset", label: "Aset", group: "Struktur laporan" },
+  { id: "fs:current-asset", label: "Aset Lancar", group: "Struktur laporan" },
+  { id: "fs:non-current-asset", label: "Aset Tidak Lancar", group: "Struktur laporan" },
+  { id: "fs:liability", label: "Liabilitas", group: "Struktur laporan" },
+  { id: "fs:current-liability", label: "Liabilitas Lancar", group: "Struktur laporan" },
+  { id: "fs:non-current-liability", label: "Liabilitas Tidak Lancar", group: "Struktur laporan" },
+  { id: "fs:equity", label: "Ekuitas", group: "Struktur laporan" },
+  { id: "fs:revenue", label: "Pendapatan", group: "Struktur laporan" },
+  { id: "fs:expense", label: "Beban", group: "Struktur laporan" },
+  { id: "fs:cash", label: "Kas", group: "Substansi akun" },
+  { id: "fs:fixed-asset", label: "Aset Tetap", group: "Substansi akun" },
+  { id: "fs:intangible", label: "Aset Tak Berwujud", group: "Substansi akun" },
+  { id: "treatment:operating", label: "Operasional", group: "Perlakuan valuasi" },
+  { id: "treatment:non-operating", label: "Non-operasional", group: "Perlakuan valuasi" },
+  { id: "treatment:financing", label: "Pendanaan", group: "Perlakuan valuasi" },
+  { id: "treatment:equity", label: "Ekuitas", group: "Perlakuan valuasi" },
+  { id: "treatment:debt-like", label: "Setara utang (debt-like)", group: "Perlakuan valuasi" },
+  { id: "treatment:working-capital", label: "Modal Kerja", group: "Perlakuan valuasi" },
+  { id: "formula:neraca", label: "Neraca", group: "Penggunaan formula" },
+  { id: "formula:fixed-asset", label: "Aset Tetap", group: "Penggunaan formula" },
+  { id: "formula:aam", label: "AAM", group: "Penggunaan formula" },
+  { id: "formula:eem", label: "EEM", group: "Penggunaan formula" },
+  { id: "formula:dcf", label: "DCF", group: "Penggunaan formula" },
+  { id: "formula:noplat", label: "NOPLAT", group: "Penggunaan formula" },
+  { id: "formula:nta", label: "NTA", group: "Penggunaan formula" },
+  { id: "formula:excess-earnings", label: "Excess Earnings", group: "Penggunaan formula" },
+  { id: "formula:fcff", label: "FCFF", group: "Penggunaan formula" },
+  { id: "sign:debit-positive", label: "Debit positif", group: "Perilaku tanda" },
+  { id: "sign:credit-positive", label: "Kredit positif", group: "Perilaku tanda" },
+  { id: "sign:contra-negative", label: "Kontra negatif", group: "Perilaku tanda" },
+  { id: "sign:expense-negative", label: "Beban negatif", group: "Perilaku tanda" },
+  { id: "sign:bridge-negative", label: "Bridge negatif", group: "Perilaku tanda" },
+  { id: "review:judgment", label: "Perlu judgment", group: "Tinjauan" },
+  { id: "review:sak-ifrs", label: "Tinjauan SAK/IFRS", group: "Tinjauan" },
 ] as const;
 
 export type AccountLabelId = (typeof accountLabelDefinitions)[number]["id"];
@@ -48,9 +48,9 @@ export type CategoryPlacement =
   | "Liabilitas"
   | "Ekuitas"
   | "Laba rugi"
-  | "Fixed Asset"
-  | "Cash Flow"
-  | "Review";
+  | "Aset tetap"
+  | "Arus kas"
+  | "Tinjauan";
 
 export type CategoryLabelProfile = {
   placement: CategoryPlacement;
@@ -200,9 +200,9 @@ export function getAccountLabelDefinition(id: AccountLabelId) {
 export function getCategoryLabelProfile(category: AccountCategory): CategoryLabelProfile {
   const labels: AccountLabelId[] = [];
   const formulaUsage: AccountLabelId[] = [];
-  let placement: CategoryPlacement = "Review";
-  let treatment = "Review";
-  let signBehavior = "Manual review";
+  let placement: CategoryPlacement = "Tinjauan";
+  let treatment = "Tinjauan";
+  let signBehavior = "Review manual";
 
   if (category === "UNMAPPED") {
     return {
@@ -217,7 +217,7 @@ export function getCategoryLabelProfile(category: AccountCategory): CategoryLabe
   if (currentAssetCategories.has(category) || nonCurrentAssetCategories.has(category) || category === "TOTAL_ASSETS") {
     placement = "Aset";
     labels.push("fs:asset", "formula:neraca", "formula:aam", "sign:debit-positive");
-    signBehavior = "Asset debit positive";
+    signBehavior = "Aset debit positif";
   }
 
   if (currentAssetCategories.has(category)) {
@@ -231,7 +231,7 @@ export function getCategoryLabelProfile(category: AccountCategory): CategoryLabe
   if (currentLiabilityCategories.has(category) || nonCurrentLiabilityCategories.has(category) || category === "TOTAL_LIABILITIES") {
     placement = "Liabilitas";
     labels.push("fs:liability", "formula:neraca", "formula:aam", "sign:credit-positive");
-    signBehavior = "Liability credit positive";
+    signBehavior = "Liabilitas kredit positif";
   }
 
   if (currentLiabilityCategories.has(category)) {
@@ -245,36 +245,36 @@ export function getCategoryLabelProfile(category: AccountCategory): CategoryLabe
   if (equityCategories.has(category)) {
     placement = "Ekuitas";
     labels.push("fs:equity", "formula:neraca", "sign:credit-positive");
-    treatment = "Equity";
-    signBehavior = "Equity credit positive";
+    treatment = "Ekuitas";
+    signBehavior = "Ekuitas kredit positif";
   }
 
   if (revenueCategories.has(category)) {
     placement = "Laba rugi";
     labels.push("fs:revenue", "formula:noplat", "formula:dcf", "sign:credit-positive");
-    signBehavior = "Income credit positive";
+    signBehavior = "Pendapatan kredit positif";
   }
 
   if (expenseCategories.has(category)) {
     placement = "Laba rugi";
     labels.push("fs:expense", "formula:noplat", "formula:dcf", "sign:expense-negative");
-    signBehavior = "Expense reduces earnings";
+    signBehavior = "Beban mengurangi laba";
   }
 
   if (operatingCategories.has(category)) {
-    treatment = "Operating";
+    treatment = "Operasional";
     labels.push("treatment:operating");
   }
 
   if (nonOperatingCategories.has(category)) {
-    treatment = "Non-operating";
+    treatment = "Non-operasional";
     labels.push("treatment:non-operating", "formula:eem", "formula:dcf");
   }
 
   if (debtLikeCategories.has(category)) {
-    treatment = "Debt-like";
+    treatment = "Setara utang";
     labels.push("treatment:debt-like", "formula:eem", "formula:dcf", "sign:bridge-negative");
-    signBehavior = "Debt bridge negative";
+    signBehavior = "Bridge utang negatif";
   }
 
   if (workingCapitalCategories.has(category)) {
@@ -288,18 +288,18 @@ export function getCategoryLabelProfile(category: AccountCategory): CategoryLabe
   if (fixedAssetCategories.has(category)) {
     labels.push("fs:fixed-asset", "formula:fixed-asset", "formula:nta");
     if (category !== "DEPRECIATION_EXPENSE") {
-      placement = "Fixed Asset";
+      placement = "Aset tetap";
     }
   }
 
   if (category === "ACCUMULATED_DEPRECIATION") {
     labels.push("sign:contra-negative");
-    signBehavior = "Contra asset shown negative";
+    signBehavior = "Kontra aset disajikan negatif";
   }
 
   if (category === "INTANGIBLE_ASSETS") {
     labels.push("fs:intangible", "formula:excess-earnings", "review:sak-ifrs");
-    treatment = "Review";
+    treatment = "Tinjauan";
   }
 
   if (dcfOperatingDriverCategories.has(category)) {
@@ -312,8 +312,8 @@ export function getCategoryLabelProfile(category: AccountCategory): CategoryLabe
 
   if (category === "CORPORATE_TAX") {
     placement = "Laba rugi";
-    treatment = "Tax expense";
-    signBehavior = "Expense reduces earnings";
+    treatment = "Beban pajak";
+    signBehavior = "Beban mengurangi laba";
     labels.push("fs:expense", "sign:expense-negative", "review:judgment");
   }
 
@@ -322,16 +322,16 @@ export function getCategoryLabelProfile(category: AccountCategory): CategoryLabe
   }
 
   if (category === "WORKING_CAPITAL") {
-    placement = "Cash Flow";
-    treatment = "Working capital";
+    placement = "Arus kas";
+    treatment = "Modal kerja";
     labels.push("treatment:working-capital", "formula:dcf", "formula:fcff", "review:judgment");
   }
 
   if (category.startsWith("CASH_FLOW_")) {
-    placement = "Cash Flow";
-    treatment = "Audit only";
+    placement = "Arus kas";
+    treatment = "Audit saja";
     labels.push("formula:fcff", "review:judgment");
-    signBehavior = "Audit source only";
+    signBehavior = "Hanya sumber audit";
   }
 
   return {

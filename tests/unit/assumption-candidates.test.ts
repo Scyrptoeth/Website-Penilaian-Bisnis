@@ -25,9 +25,9 @@ describe("assumption candidates", () => {
   });
 
   it("exposes input-first driver references without workbook source cells", () => {
-    assert.ok(waccInputReferences.some((reference) => reference.label === "Interest-bearing debt"));
+    assert.ok(waccInputReferences.some((reference) => reference.label === "Utang berbunga"));
     assert.ok(terminalGrowthInputReferences.some((reference) => reference.label === "Invested capital"));
-    assert.ok(requiredReturnOnNtaInputReferences.some((reference) => reference.label === "Borrowing capacity"));
+    assert.ok(requiredReturnOnNtaInputReferences.some((reference) => reference.label === "Kapasitas pinjaman"));
 
     const serialized = JSON.stringify({
       waccInputReferences,

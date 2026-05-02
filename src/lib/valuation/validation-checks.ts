@@ -29,16 +29,16 @@ export function buildValidationChecks(
       ok: fixedAssetSchedule.hasInput || mappedRows.some((item) => item.effectiveCategory !== "UNMAPPED"),
     },
     { label: "Neraca terisi", ok: snapshot.totalAssets !== 0 || snapshot.totalLiabilities !== 0 },
-    { label: "Balance check", ok: !hasEquityComponents || Math.abs(balanceSheetGap) <= balanceTolerance },
+    { label: "Pemeriksaan keseimbangan neraca", ok: !hasEquityComponents || Math.abs(balanceSheetGap) <= balanceTolerance },
     { label: "Laba rugi terisi", ok: snapshot.revenue !== 0 || snapshot.ebit !== 0 },
-    { label: "Tax rate", ok: assumptions.taxRate.trim() !== "" },
+    { label: "Tarif pajak", ok: assumptions.taxRate.trim() !== "" },
     { label: "WACC", ok: assumptions.wacc.trim() !== "" || calculateWaccAssumption(assumptions) !== null },
   ];
 
   if (fixedAssetSchedule.hasInput) {
     checks.push(
       { label: "Jadwal aset tetap otomatis", ok: snapshot.fixedAssetsNet !== 0 },
-      { label: "Tidak double count fixed asset", ok: !hasManualFixedAssetNet },
+      { label: "Tidak ada penghitungan ganda aset tetap", ok: !hasManualFixedAssetNet },
     );
   }
 

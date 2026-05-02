@@ -24,7 +24,7 @@ describe("terminal growth suggestions", () => {
     assertAlmostEqual(suggestion.baseGrowth, 0, 1e-12);
     assertAlmostEqual(suggestion.downsideGrowth, -0.06200163015727912, 1e-12);
     assertAlmostEqual(suggestion.upsideGrowth, 0.03, 1e-12);
-    assert.match(suggestion.reason, /Consumer Cyclicals sector evidence/);
+    assert.match(suggestion.reason, /Bukti sektor Consumer Cyclicals/);
   });
 
   it("allows a modest positive base for strong sector evidence while keeping growth below WACC", () => {

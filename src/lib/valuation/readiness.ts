@@ -114,31 +114,31 @@ export function buildWorkbenchReadiness({
   const income = criterion(hasIncomeInput, "Data laba rugi tersedia", "income", "Isi Laba Rugi");
   const mapped = criterion(hasMappedAccount, "Akun sudah dipetakan atau siap ditinjau", "mapping", "Review Mapping");
   const anyAccount = criterion(hasAnyAccountInput, "Minimal satu akun/schedule sudah diinput", "balance", "Isi Akun");
-  const taxRateForEemDcf = criterion(hasTaxRate, "Tax rate tersedia", "eemDcfAssumptions", "Isi Asumsi EEM/DCF");
-  const taxRateForWacc = criterion(hasTaxRate, "Tax rate untuk after-tax cost of debt tersedia", "eemDcfAssumptions", "Isi Tax Rate");
+  const taxRateForEemDcf = criterion(hasTaxRate, "Tarif pajak tersedia", "eemDcfAssumptions", "Isi Asumsi EEM/DCF");
+  const taxRateForWacc = criterion(hasTaxRate, "Tarif pajak untuk after-tax cost of debt tersedia", "eemDcfAssumptions", "Isi Tarif Pajak");
   const wacc = criterion(hasWacc, "WACC tersedia", "wacc", "Isi WACC");
   const waccMarketInputs = criterion(hasWaccMarketInputs, "Input pasar WACC tersedia", "wacc", "Lengkapi WACC");
   const terminalGrowth = criterion(hasTerminalGrowth, "Terminal growth tersedia", "eemDcfAssumptions", "Isi Asumsi EEM/DCF");
   const requiredReturn = criterion(hasRequiredReturn, "Required return on NTA tersedia", "eemDcfAssumptions", "Isi Asumsi EEM/DCF");
-  const workingCapitalDays = criterion(hasWorkingCapitalDays, "Driver working-capital days tersedia", "eemDcfAssumptions", "Isi Driver");
+  const workingCapitalDays = criterion(hasWorkingCapitalDays, "Driver hari modal kerja tersedia", "eemDcfAssumptions", "Isi Driver");
   const operatingWorkingCapital = criterion(
     hasOperatingWorkingCapitalBasis,
-    "Basis operating working capital tersedia: AR/inventory/AP/other payable",
+    "Basis operating working capital tersedia: AR/persediaan/AP/utang lain-lain",
     "balance",
     "Isi Neraca",
   );
   const fixedAssetOrDepreciation = criterion(
     hasFixedAssetOrDepreciationBasis,
-    "Basis depreciation/capex tersedia dari fixed asset atau depreciation expense",
+    "Basis penyusutan/capex tersedia dari fixed asset atau beban penyusutan",
     "balance",
-    "Isi Fixed Asset",
+    "Isi Aset Tetap",
   );
 
   return {
     periods: status("periods", "Data Awal", [period]),
-    balance: status("balance", "Neraca & Fixed Asset", [period]),
+    balance: status("balance", "Neraca & Aset Tetap", [period]),
     income: status("income", "Laba Rugi", [period, income]),
-    mapping: status("mapping", "Mapping & Label", [anyAccount, mapped]),
+    mapping: status("mapping", "Pemetaan & Label", [anyAccount, mapped]),
     wacc: status("wacc", "WACC", [period, taxRateForWacc, waccMarketInputs, wacc]),
     eemDcfAssumptions: status("eemDcfAssumptions", "Asumsi EEM/DCF", [period], [
       taxRateForEemDcf,
@@ -158,7 +158,7 @@ export function buildWorkbenchReadiness({
       requiredReturn,
       mapped,
     ]),
-    payablesCashFlow: status("payablesCashFlow", "Payables & Cash Flow", [
+    payablesCashFlow: status("payablesCashFlow", "Utang & Arus Kas", [
       period,
       comparativePeriod,
       balance,
@@ -175,7 +175,7 @@ export function buildWorkbenchReadiness({
       fixedAssetOrDepreciation,
       mapped,
     ]),
-    ratiosCapital: status("ratiosCapital", "Ratios & Capital Efficiency", [period, balance, income, mapped], [comparativePeriod]),
+    ratiosCapital: status("ratiosCapital", "Rasio & Efisiensi Modal", [period, balance, income, mapped], [comparativePeriod]),
     audit: status("audit", "Audit", []),
   };
 }

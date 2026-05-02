@@ -210,7 +210,7 @@ export function buildTerminalGrowthSuggestion(input: TerminalGrowthSuggestionInp
 
   return {
     sourceId: `sector-terminal-growth-${slugify(evidence.sector)}`,
-    source: "IDX sector revenue/net profit benchmark",
+    source: "Benchmark pendapatan/laba bersih sektor IDX",
     sourceArtifact,
     evidence,
     confidence,
@@ -309,10 +309,10 @@ function buildReason(
   const marginNote = companyNetMargin === null ? "target net margin belum tersedia" : `target net margin ${formatPercentText(companyNetMargin)}`;
 
   return [
-    `${evidence.sector} sector evidence from ${evidence.validCompanies}/${evidence.totalCompanies} IDX companies.`,
-    `Confidence ${confidence}; sector quality ${quality}; profitable peer ratio ${formatPercentText(evidence.positiveProfitRatio)}; median net margin ${formatPercentText(evidence.medianNetMargin)}.`,
+    `Bukti sektor ${evidence.sector} dari ${evidence.validCompanies}/${evidence.totalCompanies} emiten IDX.`,
+    `Keyakinan ${confidence}; kualitas sektor ${quality}; rasio peer yang laba positif ${formatPercentText(evidence.positiveProfitRatio)}; median margin laba bersih ${formatPercentText(evidence.medianNetMargin)}.`,
     `${scaleNote}; ${marginNote}.`,
-    "Base/downside/upside are decision-support suggestions and must remain below WACC.",
+    "Base/downside/upside adalah saran pendukung keputusan dan wajib tetap di bawah WACC.",
   ].join(" ");
 }
 

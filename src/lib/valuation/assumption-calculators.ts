@@ -200,7 +200,7 @@ export function calculateRequiredReturnOnNtaAssumption(
       equityWeight,
       requiredReturn,
       basis: "capacity_evidence",
-      basisLabel: "Capacity evidence",
+      basisLabel: "Bukti kapasitas",
     };
   }
 
@@ -219,7 +219,7 @@ export function calculateRequiredReturnOnNtaAssumption(
       equityWeight,
       requiredReturn,
       basis: "wacc_capital_structure",
-      basisLabel: "WACC capital structure fallback",
+      basisLabel: "Fallback struktur kapital WACC",
     };
   }
 
@@ -232,7 +232,7 @@ export function calculateRequiredReturnOnNtaAssumption(
     equityWeight: 1,
     requiredReturn,
     basis: "all_equity",
-    basisLabel: "All-equity conservative fallback",
+    basisLabel: "Fallback konservatif seluruh ekuitas",
   };
 }
 
@@ -246,22 +246,22 @@ export function buildRequiredReturnOnNtaSuggestion({
   const fields: RequiredReturnOnNtaSuggestion["fields"] = {
     requiredReturnReceivablesCapacity: {
       key: "requiredReturnReceivablesCapacity",
-      label: "Receivables capacity",
+      label: "Kapasitas piutang",
       value: null,
-      source: "User evidence",
-      basis: "Trade receivable borrowing-base or collateral advance rate",
-      formula: "Eligible account receivable x receivables capacity",
+      source: "Bukti pengguna",
+      basis: "Borrowing base piutang usaha atau advance rate agunan",
+      formula: "Piutang usaha eligible x kapasitas piutang",
       note: "Isi dari kebijakan kreditur, borrowing-base certificate, aging piutang tertagih, atau judgment penilai atas kualitas piutang dagang.",
       status: "user_input",
       canAutoApply: false,
     },
     requiredReturnInventoryCapacity: {
       key: "requiredReturnInventoryCapacity",
-      label: "Inventory capacity",
+      label: "Kapasitas persediaan",
       value: null,
-      source: "User evidence",
-      basis: "Inventory borrowing-base or pledgeability rate",
-      formula: "Eligible inventory x inventory capacity",
+      source: "Bukti pengguna",
+      basis: "Borrowing base persediaan atau tingkat kelayakan agunan",
+      formula: "Persediaan eligible x kapasitas persediaan",
       note: positive(inventory) > 0
         ? "Isi dari lender haircut, aging persediaan, tingkat usang/rusak, perputaran stok, dan bukti apakah inventory dapat dijaminkan."
         : "Inventory aktif masih nol. Isi 0% bila memang tidak ada inventory eligible, atau lengkapi Neraca bila inventory seharusnya ada.",
@@ -270,22 +270,22 @@ export function buildRequiredReturnOnNtaSuggestion({
     },
     requiredReturnFixedAssetCapacity: {
       key: "requiredReturnFixedAssetCapacity",
-      label: "Fixed asset capacity",
+      label: "Kapasitas aset tetap",
       value: null,
-      source: "User evidence",
-      basis: "Fixed-asset collateral haircut or appraisal-supported capacity rate",
-      formula: "Fixed assets net x fixed asset capacity",
+      source: "Bukti pengguna",
+      basis: "Haircut agunan aset tetap atau capacity rate berbasis appraisal",
+      formula: "Aset tetap neto x kapasitas aset tetap",
       note: "Isi dari appraisal aset, kebijakan loan-to-value, covenant kreditur, umur/manfaat aset, dan apakah aset tersebut benar-benar operating/pledgeable.",
       status: "user_input",
       canAutoApply: false,
     },
     requiredReturnAdditionalCapacity: {
       key: "requiredReturnAdditionalCapacity",
-      label: "Additional capacity amount",
+      label: "Jumlah kapasitas tambahan",
       value: null,
-      source: "User evidence",
-      basis: "Other eligible tangible capacity not already captured in AR, inventory, or fixed assets",
-      formula: "Manual eligible amount added to debt capacity",
+      source: "Bukti pengguna",
+      basis: "Kapasitas berwujud eligible lain yang belum tercakup dalam AR, persediaan, atau aset tetap",
+      formula: "Jumlah eligible manual ditambahkan ke kapasitas utang",
       note: positive(employeeReceivable) > 0
         ? "Terdapat other/employee receivable pada Neraca aktif. Masukkan hanya jika penilai menyimpulkan saldo tersebut eligible sebagai kapasitas tambahan."
         : "Gunakan hanya untuk kapasitas berwujud tambahan yang didukung bukti, agar tidak double-count dengan AR, inventory, atau fixed assets.",
@@ -300,8 +300,8 @@ export function buildRequiredReturnOnNtaSuggestion({
       key: "requiredReturnAfterTaxDebtCost",
       label: "After-tax debt cost",
       value: waccCalculation.afterTaxCostOfDebt,
-      source: "Calculated from active WACC inputs",
-      basis: "Pre-tax debt cost and active tax rate",
+      source: "Dihitung dari input WACC aktif",
+      basis: "Pre-tax debt cost dan tarif pajak aktif",
       formula: "Kd after tax = pre-tax debt rate x (1 - tax rate)",
       note: "Ditarik dari input WACC aktif agar cost of debt konsisten dengan DCF/EEM. Tetap dapat dioverride bila NTA capital charge memakai debt-cost basis berbeda.",
       status: "auto",
@@ -309,10 +309,10 @@ export function buildRequiredReturnOnNtaSuggestion({
     };
     fields.requiredReturnEquityCost = {
       key: "requiredReturnEquityCost",
-      label: "Tangible equity return",
+      label: "Return ekuitas aset berwujud",
       value: waccCalculation.costOfEquity,
-      source: "Calculated from active WACC inputs",
-      basis: "Risk-free rate, beta, ERP, and explicit risk adjustments",
+      source: "Dihitung dari input WACC aktif",
+      basis: "Risk-free rate, beta, ERP, dan penyesuaian risiko eksplisit",
       formula: "Ke = risk-free rate + beta x ERP + country/company risk adjustment",
       note: "Ditarik dari input WACC aktif agar equity return konsisten dengan DCF/EEM. Override hanya jika return ekuitas aset berwujud memakai basis terpisah.",
       status: "auto",
@@ -328,7 +328,7 @@ export function buildRequiredReturnOnNtaSuggestion({
 
   return {
     fields,
-    summary: "Isi capacity rate dari bukti kasus aktif. Jika bukti belum tersedia, WACC capital structure hanya menjadi fallback provisional agar EEM/DCF dapat dihitung untuk review, bukan base case final otomatis.",
+    summary: "Isi capacity rate dari bukti kasus aktif. Jika bukti belum tersedia, struktur kapital WACC hanya menjadi fallback sementara agar EEM/DCF dapat dihitung untuk tinjauan, bukan skenario dasar final otomatis.",
     waitingFor,
   };
 }

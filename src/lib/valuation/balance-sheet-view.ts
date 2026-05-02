@@ -101,20 +101,20 @@ export function buildBalanceSheetView(periods: Period[], mappedRows: MappedRow[]
       buildDerivedFixedAssetLine(
         periods,
         fixedAssetSchedule,
-        "Beginning",
-        "Acquisition ending",
+        "Saldo awal",
+        "Saldo akhir perolehan",
         (amounts) => amounts.acquisitionEnding,
         false,
       ),
       buildDerivedFixedAssetLine(
         periods,
         fixedAssetSchedule,
-        "Accumulated Depreciations",
-        "Contra asset",
+        "Akumulasi penyusutan",
+        "Kontra aset",
         (amounts) => -amounts.depreciationEnding,
         false,
       ),
-      buildDerivedFixedAssetLine(periods, fixedAssetSchedule, "Fixed Assets, Net", "Net fixed assets", (amounts) => amounts.netValue),
+      buildDerivedFixedAssetLine(periods, fixedAssetSchedule, "Nilai buku bersih aset tetap", "Aset tetap neto", (amounts) => amounts.netValue),
     );
   }
 
@@ -134,9 +134,9 @@ export function buildBalanceSheetView(periods: Period[], mappedRows: MappedRow[]
 
     if (hasAnyNonZeroValue(derivedManualFixedAssetNetValues)) {
       assetLines.push({
-        label: "Fixed Assets, Net",
+        label: "Nilai buku bersih aset tetap",
         categoryId: "DERIVED_FIXED_ASSET",
-        category: "Net fixed assets from detail",
+        category: "Aset tetap neto dari rincian",
         balanceSheetClassification: "non_current_asset",
         source: "Input akun",
         values: derivedManualFixedAssetNetValues,
@@ -222,7 +222,7 @@ function buildDerivedFixedAssetLine(
     categoryId: "DERIVED_FIXED_ASSET",
     category,
     balanceSheetClassification: "non_current_asset",
-    source: "Fixed Asset Schedule",
+    source: "Jadwal Aset Tetap",
     values: Object.fromEntries(
       periods.map((period) => [period.id, getValue(fixedAssetSchedule.totals[period.id] ?? emptyFixedAssetAmounts())]),
     ),

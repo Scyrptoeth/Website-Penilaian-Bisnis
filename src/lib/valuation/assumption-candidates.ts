@@ -26,50 +26,50 @@ export type TaxRateSuggestion = {
 
 export const waccInputReferences: AssumptionReference[] = [
   {
-    label: "Interest-bearing debt",
-    treatment: "Bank loan short-term, bank loan long-term, interest payable, or market debt used only to support debt weight.",
+    label: "Utang berbunga",
+    treatment: "Pinjaman bank jangka pendek, pinjaman bank jangka panjang, utang bunga, atau utang pasar hanya digunakan untuk mendukung bobot utang.",
   },
   {
-    label: "Equity base",
-    treatment: "Paid-up capital, additional paid-in capital, retained earnings, or market equity used to support equity weight.",
+    label: "Basis ekuitas",
+    treatment: "Modal disetor, tambahan modal disetor, saldo laba, atau nilai pasar ekuitas digunakan untuk mendukung bobot ekuitas.",
   },
   {
-    label: "Cost of equity",
-    treatment: "Risk-free rate, beta, equity risk premium, and explicit country or company-specific risk premiums.",
+    label: "Cost of equity (biaya ekuitas)",
+    treatment: "Risk-free rate, beta, equity risk premium, serta premi risiko negara atau perusahaan yang eksplisit.",
   },
   {
-    label: "Cost of debt",
-    treatment: "External borrowing rate or lender evidence before tax, then adjusted by the active tax rate.",
+    label: "Cost of debt (biaya utang)",
+    treatment: "Tingkat pinjaman eksternal atau bukti lender sebelum pajak, lalu disesuaikan dengan tarif pajak aktif.",
   },
 ];
 
 export const terminalGrowthInputReferences: AssumptionReference[] = [
   {
     label: "Invested capital",
-    treatment: "Fixed assets net plus operating working capital as the operating capital base.",
+    treatment: "Aset tetap neto ditambah operating working capital sebagai basis kapital operasional.",
   },
   {
-    label: "Net investment",
-    treatment: "Movement in fixed assets and operating working capital can be used as a cross-check, not a hardcoded terminal input.",
+    label: "Investasi neto",
+    treatment: "Mutasi aset tetap dan operating working capital dapat digunakan sebagai cross-check, bukan input terminal yang di-hardcode.",
   },
   {
-    label: "Sustainable growth",
-    treatment: "Use long-term industry, inflation, ROIC, and reinvestment assumptions; base growth must stay below WACC.",
+    label: "Pertumbuhan berkelanjutan",
+    treatment: "Gunakan asumsi jangka panjang industri, inflasi, ROIC, dan reinvestasi; base growth wajib berada di bawah WACC.",
   },
 ];
 
 export const requiredReturnOnNtaInputReferences: AssumptionReference[] = [
   {
     label: "Operating NTA",
-    treatment: "Receivables, inventory, and fixed assets support the tangible asset base reviewed for EEM.",
+    treatment: "Piutang, persediaan, dan aset tetap mendukung basis aset berwujud yang direview untuk EEM.",
   },
   {
-    label: "Borrowing capacity",
-    treatment: "User-entered capacity rates convert pledgeable tangible assets into an implied debt/equity mix; if unavailable, use WACC capital structure as a documented fallback.",
+    label: "Kapasitas pinjaman",
+    treatment: "Capacity rate yang diinput pengguna mengonversi aset berwujud yang dapat dijaminkan menjadi bauran utang/ekuitas implisit; bila tidak tersedia, gunakan struktur kapital WACC sebagai fallback terdokumentasi.",
   },
   {
     label: "Capital charge",
-    treatment: "After-tax debt cost and tangible-asset equity return produce the required return on NTA.",
+    treatment: "After-tax debt cost dan tangible-asset equity return menghasilkan required return on NTA.",
   },
 ];
 
@@ -107,11 +107,11 @@ export function buildTaxRateCandidates(valuationDate: string): AssumptionCandida
   return [
     {
       id: "statutory-general",
-      label: `Statutory general ${suggestion.year}`,
+      label: `Tarif umum statutory ${suggestion.year}`,
       value: suggestion.rate,
       status: "recommended",
       source: suggestion.source,
-      formula: "General corporate income tax rate by valuation year",
+      formula: "Tarif PPh Badan umum berdasarkan tahun penilaian",
       note: `${suggestion.note} Fasilitas khusus seperti listed company relief, Pasal 31E, atau PPh final UMKM hanya melalui override beralasan.`,
     },
   ];

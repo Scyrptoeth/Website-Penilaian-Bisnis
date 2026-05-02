@@ -6,8 +6,8 @@ describe("account label profiles", () => {
   it("marks interest-bearing debt as bridge-negative financing support", () => {
     const profile = getCategoryLabelProfile("BANK_LOAN_SHORT_TERM");
 
-    assert.equal(profile.treatment, "Debt-like");
-    assert.equal(profile.signBehavior, "Debt bridge negative");
+    assert.equal(profile.treatment, "Setara utang");
+    assert.equal(profile.signBehavior, "Bridge utang negatif");
     assert.equal(profile.labels.includes("formula:eem"), true);
     assert.equal(profile.labels.includes("formula:dcf"), true);
   });
@@ -26,8 +26,8 @@ describe("account label profiles", () => {
     const labels = resolveAccountLabels("income_statement", "CORPORATE_TAX");
 
     assert.equal(profile.placement, "Laba rugi");
-    assert.equal(profile.treatment, "Tax expense");
-    assert.equal(profile.signBehavior, "Expense reduces earnings");
+    assert.equal(profile.treatment, "Beban pajak");
+    assert.equal(profile.signBehavior, "Beban mengurangi laba");
     assert.equal(labels.includes("source:income-statement"), true);
     assert.equal(labels.includes("formula:noplat"), false);
     assert.equal(labels.includes("formula:dcf"), false);

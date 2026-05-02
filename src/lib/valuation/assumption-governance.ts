@@ -42,18 +42,18 @@ export function buildAssumptionGovernance({
 }: AssumptionGovernanceInput): AssumptionGovernanceResult {
   const items: AssumptionGovernanceItem[] = [];
   const capitalizationSpread = snapshot.wacc - snapshot.terminalGrowth;
-  const explicitPv = getTraceValue(dcfTraces, "Explicit PV of FCFF");
-  const terminalPv = getTraceValue(dcfTraces, "PV terminal value");
+  const explicitPv = getTraceValue(dcfTraces, "PV eksplisit FCFF");
+  const terminalPv = getTraceValue(dcfTraces, "PV nilai terminal");
   const terminalWeight = terminalPv > 0 && explicitPv + terminalPv !== 0 ? terminalPv / (explicitPv + terminalPv) : 0;
 
   if (snapshot.wacc > 0 && snapshot.wacc < valuationDriverGovernancePolicy.wacc.minimumReviewableRate) {
     items.push({
       id: "wacc-low",
-      label: "WACC reasonableness",
+      label: "Kewajaran WACC",
       valueLabel: formatPercentText(snapshot.wacc),
       level: "critical",
-      message: "Smart suggestion menghasilkan WACC rendah untuk valuasi EEM/DCF. Nilai ini tidak boleh dianggap base case final tanpa review beta, comparable, dan risk premium.",
-      action: "Review WACC comparable, beta, company-specific risk premium, dan capital structure.",
+      message: "Saran otomatis menghasilkan WACC rendah untuk valuasi EEM/DCF. Nilai ini tidak boleh dianggap skenario dasar final tanpa tinjauan beta, comparable, dan risk premium.",
+      action: "Tinjau comparable WACC, beta, premi risiko spesifik perusahaan, dan struktur kapital.",
       target: "wacc",
     });
   }
@@ -61,10 +61,10 @@ export function buildAssumptionGovernance({
   if (waccCalculation && waccCalculation.beta > 0 && waccCalculation.beta < valuationDriverGovernancePolicy.wacc.lowBetaThreshold) {
     items.push({
       id: "wacc-low-beta",
-      label: "Comparable beta",
+      label: "Beta pembanding",
       valueLabel: formatNumberText(waccCalculation.beta),
       level: "critical",
-      message: "Relevered beta dari smart comparable sangat rendah. Ini dapat menekan cost of equity dan memperbesar DCF/EEM.",
+      message: "Relevered beta dari smart comparable sangat rendah. Ini dapat menekan cost of equity (biaya ekuitas) dan memperbesar DCF/EEM.",
       action: "Ganti atau validasi comparable, atau gunakan beta override dengan bukti.",
       target: "wacc",
     });
@@ -73,11 +73,11 @@ export function buildAssumptionGovernance({
   if (waccCalculation && waccCalculation.costOfEquity < waccCalculation.afterTaxCostOfDebt) {
     items.push({
       id: "wacc-ke-below-kd",
-      label: "Cost of equity vs debt",
+      label: "Cost of equity vs cost of debt",
       valueLabel: `${formatPercentText(waccCalculation.costOfEquity)} Ke / ${formatPercentText(waccCalculation.afterTaxCostOfDebt)} Kd`,
       level: "critical",
-      message: "Cost of equity berada di bawah after-tax cost of debt. Secara governance, ini perlu review kuat sebelum menjadi base WACC.",
-      action: "Review beta, risk premium, dan country/company risk adjustment.",
+      message: "Cost of equity (biaya ekuitas) berada di bawah after-tax cost of debt. Secara tata kelola, ini perlu tinjauan kuat sebelum menjadi basis WACC.",
+      action: "Tinjau beta, risk premium, dan country/company risk adjustment.",
       target: "wacc",
     });
   }
@@ -85,7 +85,7 @@ export function buildAssumptionGovernance({
   if (capitalizationSpread <= 0 || capitalizationSpread < valuationDriverGovernancePolicy.terminalGrowth.minimumCapitalizationSpread) {
     items.push({
       id: "capitalization-spread",
-      label: "EEM capitalization spread",
+      label: "Spread kapitalisasi EEM",
       valueLabel: capitalizationSpread > 0 ? formatPercentText(capitalizationSpread) : "Tidak valid",
       level: "critical",
       message: "WACC dikurangi terminal growth terlalu sempit, sehingga excess earnings dan terminal value menjadi sangat sensitif.",
@@ -97,21 +97,21 @@ export function buildAssumptionGovernance({
   if (!hasRevenueGrowthOverride && snapshot.revenueGrowth > valuationDriverGovernancePolicy.revenueGrowth.highAutoGrowthThreshold) {
     items.push({
       id: "auto-revenue-growth",
-      label: "Revenue growth auto-driver",
+      label: "Driver otomatis pertumbuhan pendapatan",
       valueLabel: formatPercentText(snapshot.revenueGrowth),
       level: "critical",
-      message: "Revenue growth masih otomatis dari CAGR historis dan berada di atas ambang governance. Ini bukan base projection yang cukup tanpa normalisasi.",
-      action: "Gunakan growth override berbasis normalized forecast, sektor, atau memo proyeksi.",
+      message: "Pertumbuhan pendapatan masih otomatis dari CAGR historis dan berada di atas ambang tata kelola. Ini bukan proyeksi dasar yang cukup tanpa normalisasi.",
+      action: "Gunakan override pertumbuhan berbasis normalized forecast, sektor, atau memo proyeksi.",
       target: "eemDcfAssumptions",
     });
   } else if (snapshot.revenueGrowth > valuationDriverGovernancePolicy.revenueGrowth.extremeOverrideGrowthThreshold) {
     items.push({
       id: "manual-revenue-growth-high",
-      label: "Revenue growth override",
+      label: "Override pertumbuhan pendapatan",
       valueLabel: formatPercentText(snapshot.revenueGrowth),
       level: "review",
-      message: "Revenue growth override tinggi. Sistem menerima input, tetapi reviewer harus melihat basis proyeksi.",
-      action: "Dokumentasikan basis growth override dan uji downside.",
+      message: "Override pertumbuhan pendapatan tinggi. Sistem menerima input, tetapi peninjau harus melihat basis proyeksi.",
+      action: "Dokumentasikan basis override pertumbuhan dan uji downside.",
       target: "eemDcfAssumptions",
     });
   }
@@ -119,7 +119,7 @@ export function buildAssumptionGovernance({
   if (terminalWeight > valuationDriverGovernancePolicy.dcf.highTerminalValueWeightThreshold) {
     items.push({
       id: "terminal-weight",
-      label: "DCF terminal dependence",
+      label: "Ketergantungan nilai terminal DCF",
       valueLabel: formatPercentText(terminalWeight),
       level: "critical",
       message: "DCF terlalu bergantung pada terminal value. Ini biasanya menandakan WACC/growth/terminal growth perlu governance ketat.",
@@ -131,10 +131,10 @@ export function buildAssumptionGovernance({
   if (!requiredReturnCalculation || requiredReturnCalculation.basis !== "capacity_evidence") {
     items.push({
       id: "nta-return-fallback",
-      label: "Required return on NTA basis",
+      label: "Basis required return on NTA",
       valueLabel: requiredReturnCalculation?.basisLabel ?? "Belum dihitung",
       level: "critical",
-      message: "Required return on NTA memakai fallback, bukan capacity evidence. Ini membuat EEM berbeda material dari capacity-based workbook.",
+      message: "Required return on NTA memakai fallback, bukan capacity evidence. Ini dapat membuat EEM berbeda material dari workbook berbasis kapasitas.",
       action: "Isi capacity evidence atau dokumentasikan fallback sebagai provisional/sensitivity.",
       target: "eemDcfAssumptions",
     });
@@ -143,10 +143,10 @@ export function buildAssumptionGovernance({
   if (items.length === 0) {
     items.push({
       id: "governance-clear",
-      label: "Assumption governance",
+      label: "Tata kelola asumsi",
       valueLabel: "Tidak ada isu material",
       level: "ok",
-      message: "Smart suggestion dan driver aktif melewati governance threshold awal.",
+      message: "Saran otomatis dan driver aktif melewati threshold tata kelola awal.",
       action: "Tetap dokumentasikan bukti final dalam laporan.",
       target: "valuationEemDcf",
     });
@@ -158,12 +158,12 @@ export function buildAssumptionGovernance({
 
   return {
     level,
-    title: level === "critical" ? "High-risk smart suggestion" : level === "review" ? "Review required" : "Governance clear",
+    title: level === "critical" ? "Saran otomatis berisiko tinggi" : level === "review" ? "Perlu ditinjau" : "Tata kelola asumsi memadai",
     summary:
       level === "critical"
-        ? "Smart auto suggestion boleh dipakai untuk kalkulasi sementara, tetapi belum defensible sebagai base case tanpa perbaikan/review asumsi."
+        ? "Saran otomatis boleh dipakai untuk kalkulasi sementara, tetapi belum layak menjadi base case tanpa perbaikan atau tinjauan asumsi."
         : level === "review"
-          ? "Asumsi aktif dapat dihitung, tetapi membutuhkan dokumentasi reviewer sebelum final."
+          ? "Asumsi aktif dapat dihitung, tetapi membutuhkan dokumentasi peninjau sebelum final."
           : "Asumsi aktif melewati threshold awal dan tetap perlu bukti pendukung final.",
     items,
     criticalCount,

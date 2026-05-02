@@ -168,63 +168,63 @@ export function buildSectionAnalysis(
 
 function buildPayablesRows(periodAnalyses: PeriodAnalysis[]): AnalysisRow[] {
   return [
-    sectionRow("bank-loan-short-section", "Bank Loan - Short Term"),
-    valueRow(periodAnalyses, "short-beginning", "Beginning", "Prior period ending short-term bank loan", "Prior ending balance", (item) => item.loanMovement.shortTermBeginning),
-    valueRow(periodAnalyses, "short-addition", "Addition", "Positive movement in short-term bank loan", "max(Ending - Beginning, 0)", (item) => item.loanMovement.shortTermAddition),
-    valueRow(periodAnalyses, "short-repayment", "Repayment", "Negative movement in short-term bank loan", "min(Ending - Beginning, 0)", (item) => item.loanMovement.shortTermRepayment),
-    valueRow(periodAnalyses, "short-ending", "Ending", "Mapped BANK_LOAN_SHORT_TERM", "Beginning + addition + repayment", (item) => item.loanMovement.shortTermEnding, "subtotal"),
-    sectionRow("bank-loan-long-section", "Bank Loan - Long Term"),
-    valueRow(periodAnalyses, "long-beginning", "Beginning", "Prior period ending long-term bank loan", "Prior ending balance", (item) => item.loanMovement.longTermBeginning),
-    valueRow(periodAnalyses, "long-addition", "Addition", "Positive movement in long-term bank loan", "max(Ending - Beginning, 0)", (item) => item.loanMovement.longTermAddition),
-    valueRow(periodAnalyses, "long-repayment", "Repayment", "Negative movement in long-term bank loan", "min(Ending - Beginning, 0)", (item) => item.loanMovement.longTermRepayment),
-    valueRow(periodAnalyses, "long-ending", "Ending", "Mapped BANK_LOAN_LONG_TERM / INTEREST_BEARING_DEBT", "Beginning + addition + repayment", (item) => item.loanMovement.longTermEnding, "subtotal"),
-    valueRow(periodAnalyses, "interest-payable", "Interest payable", "Mapped INTEREST_PAYABLE", "Input balance", (item) => item.snapshot.interestPayable),
-    valueRow(periodAnalyses, "interest-bearing-debt", "Interest-bearing debt", "Debt bridge", "Short-term bank loan + long-term bank loan", (item) => interestBearingDebt(item.snapshot), "subtotal"),
+    sectionRow("bank-loan-short-section", "Pinjaman bank jangka pendek"),
+    valueRow(periodAnalyses, "short-beginning", "Saldo awal", "Saldo akhir pinjaman jangka pendek periode sebelumnya", "Saldo akhir periode sebelumnya", (item) => item.loanMovement.shortTermBeginning),
+    valueRow(periodAnalyses, "short-addition", "Penambahan", "Mutasi positif pinjaman bank jangka pendek", "max(Saldo akhir - saldo awal, 0)", (item) => item.loanMovement.shortTermAddition),
+    valueRow(periodAnalyses, "short-repayment", "Pembayaran kembali", "Mutasi negatif pinjaman bank jangka pendek", "min(Saldo akhir - saldo awal, 0)", (item) => item.loanMovement.shortTermRepayment),
+    valueRow(periodAnalyses, "short-ending", "Saldo akhir", "Terpetakan BANK_LOAN_SHORT_TERM", "Saldo awal + penambahan + pembayaran kembali", (item) => item.loanMovement.shortTermEnding, "subtotal"),
+    sectionRow("bank-loan-long-section", "Pinjaman bank jangka panjang"),
+    valueRow(periodAnalyses, "long-beginning", "Saldo awal", "Saldo akhir pinjaman jangka panjang periode sebelumnya", "Saldo akhir periode sebelumnya", (item) => item.loanMovement.longTermBeginning),
+    valueRow(periodAnalyses, "long-addition", "Penambahan", "Mutasi positif pinjaman bank jangka panjang", "max(Saldo akhir - saldo awal, 0)", (item) => item.loanMovement.longTermAddition),
+    valueRow(periodAnalyses, "long-repayment", "Pembayaran kembali", "Mutasi negatif pinjaman bank jangka panjang", "min(Saldo akhir - saldo awal, 0)", (item) => item.loanMovement.longTermRepayment),
+    valueRow(periodAnalyses, "long-ending", "Saldo akhir", "Terpetakan BANK_LOAN_LONG_TERM / INTEREST_BEARING_DEBT", "Saldo awal + penambahan + pembayaran kembali", (item) => item.loanMovement.longTermEnding, "subtotal"),
+    valueRow(periodAnalyses, "interest-payable", "Utang bunga", "Terpetakan INTEREST_PAYABLE", "Saldo input", (item) => item.snapshot.interestPayable),
+    valueRow(periodAnalyses, "interest-bearing-debt", "Utang berbunga", "Debt bridge", "Pinjaman bank jangka pendek + pinjaman bank jangka panjang", (item) => interestBearingDebt(item.snapshot), "subtotal"),
   ];
 }
 
 function buildCashFlowRows(periodAnalyses: PeriodAnalysis[]): AnalysisRow[] {
   return [
-    valueRow(periodAnalyses, "ebitda", "EBITDA", "Corrected model", "Commercial EBIT + depreciation add-back", (item) => item.ebitda),
-    valueRow(periodAnalyses, "operating-tax", "Operating tax cash flow", "Input or normalized fallback", "Corporate tax input, otherwise -(EBIT x tax rate)", (item) => item.snapshot.corporateTax || -item.normalizedTaxOnEbit),
-    sectionRow("wc-section", "Changes in Operating Working Capital"),
-    valueRow(periodAnalyses, "oca-change", "Operating current assets", "AR + inventory movement", "-(current OCA - prior OCA)", (item) =>
+    valueRow(periodAnalyses, "ebitda", "EBITDA", "Model terkoreksi", "EBIT komersial + add-back penyusutan", (item) => item.ebitda),
+    valueRow(periodAnalyses, "operating-tax", "Arus kas pajak operasional", "Input atau fallback ternormalisasi", "Input pajak badan, jika kosong -(EBIT x tarif pajak)", (item) => item.snapshot.corporateTax || -item.normalizedTaxOnEbit),
+    sectionRow("wc-section", "Perubahan Operating Working Capital"),
+    valueRow(periodAnalyses, "oca-change", "Aset lancar operasional", "Mutasi AR + persediaan", "-(OCA kini - OCA sebelumnya)", (item) =>
       item.previousSnapshot ? -(operatingCurrentAssets(item.snapshot) - operatingCurrentAssets(item.previousSnapshot)) : null,
     ),
-    valueRow(periodAnalyses, "ocl-change", "Operating current liabilities", "AP + other payable movement", "Current OCL - prior OCL", (item) =>
+    valueRow(periodAnalyses, "ocl-change", "Liabilitas lancar operasional", "Mutasi AP + utang lain-lain", "OCL kini - OCL sebelumnya", (item) =>
       item.previousSnapshot ? operatingCurrentLiabilities(item.snapshot) - operatingCurrentLiabilities(item.previousSnapshot) : null,
     ),
-    valueRow(periodAnalyses, "wc-change", "Working capital cash-flow effect", "Corrected operating WC", "OCA change + OCL change", (item) =>
+    valueRow(periodAnalyses, "wc-change", "Dampak arus kas modal kerja", "Operating WC terkoreksi", "Perubahan OCA + perubahan OCL", (item) =>
       item.previousSnapshot ? item.workingCapitalCashFlowEffect : null,
       "subtotal",
     ),
-    valueRow(periodAnalyses, "cfo", "Cash Flow from Operations", "Corrected model", "EBITDA + operating tax + operating WC change", (item) =>
+    valueRow(periodAnalyses, "cfo", "Arus kas dari operasi", "Model terkoreksi", "EBITDA + pajak operasional + perubahan operating WC", (item) =>
       item.previousSnapshot ? item.cashFlowFromOperations : null,
       "subtotal",
     ),
-    valueRow(periodAnalyses, "non-operating-income", "Cash Flow from Non Operations", "Mapped NON_OPERATING_INCOME", "Non-operating income / expense", (item) => item.snapshot.nonOperatingIncome),
-    valueRow(periodAnalyses, "capex", "Cash Flow from Investment / Capex", "Fixed asset schedule or inferred movement", "-capital expenditure", (item) =>
+    valueRow(periodAnalyses, "non-operating-income", "Arus kas non-operasional", "Terpetakan NON_OPERATING_INCOME", "Pendapatan / beban non-operasional", (item) => item.snapshot.nonOperatingIncome),
+    valueRow(periodAnalyses, "capex", "Arus kas investasi / capex", "Jadwal aset tetap atau mutasi terinferensi", "-capital expenditure", (item) =>
       item.previousSnapshot ? -item.capitalExpenditure : null,
     ),
-    valueRow(periodAnalyses, "cf-before-financing", "Cash Flow before Financing", "Corrected model", "CFO + non-operating income - capex", (item) =>
+    valueRow(periodAnalyses, "cf-before-financing", "Arus kas sebelum pendanaan", "Model terkoreksi", "CFO + pendapatan non-operasional - capex", (item) =>
       item.previousSnapshot ? item.cashFlowFromOperations + item.snapshot.nonOperatingIncome - item.capitalExpenditure : null,
       "subtotal",
     ),
-    sectionRow("financing-section", "Financing"),
-    valueRow(periodAnalyses, "equity-injection", "Equity injection movement", "Paid-up/additional capital movement", "Current capital - prior capital", (item) =>
+    sectionRow("financing-section", "Pendanaan"),
+    valueRow(periodAnalyses, "equity-injection", "Mutasi setoran ekuitas", "Mutasi modal disetor/tambahan modal", "Modal kini - modal sebelumnya", (item) =>
       item.previousSnapshot
         ? item.snapshot.paidUpCapital + item.snapshot.additionalPaidInCapital - (item.previousSnapshot.paidUpCapital + item.previousSnapshot.additionalPaidInCapital)
         : null,
     ),
-    valueRow(periodAnalyses, "new-loan", "New loan", "Payables schedule", "Positive debt movement", (item) =>
+    valueRow(periodAnalyses, "new-loan", "Pinjaman baru", "Jadwal utang", "Mutasi utang positif", (item) =>
       item.previousSnapshot ? item.loanMovement.shortTermAddition + item.loanMovement.longTermAddition : null,
     ),
-    valueRow(periodAnalyses, "interest-payment", "Interest payment", "Mapped INTEREST_EXPENSE", "Interest expense cash-flow line", (item) => item.snapshot.interestExpense),
-    valueRow(periodAnalyses, "interest-income", "Interest income", "Mapped INTEREST_INCOME", "Interest income cash-flow line", (item) => item.snapshot.interestIncome),
-    valueRow(periodAnalyses, "principal-repayment", "Principal repayment", "Payables schedule", "Negative debt movement", (item) =>
+    valueRow(periodAnalyses, "interest-payment", "Pembayaran bunga", "Terpetakan INTEREST_EXPENSE", "Line arus kas beban bunga", (item) => item.snapshot.interestExpense),
+    valueRow(periodAnalyses, "interest-income", "Pendapatan bunga", "Terpetakan INTEREST_INCOME", "Line arus kas pendapatan bunga", (item) => item.snapshot.interestIncome),
+    valueRow(periodAnalyses, "principal-repayment", "Pembayaran pokok pinjaman", "Jadwal utang", "Mutasi utang negatif", (item) =>
       item.previousSnapshot ? item.loanMovement.shortTermRepayment + item.loanMovement.longTermRepayment : null,
     ),
-    valueRow(periodAnalyses, "cff", "Cash Flow from Financing", "Corrected movement bridge", "Equity movement + new loan + interest + principal repayment", (item) =>
+    valueRow(periodAnalyses, "cff", "Arus kas dari pendanaan", "Bridge mutasi terkoreksi", "Mutasi ekuitas + pinjaman baru + bunga + pembayaran pokok", (item) =>
       item.previousSnapshot
         ? item.snapshot.paidUpCapital +
           item.snapshot.additionalPaidInCapital -
@@ -238,54 +238,54 @@ function buildCashFlowRows(periodAnalyses: PeriodAnalysis[]): AnalysisRow[] {
         : null,
       "subtotal",
     ),
-    valueRow(periodAnalyses, "net-cash-flow", "Net Cash Flow", "Corrected model", "Cash flow before financing + CFF", (item) =>
+    valueRow(periodAnalyses, "net-cash-flow", "Arus kas bersih", "Model terkoreksi", "Arus kas sebelum pendanaan + CFF", (item) =>
       item.previousSnapshot ? item.correctedNetCashFlow : null,
       "subtotal",
     ),
-    valueRow(periodAnalyses, "cash-movement", "Cash movement check", "Cash on hand + cash on bank", "Ending cash - prior cash", (item) => item.cashMovement),
-    valueRow(periodAnalyses, "cash-gap", "Cash roll-forward gap", "Audit check", "Corrected net cash flow - cash movement", (item) => item.cashFlowRollforwardGap, "warning"),
+    valueRow(periodAnalyses, "cash-movement", "Pemeriksaan mutasi kas", "Kas di tangan + bank", "Kas akhir - kas sebelumnya", (item) => item.cashMovement),
+    valueRow(periodAnalyses, "cash-gap", "Selisih roll-forward kas", "Pemeriksaan audit", "Arus kas bersih terkoreksi - mutasi kas", (item) => item.cashFlowRollforwardGap, "warning"),
   ];
 }
 
 function buildNoplatRows(periodAnalyses: PeriodAnalysis[]): AnalysisRow[] {
   return [
-    valueRow(periodAnalyses, "pbt", "Profit Before Tax", "Corrected operating bridge", "EBIT + interest income + interest expense + non-operating income", (item) =>
+    valueRow(periodAnalyses, "pbt", "Laba sebelum pajak", "Bridge operasional terkoreksi", "EBIT + pendapatan bunga + beban bunga + pendapatan non-operasional", (item) =>
       item.snapshot.ebit + item.snapshot.interestIncome + item.snapshot.interestExpense + item.snapshot.nonOperatingIncome,
     ),
-    valueRow(periodAnalyses, "add-interest", "Add: Interest Expenses", "Mapped INTEREST_EXPENSE", "-interest expense", (item) => -item.snapshot.interestExpense),
-    valueRow(periodAnalyses, "less-interest-income", "Less: Interest Income", "Mapped INTEREST_INCOME", "-interest income", (item) => -item.snapshot.interestIncome),
-    valueRow(periodAnalyses, "less-non-operating", "Less: Non Operating Income", "Mapped NON_OPERATING_INCOME", "-non-operating income / expense", (item) => -item.snapshot.nonOperatingIncome),
-    valueRow(periodAnalyses, "ebit", "Commercial EBIT", "Corrected model", "Operating EBIT after excluding financing/non-operating items", (item) => item.snapshot.ebit, "subtotal"),
-    valueRow(periodAnalyses, "tax-on-ebit", "Statutory Tax on EBIT", "Assumptions", "Commercial EBIT x statutory tax rate", (item) => item.normalizedTaxOnEbit),
-    valueRow(periodAnalyses, "tax-shields-excluded", "Tax shields / non-operating tax effects excluded", "Corrected valuation basis", "0", () => 0),
-    valueRow(periodAnalyses, "noplat", "NOPLAT", "Corrected model", "Commercial EBIT - statutory tax on EBIT", (item) => item.normalizedNoplat, "subtotal"),
+    valueRow(periodAnalyses, "add-interest", "Tambah: beban bunga", "Terpetakan INTEREST_EXPENSE", "-beban bunga", (item) => -item.snapshot.interestExpense),
+    valueRow(periodAnalyses, "less-interest-income", "Kurang: pendapatan bunga", "Terpetakan INTEREST_INCOME", "-pendapatan bunga", (item) => -item.snapshot.interestIncome),
+    valueRow(periodAnalyses, "less-non-operating", "Kurang: pendapatan non-operasional", "Terpetakan NON_OPERATING_INCOME", "-pendapatan / beban non-operasional", (item) => -item.snapshot.nonOperatingIncome),
+    valueRow(periodAnalyses, "ebit", "EBIT komersial", "Model terkoreksi", "EBIT operasional setelah mengecualikan item pendanaan/non-operasional", (item) => item.snapshot.ebit, "subtotal"),
+    valueRow(periodAnalyses, "tax-on-ebit", "Pajak statutory atas EBIT", "Asumsi", "EBIT komersial x tarif pajak statutory", (item) => item.normalizedTaxOnEbit),
+    valueRow(periodAnalyses, "tax-shields-excluded", "Tax shield / efek pajak non-operasional dikeluarkan", "Basis valuasi terkoreksi", "0", () => 0),
+    valueRow(periodAnalyses, "noplat", "NOPLAT", "Model terkoreksi", "EBIT komersial - pajak statutory atas EBIT", (item) => item.normalizedNoplat, "subtotal"),
   ];
 }
 
 function buildFcfRows(periodAnalyses: PeriodAnalysis[]): AnalysisRow[] {
   return [
-    valueRow(periodAnalyses, "noplat", "NOPLAT", "Corrected NOPLAT", "Commercial EBIT x (1 - tax rate)", (item) => item.normalizedNoplat),
-    valueRow(periodAnalyses, "depreciation", "Add: Depreciation", "Mapped depreciation / fixed asset schedule", "-depreciation expense", (item) => item.depreciationAddback),
-    valueRow(periodAnalyses, "gross-cash-flow", "Gross Cash Flow", "Corrected model", "NOPLAT + depreciation", (item) => item.normalizedNoplat + item.depreciationAddback, "subtotal"),
-    sectionRow("wc-section", "Changes in Working Capital"),
-    valueRow(periodAnalyses, "oca-change", "(Increase) Decrease in Operating Current Assets", "AR + inventory movement", "-(current OCA - prior OCA)", (item) =>
+    valueRow(periodAnalyses, "noplat", "NOPLAT", "NOPLAT terkoreksi", "EBIT komersial x (1 - tarif pajak)", (item) => item.normalizedNoplat),
+    valueRow(periodAnalyses, "depreciation", "Tambah: penyusutan", "Penyusutan terpetakan / jadwal aset tetap", "-beban penyusutan", (item) => item.depreciationAddback),
+    valueRow(periodAnalyses, "gross-cash-flow", "Arus kas bruto", "Model terkoreksi", "NOPLAT + penyusutan", (item) => item.normalizedNoplat + item.depreciationAddback, "subtotal"),
+    sectionRow("wc-section", "Perubahan Working Capital"),
+    valueRow(periodAnalyses, "oca-change", "(Kenaikan) penurunan aset lancar operasional", "Mutasi AR + persediaan", "-(OCA kini - OCA sebelumnya)", (item) =>
       item.previousSnapshot ? -(operatingCurrentAssets(item.snapshot) - operatingCurrentAssets(item.previousSnapshot)) : null,
     ),
-    valueRow(periodAnalyses, "ocl-change", "Increase (Decrease) in Operating Current Liabilities", "AP + other payable movement", "Current OCL - prior OCL", (item) =>
+    valueRow(periodAnalyses, "ocl-change", "Kenaikan (penurunan) liabilitas lancar operasional", "Mutasi AP + utang lain-lain", "OCL kini - OCL sebelumnya", (item) =>
       item.previousSnapshot ? operatingCurrentLiabilities(item.snapshot) - operatingCurrentLiabilities(item.previousSnapshot) : null,
     ),
-    valueRow(periodAnalyses, "wc-total", "Total Net Changes in Working Capital", "Corrected operating WC", "OCA change + OCL change", (item) =>
+    valueRow(periodAnalyses, "wc-total", "Total perubahan neto working capital", "Operating WC terkoreksi", "Perubahan OCA + perubahan OCL", (item) =>
       item.previousSnapshot ? item.workingCapitalCashFlowEffect : null,
       "subtotal",
     ),
-    valueRow(periodAnalyses, "capex", "Less: Capital Expenditures", "Fixed asset schedule or inferred movement", "-capital expenditure", (item) =>
+    valueRow(periodAnalyses, "capex", "Kurang: capital expenditures", "Jadwal aset tetap atau mutasi terinferensi", "-capital expenditure", (item) =>
       item.previousSnapshot ? -item.capitalExpenditure : null,
     ),
-    valueRow(periodAnalyses, "gross-investment", "Gross Investment", "Corrected model", "Working capital cash-flow effect - capex", (item) =>
+    valueRow(periodAnalyses, "gross-investment", "Investasi bruto", "Model terkoreksi", "Dampak arus kas modal kerja - capex", (item) =>
       item.previousSnapshot ? item.workingCapitalCashFlowEffect - item.capitalExpenditure : null,
       "subtotal",
     ),
-    valueRow(periodAnalyses, "fcf", "Free Cash Flow", "Corrected model", "NOPLAT + depreciation + WC effect - capex", (item) =>
+    valueRow(periodAnalyses, "fcf", "Free Cash Flow (FCF)", "Model terkoreksi", "NOPLAT + penyusutan + dampak WC - capex", (item) =>
       item.previousSnapshot ? item.freeCashFlow : null,
       "subtotal",
     ),
@@ -294,47 +294,47 @@ function buildFcfRows(periodAnalyses: PeriodAnalysis[]): AnalysisRow[] {
 
 function buildRatioRows(periodAnalyses: PeriodAnalysis[]): RatioRow[] {
   const rows: RatioRow[] = [
-    ratioRow(periodAnalyses, "gross-margin", "Gross Profit Margin", "Income Statement", "Gross profit / revenue", "percent", (item) =>
+    ratioRow(periodAnalyses, "gross-margin", "Margin laba kotor", "Laba Rugi", "Laba kotor / revenue", "percent", (item) =>
       safeRatio(item.snapshot.revenue + item.snapshot.cogs, item.snapshot.revenue),
     ),
-    ratioRow(periodAnalyses, "ebitda-margin", "EBITDA Margin", "Corrected model", "EBITDA / revenue", "percent", (item) => safeRatio(item.ebitda, item.snapshot.revenue)),
-    ratioRow(periodAnalyses, "ebit-margin", "EBIT Margin", "Corrected model", "Commercial EBIT / revenue", "percent", (item) =>
+    ratioRow(periodAnalyses, "ebitda-margin", "Margin EBITDA", "Model terkoreksi", "EBITDA / revenue", "percent", (item) => safeRatio(item.ebitda, item.snapshot.revenue)),
+    ratioRow(periodAnalyses, "ebit-margin", "Margin EBIT", "Model terkoreksi", "EBIT komersial / revenue", "percent", (item) =>
       safeRatio(item.snapshot.ebit, item.snapshot.revenue),
     ),
-    ratioRow(periodAnalyses, "net-profit-margin", "Net Profit Margin", "Income Statement", "Commercial NPAT / revenue", "percent", (item) =>
+    ratioRow(periodAnalyses, "net-profit-margin", "Margin laba bersih", "Laba Rugi", "NPAT komersial / revenue", "percent", (item) =>
       safeRatio(item.snapshot.commercialNpat, item.snapshot.revenue),
     ),
-    ratioRow(periodAnalyses, "roa", "Return on Assets", "Corrected model", "Commercial NPAT / total assets", "percent", (item) =>
+    ratioRow(periodAnalyses, "roa", "Return on Assets (ROA)", "Model terkoreksi", "NPAT komersial / total aset", "percent", (item) =>
       safeRatio(item.snapshot.commercialNpat, item.snapshot.totalAssets),
     ),
-    ratioRow(periodAnalyses, "roe", "Return on Equity", "Corrected model", "Commercial NPAT / book equity", "percent", (item) =>
+    ratioRow(periodAnalyses, "roe", "Return on Equity (ROE)", "Model terkoreksi", "NPAT komersial / book equity", "percent", (item) =>
       safeRatio(item.snapshot.commercialNpat, item.snapshot.bookEquity),
     ),
-    ratioRow(periodAnalyses, "current-ratio", "Current Ratio", "Balance Sheet", "Current assets / current liabilities", "multiple", (item) =>
+    ratioRow(periodAnalyses, "current-ratio", "Rasio lancar (Current Ratio)", "Neraca", "Aset lancar / liabilitas lancar", "multiple", (item) =>
       safeRatio(item.snapshot.currentAssets, item.snapshot.currentLiabilities),
     ),
-    ratioRow(periodAnalyses, "quick-ratio", "Quick Ratio", "Balance Sheet", "(Cash + AR) / current liabilities", "multiple", (item) =>
+    ratioRow(periodAnalyses, "quick-ratio", "Rasio cepat (Quick Ratio)", "Neraca", "(Kas + AR) / liabilitas lancar", "multiple", (item) =>
       safeRatio(item.snapshot.cashOnHand + item.snapshot.cashOnBankDeposit + item.snapshot.accountReceivable, item.snapshot.currentLiabilities),
     ),
-    ratioRow(periodAnalyses, "cash-ratio", "Cash Ratio", "Balance Sheet", "Cash / current liabilities", "multiple", (item) =>
+    ratioRow(periodAnalyses, "cash-ratio", "Rasio kas", "Neraca", "Kas / liabilitas lancar", "multiple", (item) =>
       safeRatio(item.snapshot.cashOnHand + item.snapshot.cashOnBankDeposit, item.snapshot.currentLiabilities),
     ),
-    ratioRow(periodAnalyses, "debt-assets", "Debt to Assets Ratio", "Balance Sheet", "Total liabilities / total assets", "percent", (item) =>
+    ratioRow(periodAnalyses, "debt-assets", "Debt to Assets Ratio (DAR)", "Neraca", "Total liabilitas / total aset", "percent", (item) =>
       safeRatio(item.snapshot.totalLiabilities, item.snapshot.totalAssets),
     ),
-    ratioRow(periodAnalyses, "debt-equity", "Debt to Equity Ratio", "Balance Sheet", "Total liabilities / book equity", "multiple", (item) =>
+    ratioRow(periodAnalyses, "debt-equity", "Debt to Equity Ratio (DER)", "Neraca", "Total liabilitas / book equity", "multiple", (item) =>
       safeRatio(item.snapshot.totalLiabilities, item.snapshot.bookEquity),
     ),
-    ratioRow(periodAnalyses, "capitalization-ratio", "Capitalization Ratio", "Debt bridge", "Long-term debt / (long-term debt + book equity)", "percent", (item) =>
+    ratioRow(periodAnalyses, "capitalization-ratio", "Capitalization Ratio", "Bridge utang", "Utang jangka panjang / (utang jangka panjang + book equity)", "percent", (item) =>
       safeRatio(item.snapshot.bankLoanLongTerm, item.snapshot.bankLoanLongTerm + item.snapshot.bookEquity),
     ),
-    ratioRow(periodAnalyses, "interest-coverage", "Interest Coverage", "Income Statement", "EBIT / interest expense", "multiple", (item) =>
+    ratioRow(periodAnalyses, "interest-coverage", "Interest Coverage Ratio (ICR)", "Laba Rugi", "EBIT / beban bunga", "multiple", (item) =>
       item.snapshot.interestExpense ? Math.abs(item.snapshot.ebit / item.snapshot.interestExpense) : null,
     ),
-    ratioRow(periodAnalyses, "equity-assets", "Equity to Total Assets", "Balance Sheet", "Book equity / total assets", "percent", (item) =>
+    ratioRow(periodAnalyses, "equity-assets", "Equity to Total Assets", "Neraca", "Book equity / total aset", "percent", (item) =>
       safeRatio(item.snapshot.bookEquity, item.snapshot.totalAssets),
     ),
-    ratioRow(periodAnalyses, "ocf-sales", "Operating Cash Flow / Sales", "Corrected Cash Flow Statement", "CFO / revenue", "percent", (item) =>
+    ratioRow(periodAnalyses, "ocf-sales", "Operating Cash Flow / Sales", "Laporan arus kas terkoreksi", "CFO / revenue", "percent", (item) =>
       item.previousSnapshot ? safeRatio(item.cashFlowFromOperations, item.snapshot.revenue) : null,
     ),
   ];
@@ -344,16 +344,16 @@ function buildRatioRows(periodAnalyses: PeriodAnalysis[]): RatioRow[] {
 
 function buildRoicRows(periodAnalyses: PeriodAnalysis[]): AnalysisRow[] {
   return [
-    valueRow(periodAnalyses, "noplat", "NOPLAT", "Corrected NOPLAT", "Commercial EBIT x (1 - tax rate)", (item) => item.normalizedNoplat),
-    valueRow(periodAnalyses, "total-assets", "Total assets in Balance Sheet", "Balance Sheet", "Mapped total assets or derived component total", (item) => item.snapshot.totalAssets),
-    valueRow(periodAnalyses, "non-operating-assets", "Less: non-operating assets", "Corrected classification", "Cash/deposit + employee receivable + surplus assets + non-operating fixed assets", (item) =>
+    valueRow(periodAnalyses, "noplat", "NOPLAT", "NOPLAT terkoreksi", "EBIT komersial x (1 - tarif pajak)", (item) => item.normalizedNoplat),
+    valueRow(periodAnalyses, "total-assets", "Total aset dalam neraca", "Neraca", "Total aset terpetakan atau total komponen turunan", (item) => item.snapshot.totalAssets),
+    valueRow(periodAnalyses, "non-operating-assets", "Kurang: aset non-operasional", "Klasifikasi terkoreksi", "Kas/deposito + piutang karyawan + aset surplus + aset tetap non-operasional", (item) =>
       -nonOperatingAssets(item.snapshot),
     ),
-    valueRow(periodAnalyses, "operating-nwc", "Operating working capital", "Corrected classification", "AR + inventory - AP - other payable", (item) => item.operatingWorkingCapital),
-    valueRow(periodAnalyses, "fixed-assets-net", "Operating fixed assets, net", "Fixed asset model", "Fixed assets net unless idle assets are identified", (item) => item.snapshot.fixedAssetsNet),
-    valueRow(periodAnalyses, "invested-capital-end", "Invested capital at end of year", "Corrected model", "Fixed assets net + operating working capital", (item) => item.investedCapitalEnd, "subtotal"),
-    valueRow(periodAnalyses, "invested-capital-beginning", "Invested capital at beginning of year", "Corrected model", "Prior period invested capital end", (item) => item.investedCapitalBeginning),
-    valueRow(periodAnalyses, "roic", "ROIC", "Corrected model", "NOPLAT / beginning invested capital", (item) => item.roic, "subtotal"),
+    valueRow(periodAnalyses, "operating-nwc", "Operating working capital", "Klasifikasi terkoreksi", "AR + persediaan - AP - utang lain-lain", (item) => item.operatingWorkingCapital),
+    valueRow(periodAnalyses, "fixed-assets-net", "Aset tetap operasional neto", "Model aset tetap", "Aset tetap neto kecuali aset idle teridentifikasi", (item) => item.snapshot.fixedAssetsNet),
+    valueRow(periodAnalyses, "invested-capital-end", "Invested capital akhir tahun", "Model terkoreksi", "Aset tetap neto + operating working capital", (item) => item.investedCapitalEnd, "subtotal"),
+    valueRow(periodAnalyses, "invested-capital-beginning", "Invested capital awal tahun", "Model terkoreksi", "Invested capital akhir periode sebelumnya", (item) => item.investedCapitalBeginning),
+    valueRow(periodAnalyses, "roic", "ROIC", "Model terkoreksi", "NOPLAT / invested capital awal", (item) => item.roic, "subtotal"),
   ];
 }
 
