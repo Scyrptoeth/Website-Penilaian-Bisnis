@@ -3468,11 +3468,11 @@ function RequiredReturnOnNtaSuggestionBlock({ suggestion }: { suggestion: Requir
     <div className="terminal-growth-suggestion required-return-suggestion" data-testid="required-return-suggestion-card">
       <div className="terminal-growth-suggestion-heading">
         <div>
-          <span>Smart auto suggestion</span>
-          <strong>Workbook BORROWING CAP bridge</strong>
+          <span>Input guidance</span>
+          <strong>Required return on NTA basis</strong>
         </div>
-        <em className={`source-badge ${suggestion.waitingFor.length === 0 ? "recommended" : "sensitivity"}`}>
-          {suggestion.waitingFor.length === 0 ? "complete" : "partial"}
+        <em className={`source-badge ${suggestion.waitingFor.length === 0 ? "manual" : "sensitivity"}`}>
+          {suggestion.waitingFor.length === 0 ? "input-first" : "butuh input"}
         </em>
       </div>
       <p className="assumption-empty-note">{suggestion.summary}</p>
@@ -3481,19 +3481,19 @@ function RequiredReturnOnNtaSuggestionBlock({ suggestion }: { suggestion: Requir
           <div key={field.key}>
             <span>{field.label}</span>
             <strong>{formatRequiredReturnSuggestionDisplay(field)}</strong>
-            <small>{field.sourceCell}</small>
+            <small>{field.basis}</small>
             <small>{field.formula}</small>
           </div>
         ))}
       </div>
       <dl className="driver-trace">
         <div>
-          <dt>Workbook basis</dt>
-          <dd>Receivables + inventory + fixed assets define borrowing capacity; Kd and Ke come from WACC inputs.</dd>
+          <dt>Input yang dibutuhkan</dt>
+          <dd>Capacity rate untuk piutang, inventory, dan fixed assets; tambahan kapasitas bila ada; Kd dan Ke dari WACC atau override beralasan.</dd>
         </div>
         <div>
           <dt>Status</dt>
-          <dd>{suggestion.waitingFor.length > 0 ? suggestion.waitingFor.join(" ") : "Semua field kosong dapat memakai suggestion otomatis."}</dd>
+          <dd>{suggestion.waitingFor.length > 0 ? suggestion.waitingFor.join(" ") : "Biaya modal tersedia dari WACC. Capacity rate tetap diisi dari bukti kasus aktif."}</dd>
         </div>
       </dl>
     </div>
@@ -3723,7 +3723,7 @@ function resolveAutoRequiredReturnOnNtaValues(
   return requiredReturnSuggestionOrder.reduce((nextAssumptions, key) => {
     const field = suggestion.fields[key];
 
-    if (!field || nextAssumptions[key].trim()) {
+    if (!field?.canAutoApply || field.value === null || nextAssumptions[key].trim()) {
       return nextAssumptions;
     }
 
@@ -3735,10 +3735,14 @@ function resolveAutoRequiredReturnOnNtaValues(
 }
 
 function formatRequiredReturnSuggestionInput(field: RequiredReturnOnNtaSuggestionField | undefined): string {
-  return field ? formatInputNumber(field.value) : "";
+  return field?.canAutoApply && field.value !== null ? formatInputNumber(field.value) : "";
 }
 
 function formatRequiredReturnSuggestionDisplay(field: RequiredReturnOnNtaSuggestionField): string {
+  if (field.value === null) {
+    return "Perlu input";
+  }
+
   if (field.key === "requiredReturnAdditionalCapacity") {
     return formatIdr(field.value);
   }
@@ -3751,7 +3755,7 @@ function buildSuggestionInputNote(currentValue: string, field: RequiredReturnOnN
     return undefined;
   }
 
-  return `Auto ${field.sourceCell}: ${field.source}`;
+  return `${field.canAutoApply ? "Auto" : "Input"}: ${field.basis}. ${field.note}`;
 }
 
 function applyIdxComparableSuggestions(

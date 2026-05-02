@@ -157,6 +157,14 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await expect(page.getByTestId("wacc-comparable-table")).toContainText("Perusahaan Pembanding");
   await expect(page.getByTestId("wacc-capital-structure-table")).toContainText("Struktur Kapital");
 
+  await openWorkflowTab(page, "Asumsi EEM/DCF");
+  await expect(page.getByTestId("required-return-suggestion-card")).toContainText("Required return on NTA basis");
+  await expect(page.getByTestId("required-return-suggestion-card")).toContainText("Perlu input");
+  await expect(page.getByLabel("Fixed asset capacity")).toHaveValue("");
+  await expect(page.getByLabel("After-tax debt cost")).toHaveValue("0,0702");
+  await expect(page.getByTestId("required-return-on-nta-calculator")).not.toContainText("BORROWING CAP");
+  await expect(page.getByTestId("required-return-on-nta-calculator")).not.toContainText("DISCOUNT RATE");
+
   await page.getByRole("button", { name: "Muat contoh workbook" }).click();
   await openWorkflowTab(page, "WACC");
   await expect(page.getByTestId("wacc-calculator")).toContainText("WACC calculator");
@@ -164,9 +172,12 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await openWorkflowTab(page, "Asumsi EEM/DCF");
   await expect(page.getByTestId("terminal-growth-calculator")).toContainText("Terminal growth governance");
   await expect(page.getByTestId("required-return-on-nta-calculator")).toContainText("Receivables capacity");
-  await expect(page.getByTestId("required-return-suggestion-card")).toContainText("Workbook BORROWING CAP bridge");
-  await expect(page.getByTestId("required-return-suggestion-card")).toContainText("BORROWING CAP!E7");
+  await expect(page.getByTestId("required-return-suggestion-card")).toContainText("Required return on NTA basis");
+  await expect(page.getByTestId("required-return-suggestion-card")).toContainText("Perlu input");
   await expect(page.getByLabel("Fixed asset capacity")).toHaveValue("0,7");
+  await expect(page.getByLabel("After-tax debt cost")).toHaveValue("0,06864");
+  await expect(page.getByTestId("required-return-on-nta-calculator")).not.toContainText("BORROWING CAP");
+  await expect(page.getByTestId("required-return-on-nta-calculator")).not.toContainText("DISCOUNT RATE");
   await expect(page.locator("body")).not.toContainText("STAT_ASSUMPTIONS");
 
   await openWorkflowTab(page, "Valuasi EEM/DCF");

@@ -56,12 +56,13 @@ export type RequiredReturnOnNtaSuggestionKey =
 export type RequiredReturnOnNtaSuggestionField = {
   key: RequiredReturnOnNtaSuggestionKey;
   label: string;
-  value: number;
+  value: number | null;
   source: string;
-  sourceCell: string;
+  basis: string;
   formula: string;
   note: string;
-  status: "workbook" | "derived" | "waiting";
+  status: "user_input" | "auto" | "waiting";
+  canAutoApply: boolean;
 };
 
 export type RequiredReturnOnNtaSuggestion = {
@@ -208,44 +209,50 @@ export function buildRequiredReturnOnNtaSuggestion({
     requiredReturnReceivablesCapacity: {
       key: "requiredReturnReceivablesCapacity",
       label: "Receivables capacity",
-      value: 1,
-      source: "Workbook BORROWING CAP receivables bucket",
-      sourceCell: "BORROWING CAP!E5/F5",
-      formula: "AR capacity = trade AR x 100%; other receivable routed as additional capacity",
-      note: "Workbook combines trade AR and employee receivable in borrowing capacity. The website keeps the AR rate capped at 100% and carries employee receivable separately for traceability.",
-      status: "workbook",
+      value: null,
+      source: "User evidence",
+      basis: "Trade receivable borrowing-base or collateral advance rate",
+      formula: "Eligible account receivable x receivables capacity",
+      note: "Isi dari kebijakan kreditur, borrowing-base certificate, aging piutang tertagih, atau judgment penilai atas kualitas piutang dagang.",
+      status: "user_input",
+      canAutoApply: false,
     },
     requiredReturnInventoryCapacity: {
       key: "requiredReturnInventoryCapacity",
       label: "Inventory capacity",
-      value: positive(inventory) > 0 ? 1 : 0,
-      source: "Workbook BORROWING CAP inventory bucket",
-      sourceCell: "BORROWING CAP!E6/F6",
-      formula: positive(inventory) > 0 ? "Inventory capacity = current inventory / current inventory" : "IFERROR(inventory capacity, 0)",
+      value: null,
+      source: "User evidence",
+      basis: "Inventory borrowing-base or pledgeability rate",
+      formula: "Eligible inventory x inventory capacity",
       note: positive(inventory) > 0
-        ? "Workbook supports an inventory bucket, but collateral haircut should be overridden when stock aging, pledgeability, or lender evidence is available."
-        : "Inventory is zero in the active balance sheet, so the workbook-style suggestion keeps this capacity at 0%.",
-      status: "workbook",
+        ? "Isi dari lender haircut, aging persediaan, tingkat usang/rusak, perputaran stok, dan bukti apakah inventory dapat dijaminkan."
+        : "Inventory aktif masih nol. Isi 0% bila memang tidak ada inventory eligible, atau lengkapi Neraca bila inventory seharusnya ada.",
+      status: "user_input",
+      canAutoApply: false,
     },
     requiredReturnFixedAssetCapacity: {
       key: "requiredReturnFixedAssetCapacity",
       label: "Fixed asset capacity",
-      value: 0.7,
-      source: "Workbook fixed asset borrowing capacity",
-      sourceCell: "BORROWING CAP!E7",
-      formula: "Fixed assets net x 70%",
-      note: "Workbook applies a 70% capacity rate to operating fixed assets net. Override if appraisal, collateral haircut, or lender covenant evidence indicates otherwise.",
-      status: "workbook",
+      value: null,
+      source: "User evidence",
+      basis: "Fixed-asset collateral haircut or appraisal-supported capacity rate",
+      formula: "Fixed assets net x fixed asset capacity",
+      note: "Isi dari appraisal aset, kebijakan loan-to-value, covenant kreditur, umur/manfaat aset, dan apakah aset tersebut benar-benar operating/pledgeable.",
+      status: "user_input",
+      canAutoApply: false,
     },
     requiredReturnAdditionalCapacity: {
       key: "requiredReturnAdditionalCapacity",
       label: "Additional capacity amount",
-      value: positive(employeeReceivable),
-      source: "Workbook receivables capacity bridge",
-      sourceCell: "BALANCE SHEET!E11 via BORROWING CAP!F5",
-      formula: "Additional capacity = employee / other receivable included in workbook receivables capacity",
-      note: "This preserves the workbook result without inflating the trade receivable capacity rate above 100%.",
-      status: "derived",
+      value: null,
+      source: "User evidence",
+      basis: "Other eligible tangible capacity not already captured in AR, inventory, or fixed assets",
+      formula: "Manual eligible amount added to debt capacity",
+      note: positive(employeeReceivable) > 0
+        ? "Terdapat other/employee receivable pada Neraca aktif. Masukkan hanya jika penilai menyimpulkan saldo tersebut eligible sebagai kapasitas tambahan."
+        : "Gunakan hanya untuk kapasitas berwujud tambahan yang didukung bukti, agar tidak double-count dengan AR, inventory, atau fixed assets.",
+      status: "user_input",
+      canAutoApply: false,
     },
   };
   const waitingFor: string[] = [];
@@ -255,21 +262,23 @@ export function buildRequiredReturnOnNtaSuggestion({
       key: "requiredReturnAfterTaxDebtCost",
       label: "After-tax debt cost",
       value: waccCalculation.afterTaxCostOfDebt,
-      source: "WACC calculator",
-      sourceCell: "DISCOUNT RATE!H4/G7",
+      source: "Calculated from active WACC inputs",
+      basis: "Pre-tax debt cost and active tax rate",
       formula: "Kd after tax = pre-tax debt rate x (1 - tax rate)",
-      note: "Generated from the active WACC inputs, including tax rate and debt-rate evidence.",
-      status: "derived",
+      note: "Ditarik dari input WACC aktif agar cost of debt konsisten dengan DCF/EEM. Tetap dapat dioverride bila NTA capital charge memakai debt-cost basis berbeda.",
+      status: "auto",
+      canAutoApply: true,
     };
     fields.requiredReturnEquityCost = {
       key: "requiredReturnEquityCost",
       label: "Tangible equity return",
       value: waccCalculation.costOfEquity,
-      source: "WACC calculator",
-      sourceCell: "DISCOUNT RATE!H3/G8",
+      source: "Calculated from active WACC inputs",
+      basis: "Risk-free rate, beta, ERP, and explicit risk adjustments",
       formula: "Ke = risk-free rate + beta x ERP + country/company risk adjustment",
-      note: "Generated from the active WACC cost-of-equity path and used as the equity return inside the NTA capital charge.",
-      status: "derived",
+      note: "Ditarik dari input WACC aktif agar equity return konsisten dengan DCF/EEM. Override hanya jika return ekuitas aset berwujud memakai basis terpisah.",
+      status: "auto",
+      canAutoApply: true,
     };
   } else {
     waitingFor.push("Lengkapi Tax Rate dan WACC agar Kd after tax serta Ke bisa disarankan otomatis.");
@@ -281,7 +290,7 @@ export function buildRequiredReturnOnNtaSuggestion({
 
   return {
     fields,
-    summary: "Smart suggestion follows the workbook BORROWING CAP structure while keeping every source bucket auditable.",
+    summary: "Isi capacity rate dari bukti kasus aktif; biaya modal dapat ditarik dari WACC agar NTA capital charge tetap konsisten dan audit-friendly.",
     waitingFor,
   };
 }

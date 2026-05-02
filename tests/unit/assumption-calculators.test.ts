@@ -52,7 +52,7 @@ describe("assumption calculators", () => {
     assert.equal(Number.isFinite(calculation.wacc), true);
   });
 
-  it("suggests required return on NTA inputs from workbook borrowing capacity logic", () => {
+  it("keeps required return on NTA capacity inputs user-evidence driven while deriving Kd and Ke from WACC", () => {
     const balances = {
       accountReceivable: 191_055_111,
       employeeReceivable: 21_000_000,
@@ -67,13 +67,17 @@ describe("assumption calculators", () => {
       },
     });
 
-    assert.equal(suggestion.fields.requiredReturnReceivablesCapacity?.value, 1);
-    assert.equal(suggestion.fields.requiredReturnInventoryCapacity?.value, 0);
-    assert.equal(suggestion.fields.requiredReturnFixedAssetCapacity?.value, 0.7);
-    assert.equal(suggestion.fields.requiredReturnAdditionalCapacity?.value, balances.employeeReceivable);
+    assert.equal(suggestion.fields.requiredReturnReceivablesCapacity?.value, null);
+    assert.equal(suggestion.fields.requiredReturnReceivablesCapacity?.canAutoApply, false);
+    assert.equal(suggestion.fields.requiredReturnInventoryCapacity?.value, null);
+    assert.equal(suggestion.fields.requiredReturnFixedAssetCapacity?.value, null);
+    assert.equal(suggestion.fields.requiredReturnAdditionalCapacity?.value, null);
     assert.equal(suggestion.fields.requiredReturnAfterTaxDebtCost?.value, 0.06864);
+    assert.equal(suggestion.fields.requiredReturnAfterTaxDebtCost?.canAutoApply, true);
     assert.equal(suggestion.fields.requiredReturnEquityCost?.value, 0.124537);
+    assert.equal(suggestion.fields.requiredReturnEquityCost?.canAutoApply, true);
     assert.deepEqual(suggestion.waitingFor, []);
+    assert.doesNotMatch(JSON.stringify(suggestion), /BORROWING CAP|DISCOUNT RATE|BALANCE SHEET/);
 
     const calculation = calculateRequiredReturnOnNtaAssumption(
       {
