@@ -112,7 +112,7 @@ test("AAM valuation remains available without WACC or EEM/DCF driver inputs", as
   await expect(page.getByTestId("readiness-valuationEemDcf")).toContainText("Masih diperlukan");
 });
 
-test("added analysis sections use readiness gates before sample data and render corrected workbook bridges after loading sample", async ({ page }) => {
+test("added analysis sections use readiness gates before sample data and render formula-derived bridges after loading sample", async ({ page }) => {
   await openWorkflowTab(page, "NOPLAT & FCF");
   await expect(page.getByTestId("readiness-noplatFcf")).toBeVisible();
   await expect(page.getByTestId("readiness-noplatFcf")).toContainText("Masih diperlukan");

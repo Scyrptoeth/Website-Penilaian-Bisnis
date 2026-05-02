@@ -2,6 +2,7 @@ import { mapAccount, shouldAutoApplyMapping } from "./account-taxonomy";
 import { calculateRequiredReturnOnNtaAssumption, calculateWaccAssumption, readRateInput, type RequiredReturnOnNtaCalculation, type WaccCalculation } from "./assumption-calculators";
 import { formatInputNumber } from "./format";
 import { sampleCase } from "./sample-case";
+import { valuationDriverGovernancePolicy } from "./valuation-driver-governance-policy";
 import type { AccountCategory, FinancialStatementSnapshot } from "./types";
 import type { AccountLabelId } from "./account-labels";
 
@@ -152,13 +153,6 @@ export type MappedRow = {
 };
 
 export const valuationYearOffset = 0;
-
-const highAutoRevenueGrowthThreshold = 0.2;
-const smartSuggestionBetaFloor = 1;
-const minimumCapitalizationSpread = 0.075;
-const governedReceivablesCapacity = 1;
-const governedInventoryCapacity = 0;
-const governedFixedAssetCapacity = 0.7;
 
 export const initialPeriods: Period[] = [{ id: "p1", label: "Tahun Y", valuationDate: "", yearOffset: valuationYearOffset }];
 
@@ -971,11 +965,12 @@ function resolveGovernedWaccCalculation(assumptions: AssumptionState, calculatio
     return calculation;
   }
 
+  const { lowBetaThreshold, minimumReviewableRate, smartSuggestionBetaFloor } = valuationDriverGovernancePolicy.wacc;
   const riskFreeRate = readRateInput(assumptions.waccRiskFreeRate);
   const equityRiskPremium = readRateInput(assumptions.waccEquityRiskPremium);
   const needsGovernedBase =
-    calculation.wacc < 0.08 ||
-    calculation.beta < 0.5 ||
+    calculation.wacc < minimumReviewableRate ||
+    calculation.beta < lowBetaThreshold ||
     calculation.costOfEquity < calculation.afterTaxCostOfDebt;
 
   if (!needsGovernedBase || riskFreeRate === null || equityRiskPremium === null) {
@@ -1000,7 +995,11 @@ function resolveGovernedTerminalGrowth(assumptions: AssumptionState, rawWacc: nu
   const terminalGrowth = readRateInput(assumptions.terminalGrowth) ?? 0;
   const isSmartSectorSuggestion = assumptions.terminalGrowthSource.startsWith("sector-terminal-growth");
 
-  if (isSmartSectorSuggestion && terminalGrowth > 0 && rawWacc - terminalGrowth < minimumCapitalizationSpread) {
+  if (
+    isSmartSectorSuggestion &&
+    terminalGrowth > 0 &&
+    rawWacc - terminalGrowth < valuationDriverGovernancePolicy.terminalGrowth.minimumCapitalizationSpread
+  ) {
     return 0;
   }
 
@@ -1040,10 +1039,11 @@ function resolveGovernedRequiredReturnOnNta({
     return calculation?.requiredReturn ?? 0;
   }
 
+  const capacityPolicy = valuationDriverGovernancePolicy.requiredReturnOnNta;
   const debtCapacity =
-    positive(accountReceivable) * governedReceivablesCapacity +
-    positive(inventory) * governedInventoryCapacity +
-    positive(fixedAssetsNet) * governedFixedAssetCapacity +
+    positive(accountReceivable) * capacityPolicy.receivablesCapacityProxy +
+    positive(inventory) * capacityPolicy.inventoryCapacityProxy +
+    positive(fixedAssetsNet) * capacityPolicy.fixedAssetCapacityProxy +
     positive(employeeReceivable);
   const debtWeight = clamp(debtCapacity / tangibleAssetBase, 0, 1);
   const equityWeight = 1 - debtWeight;
@@ -1052,7 +1052,7 @@ function resolveGovernedRequiredReturnOnNta({
 }
 
 function resolveGovernedAutoRevenueGrowth(revenueGrowth: number, revenueGrowthSeries: number[]): number {
-  if (revenueGrowth <= highAutoRevenueGrowthThreshold || revenueGrowthSeries.length === 0) {
+  if (revenueGrowth <= valuationDriverGovernancePolicy.revenueGrowth.highAutoGrowthThreshold || revenueGrowthSeries.length === 0) {
     return revenueGrowth;
   }
 

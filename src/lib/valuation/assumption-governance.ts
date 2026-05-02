@@ -1,5 +1,6 @@
 import type { RequiredReturnOnNtaCalculation, WaccCalculation } from "./assumption-calculators";
 import type { FormulaTrace, FinancialStatementSnapshot } from "./types";
+import { valuationDriverGovernancePolicy } from "./valuation-driver-governance-policy";
 
 export type AssumptionGovernanceLevel = "ok" | "review" | "critical";
 
@@ -32,13 +33,6 @@ export type AssumptionGovernanceInput = {
   hasRevenueGrowthOverride: boolean;
 };
 
-const minimumReviewableWacc = 0.08;
-const minimumCapitalizationSpread = 0.075;
-const lowBetaThreshold = 0.5;
-const highAutoGrowthThreshold = 0.2;
-const extremeGrowthThreshold = 0.3;
-const highTerminalWeightThreshold = 0.8;
-
 export function buildAssumptionGovernance({
   snapshot,
   waccCalculation,
@@ -52,7 +46,7 @@ export function buildAssumptionGovernance({
   const terminalPv = getTraceValue(dcfTraces, "PV terminal value");
   const terminalWeight = terminalPv > 0 && explicitPv + terminalPv !== 0 ? terminalPv / (explicitPv + terminalPv) : 0;
 
-  if (snapshot.wacc > 0 && snapshot.wacc < minimumReviewableWacc) {
+  if (snapshot.wacc > 0 && snapshot.wacc < valuationDriverGovernancePolicy.wacc.minimumReviewableRate) {
     items.push({
       id: "wacc-low",
       label: "WACC reasonableness",
@@ -64,7 +58,7 @@ export function buildAssumptionGovernance({
     });
   }
 
-  if (waccCalculation && waccCalculation.beta > 0 && waccCalculation.beta < lowBetaThreshold) {
+  if (waccCalculation && waccCalculation.beta > 0 && waccCalculation.beta < valuationDriverGovernancePolicy.wacc.lowBetaThreshold) {
     items.push({
       id: "wacc-low-beta",
       label: "Comparable beta",
@@ -88,7 +82,7 @@ export function buildAssumptionGovernance({
     });
   }
 
-  if (capitalizationSpread <= 0 || capitalizationSpread < minimumCapitalizationSpread) {
+  if (capitalizationSpread <= 0 || capitalizationSpread < valuationDriverGovernancePolicy.terminalGrowth.minimumCapitalizationSpread) {
     items.push({
       id: "capitalization-spread",
       label: "EEM capitalization spread",
@@ -100,7 +94,7 @@ export function buildAssumptionGovernance({
     });
   }
 
-  if (!hasRevenueGrowthOverride && snapshot.revenueGrowth > highAutoGrowthThreshold) {
+  if (!hasRevenueGrowthOverride && snapshot.revenueGrowth > valuationDriverGovernancePolicy.revenueGrowth.highAutoGrowthThreshold) {
     items.push({
       id: "auto-revenue-growth",
       label: "Revenue growth auto-driver",
@@ -110,7 +104,7 @@ export function buildAssumptionGovernance({
       action: "Gunakan growth override berbasis normalized forecast, sektor, atau memo proyeksi.",
       target: "eemDcfAssumptions",
     });
-  } else if (snapshot.revenueGrowth > extremeGrowthThreshold) {
+  } else if (snapshot.revenueGrowth > valuationDriverGovernancePolicy.revenueGrowth.extremeOverrideGrowthThreshold) {
     items.push({
       id: "manual-revenue-growth-high",
       label: "Revenue growth override",
@@ -122,7 +116,7 @@ export function buildAssumptionGovernance({
     });
   }
 
-  if (terminalWeight > highTerminalWeightThreshold) {
+  if (terminalWeight > valuationDriverGovernancePolicy.dcf.highTerminalValueWeightThreshold) {
     items.push({
       id: "terminal-weight",
       label: "DCF terminal dependence",

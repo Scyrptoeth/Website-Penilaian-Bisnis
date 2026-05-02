@@ -90,9 +90,8 @@ import {
 import { categoryLabelMap, categoryOptions, categoryOptionsByStatement } from "@/lib/valuation/category-options";
 import { formatDisplayDate, formatEditableNumber, formatIdr, formatInputNumber, formatPercent, formatScore } from "@/lib/valuation/format";
 import { buildWorkbenchReadiness, type SectionReadiness, type WorkbenchReadiness, type WorkbenchSectionId } from "@/lib/valuation/readiness";
-import { buildSectionAnalysis, type AnalysisRow, type AnalysisValue, type RatioRow, type SectionAnalysis } from "@/lib/valuation/section-analysis";
+import { buildSectionAnalysis, type AnalysisRow, type AnalysisValue, type PeriodAnalysis, type RatioRow, type SectionAnalysis } from "@/lib/valuation/section-analysis";
 import { buildValidationChecks } from "@/lib/valuation/validation-checks";
-import { workbookAuditFixture } from "@/lib/valuation/workbook-audit-fixture";
 import {
   buildAssumptionGovernance,
   type AssumptionGovernanceItem,
@@ -1747,6 +1746,14 @@ function ReadinessOverview({ readiness, onNavigate }: { readiness: WorkbenchRead
 }
 
 function PayablesCashFlowSection({ analysis }: { analysis: SectionAnalysis }) {
+  const latest = getLatestPeriodAnalysis(analysis);
+  const equityMovement =
+    latest?.previousSnapshot
+      ? latest.snapshot.paidUpCapital +
+        latest.snapshot.additionalPaidInCapital -
+        (latest.previousSnapshot.paidUpCapital + latest.previousSnapshot.additionalPaidInCapital)
+      : null;
+
   return (
     <>
       <section className="split-panel">
@@ -1764,11 +1771,27 @@ function PayablesCashFlowSection({ analysis }: { analysis: SectionAnalysis }) {
         <article className="panel">
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">Workbook audit reference</p>
-              <h3>Cash-flow source issue</h3>
+              <p className="eyebrow">System audit reference</p>
+              <h3>Cash-flow movement checks</h3>
             </div>
           </div>
-          <WorkbookAuditReference keys={["equityInjectionSource", "correctedEquityInjectionMovement", "cashFlowRollforwardGap"]} />
+          <EngineAuditReference
+            sourceLabel="Current case engine"
+            summary="Reference values are recalculated from current periods, not copied from the prototype workbook."
+            metrics={[
+              { label: "Equity injection movement", value: equityMovement },
+              { label: "Cash roll-forward gap", value: latest?.cashFlowRollforwardGap ?? null },
+              {
+                label: "Interest-bearing debt",
+                value: latest ? latest.loanMovement.shortTermEnding + latest.loanMovement.longTermEnding : null,
+              },
+            ]}
+            notes={[
+              "Financing uses paid-up and additional capital movement between periods.",
+              "Cash gap compares corrected net cash flow against cash-on-hand plus bank movement.",
+              "Debt is sourced from mapped bank loan and interest-bearing debt lines.",
+            ]}
+          />
         </article>
       </section>
 
@@ -1787,6 +1810,8 @@ function PayablesCashFlowSection({ analysis }: { analysis: SectionAnalysis }) {
 }
 
 function NoplatFcfSection({ analysis }: { analysis: SectionAnalysis }) {
+  const latest = getLatestPeriodAnalysis(analysis);
+
   return (
     <>
       <section className="split-panel">
@@ -1804,11 +1829,24 @@ function NoplatFcfSection({ analysis }: { analysis: SectionAnalysis }) {
         <article className="panel">
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">Workbook audit reference</p>
+              <p className="eyebrow">System audit reference</p>
               <h3>NOPLAT bridge</h3>
             </div>
           </div>
-          <WorkbookAuditReference keys={["sourceNoplat", "normalizedNoplat", "sourceFcf2021"]} />
+          <EngineAuditReference
+            sourceLabel="Current case engine"
+            summary="Operating profit is normalized from mapped income statement lines and active tax assumption."
+            metrics={[
+              { label: "Commercial NPAT", value: latest?.snapshot.commercialNpat ?? null },
+              { label: "Normalized NOPLAT", value: latest?.normalizedNoplat ?? null },
+              { label: "Free cash flow", value: latest?.freeCashFlow ?? null },
+            ]}
+            notes={[
+              "Interest and non-operating items are excluded from NOPLAT.",
+              "Tax uses active statutory or reviewed tax-rate assumption.",
+              "FCFF uses NOPLAT, depreciation add-back, working-capital movement, and capex.",
+            ]}
+          />
         </article>
       </section>
 
@@ -1835,6 +1873,8 @@ function RatiosCapitalSection({
   readiness: SectionReadiness;
   onNavigate: (tabId: WorkflowTabId) => void;
 }) {
+  const latest = getLatestPeriodAnalysis(analysis);
+
   return (
     <>
       <ReadinessPanel status={readiness} onNavigate={onNavigate} />
@@ -1865,11 +1905,24 @@ function RatiosCapitalSection({
         <article className="panel">
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">Workbook audit reference</p>
-              <h3>ROIC cash classification</h3>
+              <p className="eyebrow">System audit reference</p>
+              <h3>ROIC capital base</h3>
             </div>
           </div>
-          <WorkbookAuditReference keys={["sourceRoicExcessCash", "operatingNwc2021", "correctedEem", "correctedDcf"]} />
+          <EngineAuditReference
+            sourceLabel="Current case engine"
+            summary="Capital efficiency references are recalculated from current case classifications."
+            metrics={[
+              { label: "Operating NWC", value: latest?.operatingWorkingCapital ?? null },
+              { label: "Invested capital end", value: latest?.investedCapitalEnd ?? null },
+              { label: "ROIC", value: latest?.roic ?? null, display: "percent" },
+            ]}
+            notes={[
+              "Operating NWC uses account receivable plus inventory minus account payable and other payable.",
+              "Invested capital combines fixed assets net and operating working capital.",
+              "ROIC uses beginning invested capital when a prior period is available.",
+            ]}
+          />
         </article>
       </section>
     </>
@@ -1975,23 +2028,43 @@ function RatioTable({ rows, periods }: { rows: RatioRow[]; periods: Period[] }) 
   );
 }
 
-function WorkbookAuditReference({ keys }: { keys: Array<keyof typeof workbookAuditFixture.values> }) {
+type EngineAuditMetric = {
+  label: string;
+  value: AnalysisValue;
+  display?: "currency" | "percent" | "multiple";
+};
+
+function getLatestPeriodAnalysis(analysis: SectionAnalysis): PeriodAnalysis | null {
+  return analysis.periodAnalyses[analysis.periodAnalyses.length - 1] ?? null;
+}
+
+function EngineAuditReference({
+  sourceLabel,
+  summary,
+  metrics,
+  notes,
+}: {
+  sourceLabel: string;
+  summary: string;
+  metrics: EngineAuditMetric[];
+  notes: string[];
+}) {
   return (
     <div className="audit-reference">
       <div className="audit-reference-source">
-        <strong>{workbookAuditFixture.sourceWorkbook}</strong>
-        <span>{workbookAuditFixture.sourceSummary}</span>
+        <strong>{sourceLabel}</strong>
+        <span>{summary}</span>
       </div>
       <div className="audit-reference-grid">
-        {keys.map((key) => (
-          <div key={key}>
-            <span>{formatFixtureLabel(key)}</span>
-            <strong>{formatIdr(workbookAuditFixture.values[key])}</strong>
+        {metrics.map((metric) => (
+          <div key={metric.label}>
+            <span>{metric.label}</span>
+            <strong>{formatAnalysisValue(metric.value, metric.display ?? "currency")}</strong>
           </div>
         ))}
       </div>
       <ul>
-        {workbookAuditFixture.notes.map((note) => (
+        {notes.map((note) => (
           <li key={note}>{note}</li>
         ))}
       </ul>
@@ -2013,14 +2086,6 @@ function formatAnalysisValue(value: AnalysisValue, display: "currency" | "percen
   }
 
   return formatIdr(value);
-}
-
-function formatFixtureLabel(key: keyof typeof workbookAuditFixture.values): string {
-  return key
-    .replace(/([A-Z])/g, " $1")
-    .replace(/2021/g, " 2021")
-    .replace(/\b\w/g, (match) => match.toUpperCase())
-    .trim();
 }
 
 function readPersistedWorkbenchState(): PersistedWorkbenchState | null {
