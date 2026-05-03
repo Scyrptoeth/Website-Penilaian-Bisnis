@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import * as XLSX from "xlsx";
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
@@ -331,6 +332,38 @@ test("legacy workbook-like DLOM drafts migrate to workbook UPDATE basis without 
   await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(10);
 });
 
+test("exports the active workbench state as a multi-sheet XLSX workbook", async ({ page }) => {
+  await page.getByRole("button", { name: "Muat contoh workbook" }).click();
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export XLSX" }).click();
+  const download = await downloadPromise;
+  const downloadPath = await download.path();
+
+  assertDownloadPath(downloadPath);
+  expect(download.suggestedFilename()).toMatch(/valuation-export-\d{4}-\d{2}-\d{2}\.xlsx$/);
+
+  const workbook = XLSX.readFile(downloadPath);
+  expect(workbook.SheetNames).toEqual([
+    "00_Summary",
+    "01_Case_Profile",
+    "02_Inputs",
+    "03_Fixed_Assets",
+    "04_Assumptions",
+    "05_Snapshot",
+    "06_AAM",
+    "07_EEM",
+    "08_DCF",
+    "09_DLOM_DLOC",
+    "10_Tax_Simulation",
+    "11_Section_Analysis",
+    "12_Audit_Trace",
+  ]);
+  expect(workbook.Sheets["00_Summary"]["A1"].v).toBe("Penilaian Bisnis II - Workbook Export");
+  expect(workbook.Sheets["06_AAM"]["!ref"]).toBeTruthy();
+  expect(workbook.Sheets["10_Tax_Simulation"]["Q2"].f).toBe("P2*R2");
+});
+
 test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators, and active valuation sources", async ({ page }) => {
   await page.getByLabel("Sektor Perusahaan").selectOption("Consumer Cyclicals");
   await page.getByLabel("Tanggal penilaian").fill("2023-12-31");
@@ -503,6 +536,10 @@ async function hasNoRootHorizontalOverflow(page: Page) {
     const documentElement = document.documentElement;
     return documentElement.scrollWidth <= documentElement.clientWidth && document.body.scrollWidth <= document.body.clientWidth;
   });
+}
+
+function assertDownloadPath(path: string | null): asserts path is string {
+  expect(path).not.toBeNull();
 }
 
 async function tableFitsWrapper(page: Page, testId: string) {

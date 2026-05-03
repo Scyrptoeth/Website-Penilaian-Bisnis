@@ -8,6 +8,7 @@ import {
   Calculator,
   CalendarDays,
   CheckCircle2,
+  Download,
   Eraser,
   FileSearch,
   GitBranch,
@@ -99,6 +100,7 @@ import { formatDisplayDate, formatEditableNumber, formatIdr, formatInputNumber, 
 import { buildWorkbenchReadiness, type SectionReadiness, type WorkbenchReadiness, type WorkbenchSectionId } from "@/lib/valuation/readiness";
 import { buildSectionAnalysis, type AnalysisRow, type AnalysisValue, type PeriodAnalysis, type RatioRow, type SectionAnalysis } from "@/lib/valuation/section-analysis";
 import { buildValidationChecks } from "@/lib/valuation/validation-checks";
+import { downloadValuationWorkbook } from "@/lib/valuation/excel-export";
 import {
   buildSampleDlomState,
   calculateDlom,
@@ -1132,6 +1134,31 @@ export function ValuationWorkbench() {
     }));
   }
 
+  function exportWorkbook() {
+    downloadValuationWorkbook({
+      periods,
+      activePeriodId,
+      rows,
+      mappedRows,
+      fixedAssetScheduleRows,
+      fixedAssetSchedule,
+      assumptions,
+      resolvedAssumptions,
+      caseProfile,
+      caseProfileDerived,
+      snapshot,
+      aamAdjustmentModel,
+      results,
+      dlomCalculation,
+      dlocPfcCalculation,
+      taxSimulation,
+      taxSimulationResult,
+      sectionAnalysis,
+      readiness,
+      validationChecks: checks,
+    });
+  }
+
   function resetForm() {
     clearPersistedWorkbenchState();
     commitCoreState(() => ({
@@ -1213,6 +1240,10 @@ export function ValuationWorkbench() {
               <button className="button secondary" type="button" onClick={loadSample}>
                 <Upload size={18} />
                 Muat contoh workbook
+              </button>
+              <button className="button secondary" type="button" onClick={exportWorkbook}>
+                <Download size={18} />
+                Export XLSX
               </button>
               <button className="button ghost" type="button" onClick={resetForm} disabled={!hasAnyInput}>
                 <Eraser size={18} />
