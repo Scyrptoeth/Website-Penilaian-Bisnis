@@ -2469,6 +2469,10 @@ td span {
   min-width: 1080px;
 }
 
+.dloc-pfc-table {
+  min-width: 1060px;
+}
+
 .tax-simulation-table {
   min-width: 1420px;
 }
@@ -2500,6 +2504,30 @@ td span {
 
 .dlom-override-column {
   width: 26%;
+}
+
+.dloc-pfc-no-column {
+  width: 48px;
+}
+
+.dloc-pfc-factor-column {
+  width: 25%;
+}
+
+.dloc-pfc-answer-column {
+  width: 220px;
+}
+
+.dloc-pfc-score-column {
+  width: 64px;
+}
+
+.dloc-pfc-evidence-column {
+  width: 24%;
+}
+
+.dloc-pfc-reviewer-column {
+  width: auto;
 }
 
 .dlom-table td:nth-child(3) select {

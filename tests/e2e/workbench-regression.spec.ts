@@ -181,11 +181,21 @@ test("DLOM and tax simulation render workbook-derived scenario layer after loadi
   await expect(page.getByTestId("dlom-factor-table")).toContainText("Entry Barrier Perijinan Usaha");
   await expect(page.getByLabel("Jawaban DLOM Profitabilitas (EBITDA)")).toHaveValue("Diatas");
 
+  await page.setViewportSize({ width: 2430, height: 1350 });
   await openWorkflowTab(page, "DLOC/PFC");
   await expect(page.getByTestId("dloc-pfc-summary")).toContainText("34%");
   await expect(page.getByTestId("dloc-pfc-summary")).toContainText("Rendah");
   await expect(page.getByTestId("dloc-pfc-factor-table")).toContainText("Perjanjian antara Pemegang Saham");
   await expect(page.getByLabel("Jawaban DLOC/PFC Penunjukkan Manajemen")).toHaveValue("Sebagian");
+  await expect(page.getByRole("heading", { name: "DLOC/PFC trace" })).toHaveCount(0);
+
+  const dlocPfcColumnWidths = await page.getByTestId("dloc-pfc-factor-table").evaluate((table) =>
+    Array.from(table.querySelectorAll("thead th")).map((cell) => Math.round(cell.getBoundingClientRect().width)),
+  );
+  expect(dlocPfcColumnWidths[2]).toBeLessThanOrEqual(240);
+  expect(dlocPfcColumnWidths[3]).toBeLessThanOrEqual(80);
+  expect(dlocPfcColumnWidths[5]).toBeGreaterThanOrEqual(360);
+  expect(await tableFitsWrapper(page, "dloc-pfc-factor-table")).toBe(true);
 
   await openWorkflowTab(page, "Simulasi Potensi Pajak");
   await expect(page.getByTestId("tax-simulation-summary")).toContainText("AAM");
@@ -368,5 +378,16 @@ async function hasNoRootHorizontalOverflow(page: Page) {
   return page.evaluate(() => {
     const documentElement = document.documentElement;
     return documentElement.scrollWidth <= documentElement.clientWidth && document.body.scrollWidth <= document.body.clientWidth;
+  });
+}
+
+async function tableFitsWrapper(page: Page, testId: string) {
+  return page.getByTestId(testId).evaluate((table) => {
+    const wrapper = table.closest(".table-wrap");
+    if (!(wrapper instanceof HTMLElement)) {
+      return false;
+    }
+
+    return table.scrollWidth <= wrapper.clientWidth + 1;
   });
 }

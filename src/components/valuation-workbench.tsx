@@ -2281,7 +2281,15 @@ function DlocPfcSection({
           </div>
         </div>
         <div className="table-wrap dlom-table-wrap">
-          <table className="dlom-table" data-testid="dloc-pfc-factor-table">
+          <table className="dlom-table dloc-pfc-table" data-testid="dloc-pfc-factor-table">
+            <colgroup>
+              <col className="dloc-pfc-no-column" />
+              <col className="dloc-pfc-factor-column" />
+              <col className="dloc-pfc-answer-column" />
+              <col className="dloc-pfc-score-column" />
+              <col className="dloc-pfc-evidence-column" />
+              <col className="dloc-pfc-reviewer-column" />
+            </colgroup>
             <thead>
               <tr>
                 <th>No.</th>
@@ -2334,32 +2342,21 @@ function DlocPfcSection({
         </div>
       </section>
 
-      <section className="split-panel">
-        <article className="panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Jejak formula</p>
-              <h3>DLOC/PFC trace</h3>
-            </div>
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Audit position</p>
+            <h3>Hubungan ke simulasi pajak</h3>
           </div>
-          <FormulaList traces={calculation.traces} />
-        </article>
-        <article className="panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Audit position</p>
-              <h3>Hubungan ke simulasi pajak</h3>
-            </div>
-          </div>
-          <MetricTraceGrid
-            metrics={[
-              ["Base valuation", "AAM/EEM/DCF tetap before DLOC/PFC"],
-              ["Tax simulation", "Memakai signed rate otomatis jika lengkap"],
-              ["DLOC", "Rate positif menjadi discount"],
-              ["PFC", "Rate negatif menjadi premium"],
-            ]}
-          />
-        </article>
+        </div>
+        <MetricTraceGrid
+          metrics={[
+            ["Base valuation", "AAM/EEM/DCF tetap before DLOC/PFC"],
+            ["Tax simulation", "Memakai signed rate otomatis jika lengkap"],
+            ["DLOC", "Rate positif menjadi discount"],
+            ["PFC", "Rate negatif menjadi premium"],
+          ]}
+        />
       </section>
     </>
   );
