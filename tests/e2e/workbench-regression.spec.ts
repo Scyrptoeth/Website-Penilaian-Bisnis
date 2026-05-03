@@ -213,7 +213,18 @@ test("DLOM and tax simulation render workbook-derived scenario layer after loadi
   await openWorkflowTab(page, "DLOC/PFC");
   await expect(page.getByTestId("dloc-pfc-summary")).toContainText("34%");
   await expect(page.getByTestId("dloc-pfc-summary")).toContainText("Rendah");
+  await expect(page.getByTestId("dloc-pfc-basis-grid")).toContainText("Rentang DLOC/PFC");
+  await expect(page.getByTestId("dloc-pfc-basis-grid")).toContainText("30% - 70%");
+  await expect(page.getByTestId("dloc-pfc-basis-grid")).not.toContainText("Rentang workbook");
+  await expect(page.getByTestId("dloc-pfc-basis-grid")).not.toContainText("Sign convention");
+  await expect(page.getByText("DLOC positif turun; PFC negatif naik")).toHaveCount(0);
+  await expect(page.getByText("Unsigned rate")).toHaveCount(0);
+  await expect(page.getByText("Signed rate")).toHaveCount(0);
+  await expect(page.getByText("Hubungan ke simulasi pajak")).toHaveCount(0);
+  await expect(page.getByText("Audit position")).toHaveCount(0);
   await expect(page.getByTestId("dloc-pfc-factor-table")).toContainText("Perjanjian antara Pemegang Saham");
+  await expect(page.getByTestId("dloc-pfc-factor-table")).toContainText("Keterangan Tambahan");
+  await expect(page.getByTestId("dloc-pfc-factor-table")).not.toContainText("Catatan reviewer");
   await expect(page.getByLabel("Jawaban DLOC/PFC Penunjukkan Manajemen")).toHaveValue("Sebagian");
   await expect(page.getByRole("heading", { name: "DLOC/PFC trace" })).toHaveCount(0);
 

@@ -2248,20 +2248,11 @@ function DlocPfcSection({
           <GitBranch size={22} />
         </div>
         <ReadinessPanel status={readiness} onNavigate={onNavigate} />
-        <div className="dlom-control-grid">
+        <div className="dlom-control-grid" data-testid="dloc-pfc-basis-grid">
           <DerivedCaseField label="Jenis Perusahaan" value={calculation.companyBasis || "Isi Data Awal"} />
           <DerivedCaseField label="Status adjustment" value={calculation.adjustmentType || "Isi Data Awal"} />
-          <DerivedCaseField label="Rentang workbook" value={calculation.rangeLabel} />
-          <DerivedCaseField label="Sign convention" value="DLOC positif turun; PFC negatif naik" />
+          <DerivedCaseField label="Rentang DLOC/PFC" value={calculation.rangeLabel} />
         </div>
-        <MetricTraceGrid
-          metrics={[
-            ["Range minimum", formatPercent(calculation.rangeMin)],
-            ["Range maksimum", formatPercent(calculation.rangeMax)],
-            ["Unsigned rate", calculation.isComplete ? formatPercent(calculation.unsignedRate) : "Belum lengkap"],
-            ["Signed rate", calculation.isComplete ? formatPercent(calculation.signedRate) : "Belum lengkap"],
-          ]}
-        />
       </section>
 
       <section className="panel">
@@ -2288,7 +2279,7 @@ function DlocPfcSection({
                 <th>Jawaban final</th>
                 <th className="numeric-cell">Skor</th>
                 <th>Basis bukti</th>
-                <th>Catatan reviewer</th>
+                <th>Keterangan Tambahan</th>
               </tr>
             </thead>
             <tbody>
@@ -2320,7 +2311,7 @@ function DlocPfcSection({
                   </td>
                   <td>
                     <textarea
-                      aria-label={`Catatan DLOC/PFC ${factor.factor}`}
+                      aria-label={`Keterangan Tambahan DLOC/PFC ${factor.factor}`}
                       value={factor.overrideReason}
                       onChange={(event) => onUpdateFactor(factor.id, { overrideReason: event.target.value })}
                       placeholder="Dokumen pendukung, judgement reviewer, atau referensi pemeriksaan."
@@ -2331,23 +2322,6 @@ function DlocPfcSection({
             </tbody>
           </table>
         </div>
-      </section>
-
-      <section className="panel">
-        <div className="panel-heading">
-          <div>
-            <p className="eyebrow">Audit position</p>
-            <h3>Hubungan ke simulasi pajak</h3>
-          </div>
-        </div>
-        <MetricTraceGrid
-          metrics={[
-            ["Base valuation", "AAM/EEM/DCF tetap before DLOC/PFC"],
-            ["Tax simulation", "Memakai signed rate otomatis jika lengkap"],
-            ["DLOC", "Rate positif menjadi discount"],
-            ["PFC", "Rate negatif menjadi premium"],
-          ]}
-        />
       </section>
     </>
   );
