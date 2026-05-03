@@ -2116,7 +2116,7 @@ function DlomSection({
             value={calculation.interestBasis || "Isi Data Awal"}
             source={calculation.interestBasisSource}
           />
-          <DerivedCaseField label="Rentang DLOM" value={calculation.rangeLabel} />
+          <DlomBasisField label="Rentang DLOM" value={calculation.rangeLabel} />
         </div>
         <MetricTraceGrid
           metrics={[
@@ -2152,7 +2152,7 @@ function DlomSection({
                 <th>Jawaban final</th>
                 <th className="numeric-cell">Skor</th>
                 <th>Rekomendasi & evidence</th>
-                <th>Alasan override</th>
+                <th>Keterangan Tambahan</th>
               </tr>
             </thead>
             <tbody>
@@ -2190,7 +2190,7 @@ function DlomSection({
                     </td>
                     <td>
                       <textarea
-                        aria-label={`Alasan override ${factor.factor}`}
+                        aria-label={`Keterangan Tambahan ${factor.factor}`}
                         value={input.overrideReason}
                         onChange={(event) => onUpdateFactor(factor.id, { overrideReason: event.target.value })}
                         placeholder="Catatan reviewer, dokumen pendukung, atau alasan judgement."
@@ -4120,12 +4120,12 @@ function DerivedCaseField({
   );
 }
 
-function DlomBasisField({ label, value, source }: { label: string; value: string; source: string }) {
+function DlomBasisField({ label, value, source }: { label: string; value: string; source?: string }) {
   return (
     <div className="derived-field dlom-derived-field">
       <span>{label}</span>
       <output>{value}</output>
-      <small>{source}</small>
+      {source ? <small>{source}</small> : <small aria-hidden="true" className="empty-source" />}
     </div>
   );
 }

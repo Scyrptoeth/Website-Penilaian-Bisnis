@@ -182,9 +182,25 @@ test("DLOM and tax simulation render workbook-derived scenario layer after loadi
   await expect(page.getByTestId("dlom-basis-grid")).toContainText("20% - 40%");
   await expect(page.getByTestId("dlom-basis-grid")).not.toContainText("Formula");
   await expect(page.getByTestId("dlom-basis-grid")).not.toContainText("DLOM!F34");
+  const dlomBasisLayout = await page.getByTestId("dlom-basis-grid").locator(".derived-field").evaluateAll((fields) =>
+    fields.map((field) => {
+      const rect = field.getBoundingClientRect();
+
+      return { top: Math.round(rect.top), height: Math.round(rect.height) };
+    }),
+  );
+  expect(dlomBasisLayout).toHaveLength(3);
+  expect(
+    Math.max(...dlomBasisLayout.map((field) => field.top)) - Math.min(...dlomBasisLayout.map((field) => field.top)),
+  ).toBeLessThanOrEqual(1);
+  expect(
+    Math.max(...dlomBasisLayout.map((field) => field.height)) - Math.min(...dlomBasisLayout.map((field) => field.height)),
+  ).toBeLessThanOrEqual(1);
   await expect(page.getByRole("heading", { name: "DLOM trace" })).toHaveCount(0);
   await expect(page.getByTestId("dlom-summary")).toContainText("25%");
   await expect(page.getByTestId("dlom-summary")).toContainText("Rendah");
+  await expect(page.getByTestId("dlom-factor-table")).toContainText("Keterangan Tambahan");
+  await expect(page.getByTestId("dlom-factor-table")).not.toContainText("Alasan override");
   await expect(page.getByTestId("dlom-factor-table")).toContainText("Entry Barrier Perijinan Usaha");
   await expect(page.getByLabel("Jawaban DLOM Profitabilitas (EBITDA)")).toHaveValue("Diatas");
 
