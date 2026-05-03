@@ -174,9 +174,12 @@ test("DLOM and tax simulation render workbook-derived scenario layer after loadi
 
   await openWorkflowTab(page, "DLOM");
   await expect(page.getByTestId("dlom-basis-grid")).toContainText("DLOM Perusahaan tertutup");
-  await expect(page.getByTestId("dlom-basis-grid")).toContainText("Minoritas");
+  await expect(page.getByTestId("dlom-basis-grid")).toContainText("Mayoritas");
+  await expect(page.getByTestId("dlom-basis-grid")).toContainText("Workbook UPDATE DLOM!C31");
+  await expect(page.getByTestId("dlom-basis-grid")).toContainText("20% - 40%");
+  await expect(page.getByTestId("dlom-basis-grid")).toContainText("DLOM!F34 = LEFT(C32,3)+(F33/F31*F32)");
   await expect(page.getByRole("heading", { name: "DLOM trace" })).toHaveCount(0);
-  await expect(page.getByTestId("dlom-summary")).toContainText("35%");
+  await expect(page.getByTestId("dlom-summary")).toContainText("25%");
   await expect(page.getByTestId("dlom-summary")).toContainText("Rendah");
   await expect(page.getByTestId("dlom-factor-table")).toContainText("Entry Barrier Perijinan Usaha");
   await expect(page.getByLabel("Jawaban DLOM Profitabilitas (EBITDA)")).toHaveValue("Diatas");
@@ -199,7 +202,7 @@ test("DLOM and tax simulation render workbook-derived scenario layer after loadi
 
   await openWorkflowTab(page, "Simulasi Potensi Pajak");
   await expect(page.getByTestId("tax-simulation-summary")).toContainText("AAM");
-  await expect(page.getByTestId("tax-simulation-summary")).toContainText("DLOM 35%");
+  await expect(page.getByTestId("tax-simulation-summary")).toContainText("DLOM 25%");
   await expect(page.getByTestId("tax-simulation-summary")).toContainText("DLOC 34%");
   await expect(page.getByTestId("tax-simulation-table")).toContainText("AAM");
   await expect(page.getByTestId("tax-simulation-table")).toContainText("EEM");
@@ -333,7 +336,7 @@ test("legacy positive income-statement expense drafts migrate once and remain us
   await amountInput.press("Home");
   await amountInput.press("Delete");
   await expect(amountInput).toHaveValue("100");
-  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(7);
+  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(8);
 
   await page.reload();
   await openWorkflowTab(page, "Laba Rugi");

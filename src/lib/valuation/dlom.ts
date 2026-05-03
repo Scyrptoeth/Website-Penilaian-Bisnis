@@ -39,8 +39,14 @@ export type DlomBasisInput = {
   shareOwnershipType: string;
 };
 
+export type DlomBasisOverride = {
+  interestBasis: DlomInterestBasis;
+  sourceLabel: string;
+};
+
 export type DlomState = {
   factors: Record<DlomFactorId, DlomFactorInput>;
+  basisOverride: DlomBasisOverride | null;
 };
 
 export type DlomRecommendation = {
@@ -68,6 +74,8 @@ export type DlomCalculation = {
   totalScore: number;
   maxScore: number;
   dlomRate: number;
+  companyMarketabilitySource: string;
+  interestBasisSource: string;
   status: "Rendah" | "Moderat" | "Tinggi" | "Belum lengkap";
   taxpayerResistance: "Tinggi" | "Moderat" | "Rendah" | "Belum lengkap";
   isComplete: boolean;
@@ -80,6 +88,11 @@ const emptyRecommendation: DlomRecommendation = {
   confidence: 0,
   evidence: "Belum ada data yang cukup untuk memberi saran otomatis.",
   source: "Manual reviewer judgment",
+};
+
+const sampleWorkbookDlomBasisOverride: DlomBasisOverride = {
+  interestBasis: "Mayoritas",
+  sourceLabel: "Workbook UPDATE DLOM!C31",
 };
 
 export const dlomFactorDefinitions: DlomFactorDefinition[] = [
@@ -207,6 +220,7 @@ export const dlomFactorDefinitions: DlomFactorDefinition[] = [
 
 export function createEmptyDlomState(): DlomState {
   return {
+    basisOverride: null,
     factors: Object.fromEntries(
       dlomFactorDefinitions.map((factor) => [factor.id, { answer: "", overrideReason: "" }]),
     ) as Record<DlomFactorId, DlomFactorInput>,
@@ -215,6 +229,7 @@ export function createEmptyDlomState(): DlomState {
 
 export function buildSampleDlomState(): DlomState {
   return {
+    basisOverride: sampleWorkbookDlomBasisOverride,
     factors: {
       licenseEntryBarrier: { answer: "Ada", overrideReason: "" },
       scaleEntryBarrier: { answer: "Segmen Tertentu", overrideReason: "" },
@@ -246,7 +261,7 @@ export function calculateDlom(state: DlomState, snapshot: FinancialStatementSnap
     };
   });
   const companyMarketability = deriveDlomCompanyMarketability(basisInput.companyType);
-  const interestBasis = deriveDlomInterestBasis(basisInput.shareOwnershipType);
+  const interestBasis = state.basisOverride?.interestBasis || deriveDlomInterestBasis(basisInput.shareOwnershipType);
   const range = resolveDlomRange(companyMarketability, interestBasis);
   const totalScore = factors.reduce((sum, factor) => sum + factor.score, 0);
   const maxScore = 10;
@@ -268,6 +283,8 @@ export function calculateDlom(state: DlomState, snapshot: FinancialStatementSnap
     totalScore,
     maxScore,
     dlomRate,
+    companyMarketabilitySource: "Terhubung dari Jenis Perusahaan",
+    interestBasisSource: state.basisOverride?.sourceLabel || "Terhubung dari Jenis Kepemilikan Saham",
     status,
     taxpayerResistance,
     isComplete,
@@ -282,14 +299,14 @@ export function calculateDlom(state: DlomState, snapshot: FinancialStatementSnap
       },
       {
         label: "Rentang DLOM",
-        formula: "Marketability basis + interest basis",
+        formula: "DLOM!C32 = lookup kombinasi marketability basis + interest basis",
         value: rangeSpread,
         valueFormat: "percent",
         note: range ? `${companyMarketability} · ${interestBasis} menghasilkan rentang ${formatRate(range.min)} - ${formatRate(range.max)}.` : "Basis DLOM dari Data Awal belum lengkap.",
       },
       {
         label: "DLOM Objek Penilaian",
-        formula: "Batas bawah + (jumlah skor / maksimum skor x selisih rentang)",
+        formula: "DLOM!F34 = LEFT(C32,3)+(F33/F31*F32)",
         value: dlomRate,
         valueFormat: "percent",
         note: isComplete ? "Hasil ini hanya scenario layer; base AAM/EEM/DCF tetap sebelum DLOM." : "DLOM belum diterapkan sampai seluruh faktor dan basis terisi.",
@@ -300,8 +317,16 @@ export function calculateDlom(state: DlomState, snapshot: FinancialStatementSnap
 
 export function normalizeDlomState(value: DlomState): DlomState {
   const empty = createEmptyDlomState();
+  const basisOverride =
+    value.basisOverride?.interestBasis === "Minoritas" || value.basisOverride?.interestBasis === "Mayoritas"
+      ? {
+          interestBasis: value.basisOverride.interestBasis,
+          sourceLabel: typeof value.basisOverride.sourceLabel === "string" ? value.basisOverride.sourceLabel : "Workbook DLOM sheet",
+        }
+      : null;
 
   return {
+    basisOverride,
     factors: Object.fromEntries(
       dlomFactorDefinitions.map((definition) => {
         const input = value.factors[definition.id] ?? empty.factors[definition.id];

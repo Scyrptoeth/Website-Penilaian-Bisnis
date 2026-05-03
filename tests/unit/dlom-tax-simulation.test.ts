@@ -10,7 +10,7 @@ import {
   buildSnapshot,
 } from "../../src/lib/valuation/case-model";
 import { buildSampleDlocPfcState, calculateDlocPfc, createEmptyDlocPfcState } from "../../src/lib/valuation/dloc-pfc";
-import { buildSampleDlomState, calculateDlom, createEmptyDlomState } from "../../src/lib/valuation/dlom";
+import { buildSampleDlomState, calculateDlom, createEmptyDlomState, normalizeDlomState } from "../../src/lib/valuation/dlom";
 import {
   buildSampleTaxSimulationState,
   calculateTaxSimulation,
@@ -33,16 +33,28 @@ describe("DLOM and tax simulation scenario layer", () => {
 
     assert.equal(dlom.isComplete, true);
     assert.equal(dlom.companyMarketability, "DLOM Perusahaan tertutup");
-    assert.equal(dlom.interestBasis, "Minoritas");
-    assert.equal(dlom.rangeLabel, "30% - 50%");
+    assert.equal(dlom.interestBasis, "Mayoritas");
+    assert.equal(dlom.interestBasisSource, "Workbook UPDATE DLOM!C31");
+    assert.equal(dlom.rangeLabel, "20% - 40%");
     assert.equal(dlom.totalScore, 2.5);
-    assertAlmostEqual(dlom.dlomRate, 0.35, 1e-12);
+    assertAlmostEqual(dlom.dlomRate, 0.25, 1e-12);
     assert.equal(dlom.status, "Rendah");
     assert.equal(dlom.taxpayerResistance, "Tinggi");
   });
 
+  it("keeps manual DLOM cases tied to Data Awal when no workbook DLOM override is loaded", () => {
+    const manualDlomState = normalizeDlomState({ ...buildSampleDlomState(), basisOverride: null });
+    const dlom = calculateDlom(manualDlomState, snapshot, caseProfile);
+
+    assert.equal(dlom.interestBasis, "Minoritas");
+    assert.equal(dlom.interestBasisSource, "Terhubung dari Jenis Kepemilikan Saham");
+    assert.equal(dlom.rangeLabel, "30% - 50%");
+    assertAlmostEqual(dlom.dlomRate, 0.35, 1e-12);
+  });
+
   it("keeps DLOM incomplete when the Data Awal basis is missing", () => {
-    const blankBasisDlom = calculateDlom(buildSampleDlomState(), snapshot, {
+    const manualDlomState = normalizeDlomState({ ...buildSampleDlomState(), basisOverride: null });
+    const blankBasisDlom = calculateDlom(manualDlomState, snapshot, {
       ...caseProfile,
       companyType: "",
       shareOwnershipType: "",
@@ -103,7 +115,7 @@ describe("DLOM and tax simulation scenario layer", () => {
     assert.ok(aam);
     assert.equal(simulation.primaryMethod, "AAM");
     assertAlmostEqual(aam.baseEquityValue, methods.aam.equityValue, 0.01);
-    assertAlmostEqual(aam.dlomRate, 0.35, 1e-12);
+    assertAlmostEqual(aam.dlomRate, 0.25, 1e-12);
     assertAlmostEqual(aam.valueAfterDlom, methods.aam.equityValue * (1 - dlom.dlomRate), 0.01);
     assertAlmostEqual(aam.dlocPfcRate, 0.34, 1e-12);
     assertAlmostEqual(aam.dlocPfcAdjustment, -(methods.aam.equityValue * (1 - dlom.dlomRate) * 0.34), 0.01);

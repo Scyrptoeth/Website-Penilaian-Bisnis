@@ -105,6 +105,7 @@ import {
   createEmptyDlomState,
   dlomFactorDefinitions,
   normalizeDlomState,
+  type DlomBasisOverride,
   type DlomFactorId,
   type DlomState,
   type DlomCalculation,
@@ -304,7 +305,7 @@ const requiredReturnSuggestionOrder: RequiredReturnOnNtaSuggestionKey[] = [
 const WORKBENCH_STORAGE_KEY = "penilaian-valuasi-bisnis.workbench.v1";
 const WORKBENCH_SCROLL_STORAGE_KEY = "penilaian-valuasi-bisnis.scroll.v1";
 const WORKBENCH_SIDEBAR_STORAGE_KEY = "penilaian-valuasi-bisnis.sidebar.v1";
-const WORKBENCH_STORAGE_VERSION = 7;
+const WORKBENCH_STORAGE_VERSION = 8;
 
 type PersistedWorkbenchState = {
   version: typeof WORKBENCH_STORAGE_VERSION;
@@ -2108,15 +2109,15 @@ function DlomSection({
           <DlomBasisField
             label="Basis marketability"
             value={calculation.companyMarketability || "Isi Data Awal"}
-            source="Terhubung dari Jenis Perusahaan"
+            source={calculation.companyMarketabilitySource}
           />
           <DlomBasisField
             label="Basis interest yang dinilai"
             value={calculation.interestBasis || "Isi Data Awal"}
-            source="Terhubung dari Jenis Kepemilikan Saham"
+            source={calculation.interestBasisSource}
           />
           <DerivedCaseField label="Rentang DLOM" value={calculation.rangeLabel} />
-          <DerivedCaseField label="Formula" value="Batas bawah + (skor / 10 x selisih rentang)" />
+          <DerivedCaseField label="Formula" value="DLOM!F34 = LEFT(C32,3)+(F33/F31*F32)" />
         </div>
         <MetricTraceGrid
           metrics={[
@@ -3302,6 +3303,18 @@ function sanitizeDlomState(value: unknown): DlomState {
     return createEmptyDlomState();
   }
 
+  let basisOverride: DlomBasisOverride | null = null;
+
+  if (isRecord(value.basisOverride)) {
+    const interestBasis = typeof value.basisOverride.interestBasis === "string" ? value.basisOverride.interestBasis : "";
+
+    if (interestBasis === "Minoritas" || interestBasis === "Mayoritas") {
+      basisOverride = {
+        interestBasis,
+        sourceLabel: typeof value.basisOverride.sourceLabel === "string" ? value.basisOverride.sourceLabel : "",
+      };
+    }
+  }
   const factorSource = isRecord(value.factors) ? value.factors : {};
   const factors = Object.fromEntries(
     dlomFactorDefinitions.map((definition) => {
@@ -3314,7 +3327,7 @@ function sanitizeDlomState(value: unknown): DlomState {
     }),
   ) as DlomState["factors"];
 
-  return normalizeDlomState({ factors });
+  return normalizeDlomState({ factors, basisOverride });
 }
 
 function sanitizeDlocPfcState(value: unknown): DlocPfcState {
@@ -3359,7 +3372,7 @@ function sanitizeTaxSimulationState(value: unknown): TaxSimulationState {
 }
 
 function hasDlomInput(value: DlomState): boolean {
-  return Object.values(value.factors).some((factor) => factor.answer.trim() !== "" || factor.overrideReason.trim() !== "");
+  return Boolean(value.basisOverride) || Object.values(value.factors).some((factor) => factor.answer.trim() !== "" || factor.overrideReason.trim() !== "");
 }
 
 function hasDlocPfcInput(value: DlocPfcState): boolean {
