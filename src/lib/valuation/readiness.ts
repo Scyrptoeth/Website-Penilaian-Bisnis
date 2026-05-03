@@ -9,7 +9,7 @@ import type {
 } from "./case-model";
 import { calculateRequiredReturnOnNtaAssumption, calculateWaccAssumption } from "./assumption-calculators";
 import type { DlocPfcCalculation } from "./dloc-pfc";
-import { resolveDlocPfcRate, type TaxSimulationState } from "./tax-simulation";
+import type { TaxSimulationState } from "./tax-simulation";
 import type { AccountCategory, FinancialStatementSnapshot } from "./types";
 
 export type WorkbenchSectionId =
@@ -148,7 +148,6 @@ export function buildWorkbenchReadiness({
     "balance",
     "Isi Aset Tetap",
   );
-  const dlocPfcRateResolution = resolveDlocPfcRate(taxSimulation, dlocPfc);
   const hasCompanyType = criterion(caseProfile.companyType.trim() !== "", "Jenis Perusahaan tersedia untuk basis DLOM dan rentang DLOC/PFC", "periods", "Isi Data Awal");
   const hasShareOwnershipType = criterion(
     caseProfile.shareOwnershipType.trim() !== "",
@@ -171,8 +170,8 @@ export function buildWorkbenchReadiness({
     "Isi Data Awal",
   );
   const dlocPfcReadyForTax = criterion(
-    !taxSimulation.applyDlocPfc || dlocPfc.isComplete || dlocPfcRateResolution.hasValidOverride,
-    "DLOC/PFC siap dipakai atau override beralasan tersedia",
+    dlocPfc.isComplete || (taxSimulation.finalBasis === "manualScenario" && taxSimulation.scenarioDlocPfcRate.trim() !== ""),
+    "DLOC/PFC otomatis tersedia atau skenario manual memiliki rate pembanding",
     "dlocPfc",
     "Lengkapi DLOC/PFC",
   );

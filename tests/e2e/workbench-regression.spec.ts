@@ -207,6 +207,14 @@ test("DLOM and tax simulation render workbook-derived scenario layer after loadi
   await expect(page.getByTestId("tax-simulation-table")).toContainText("Primary");
   await expect(page.getByTestId("tax-simulation-table")).toContainText("Rate otomatis dari tab DLOC/PFC");
   await expect(page.getByText("AAM primary method")).toBeVisible();
+
+  await page.getByLabel("Basis final").selectOption("manualScenario");
+  await page.getByLabel("Skenario DLOM").fill("0,1");
+  await page.getByLabel("Skenario DLOC/PFC").fill("0,2");
+  await page.getByLabel("Catatan skenario manual").fill("Reviewer what-if");
+  await expect(page.getByTestId("tax-simulation-summary")).toContainText("Final memakai Skenario manual");
+  await expect(page.getByTestId("tax-simulation-table")).toContainText("Skenario manual");
+  await expect(page.getByText("DLOM skenario")).toBeVisible();
 });
 
 test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators, and active valuation sources", async ({ page }) => {
@@ -325,7 +333,7 @@ test("legacy positive income-statement expense drafts migrate once and remain us
   await amountInput.press("Home");
   await amountInput.press("Delete");
   await expect(amountInput).toHaveValue("100");
-  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(6);
+  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(7);
 
   await page.reload();
   await openWorkflowTab(page, "Laba Rugi");

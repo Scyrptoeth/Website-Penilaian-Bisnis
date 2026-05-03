@@ -111,6 +111,8 @@ describe("DLOM and tax simulation scenario layer", () => {
     assertAlmostEqual(aam.marketValueOfTransferredInterest, methods.aam.equityValue * (1 - dlom.dlomRate) * (1 - 0.34) * aam.sharePercentage, 0.01);
     assert.ok(aam.potentialTaxableDifference > 0);
     assert.ok(aam.potentialTax > 0);
+    assert.equal(aam.appliedTaxYear, 2021);
+    assert.equal(aam.taxSourceLegalBasis.includes("UU 36/2008"), true);
     assert.equal(methods.aam.traces.some((trace) => trace.note.includes("DLOM/DLOC tidak diterapkan")), true);
   });
 
@@ -131,28 +133,28 @@ describe("DLOM and tax simulation scenario layer", () => {
     assert.ok(simulation.warnings.some((warning) => warning.includes("Persentase saham")));
   });
 
-  it("requires a complete DLOC/PFC questionnaire or a reasoned override before applying the tax layer", () => {
+  it("uses baseline automatic rates and keeps manual scenario isolated from DLOM/DLOC tabs", () => {
     const dlom = calculateDlom(createEmptyDlomState(), snapshot, caseProfile);
     const incompleteDlocPfc = calculateDlocPfc(createEmptyDlocPfcState(), caseProfile);
     const simulation = calculateTaxSimulation({
       methods: [methods.aam],
       dlom,
       dlocPfc: incompleteDlocPfc,
-      state: { ...createEmptyTaxSimulationState(), applyDlocPfc: true, primaryMethod: "AAM" },
+      state: { ...createEmptyTaxSimulationState(), primaryMethod: "AAM" },
       caseProfile,
       caseProfileDerived,
       snapshot,
     });
-    const overrideSimulation = calculateTaxSimulation({
+    const scenarioSimulation = calculateTaxSimulation({
       methods: [methods.aam],
       dlom,
       dlocPfc: incompleteDlocPfc,
       state: {
         ...createEmptyTaxSimulationState(),
-        applyDlocPfc: true,
-        useDlocPfcOverride: true,
-        dlocPfcRate: "0,2",
-        dlocPfcOverrideReason: "Reviewer benchmark adjustment",
+        finalBasis: "manualScenario",
+        scenarioDlomRate: "0,1",
+        scenarioDlocPfcRate: "0,2",
+        scenarioReason: "Reviewer benchmark adjustment",
         primaryMethod: "AAM",
       },
       caseProfile,
@@ -161,8 +163,11 @@ describe("DLOM and tax simulation scenario layer", () => {
     });
 
     assert.equal(simulation.rows[0].dlocPfcRate, 0);
-    assert.ok(simulation.warnings.some((warning) => warning.includes("questionnaire DLOC/PFC belum lengkap")));
-    assertAlmostEqual(overrideSimulation.rows[0].dlocPfcRate, 0.2, 1e-12);
-    assert.equal(overrideSimulation.warnings.some((warning) => warning.includes("override")), false);
+    assert.equal(simulation.rows[0].basis, "baseline");
+    assert.ok(simulation.warnings.some((warning) => warning.includes("questionnaire belum lengkap")));
+    assert.equal(scenarioSimulation.rows[0].basis, "manualScenario");
+    assertAlmostEqual(scenarioSimulation.rows[0].dlomRate, 0.1, 1e-12);
+    assertAlmostEqual(scenarioSimulation.rows[0].dlocPfcRate, 0.2, 1e-12);
+    assert.equal(scenarioSimulation.baselineRows[0].dlocPfcRate, 0);
   });
 });

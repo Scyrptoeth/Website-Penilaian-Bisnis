@@ -2,25 +2,52 @@ import type { CaseProfile, CaseProfileDerived } from "./case-model";
 import { parseInputNumber } from "./case-model";
 import type { DlocPfcCalculation } from "./dloc-pfc";
 import type { DlomCalculation } from "./dlom";
+import {
+  calculateTaxByRegime,
+  resolveTaxRateRegime,
+  type ProgressiveTaxComputationBracket,
+  type TaxComputation,
+  type TaxYearResolution,
+} from "./tax-rates";
 import type { FinancialStatementSnapshot, FormulaTrace, MethodOutput, ValuationMethod } from "./types";
+
+export type TaxSimulationFinalBasis = "baseline" | "manualScenario";
+export type TaxpayerResistance = "Tinggi" | "Moderat" | "Rendah" | "Belum lengkap";
 
 export type TaxSimulationState = {
   primaryMethod: ValuationMethod | "";
+  finalBasis: TaxSimulationFinalBasis;
+  scenarioDlomRate: string;
+  scenarioDlocPfcRate: string;
+  scenarioReason: string;
+  reportedTransferValue: string;
+  note: string;
   applyDlom: boolean;
   applyDlocPfc: boolean;
   useDlocPfcOverride: boolean;
   dlocPfcRate: string;
   dlocPfcOverrideReason: string;
-  reportedTransferValue: string;
-  note: string;
+};
+
+export type TaxSimulationBasis = {
+  id: TaxSimulationFinalBasis;
+  label: string;
+  dlomRate: number;
+  dlomSource: string;
+  dlocPfcRate: number;
+  dlocPfcSource: string;
+  isManual: boolean;
 };
 
 export type TaxSimulationMethodRow = {
+  basis: TaxSimulationFinalBasis;
+  basisLabel: string;
   method: ValuationMethod;
   isPrimary: boolean;
   baseEquityValue: number;
   dlomRate: number;
   dlomAdjustment: number;
+  dlomSource: string;
   valueAfterDlom: number;
   dlocPfcRate: number;
   dlocPfcAdjustment: number;
@@ -29,42 +56,68 @@ export type TaxSimulationMethodRow = {
   sharePercentage: number;
   marketValueOfTransferredInterest: number;
   reportedTransferValue: number;
+  transferValueDifference: number;
   potentialTaxableDifference: number;
+  taxableIncomeRounded: number;
   potentialTax: number;
+  effectiveTaxRate: number;
+  requestedTaxYear: number | null;
+  appliedTaxYear: number | null;
+  isNearestTaxYear: boolean;
   taxBasisLabel: string;
+  taxSourceTitle: string;
+  taxSourceLegalBasis: string;
+  taxSourceUrl: string;
+  taxSourceNote: string;
+  taxBrackets: ProgressiveTaxComputationBracket[];
   traces: FormulaTrace[];
 };
 
 export type TaxSimulationResult = {
+  finalBasis: TaxSimulationFinalBasis;
   primaryMethod: ValuationMethod | "";
   primaryRow: TaxSimulationMethodRow | null;
+  baselinePrimaryRow: TaxSimulationMethodRow | null;
+  scenarioPrimaryRow: TaxSimulationMethodRow | null;
   rows: TaxSimulationMethodRow[];
+  baselineRows: TaxSimulationMethodRow[];
+  scenarioRows: TaxSimulationMethodRow[];
+  overallResistance: TaxpayerResistance;
+  taxYearResolution: TaxYearResolution;
   warnings: string[];
 };
 
 export function createEmptyTaxSimulationState(): TaxSimulationState {
   return {
     primaryMethod: "",
-    applyDlom: false,
-    applyDlocPfc: false,
+    finalBasis: "baseline",
+    scenarioDlomRate: "",
+    scenarioDlocPfcRate: "",
+    scenarioReason: "",
+    reportedTransferValue: "",
+    note: "",
+    applyDlom: true,
+    applyDlocPfc: true,
     useDlocPfcOverride: false,
     dlocPfcRate: "",
     dlocPfcOverrideReason: "",
-    reportedTransferValue: "",
-    note: "",
   };
 }
 
 export function buildSampleTaxSimulationState(): TaxSimulationState {
   return {
     primaryMethod: "AAM",
+    finalBasis: "baseline",
+    scenarioDlomRate: "",
+    scenarioDlocPfcRate: "",
+    scenarioReason: "",
+    reportedTransferValue: "1.600.000.000",
+    note: "Sample workbook default: AAM sebagai primary method; DLOM dan DLOC/PFC otomatis dari tab asal.",
     applyDlom: true,
     applyDlocPfc: true,
     useDlocPfcOverride: false,
     dlocPfcRate: "",
     dlocPfcOverrideReason: "",
-    reportedTransferValue: "1.600.000.000",
-    note: "Sample workbook default: AAM sebagai primary method; DLOM dan DLOC/PFC dihitung sebagai scenario layer.",
   };
 }
 
@@ -75,7 +128,6 @@ export function calculateTaxSimulation({
   state,
   caseProfile,
   caseProfileDerived,
-  snapshot,
 }: {
   methods: MethodOutput[];
   dlom: DlomCalculation;
@@ -87,79 +139,56 @@ export function calculateTaxSimulation({
 }): TaxSimulationResult {
   const sharePercentage = caseProfileDerived.capitalProportionStatus === "valid" ? caseProfileDerived.capitalProportion ?? 0 : 0;
   const reportedTransferValue = readReportedTransferValue(state, caseProfile);
-  const dlocPfcRateResolution = resolveDlocPfcRate(state, dlocPfc);
-  const dlocPfcRate = dlocPfcRateResolution.rate;
-  const dlomRate = state.applyDlom && dlom.isComplete ? dlom.dlomRate : 0;
-  const rows = methods.map((method): TaxSimulationMethodRow => {
-    const dlomAdjustment = -(method.equityValue * dlomRate);
-    const valueAfterDlom = method.equityValue + dlomAdjustment;
-    const dlocPfcAdjustment = -(valueAfterDlom * dlocPfcRate);
-    const marketValueOfEquity100 = valueAfterDlom + dlocPfcAdjustment;
-    const marketValueOfTransferredInterest = marketValueOfEquity100 * sharePercentage;
-    const potentialTaxableDifference = Math.max(0, marketValueOfTransferredInterest - reportedTransferValue);
-    const taxComputation = calculatePotentialTax(potentialTaxableDifference, caseProfile.subjectTaxpayerType, snapshot.taxRate);
-
-    return {
-      method: method.method,
-      isPrimary: state.primaryMethod === method.method,
-      baseEquityValue: method.equityValue,
-      dlomRate,
-      dlomAdjustment,
-      valueAfterDlom,
-      dlocPfcRate,
-      dlocPfcAdjustment,
-      dlocPfcSource: dlocPfcRateResolution.sourceLabel,
-      marketValueOfEquity100,
-      sharePercentage,
-      marketValueOfTransferredInterest,
-      reportedTransferValue,
-      potentialTaxableDifference,
-      potentialTax: taxComputation.tax,
-      taxBasisLabel: taxComputation.label,
-      traces: [
-        {
-          label: `${method.method} base equity value`,
-          formula: "Nilai ekuitas 100% sebelum DLOM/DLOC/PFC",
-          value: method.equityValue,
-          note: "Diambil dari base valuation; tidak dimutasi oleh scenario layer.",
-        },
-        {
-          label: "DLOM adjustment",
-          formula: "Base equity value x DLOM rate x -1",
-          value: dlomAdjustment,
-          note: state.applyDlom ? "DLOM aktif di simulasi pajak." : "DLOM tidak diterapkan pada simulasi ini.",
-        },
-        {
-          label: "DLOC/PFC adjustment",
-          formula: "Equity value after DLOM x DLOC/PFC signed rate x -1",
-          value: dlocPfcAdjustment,
-          note: state.applyDlocPfc
-            ? `${dlocPfcRateResolution.sourceLabel}. DLOC positif menurunkan nilai; PFC negatif menaikkan nilai melalui multiplier -1.`
-            : "DLOC/PFC belum diterapkan.",
-        },
-        {
-          label: "Market value of transferred interest",
-          formula: "Market value of 100% equity x percentage of shares/capital valued",
-          value: marketValueOfTransferredInterest,
-          note: "Persentase berasal dari Data Awal.",
-        },
-        {
-          label: "Potensi pengalihan belum dikenakan pajak",
-          formula: "Max(0, market value of transferred interest - nilai pengalihan dilaporkan)",
-          value: potentialTaxableDifference,
-          note: taxComputation.label,
-        },
-      ],
-    };
+  const requestedTaxYear = resolveRequestedTaxYear(caseProfile, caseProfileDerived);
+  const taxYearResolution = resolveTaxRateRegime(requestedTaxYear);
+  const baselineBasis = buildBaselineBasis(dlom, dlocPfc);
+  const scenarioBasis = buildScenarioBasis(state, dlocPfc, baselineBasis);
+  const overallResistance = combineTaxpayerResistance(dlom.taxpayerResistance, dlocPfc.taxpayerResistance);
+  const baselineRows = buildRows({
+    methods,
+    basis: baselineBasis,
+    state,
+    caseProfile,
+    sharePercentage,
+    reportedTransferValue,
+    requestedTaxYear,
+  });
+  const scenarioRows = buildRows({
+    methods,
+    basis: scenarioBasis,
+    state,
+    caseProfile,
+    sharePercentage,
+    reportedTransferValue,
+    requestedTaxYear,
+  });
+  const finalBasis = state.finalBasis === "manualScenario" ? "manualScenario" : "baseline";
+  const rows = finalBasis === "manualScenario" ? scenarioRows : baselineRows;
+  const primaryRow = rows.find((row) => row.method === state.primaryMethod) ?? null;
+  const baselinePrimaryRow = baselineRows.find((row) => row.method === state.primaryMethod) ?? null;
+  const scenarioPrimaryRow = scenarioRows.find((row) => row.method === state.primaryMethod) ?? null;
+  const warnings = buildWarnings({
+    state,
+    dlom,
+    dlocPfc,
+    sharePercentage,
+    reportedTransferValue,
+    requestedTaxYear,
+    taxYearResolution,
+    caseProfile,
   });
 
-  const warnings = buildWarnings({ state, dlom, dlocPfc, sharePercentage, reportedTransferValue, dlocPfcRateResolution });
-  const primaryRow = rows.find((row) => row.method === state.primaryMethod) ?? null;
-
   return {
+    finalBasis,
     primaryMethod: state.primaryMethod,
     primaryRow,
+    baselinePrimaryRow,
+    scenarioPrimaryRow,
     rows,
+    baselineRows,
+    scenarioRows,
+    overallResistance,
+    taxYearResolution,
     warnings,
   };
 }
@@ -167,95 +196,236 @@ export function calculateTaxSimulation({
 export function normalizeTaxSimulationState(value: TaxSimulationState): TaxSimulationState {
   const empty = createEmptyTaxSimulationState();
   const primaryMethod = value.primaryMethod === "AAM" || value.primaryMethod === "EEM" || value.primaryMethod === "DCF" ? value.primaryMethod : "";
+  const legacyScenarioRate = typeof value.dlocPfcRate === "string" ? value.dlocPfcRate : "";
+  const legacyScenarioReason = typeof value.dlocPfcOverrideReason === "string" ? value.dlocPfcOverrideReason : "";
 
   return {
     primaryMethod,
-    applyDlom: typeof value.applyDlom === "boolean" ? value.applyDlom : empty.applyDlom,
-    applyDlocPfc: typeof value.applyDlocPfc === "boolean" ? value.applyDlocPfc : empty.applyDlocPfc,
-    useDlocPfcOverride: typeof value.useDlocPfcOverride === "boolean" ? value.useDlocPfcOverride : empty.useDlocPfcOverride,
-    dlocPfcRate: typeof value.dlocPfcRate === "string" ? value.dlocPfcRate : empty.dlocPfcRate,
-    dlocPfcOverrideReason: typeof value.dlocPfcOverrideReason === "string" ? value.dlocPfcOverrideReason : empty.dlocPfcOverrideReason,
+    finalBasis: value.finalBasis === "manualScenario" ? "manualScenario" : "baseline",
+    scenarioDlomRate: typeof value.scenarioDlomRate === "string" ? value.scenarioDlomRate : "",
+    scenarioDlocPfcRate: typeof value.scenarioDlocPfcRate === "string" ? value.scenarioDlocPfcRate : legacyScenarioRate,
+    scenarioReason: typeof value.scenarioReason === "string" ? value.scenarioReason : legacyScenarioReason,
     reportedTransferValue: typeof value.reportedTransferValue === "string" ? value.reportedTransferValue : empty.reportedTransferValue,
     note: typeof value.note === "string" ? value.note : empty.note,
+    applyDlom: true,
+    applyDlocPfc: true,
+    useDlocPfcOverride: typeof value.useDlocPfcOverride === "boolean" ? value.useDlocPfcOverride : empty.useDlocPfcOverride,
+    dlocPfcRate: legacyScenarioRate,
+    dlocPfcOverrideReason: legacyScenarioReason,
   };
 }
 
 export function resolveDlocPfcRate(
-  state: TaxSimulationState,
+  _state: TaxSimulationState,
   dlocPfc: DlocPfcCalculation,
 ): { rate: number; sourceLabel: string; usesOverride: boolean; hasValidOverride: boolean } {
-  if (!state.applyDlocPfc) {
-    return { rate: 0, sourceLabel: "DLOC/PFC tidak aktif", usesOverride: false, hasValidOverride: false };
-  }
-
-  const overrideInput = state.dlocPfcRate.trim();
-  const overrideReason = state.dlocPfcOverrideReason.trim();
-  const hasValidOverride = state.useDlocPfcOverride && overrideInput !== "" && overrideReason !== "";
-
-  if (hasValidOverride) {
-    return {
-      rate: parseRateInput(overrideInput),
-      sourceLabel: `Override manual dengan alasan: ${overrideReason}`,
-      usesOverride: true,
-      hasValidOverride: true,
-    };
-  }
-
   if (dlocPfc.isComplete) {
     return {
       rate: dlocPfc.signedRate,
       sourceLabel: `Rate otomatis dari tab DLOC/PFC (${dlocPfc.adjustmentType})`,
       usesOverride: false,
-      hasValidOverride: false,
+      hasValidOverride: true,
     };
   }
 
   return {
     rate: 0,
-    sourceLabel: "DLOC/PFC belum lengkap dan override valid belum tersedia",
+    sourceLabel: "DLOC/PFC belum lengkap; baseline otomatis memakai 0% sementara",
     usesOverride: false,
     hasValidOverride: false,
   };
 }
 
-function calculatePotentialTax(
-  taxableDifference: number,
-  subjectTaxpayerType: string,
-  corporateTaxRate: number,
-): { tax: number; label: string } {
-  if (taxableDifference <= 0) {
-    return { tax: 0, label: "Tidak ada potensi kurang bayar karena selisih pengalihan tidak positif." };
+export function combineTaxpayerResistance(dlomResistance: TaxpayerResistance, dlocPfcResistance: TaxpayerResistance): TaxpayerResistance {
+  if (dlomResistance === "Belum lengkap" || dlocPfcResistance === "Belum lengkap") {
+    return "Belum lengkap";
   }
 
-  if (subjectTaxpayerType === "Badan") {
+  if (dlomResistance === "Tinggi" && dlocPfcResistance === "Rendah") {
+    return "Moderat";
+  }
+
+  if (dlomResistance === "Rendah" && dlocPfcResistance === "Tinggi") {
+    return "Moderat";
+  }
+
+  if (dlomResistance === "Tinggi" || dlocPfcResistance === "Tinggi") {
+    return "Tinggi";
+  }
+
+  if (dlomResistance === "Moderat" || dlocPfcResistance === "Moderat") {
+    return "Moderat";
+  }
+
+  return "Rendah";
+}
+
+function buildRows({
+  methods,
+  basis,
+  state,
+  caseProfile,
+  sharePercentage,
+  reportedTransferValue,
+  requestedTaxYear,
+}: {
+  methods: MethodOutput[];
+  basis: TaxSimulationBasis;
+  state: TaxSimulationState;
+  caseProfile: CaseProfile;
+  sharePercentage: number;
+  reportedTransferValue: number;
+  requestedTaxYear: number | null;
+}): TaxSimulationMethodRow[] {
+  return methods.map((method): TaxSimulationMethodRow => {
+    const dlomAdjustment = -(method.equityValue * basis.dlomRate);
+    const valueAfterDlom = method.equityValue + dlomAdjustment;
+    const dlocPfcAdjustment = -(valueAfterDlom * basis.dlocPfcRate);
+    const marketValueOfEquity100 = valueAfterDlom + dlocPfcAdjustment;
+    const marketValueOfTransferredInterest = marketValueOfEquity100 * sharePercentage;
+    const transferValueDifference = marketValueOfTransferredInterest - reportedTransferValue;
+    const potentialTaxableDifference = Math.max(0, transferValueDifference);
+    const taxComputation = calculateTaxByRegime(potentialTaxableDifference, resolveTaxpayerKind(caseProfile.subjectTaxpayerType), requestedTaxYear);
+
     return {
-      tax: taxableDifference * corporateTaxRate,
-      label: `Subjek badan: potensi pajak memakai tarif pajak aktif ${formatRate(corporateTaxRate)}.`,
+      basis: basis.id,
+      basisLabel: basis.label,
+      method: method.method,
+      isPrimary: state.primaryMethod === method.method,
+      baseEquityValue: method.equityValue,
+      dlomRate: basis.dlomRate,
+      dlomAdjustment,
+      dlomSource: basis.dlomSource,
+      valueAfterDlom,
+      dlocPfcRate: basis.dlocPfcRate,
+      dlocPfcAdjustment,
+      dlocPfcSource: basis.dlocPfcSource,
+      marketValueOfEquity100,
+      sharePercentage,
+      marketValueOfTransferredInterest,
+      reportedTransferValue,
+      transferValueDifference,
+      potentialTaxableDifference,
+      taxableIncomeRounded: taxComputation.taxableIncomeRounded,
+      potentialTax: taxComputation.tax,
+      effectiveTaxRate: taxComputation.effectiveRate,
+      requestedTaxYear: taxComputation.requestedYear,
+      appliedTaxYear: taxComputation.appliedYear,
+      isNearestTaxYear: taxComputation.isNearestYear,
+      taxBasisLabel: taxComputation.label,
+      taxSourceTitle: taxComputation.source?.title ?? "Sumber tarif belum tersedia",
+      taxSourceLegalBasis: taxComputation.source?.legalBasis ?? "Tahun pajak belum lengkap",
+      taxSourceUrl: taxComputation.source?.url ?? "",
+      taxSourceNote: taxComputation.source?.note ?? "",
+      taxBrackets: taxComputation.brackets,
+      traces: buildTraces({ method, basis, rowValues: { dlomAdjustment, valueAfterDlom, dlocPfcAdjustment, marketValueOfEquity100, marketValueOfTransferredInterest, transferValueDifference }, taxComputation }),
     };
-  }
+  });
+}
 
-  const brackets = [
-    { cap: 60_000_000, rate: 0.05 },
-    { cap: 190_000_000, rate: 0.15 },
-    { cap: Infinity, rate: 0.25 },
+function buildTraces({
+  method,
+  basis,
+  rowValues,
+  taxComputation,
+}: {
+  method: MethodOutput;
+  basis: TaxSimulationBasis;
+  rowValues: {
+    dlomAdjustment: number;
+    valueAfterDlom: number;
+    dlocPfcAdjustment: number;
+    marketValueOfEquity100: number;
+    marketValueOfTransferredInterest: number;
+    transferValueDifference: number;
+  };
+  taxComputation: TaxComputation;
+}): FormulaTrace[] {
+  return [
+    {
+      label: `${method.method} base equity value`,
+      formula: "Nilai ekuitas 100% sebelum DLOM/DLOC/PFC",
+      value: method.equityValue,
+      note: "Diambil dari base valuation; tidak dimutasi oleh scenario layer.",
+    },
+    {
+      label: "DLOM adjustment",
+      formula: "Base equity value x DLOM rate x -1",
+      value: rowValues.dlomAdjustment,
+      note: basis.dlomSource,
+    },
+    {
+      label: "Equity value after DLOM",
+      formula: "Base equity value + DLOM adjustment",
+      value: rowValues.valueAfterDlom,
+      note: basis.label,
+    },
+    {
+      label: "DLOC/PFC adjustment",
+      formula: "Equity value after DLOM x DLOC/PFC signed rate x -1",
+      value: rowValues.dlocPfcAdjustment,
+      note: basis.dlocPfcSource,
+    },
+    {
+      label: "Market value of transferred interest",
+      formula: "Market value of 100% equity x percentage of shares/capital valued",
+      value: rowValues.marketValueOfTransferredInterest,
+      note: "Persentase berasal dari Data Awal.",
+    },
+    {
+      label: "Selisih nilai wajar vs dilaporkan",
+      formula: "Market value of transferred interest - nilai pengalihan dilaporkan",
+      value: rowValues.transferValueDifference,
+      note: "Selisih aktual tetap ditampilkan walaupun negatif.",
+    },
+    {
+      label: "PKP simulasi pajak",
+      formula: "Round down to thousands(Max(0, selisih nilai wajar vs dilaporkan))",
+      value: taxComputation.taxableIncomeRounded,
+      note: taxComputation.label,
+    },
   ];
-  let remaining = taxableDifference;
-  let tax = 0;
+}
 
-  for (const bracket of brackets) {
-    const taxable = Math.min(remaining, bracket.cap);
+function buildBaselineBasis(dlom: DlomCalculation, dlocPfc: DlocPfcCalculation): TaxSimulationBasis {
+  return {
+    id: "baseline",
+    label: "Baseline otomatis",
+    dlomRate: dlom.isComplete ? dlom.dlomRate : 0,
+    dlomSource: dlom.isComplete ? "Rate otomatis dari tab DLOM." : "DLOM belum lengkap; baseline otomatis memakai 0% sementara.",
+    dlocPfcRate: dlocPfc.isComplete ? dlocPfc.signedRate : 0,
+    dlocPfcSource: dlocPfc.isComplete
+      ? `Rate otomatis dari tab DLOC/PFC (${dlocPfc.adjustmentType}).`
+      : "DLOC/PFC belum lengkap; baseline otomatis memakai 0% sementara.",
+    isManual: false,
+  };
+}
 
-    if (taxable <= 0) {
-      break;
-    }
-
-    tax += taxable * bracket.rate;
-    remaining -= taxable;
-  }
+function buildScenarioBasis(state: TaxSimulationState, dlocPfc: DlocPfcCalculation, baseline: TaxSimulationBasis): TaxSimulationBasis {
+  const scenarioDlomRate = readOptionalRate(state.scenarioDlomRate);
+  const scenarioDlocPfcRate = readOptionalRate(state.scenarioDlocPfcRate);
+  const dlocPfcAdjustmentType = dlocPfc.adjustmentType || "DLOC";
+  const signedDlocPfcRate =
+    scenarioDlocPfcRate === null
+      ? baseline.dlocPfcRate
+      : dlocPfcAdjustmentType === "PFC"
+        ? -Math.abs(scenarioDlocPfcRate)
+        : Math.abs(scenarioDlocPfcRate);
 
   return {
-    tax,
-    label: "Subjek orang pribadi: bracket workbook 5% sampai 60 juta, 15% untuk 190 juta berikutnya, dan 25% untuk sisa selisih.",
+    id: "manualScenario",
+    label: "Skenario manual",
+    dlomRate: scenarioDlomRate === null ? baseline.dlomRate : Math.abs(scenarioDlomRate),
+    dlomSource:
+      scenarioDlomRate === null
+        ? "Belum ada override skenario; memakai DLOM baseline otomatis."
+        : "Override skenario di tab Simulasi Potensi Pajak; tidak mengubah tab DLOM.",
+    dlocPfcRate: signedDlocPfcRate,
+    dlocPfcSource:
+      scenarioDlocPfcRate === null
+        ? "Belum ada override skenario; memakai DLOC/PFC baseline otomatis."
+        : `Override skenario di tab Simulasi Potensi Pajak; input positif diperlakukan sebagai ${dlocPfcAdjustmentType}.`,
+    isManual: true,
   };
 }
 
@@ -275,14 +445,18 @@ function buildWarnings({
   dlocPfc,
   sharePercentage,
   reportedTransferValue,
-  dlocPfcRateResolution,
+  requestedTaxYear,
+  taxYearResolution,
+  caseProfile,
 }: {
   state: TaxSimulationState;
   dlom: DlomCalculation;
   dlocPfc: DlocPfcCalculation;
   sharePercentage: number;
   reportedTransferValue: number;
-  dlocPfcRateResolution: ReturnType<typeof resolveDlocPfcRate>;
+  requestedTaxYear: number | null;
+  taxYearResolution: TaxYearResolution;
+  caseProfile: CaseProfile;
 }): string[] {
   const warnings: string[] = [];
 
@@ -290,28 +464,16 @@ function buildWarnings({
     warnings.push("Primary Method belum dipilih; summary final tidak akan mengunci angka potensi pajak.");
   }
 
-  if (state.applyDlom && !dlom.isComplete) {
-    warnings.push("Apply DLOM aktif, tetapi modul DLOM belum lengkap sehingga rate DLOM diperlakukan 0%.");
+  if (!dlom.isComplete) {
+    warnings.push("Baseline otomatis wajib mengambil DLOM dari tab DLOM, tetapi modul DLOM belum lengkap sehingga rate sementara 0%.");
   }
 
-  if (state.applyDlocPfc && !dlocPfc.isComplete && !dlocPfcRateResolution.hasValidOverride) {
-    warnings.push("Apply DLOC/PFC aktif, tetapi questionnaire DLOC/PFC belum lengkap dan override beralasan belum tersedia; rate diperlakukan 0%.");
+  if (!dlocPfc.isComplete) {
+    warnings.push("Baseline otomatis wajib mengambil DLOC/PFC dari tab DLOC/PFC, tetapi questionnaire belum lengkap sehingga rate sementara 0%.");
   }
 
-  if (state.applyDlocPfc && state.useDlocPfcOverride && state.dlocPfcRate.trim() === "") {
-    warnings.push("Override DLOC/PFC aktif, tetapi rate override belum diisi.");
-  }
-
-  if (state.applyDlocPfc && state.useDlocPfcOverride && state.dlocPfcOverrideReason.trim() === "") {
-    warnings.push("Override DLOC/PFC aktif, tetapi alasan override wajib diisi untuk audit trail.");
-  }
-
-  if (state.applyDlocPfc && dlocPfc.adjustmentType === "DLOC" && dlocPfcRateResolution.rate < 0) {
-    warnings.push("DLOC dari kepemilikan minoritas seharusnya memakai signed rate positif agar adjustment menurunkan nilai.");
-  }
-
-  if (state.applyDlocPfc && dlocPfc.adjustmentType === "PFC" && dlocPfcRateResolution.rate > 0) {
-    warnings.push("PFC dari kepemilikan mayoritas seharusnya memakai signed rate negatif agar adjustment menaikkan nilai.");
+  if (state.finalBasis === "manualScenario" && state.scenarioReason.trim() === "") {
+    warnings.push("Basis final memakai Skenario manual; catatan skenario sebaiknya diisi untuk audit trail.");
   }
 
   if (sharePercentage <= 0 || sharePercentage > 1) {
@@ -322,7 +484,43 @@ function buildWarnings({
     warnings.push("Nilai pengalihan saham yang dilaporkan belum tersedia.");
   }
 
+  if (caseProfile.subjectTaxpayerType !== "Orang Pribadi" && caseProfile.subjectTaxpayerType !== "Badan") {
+    warnings.push("Jenis Subjek Pajak belum dipilih; simulasi tarif memakai Orang Pribadi sebagai default sementara.");
+  }
+
+  if (requestedTaxYear === null) {
+    warnings.push("Tahun Pajak belum dapat ditentukan dari Tahun Transaksi Pengalihan di Data Awal.");
+  }
+
+  if (taxYearResolution.isNearestYear && taxYearResolution.requestedYear !== null && taxYearResolution.appliedYear !== null) {
+    warnings.push(`Tahun Pajak ${taxYearResolution.requestedYear} berada di luar database 2020-2025; engine memakai tahun terdekat ${taxYearResolution.appliedYear}.`);
+  }
+
   return warnings;
+}
+
+function resolveTaxpayerKind(subjectTaxpayerType: string): "individual" | "corporate" {
+  return subjectTaxpayerType === "Badan" ? "corporate" : "individual";
+}
+
+function resolveRequestedTaxYear(caseProfile: CaseProfile, caseProfileDerived: CaseProfileDerived): number | null {
+  const cutOffYear = readYear(caseProfileDerived.cutOffDate);
+
+  if (cutOffYear !== null) {
+    return cutOffYear;
+  }
+
+  const transactionYear = readYear(caseProfile.transactionYear);
+
+  return transactionYear === null ? null : transactionYear - 1;
+}
+
+function readOptionalRate(input: string): number | null {
+  if (!input.trim()) {
+    return null;
+  }
+
+  return parseRateInput(input);
 }
 
 function parseRateInput(input: string): number {
@@ -331,6 +529,8 @@ function parseRateInput(input: string): number {
   return input.includes("%") || Math.abs(value) > 1 ? value / 100 : value;
 }
 
-function formatRate(value: number): string {
-  return `${Math.round(value * 100)}%`;
+function readYear(value: string): number | null {
+  const match = /\b(19\d{2}|20\d{2})\b/.exec(value.trim());
+
+  return match ? Number(match[1]) : null;
 }

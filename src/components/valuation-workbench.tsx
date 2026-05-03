@@ -124,6 +124,7 @@ import {
   calculateTaxSimulation,
   createEmptyTaxSimulationState,
   normalizeTaxSimulationState,
+  type TaxSimulationFinalBasis,
   type TaxSimulationResult,
   type TaxSimulationState,
 } from "@/lib/valuation/tax-simulation";
@@ -303,7 +304,7 @@ const requiredReturnSuggestionOrder: RequiredReturnOnNtaSuggestionKey[] = [
 const WORKBENCH_STORAGE_KEY = "penilaian-valuasi-bisnis.workbench.v1";
 const WORKBENCH_SCROLL_STORAGE_KEY = "penilaian-valuasi-bisnis.scroll.v1";
 const WORKBENCH_SIDEBAR_STORAGE_KEY = "penilaian-valuasi-bisnis.sidebar.v1";
-const WORKBENCH_STORAGE_VERSION = 6;
+const WORKBENCH_STORAGE_VERSION = 7;
 
 type PersistedWorkbenchState = {
   version: typeof WORKBENCH_STORAGE_VERSION;
@@ -2382,6 +2383,15 @@ function TaxSimulationSection({
   onUpdate: (patch: Partial<TaxSimulationState>) => void;
 }) {
   const primaryRow = result.primaryRow;
+  const baselinePrimaryRow = result.baselinePrimaryRow;
+  const scenarioPrimaryRow = result.scenarioPrimaryRow;
+  const taxYearLabel =
+    result.taxYearResolution.appliedYear === null
+      ? "Belum tersedia"
+      : result.taxYearResolution.isNearestYear
+        ? `${result.taxYearResolution.requestedYear} -> ${result.taxYearResolution.appliedYear}`
+        : `${result.taxYearResolution.appliedYear}`;
+  const selectedBasisLabel = result.finalBasis === "manualScenario" ? "Skenario manual" : "Baseline otomatis";
 
   return (
     <>
@@ -2392,7 +2402,7 @@ function TaxSimulationSection({
             <span>Primary Method</span>
           </div>
           <strong>{state.primaryMethod || "Not selected"}</strong>
-          <p>Blank case wajib memilih metode; sample workbook memakai AAM.</p>
+          <p>Final memakai {selectedBasisLabel}; sample workbook memakai AAM.</p>
         </article>
         <article className="metric-card">
           <div className="card-title">
@@ -2405,23 +2415,29 @@ function TaxSimulationSection({
         <article className="metric-card">
           <div className="card-title">
             <GitBranch size={20} />
-            <span>Layer aktif</span>
+            <span>Baseline otomatis</span>
           </div>
-          <strong>{state.applyDlom ? `DLOM ${formatPercent(dlom.dlomRate)}` : "Before DLOM"}</strong>
+          <strong>{dlom.isComplete ? `DLOM ${formatPercent(dlom.dlomRate)}` : "DLOM 0%"}</strong>
           <p>
             DLOC/PFC:{" "}
-            {state.applyDlocPfc
-              ? `${dlocPfc.adjustmentType || "Belum lengkap"} ${dlocPfc.isComplete ? formatPercent(dlocPfc.signedRate) : "0%"}`
-              : "Belum diterapkan"}
+            {dlocPfc.isComplete ? `${dlocPfc.adjustmentType || "Adjustment"} ${formatPercent(dlocPfc.signedRate)}` : "Belum lengkap"}
             .
           </p>
+        </article>
+        <article className="metric-card">
+          <div className="card-title">
+            <CalendarDays size={20} />
+            <span>Tahun pajak</span>
+          </div>
+          <strong>{taxYearLabel}</strong>
+          <p>Diambil dari cut-off: Tahun Transaksi Pengalihan - 1.</p>
         </article>
       </section>
 
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Scenario controls</p>
+            <p className="eyebrow">Workbook-linked controls</p>
             <h3>Simulasi Potensi Pajak</h3>
           </div>
           <TableProperties size={22} />
@@ -2438,6 +2454,13 @@ function TaxSimulationSection({
             </select>
           </label>
           <label className="field">
+            <span>Basis final</span>
+            <select value={state.finalBasis} onChange={(event) => onUpdate({ finalBasis: event.target.value as TaxSimulationFinalBasis })}>
+              <option value="baseline">Baseline otomatis</option>
+              <option value="manualScenario">Skenario manual</option>
+            </select>
+          </label>
+          <label className="field">
             <span>Nilai pengalihan saham yang dilaporkan</span>
             <input
               inputMode="decimal"
@@ -2446,41 +2469,25 @@ function TaxSimulationSection({
               placeholder="Fallback dari Data Awal bila kosong"
             />
           </label>
-          <label className="toggle-field">
-            <input type="checkbox" checked={state.applyDlom} onChange={(event) => onUpdate({ applyDlom: event.target.checked })} />
-            <span>Apply DLOM</span>
-            <small>{dlom.isComplete ? `Rate ${formatPercent(dlom.dlomRate)} dari tab DLOM.` : "Rate 0% sampai DLOM lengkap."}</small>
-          </label>
-          <label className="toggle-field">
-            <input type="checkbox" checked={state.applyDlocPfc} onChange={(event) => onUpdate({ applyDlocPfc: event.target.checked })} />
-            <span>Apply DLOC/PFC</span>
-            <small>
-              {dlocPfc.isComplete
-                ? `Otomatis dari tab DLOC/PFC: ${dlocPfc.adjustmentType} ${formatPercent(dlocPfc.signedRate)}.`
-                : "Rate 0% sampai DLOC/PFC lengkap atau override beralasan tersedia."}
-            </small>
-          </label>
-          <label className="toggle-field">
-            <input
-              type="checkbox"
-              checked={state.useDlocPfcOverride}
-              onChange={(event) => onUpdate({ useDlocPfcOverride: event.target.checked })}
-            />
-            <span>Override DLOC/PFC</span>
-            <small>Wajib alasan; signed rate positif = discount DLOC, negatif = premium PFC.</small>
+          <DerivedCaseField label="Tahun Pajak Legal" value={taxYearLabel} state={result.taxYearResolution.appliedYear === null ? "invalid" : "neutral"} />
+          <DerivedCaseField label="DLOM baseline" value={dlom.isComplete ? formatPercent(dlom.dlomRate) : "Belum lengkap"} />
+          <DerivedCaseField label="DLOC/PFC baseline" value={dlocPfc.isComplete ? `${dlocPfc.adjustmentType} ${formatPercent(dlocPfc.signedRate)}` : "Belum lengkap"} />
+          <DerivedCaseField label={caseProfileDerived.capitalProportionLabel} value={formatCaseProfileProportion(caseProfileDerived)} />
+          <DerivedCaseField label="Resistensi keseluruhan" value={result.overallResistance} state={result.overallResistance === "Belum lengkap" ? "invalid" : "neutral"} />
+          <label className="field">
+            <span>Skenario DLOM</span>
+            <input inputMode="decimal" value={state.scenarioDlomRate} onChange={(event) => onUpdate({ scenarioDlomRate: event.target.value })} placeholder="Default baseline" />
           </label>
           <label className="field">
-            <span>Override DLOC/PFC signed rate</span>
-            <input inputMode="decimal" value={state.dlocPfcRate} onChange={(event) => onUpdate({ dlocPfcRate: event.target.value })} placeholder="contoh 0,34 atau -0,34" />
+            <span>Skenario DLOC/PFC</span>
+            <input inputMode="decimal" value={state.scenarioDlocPfcRate} onChange={(event) => onUpdate({ scenarioDlocPfcRate: event.target.value })} placeholder="Input positif; sistem tentukan DLOC/PFC" />
           </label>
-          <DerivedCaseField label="Calculated DLOC/PFC" value={dlocPfc.isComplete ? `${dlocPfc.adjustmentType} ${formatPercent(dlocPfc.signedRate)}` : "Belum lengkap"} />
-          <DerivedCaseField label={caseProfileDerived.capitalProportionLabel} value={formatCaseProfileProportion(caseProfileDerived)} />
           <label className="field wide">
-            <span>Alasan override DLOC/PFC</span>
+            <span>Catatan skenario manual</span>
             <textarea
-              value={state.dlocPfcOverrideReason}
-              onChange={(event) => onUpdate({ dlocPfcOverrideReason: event.target.value })}
-              placeholder="Wajib bila memakai override rate; jelaskan dokumen, judgement, dan beda dari hasil questionnaire."
+              value={state.scenarioReason}
+              onChange={(event) => onUpdate({ scenarioReason: event.target.value })}
+              placeholder="Isi bila skenario manual dipakai sebagai basis final; tidak mengubah tab DLOM atau DLOC/PFC."
             />
           </label>
           <label className="field wide">
@@ -2507,18 +2514,55 @@ function TaxSimulationSection({
         </section>
       ) : null}
 
+      <section className="split-panel">
+        <article className="panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Baseline otomatis</p>
+              <h3>Linked ke DLOM dan DLOC/PFC</h3>
+            </div>
+          </div>
+          <MetricTraceGrid
+            metrics={[
+              ["Potensi pajak", baselinePrimaryRow ? formatIdr(baselinePrimaryRow.potentialTax) : "Pilih Primary Method"],
+              ["Nilai wajar pengalihan", baselinePrimaryRow ? formatIdr(baselinePrimaryRow.marketValueOfTransferredInterest) : "Belum tersedia"],
+              ["PKP dibulatkan", baselinePrimaryRow ? formatIdr(baselinePrimaryRow.taxableIncomeRounded) : "Belum tersedia"],
+              ["Sumber tarif", baselinePrimaryRow ? `${baselinePrimaryRow.taxSourceTitle} ${baselinePrimaryRow.appliedTaxYear ?? ""}` : "Belum tersedia"],
+            ]}
+          />
+        </article>
+        <article className="panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Skenario manual</p>
+              <h3>What-if tanpa mengubah tab asal</h3>
+            </div>
+          </div>
+          <MetricTraceGrid
+            metrics={[
+              ["Potensi pajak", scenarioPrimaryRow ? formatIdr(scenarioPrimaryRow.potentialTax) : "Pilih Primary Method"],
+              ["DLOM skenario", scenarioPrimaryRow ? formatPercent(scenarioPrimaryRow.dlomRate) : "Default baseline"],
+              ["DLOC/PFC skenario", scenarioPrimaryRow ? formatPercent(scenarioPrimaryRow.dlocPfcRate) : "Default baseline"],
+              ["Basis final", result.finalBasis === "manualScenario" ? "Dipakai untuk summary" : "Pembanding saja"],
+            ]}
+          />
+        </article>
+      </section>
+
       <section className="panel">
         <div className="panel-heading">
           <div>
             <p className="eyebrow">Comparison table</p>
             <h3>AAM, EEM, dan DCF berdampingan</h3>
           </div>
+          <span className="badge muted">{selectedBasisLabel}</span>
         </div>
         <div className="table-wrap tax-table-wrap">
           <table className="tax-simulation-table" data-testid="tax-simulation-table">
             <thead>
               <tr>
                 <th>Metode</th>
+                <th>Basis</th>
                 <th className="numeric-cell">Base equity</th>
                 <th className="numeric-cell">DLOM</th>
                 <th className="numeric-cell">After DLOM</th>
@@ -2527,7 +2571,8 @@ function TaxSimulationSection({
                 <th className="numeric-cell">Porsi</th>
                 <th className="numeric-cell">Nilai pengalihan wajar</th>
                 <th className="numeric-cell">Dilaporkan</th>
-                <th className="numeric-cell">Selisih potensi</th>
+                <th className="numeric-cell">Selisih aktual</th>
+                <th className="numeric-cell">PKP simulasi</th>
                 <th className="numeric-cell">Potensi pajak</th>
               </tr>
             </thead>
@@ -2538,10 +2583,15 @@ function TaxSimulationSection({
                     <strong>{row.method}</strong>
                     {row.isPrimary ? <span className="badge ok">Primary</span> : <span>Comparison</span>}
                   </td>
+                  <td>
+                    {row.basisLabel}
+                    <span>{row.isNearestTaxYear ? `Tarif ${row.requestedTaxYear} -> ${row.appliedTaxYear}` : `Tarif ${row.appliedTaxYear ?? "-"}`}</span>
+                  </td>
                   <td className="numeric-cell">{formatIdr(row.baseEquityValue)}</td>
                   <td className="numeric-cell">
                     {formatPercent(row.dlomRate)}
                     <span>{formatIdr(row.dlomAdjustment)}</span>
+                    <span>{row.dlomSource}</span>
                   </td>
                   <td className="numeric-cell">{formatIdr(row.valueAfterDlom)}</td>
                   <td className="numeric-cell">
@@ -2553,10 +2603,14 @@ function TaxSimulationSection({
                   <td className="numeric-cell">{formatPercent(row.sharePercentage)}</td>
                   <td className="numeric-cell">{formatIdr(row.marketValueOfTransferredInterest)}</td>
                   <td className="numeric-cell">{formatIdr(row.reportedTransferValue)}</td>
-                  <td className="numeric-cell">{formatIdr(row.potentialTaxableDifference)}</td>
+                  <td className="numeric-cell">{formatIdr(row.transferValueDifference)}</td>
+                  <td className="numeric-cell">
+                    {formatIdr(row.potentialTaxableDifference)}
+                    <span>Dibulatkan: {formatIdr(row.taxableIncomeRounded)}</span>
+                  </td>
                   <td className="numeric-cell">
                     <strong>{formatIdr(row.potentialTax)}</strong>
-                    <span>{row.taxBasisLabel}</span>
+                    <span>{row.taxSourceLegalBasis}</span>
                   </td>
                 </tr>
               ))}
@@ -2585,13 +2639,60 @@ function TaxSimulationSection({
           <MetricTraceGrid
             metrics={[
               ["Base AAM/EEM/DCF", "Before DLOM dan before DLOC/PFC"],
-              ["Urutan adjustment", "Base -> DLOM -> DLOC/PFC -> porsi saham/modal -> selisih pajak"],
-              ["Primary Method blank case", "Not selected sampai reviewer memilih"],
-              ["DLOC/PFC", dlocPfc.isComplete ? `${dlocPfc.adjustmentType} otomatis dari questionnaire` : "Menunggu questionnaire atau override beralasan"],
+              ["Urutan adjustment", "Base -> DLOM -> DLOC/PFC -> porsi saham/modal -> selisih -> PKP"],
+              ["Basis final default", "Baseline otomatis"],
+              ["Skenario manual", "Tidak mengubah tab DLOM dan DLOC/PFC"],
             ]}
           />
         </article>
       </section>
+
+      {primaryRow?.taxBrackets.length ? (
+        <section className="panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Tax rate database</p>
+              <h3>Layer perhitungan pajak</h3>
+            </div>
+            {primaryRow.taxSourceUrl ? (
+              <a className="button secondary" href={primaryRow.taxSourceUrl} target="_blank" rel="noreferrer">
+                <FileSearch size={18} />
+                Sumber
+              </a>
+            ) : null}
+          </div>
+          <div className="table-wrap tax-bracket-table-wrap">
+            <table className="tax-bracket-table">
+              <thead>
+                <tr>
+                  <th>Layer</th>
+                  <th className="numeric-cell">PKP</th>
+                  <th className="numeric-cell">Tarif</th>
+                  <th className="numeric-cell">Pajak</th>
+                </tr>
+              </thead>
+              <tbody>
+                {primaryRow.taxBrackets.map((bracket) => (
+                  <tr key={`${bracket.label}-${bracket.rate}`}>
+                    <td>{bracket.label}</td>
+                    <td className="numeric-cell">{formatIdr(bracket.taxableAmount)}</td>
+                    <td className="numeric-cell">{formatPercent(bracket.rate)}</td>
+                    <td className="numeric-cell">{formatIdr(bracket.tax)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <MetricTraceGrid
+            metrics={[
+              ["Dasar hukum", primaryRow.taxSourceLegalBasis],
+              ["Sumber tarif", primaryRow.taxSourceTitle],
+              ["Catatan", primaryRow.taxSourceNote],
+              ["Effective rate", formatPercent(primaryRow.effectiveTaxRate)],
+            ]}
+          />
+        </section>
+      ) : null}
     </>
   );
 }
@@ -3243,8 +3344,12 @@ function sanitizeTaxSimulationState(value: unknown): TaxSimulationState {
 
   return normalizeTaxSimulationState({
     primaryMethod: typeof value.primaryMethod === "string" ? (value.primaryMethod as ValuationMethod | "") : "",
-    applyDlom: typeof value.applyDlom === "boolean" ? value.applyDlom : false,
-    applyDlocPfc: typeof value.applyDlocPfc === "boolean" ? value.applyDlocPfc : false,
+    finalBasis: value.finalBasis === "manualScenario" ? "manualScenario" : "baseline",
+    scenarioDlomRate: typeof value.scenarioDlomRate === "string" ? formatEditableNumber(value.scenarioDlomRate) : "",
+    scenarioDlocPfcRate: typeof value.scenarioDlocPfcRate === "string" ? formatEditableNumber(value.scenarioDlocPfcRate) : "",
+    scenarioReason: typeof value.scenarioReason === "string" ? value.scenarioReason : "",
+    applyDlom: typeof value.applyDlom === "boolean" ? value.applyDlom : true,
+    applyDlocPfc: typeof value.applyDlocPfc === "boolean" ? value.applyDlocPfc : true,
     useDlocPfcOverride: typeof value.useDlocPfcOverride === "boolean" ? value.useDlocPfcOverride : false,
     dlocPfcRate: typeof value.dlocPfcRate === "string" ? formatEditableNumber(value.dlocPfcRate) : "",
     dlocPfcOverrideReason: typeof value.dlocPfcOverrideReason === "string" ? value.dlocPfcOverrideReason : "",
@@ -3264,8 +3369,10 @@ function hasDlocPfcInput(value: DlocPfcState): boolean {
 function hasTaxSimulationInput(value: TaxSimulationState): boolean {
   return (
     value.primaryMethod !== "" ||
-    value.applyDlom ||
-    value.applyDlocPfc ||
+    value.finalBasis !== "baseline" ||
+    value.scenarioDlomRate.trim() !== "" ||
+    value.scenarioDlocPfcRate.trim() !== "" ||
+    value.scenarioReason.trim() !== "" ||
     value.useDlocPfcOverride ||
     value.dlocPfcRate.trim() !== "" ||
     value.dlocPfcOverrideReason.trim() !== "" ||

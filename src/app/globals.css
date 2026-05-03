@@ -449,6 +449,10 @@ select:focus-visible,
   min-width: 0;
 }
 
+.tax-summary-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .metric-card,
 .panel,
 .review-band,
@@ -2474,7 +2478,15 @@ td span {
 }
 
 .tax-simulation-table {
-  min-width: 1420px;
+  min-width: 1680px;
+}
+
+.tax-bracket-table {
+  min-width: 760px;
+}
+
+.tax-bracket-table-wrap {
+  margin-bottom: 10px;
 }
 
 .dlom-table th:first-child,
