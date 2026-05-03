@@ -337,6 +337,7 @@ test("legacy workbook-like DLOM drafts migrate to workbook UPDATE basis without 
 test("exports the active workbench state through the primary template-clone XLSX workflow", async ({ page }) => {
   await page.getByRole("button", { name: "Muat contoh workbook" }).click();
   await expect(page.getByRole("button", { name: "Export XLSX" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Export PDF" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Export XLSX V1" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Export XLSX V2" })).toHaveCount(0);
 
@@ -382,6 +383,37 @@ test("exports the active workbench state through the primary template-clone XLSX
   expect(calcPr.fullCalcOnLoad).toBe("1");
   expect(calcPr.forceFullCalc).toBe("1");
   expect(hasXlsxEntry(downloadedXlsx, "xl/calcChain.xml")).toBe(false);
+});
+
+test("exports the active workbench state to a print-ready PDF report view", async ({ page }) => {
+  const fixtureState = JSON.parse(readFileSync("tests/fixtures/export-xlsx-v2-workbench-state.json", "utf8")) as unknown;
+  await page.evaluate(
+    ({ key, state }) => {
+      window.localStorage.setItem(key, JSON.stringify(state));
+    },
+    { key: "penilaian-valuasi-bisnis.workbench.v1", state: fixtureState },
+  );
+  await page.reload();
+  await expect(page.getByTestId("valuation-workbench")).toBeVisible();
+
+  const popupPromise = page.waitForEvent("popup");
+  await page.getByRole("button", { name: "Export PDF" }).click();
+  const reportPage = await popupPromise;
+  await reportPage.waitForLoadState("domcontentloaded");
+
+  await expect(reportPage).toHaveURL(/\/export\/pdf$/);
+  await expect(reportPage.getByTestId("pdf-report")).toBeVisible();
+  await expect(reportPage.getByRole("heading", { name: "Laporan Ringkas Penilaian Valuasi Bisnis" })).toBeVisible();
+  await expect(reportPage.getByText("Makmur Jaya Sejati Raya").first()).toBeVisible();
+  await expect(reportPage.getByRole("heading", { name: "Ringkasan Metode" })).toBeVisible();
+  await expect(reportPage.getByRole("heading", { name: "Laporan Keuangan Historis" })).toBeVisible();
+  await expect(reportPage.getByRole("heading", { name: "Laba Rugi Historis" })).toBeVisible();
+  await expect(reportPage.getByRole("heading", { name: "Jadwal Aset Tetap" })).toBeVisible();
+  await expect(reportPage.getByRole("heading", { name: "DLOM dan DLOC/PFC" })).toBeVisible();
+  await expect(reportPage.getByRole("heading", { name: "Simulasi Potensi Pajak" })).toBeVisible();
+  await expect(reportPage.getByRole("button", { name: "Cetak / Simpan PDF" })).toBeVisible();
+
+  await reportPage.close();
 });
 
 test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators, and active valuation sources", async ({ page }) => {

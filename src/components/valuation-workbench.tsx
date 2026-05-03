@@ -11,6 +11,7 @@ import {
   Download,
   Eraser,
   FileSearch,
+  FileText,
   GitBranch,
   PanelLeftClose,
   PanelLeftOpen,
@@ -101,6 +102,7 @@ import { buildWorkbenchReadiness, type SectionReadiness, type WorkbenchReadiness
 import { buildSectionAnalysis, type AnalysisRow, type AnalysisValue, type PeriodAnalysis, type RatioRow, type SectionAnalysis } from "@/lib/valuation/section-analysis";
 import { buildValidationChecks } from "@/lib/valuation/validation-checks";
 import { downloadValuationTemplateWorkbook } from "@/lib/valuation/excel-export";
+import { saveValuationPdfExportPayload } from "@/lib/valuation/pdf-export";
 import {
   buildSampleDlomState,
   calculateDlom,
@@ -1176,6 +1178,15 @@ export function ValuationWorkbench() {
     }
   }
 
+  function exportPdfReport() {
+    try {
+      saveValuationPdfExportPayload(getExportInput());
+      window.open("/export/pdf", "_blank", "noopener,noreferrer");
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Export PDF gagal dijalankan.");
+    }
+  }
+
   function resetForm() {
     clearPersistedWorkbenchState();
     commitCoreState(() => ({
@@ -1261,6 +1272,10 @@ export function ValuationWorkbench() {
               <button className="button secondary" type="button" onClick={exportWorkbook} disabled={isTemplateExporting} aria-busy={isTemplateExporting}>
                 <Download size={18} />
                 {isTemplateExporting ? "Menyiapkan XLSX" : "Export XLSX"}
+              </button>
+              <button className="button secondary" type="button" onClick={exportPdfReport}>
+                <FileText size={18} />
+                Export PDF
               </button>
               <button className="button ghost" type="button" onClick={resetForm} disabled={!hasAnyInput}>
                 <Eraser size={18} />
