@@ -2976,8 +2976,54 @@ td span {
   margin: 0;
 }
 
+.pdf-report-data-awal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.pdf-report-data-card {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #ffffff;
+}
+
+.pdf-report-data-card.wide {
+  grid-column: 1 / -1;
+}
+
+.pdf-report-data-card h3 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  color: var(--ink);
+  font-size: 12px;
+  letter-spacing: 0;
+}
+
+.pdf-report-data-card h3 svg {
+  color: var(--teal);
+}
+
+.pdf-report-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.pdf-report-data-card.wide .pdf-report-field-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .pdf-report-cover dl > div,
-.pdf-report-metric-grid > div {
+.pdf-report-metric-grid > div,
+.pdf-report-field-grid > div {
   min-width: 0;
   padding: 8px;
   border: 1px solid var(--line);
@@ -2986,14 +3032,16 @@ td span {
 }
 
 .pdf-report-cover dt,
-.pdf-report-metric-grid dt {
+.pdf-report-metric-grid dt,
+.pdf-report-field-grid dt {
   color: var(--muted);
   font-size: 8.8px;
   font-weight: 700;
 }
 
 .pdf-report-cover dd,
-.pdf-report-metric-grid dd {
+.pdf-report-metric-grid dd,
+.pdf-report-field-grid dd {
   margin: 2px 0 0;
   color: var(--ink);
   font-size: 12px;
@@ -3075,6 +3123,10 @@ td span {
   font-size: 8.8px;
 }
 
+.pdf-report-table.balance-sheet {
+  font-size: 8px;
+}
+
 .pdf-report-table.financial th:first-child,
 .pdf-report-table.financial td:first-child {
   width: 32%;
@@ -3083,6 +3135,33 @@ td span {
 .pdf-report-table.financial th:nth-child(2),
 .pdf-report-table.financial td:nth-child(2) {
   width: 18%;
+}
+
+.pdf-report-table.balance-sheet th:first-child,
+.pdf-report-table.balance-sheet td:first-child {
+  width: 10%;
+}
+
+.pdf-report-table.balance-sheet th:nth-child(2),
+.pdf-report-table.balance-sheet td:nth-child(2) {
+  width: 14%;
+}
+
+.pdf-report-table.balance-sheet th:nth-child(3),
+.pdf-report-table.balance-sheet td:nth-child(3) {
+  width: 28%;
+}
+
+.pdf-report-table.balance-sheet td strong,
+.pdf-report-table.balance-sheet td small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.pdf-report-table.balance-sheet td small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 7.5px;
 }
 
 .pdf-report-table.financial .numeric-cell,
@@ -3110,9 +3189,47 @@ td span {
   width: 45%;
 }
 
+.pdf-report-table .statement-section-row td {
+  background: #eef8f5;
+  color: var(--teal-ink);
+  font-weight: 850;
+}
+
+.pdf-report-table .statement-group-row td {
+  background: var(--surface-muted);
+  color: var(--ink-soft);
+  font-weight: 760;
+}
+
 .pdf-report-table .subtotal-row td {
   background: var(--surface-raised);
   font-weight: 800;
+}
+
+.pdf-report-table .balance-check-row td {
+  background: #fffdf2;
+  color: var(--ink-soft);
+  font-weight: 800;
+}
+
+.pdf-report-table .trace-method-row td {
+  color: var(--ink);
+  font-weight: 850;
+}
+
+.pdf-report-table .trace-method-row.method-aam td {
+  background: #fff7ed;
+  border-top: 2px solid #d97706;
+}
+
+.pdf-report-table .trace-method-row.method-eem td {
+  background: #effdf5;
+  border-top: 2px solid #059669;
+}
+
+.pdf-report-table .trace-method-row.method-dcf td {
+  background: #eff6ff;
+  border-top: 2px solid #2563eb;
 }
 
 .pdf-report-table .numeric-cell {

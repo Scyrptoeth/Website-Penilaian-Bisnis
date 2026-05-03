@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Printer } from "lucide-react";
+import { Banknote, Calculator, FileSearch, Printer, type LucideIcon } from "lucide-react";
+import { buildBalanceSheetView, groupBalanceSheetLines, type BalanceSheetLine } from "@/lib/valuation/balance-sheet-view";
 import { categoryLabelMap } from "@/lib/valuation/category-options";
-import { parseInputNumber, type MappedRow, type Period } from "@/lib/valuation/case-model";
+import { parseInputNumber, type CaseProfileDerived, type MappedRow, type Period } from "@/lib/valuation/case-model";
 import { formatDisplayDate, formatIdr, formatPercent } from "@/lib/valuation/format";
 import { readValuationPdfExportPayload, type ValuationPdfExportPayload } from "@/lib/valuation/pdf-export";
 import type { TaxSimulationMethodRow } from "@/lib/valuation/tax-simulation";
@@ -13,6 +14,18 @@ type ReportMetric = {
   label: string;
   value: string;
   note?: string;
+};
+
+type ReportField = {
+  label: string;
+  value: string;
+};
+
+type MethodSummaryRow = {
+  method: ValuationMethod;
+  equityValue100: number;
+  transferredEquityValue: number | null;
+  potentialTax: number | null;
 };
 
 export function ValuationPdfReport() {
@@ -42,25 +55,12 @@ export function ValuationPdfReport() {
   }
 
   const { input } = payload;
-  const activePeriod = input.periods.find((period) => period.id === input.activePeriodId);
   const periods = input.sectionAnalysis.periods.length > 0 ? input.sectionAnalysis.periods : input.periods;
   const methodOutputs: MethodOutput[] = [input.results.aam, input.results.eem, input.results.dcf];
-  const methods: Array<{ method: ValuationMethod; value: number; traceCount: number }> = [
-    { method: "AAM", value: input.results.aam.equityValue, traceCount: input.results.aam.traces.length },
-    { method: "EEM", value: input.results.eem.equityValue, traceCount: input.results.eem.traces.length },
-    { method: "DCF", value: input.results.dcf.equityValue, traceCount: input.results.dcf.traces.length },
-  ];
+  const methodSummaries = buildMethodSummaries(input.taxSimulationResult.rows, input.taxSimulationResult.baselineRows, methodOutputs);
+  const transferredEquityHeader = `Nilai Ekuitas (${formatCapitalProportion(input.caseProfileDerived)})`;
   const primaryTaxRow = input.taxSimulationResult.primaryRow;
-  const caseMetrics: ReportMetric[] = [
-    { label: "Objek pajak", value: input.caseProfile.objectTaxpayerName || "-" },
-    { label: "NPWP objek", value: input.caseProfile.objectTaxpayerNpwp || "-" },
-    { label: "Subjek pajak", value: input.caseProfile.subjectTaxpayerName || "-" },
-    { label: "Jenis subjek", value: input.caseProfile.subjectTaxpayerType || "-" },
-    { label: "Sektor", value: input.caseProfile.companySector || "-" },
-    { label: "Tanggal valuasi", value: formatDisplayDate(activePeriod?.valuationDate ?? "") || activePeriod?.label || "-" },
-    { label: "Tahun transaksi", value: input.caseProfile.transactionYear || "-" },
-    { label: "Objek penilaian", value: input.caseProfile.valuationObject || "-" },
-  ];
+  const balanceSheetView = buildBalanceSheetView(periods, input.mappedRows, input.fixedAssetSchedule);
   const driverMetrics: ReportMetric[] = [
     { label: "Tax rate", value: formatPercent(input.snapshot.taxRate), note: input.resolvedAssumptions.taxRateSource || input.assumptions.taxRateSource },
     { label: "WACC", value: formatPercent(input.snapshot.wacc), note: input.resolvedAssumptions.waccSource || input.assumptions.waccSource },
@@ -70,13 +70,6 @@ export function ValuationPdfReport() {
     { label: "Operating working capital", value: formatIdr(input.results.operatingWorkingCapital) },
   ];
   const taxMetrics = primaryTaxRow ? buildTaxMetrics(primaryTaxRow) : [];
-  const validationNeedsReview = input.validationChecks.filter((check) => !check.ok);
-  const readinessWarnings = Object.values(input.readiness).flatMap((section) =>
-    section.warnings.map((warning) => `${section.title}: ${warning.label}`),
-  );
-  const readinessMissing = Object.values(input.readiness).flatMap((section) =>
-    section.missing.map((missing) => `${section.title}: ${missing.label}`),
-  );
 
   return (
     <main className="pdf-report-page" data-testid="pdf-report">
@@ -104,7 +97,7 @@ export function ValuationPdfReport() {
         </header>
 
         <ReportSection title="Data Awal">
-          <MetricGrid metrics={caseMetrics} />
+          <CaseProfileSummary payload={payload} />
         </ReportSection>
 
         <ReportSection title="Ringkasan Metode">
@@ -113,17 +106,17 @@ export function ValuationPdfReport() {
               <tr>
                 <th>Metode</th>
                 <th>Nilai Ekuitas 100%</th>
-                <th>Trace</th>
-                <th>Status</th>
+                <th>{transferredEquityHeader}</th>
+                <th>Potensi Pajak</th>
               </tr>
             </thead>
             <tbody>
-              {methods.map((method) => (
-                <tr key={method.method}>
-                  <td>{method.method}</td>
-                  <td className="numeric-cell">{formatIdr(method.value)}</td>
-                  <td className="numeric-cell">{method.traceCount}</td>
-                  <td>Base method sebelum DLOM/DLOC/PFC</td>
+              {methodSummaries.map((row) => (
+                <tr key={row.method}>
+                  <td>{row.method}</td>
+                  <td className="numeric-cell">{formatIdr(row.equityValue100)}</td>
+                  <td className="numeric-cell">{formatNullableIdr(row.transferredEquityValue)}</td>
+                  <td className="numeric-cell">{formatNullableIdr(row.potentialTax)}</td>
                 </tr>
               ))}
             </tbody>
@@ -134,16 +127,16 @@ export function ValuationPdfReport() {
           <MetricGrid metrics={driverMetrics} />
         </ReportSection>
 
-        <ReportSection title="Laporan Keuangan Historis">
-          <FinancialStatementTable rows={input.mappedRows.filter((item) => item.row.statement === "balance_sheet")} periods={periods} />
+        <ReportSection title="Laporan Neraca">
+          <BalanceSheetReportTable view={balanceSheetView} periods={periods} />
         </ReportSection>
 
-        <ReportSection title="Laba Rugi Historis" className="page-break-before">
+        <ReportSection title="Laporan Laba Rugi" className="page-break-before">
           <FinancialStatementTable rows={input.mappedRows.filter((item) => item.row.statement === "income_statement")} periods={periods} />
         </ReportSection>
 
         {input.fixedAssetSchedule.hasInput ? (
-          <ReportSection title="Jadwal Aset Tetap">
+          <ReportSection title="Laporan Daftar Aset">
             <table className="pdf-report-table financial">
               <thead>
                 <tr>
@@ -177,7 +170,7 @@ export function ValuationPdfReport() {
           </ReportSection>
         ) : null}
 
-        <ReportSection title="Jejak Perhitungan Metode">
+        <ReportSection title="Ringkasan">
           <table className="pdf-report-table compact trace">
             <thead>
               <tr>
@@ -188,8 +181,11 @@ export function ValuationPdfReport() {
               </tr>
             </thead>
             <tbody>
-              {methodOutputs.flatMap((method) =>
-                method.traces.map((trace) => (
+              {methodOutputs.flatMap((method) => [
+                <tr className={`trace-method-row method-${method.method.toLowerCase()}`} key={`${method.method}-header`}>
+                  <td colSpan={4}>Metode {method.method}</td>
+                </tr>,
+                ...method.traces.map((trace) => (
                   <tr key={`${method.method}-${trace.label}`}>
                     <td>{method.method}</td>
                     <td>{trace.label}</td>
@@ -197,7 +193,7 @@ export function ValuationPdfReport() {
                     <td className="numeric-cell">{formatTraceValue(trace)}</td>
                   </tr>
                 )),
-              )}
+              ])}
             </tbody>
           </table>
         </ReportSection>
@@ -205,33 +201,11 @@ export function ValuationPdfReport() {
         <ReportSection title="DLOM dan DLOC/PFC">
           <MetricGrid
             metrics={[
-              { label: "DLOM basis", value: input.dlomCalculation.companyMarketability || "-", note: input.dlomCalculation.interestBasis || "-" },
-              { label: "DLOM range", value: input.dlomCalculation.rangeLabel },
-              { label: "DLOM rate", value: formatPercent(input.dlomCalculation.dlomRate), note: input.dlomCalculation.status },
-              { label: "DLOC/PFC basis", value: input.dlocPfcCalculation.adjustmentType || "-", note: input.dlocPfcCalculation.companyBasis || "-" },
-              { label: "DLOC/PFC range", value: input.dlocPfcCalculation.rangeLabel },
-              { label: "DLOC/PFC signed rate", value: formatPercent(input.dlocPfcCalculation.signedRate), note: input.dlocPfcCalculation.status },
+              { label: "DLOM Basis", value: input.dlomCalculation.companyMarketability || "-", note: input.dlomCalculation.interestBasis || "-" },
+              { label: "DLOM Rate", value: formatPercent(input.dlomCalculation.dlomRate), note: input.dlomCalculation.status },
+              { label: "DLOC/PFC Basis", value: input.dlocPfcCalculation.adjustmentType || "-", note: input.dlocPfcCalculation.companyBasis || "-" },
+              { label: "DLOC/PFC Rate", value: formatPercent(input.dlocPfcCalculation.signedRate), note: input.dlocPfcCalculation.status },
             ]}
-          />
-          <FactorTable
-            title="Faktor DLOM"
-            rows={input.dlomCalculation.factors.map((factor) => ({
-              key: factor.id,
-              factor: factor.factor,
-              answer: factor.answer || "-",
-              score: factor.score,
-              status: factor.status,
-            }))}
-          />
-          <FactorTable
-            title="Faktor DLOC/PFC"
-            rows={input.dlocPfcCalculation.factors.map((factor) => ({
-              key: factor.id,
-              factor: factor.factor,
-              answer: factor.answer || "-",
-              score: factor.score,
-              status: factor.status,
-            }))}
           />
         </ReportSection>
 
@@ -268,17 +242,6 @@ export function ValuationPdfReport() {
             <p className="pdf-report-note">Primary Method belum dipilih sehingga ringkasan pajak final belum dikunci.</p>
           )}
         </ReportSection>
-
-        <ReportSection title="Audit dan Catatan Review">
-          <AuditList
-            title="Validation checks"
-            items={validationNeedsReview.map((check) => check.label)}
-            emptyText="Semua validation check utama berstatus OK."
-          />
-          <AuditList title="Readiness missing" items={readinessMissing} emptyText="Tidak ada readiness input yang hilang." />
-          <AuditList title="Readiness warnings" items={readinessWarnings} emptyText="Tidak ada readiness warning aktif." />
-          <AuditList title="Tax simulation warnings" items={input.taxSimulationResult.warnings} emptyText="Tidak ada warning pajak aktif." />
-        </ReportSection>
       </article>
     </main>
   );
@@ -293,6 +256,69 @@ function ReportSection({ title, children, className = "" }: { title: string; chi
   );
 }
 
+function CaseProfileSummary({ payload }: { payload: ValuationPdfExportPayload }) {
+  const { caseProfile, caseProfileDerived } = payload.input;
+  const objectFields: ReportField[] = [
+    { label: "Nama Objek Pajak", value: caseProfile.objectTaxpayerName || "-" },
+    { label: "NPWP Objek Pajak", value: caseProfile.objectTaxpayerNpwp || "-" },
+    { label: "Sektor Perusahaan", value: caseProfile.companySector || "-" },
+    { label: "Jenis Perusahaan", value: caseProfile.companyType || "-" },
+  ];
+  const subjectFields: ReportField[] = [
+    { label: "Nama Subjek Pajak", value: caseProfile.subjectTaxpayerName || "-" },
+    { label: "NPWP Subjek Pajak", value: caseProfile.subjectTaxpayerNpwp || "-" },
+    { label: "Jenis Subjek Pajak", value: caseProfile.subjectTaxpayerType || "-" },
+    { label: "Jenis Kepemilikan Saham", value: caseProfile.shareOwnershipType || "-" },
+  ];
+  const transactionFields: ReportField[] = [
+    { label: "Jenis Peralihan yang Diketahui", value: caseProfile.transferType || "-" },
+    { label: caseProfileDerived.capitalBaseFullLabel, value: caseProfile.capitalBaseFull || "-" },
+    { label: caseProfileDerived.capitalBaseValuedLabel, value: caseProfile.capitalBaseValued || "-" },
+    { label: caseProfileDerived.capitalProportionLabel, value: formatCapitalProportion(caseProfileDerived) },
+    { label: "Tahun Transaksi Pengalihan", value: caseProfile.transactionYear || "-" },
+    { label: "Tanggal cut-off", value: formatDerivedDate(caseProfileDerived.cutOffDate) },
+    { label: "Akhir Periode Proyeksi Pertama", value: formatDerivedDate(caseProfileDerived.firstProjectionEndDate) },
+    { label: "Objek Penilaian", value: caseProfile.valuationObject || "-" },
+  ];
+
+  return (
+    <div className="pdf-report-data-awal-grid">
+      <ReadOnlyDataCard title="Identitas Objek Pajak" icon={FileSearch} fields={objectFields} />
+      <ReadOnlyDataCard title="Identitas Subjek Pajak" icon={Banknote} fields={subjectFields} />
+      <ReadOnlyDataCard title="Transaksi dan Objek Penilaian" icon={Calculator} fields={transactionFields} wide />
+    </div>
+  );
+}
+
+function ReadOnlyDataCard({
+  title,
+  icon: Icon,
+  fields,
+  wide = false,
+}: {
+  title: string;
+  icon: LucideIcon;
+  fields: ReportField[];
+  wide?: boolean;
+}) {
+  return (
+    <article className={wide ? "pdf-report-data-card wide" : "pdf-report-data-card"}>
+      <h3>
+        <Icon size={14} />
+        {title}
+      </h3>
+      <dl className="pdf-report-field-grid">
+        {fields.map((field) => (
+          <div key={field.label}>
+            <dt>{field.label}</dt>
+            <dd>{field.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </article>
+  );
+}
+
 function MetricGrid({ metrics }: { metrics: ReportMetric[] }) {
   return (
     <dl className="pdf-report-metric-grid">
@@ -304,6 +330,109 @@ function MetricGrid({ metrics }: { metrics: ReportMetric[] }) {
         </div>
       ))}
     </dl>
+  );
+}
+
+function BalanceSheetReportTable({
+  view,
+  periods,
+}: {
+  view: ReturnType<typeof buildBalanceSheetView>;
+  periods: Period[];
+}) {
+  if (!view.hasRows) {
+    return <p className="pdf-report-note">Data neraca belum tersedia.</p>;
+  }
+
+  return (
+    <table className="pdf-report-table financial balance-sheet">
+      <thead>
+        <tr>
+          <th>Pos</th>
+          <th>Detail</th>
+          <th>Akun / komponen</th>
+          {periods.map((period) => (
+            <th key={period.id}>{period.label}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {view.sections.flatMap((section) => {
+          const groups = groupBalanceSheetLines(section.lines);
+
+          return [
+            <tr className="statement-section-row" key={`${section.title}-section`}>
+              <td>{section.title}</td>
+              <td colSpan={periods.length + 2} />
+            </tr>,
+            ...groups.flatMap((group) => [
+              <tr className="statement-group-row" key={`${section.title}-${group.key}`}>
+                <td>{section.title}</td>
+                <td>{group.label}</td>
+                <td colSpan={periods.length + 1} />
+              </tr>,
+              ...group.lines.map((line, lineIndex) => (
+                <BalanceSheetLineRow
+                  key={`${section.title}-${group.key}-${line.categoryId}-${lineIndex}`}
+                  line={line}
+                  sectionTitle={section.title}
+                  groupLabel={group.label}
+                  periods={periods}
+                />
+              )),
+            ]),
+            <tr className="subtotal-row" key={`${section.title}-total`}>
+              <td>{section.title}</td>
+              <td>Total</td>
+              <td>{section.totalLabel}</td>
+              {periods.map((period) => (
+                <td className="numeric-cell" key={period.id}>
+                  {formatIdr(section.totalValues[period.id] ?? 0)}
+                </td>
+              ))}
+            </tr>,
+          ];
+        })}
+        <tr className="balance-check-row">
+          <td>Pemeriksaan</td>
+          <td>Model</td>
+          <td>Aset - Liabilitas - Ekuitas</td>
+          {periods.map((period) => (
+            <td className="numeric-cell" key={period.id}>
+              {formatIdr(view.balanceGap[period.id] ?? 0)}
+            </td>
+          ))}
+        </tr>
+      </tbody>
+    </table>
+  );
+}
+
+function BalanceSheetLineRow({
+  line,
+  sectionTitle,
+  groupLabel,
+  periods,
+}: {
+  line: BalanceSheetLine;
+  sectionTitle: string;
+  groupLabel: string;
+  periods: Period[];
+}) {
+  return (
+    <tr>
+      <td>{sectionTitle}</td>
+      <td>{groupLabel}</td>
+      <td>
+        <strong>{line.label}</strong>
+        <small>{line.category}</small>
+      </td>
+      {periods.map((period) => (
+        <td className="numeric-cell" key={period.id}>
+          {formatIdr(line.values[period.id] ?? 0)}
+        </td>
+      ))}
+    </tr>
   );
 }
 
@@ -339,57 +468,6 @@ function FinancialStatementTable({ title, rows, periods }: { title?: string; row
   );
 }
 
-function FactorTable({
-  title,
-  rows,
-}: {
-  title: string;
-  rows: Array<{ key: string; factor: string; answer: string; score: number; status: string }>;
-}) {
-  return (
-    <div className="pdf-report-table-block">
-      <h3>{title}</h3>
-      <table className="pdf-report-table compact factor">
-        <thead>
-          <tr>
-            <th>Faktor</th>
-            <th>Jawaban</th>
-            <th>Skor</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.key}>
-              <td>{row.factor}</td>
-              <td>{row.answer}</td>
-              <td className="numeric-cell">{row.score.toLocaleString("id-ID", { maximumFractionDigits: 2 })}</td>
-              <td>{row.status === "answered" ? "Terisi" : "Belum lengkap"}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function AuditList({ title, items, emptyText }: { title: string; items: string[]; emptyText: string }) {
-  return (
-    <div className="pdf-report-audit-list">
-      <h3>{title}</h3>
-      {items.length > 0 ? (
-        <ul>
-          {items.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
-      ) : (
-        <p>{emptyText}</p>
-      )}
-    </div>
-  );
-}
-
 function formatTraceValue(trace: FormulaTrace): string {
   if (trace.valueFormat === "percent") {
     return formatPercent(trace.value);
@@ -400,6 +478,39 @@ function formatTraceValue(trace: FormulaTrace): string {
   }
 
   return formatIdr(trace.value);
+}
+
+function buildMethodSummaries(activeRows: TaxSimulationMethodRow[], baselineRows: TaxSimulationMethodRow[], methodOutputs: MethodOutput[]): MethodSummaryRow[] {
+  return methodOutputs.map((output) => {
+    const taxRow = activeRows.find((row) => row.method === output.method) ?? baselineRows.find((row) => row.method === output.method) ?? null;
+
+    return {
+      method: output.method,
+      equityValue100: output.equityValue,
+      transferredEquityValue: taxRow?.marketValueOfTransferredInterest ?? null,
+      potentialTax: taxRow?.potentialTax ?? null,
+    };
+  });
+}
+
+function formatNullableIdr(value: number | null): string {
+  return value === null ? "-" : formatIdr(value);
+}
+
+function formatCapitalProportion(derived: CaseProfileDerived): string {
+  if (derived.capitalProportionStatus === "empty") {
+    return "Belum dihitung";
+  }
+
+  if (derived.capitalProportionStatus === "invalid" || derived.capitalProportion === null) {
+    return "Data tidak valid";
+  }
+
+  return formatPercent(derived.capitalProportion);
+}
+
+function formatDerivedDate(value: string): string {
+  return value ? formatDisplayDate(value) : "Belum dihitung";
 }
 
 function buildTaxMetrics(row: TaxSimulationMethodRow): ReportMetric[] {
