@@ -2109,23 +2109,13 @@ function DlomSection({
           <DlomBasisField
             label="Basis marketability"
             value={calculation.companyMarketability || "Isi Data Awal"}
-            source={calculation.companyMarketabilitySource}
           />
           <DlomBasisField
             label="Basis interest yang dinilai"
             value={calculation.interestBasis || "Isi Data Awal"}
-            source={calculation.interestBasisSource}
           />
           <DlomBasisField label="Rentang DLOM" value={calculation.rangeLabel} />
         </div>
-        <MetricTraceGrid
-          metrics={[
-            ["Range minimum", formatPercent(calculation.rangeMin)],
-            ["Range maksimum", formatPercent(calculation.rangeMax)],
-            ["Selisih rentang", formatPercent(calculation.rangeSpread)],
-            ["DLOM resmi", calculation.isComplete ? formatPercent(calculation.dlomRate) : "Belum lengkap"],
-          ]}
-        />
       </section>
 
       <section className="panel">
@@ -4120,12 +4110,11 @@ function DerivedCaseField({
   );
 }
 
-function DlomBasisField({ label, value, source }: { label: string; value: string; source?: string }) {
+function DlomBasisField({ label, value }: { label: string; value: string }) {
   return (
     <div className="derived-field dlom-derived-field">
       <span>{label}</span>
       <output>{value}</output>
-      {source ? <small>{source}</small> : <small aria-hidden="true" className="empty-source" />}
     </div>
   );
 }

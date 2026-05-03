@@ -178,10 +178,15 @@ test("DLOM and tax simulation render workbook-derived scenario layer after loadi
   await openWorkflowTab(page, "DLOM");
   await expect(page.getByTestId("dlom-basis-grid")).toContainText("DLOM Perusahaan tertutup");
   await expect(page.getByTestId("dlom-basis-grid")).toContainText("Mayoritas");
-  await expect(page.getByTestId("dlom-basis-grid")).toContainText("Workbook UPDATE DLOM!C31");
   await expect(page.getByTestId("dlom-basis-grid")).toContainText("20% - 40%");
+  await expect(page.getByTestId("dlom-basis-grid")).not.toContainText("Terhubung dari Jenis Perusahaan");
+  await expect(page.getByTestId("dlom-basis-grid")).not.toContainText("Workbook UPDATE DLOM!C31");
   await expect(page.getByTestId("dlom-basis-grid")).not.toContainText("Formula");
   await expect(page.getByTestId("dlom-basis-grid")).not.toContainText("DLOM!F34");
+  await expect(page.getByText("Range minimum")).toHaveCount(0);
+  await expect(page.getByText("Range maksimum")).toHaveCount(0);
+  await expect(page.getByText("Selisih rentang")).toHaveCount(0);
+  await expect(page.getByText("DLOM resmi")).toHaveCount(0);
   const dlomBasisLayout = await page.getByTestId("dlom-basis-grid").locator(".derived-field").evaluateAll((fields) =>
     fields.map((field) => {
       const rect = field.getBoundingClientRect();
@@ -298,8 +303,8 @@ test("legacy workbook-like DLOM drafts migrate to workbook UPDATE basis without 
 
   await openWorkflowTab(page, "DLOM");
   await expect(page.getByTestId("dlom-basis-grid")).toContainText("Mayoritas");
-  await expect(page.getByTestId("dlom-basis-grid")).toContainText("Workbook UPDATE DLOM!C31");
   await expect(page.getByTestId("dlom-basis-grid")).toContainText("20% - 40%");
+  await expect(page.getByTestId("dlom-basis-grid")).not.toContainText("Workbook UPDATE DLOM!C31");
   await expect(page.getByTestId("dlom-basis-grid")).not.toContainText("Formula");
   await expect(page.getByTestId("dlom-summary")).toContainText("25%");
   await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(10);

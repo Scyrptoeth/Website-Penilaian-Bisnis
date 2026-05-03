@@ -2450,18 +2450,6 @@ td span {
   margin-bottom: 10px;
 }
 
-.dlom-derived-field small {
-  margin-top: 2px;
-  min-height: 10.75px;
-  color: var(--muted);
-  font-size: 8.6px;
-  line-height: 1.25;
-}
-
-.dlom-derived-field small.empty-source {
-  visibility: hidden;
-}
-
 .tax-control-grid .wide {
   grid-column: 1 / -1;
 }
