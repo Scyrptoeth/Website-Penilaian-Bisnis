@@ -2440,6 +2440,13 @@ td span {
   margin-bottom: 10px;
 }
 
+.dlom-derived-field small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 8.6px;
+  line-height: 1.25;
+}
+
 .tax-control-grid .wide {
   grid-column: 1 / -1;
 }
@@ -2459,7 +2466,7 @@ td span {
 }
 
 .dlom-table {
-  min-width: 1180px;
+  min-width: 1080px;
 }
 
 .tax-simulation-table {
@@ -2469,6 +2476,35 @@ td span {
 .dlom-table th:first-child,
 .dlom-table td:first-child {
   width: 44px;
+}
+
+.dlom-no-column {
+  width: 52px;
+}
+
+.dlom-factor-column {
+  width: 26%;
+}
+
+.dlom-answer-column {
+  width: 230px;
+}
+
+.dlom-score-column {
+  width: 68px;
+}
+
+.dlom-evidence-column {
+  width: 24%;
+}
+
+.dlom-override-column {
+  width: 26%;
+}
+
+.dlom-table td:nth-child(3) select {
+  width: 100%;
+  min-width: 0;
 }
 
 .numeric-cell {

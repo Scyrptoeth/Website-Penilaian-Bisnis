@@ -149,10 +149,10 @@ export function buildWorkbenchReadiness({
     "Isi Aset Tetap",
   );
   const dlocPfcRateResolution = resolveDlocPfcRate(taxSimulation, dlocPfc);
-  const hasCompanyType = criterion(caseProfile.companyType.trim() !== "", "Jenis Perusahaan tersedia untuk rentang DLOC/PFC", "periods", "Isi Data Awal");
+  const hasCompanyType = criterion(caseProfile.companyType.trim() !== "", "Jenis Perusahaan tersedia untuk basis DLOM dan rentang DLOC/PFC", "periods", "Isi Data Awal");
   const hasShareOwnershipType = criterion(
     caseProfile.shareOwnershipType.trim() !== "",
-    "Jenis Kepemilikan Saham tersedia untuk status DLOC/PFC",
+    "Jenis Kepemilikan Saham tersedia untuk basis interest DLOM dan status DLOC/PFC",
     "periods",
     "Isi Data Awal",
   );
@@ -201,7 +201,7 @@ export function buildWorkbenchReadiness({
       requiredReturn,
       mapped,
     ]),
-    dlom: status("dlom", "DLOM", [period], [balance, income]),
+    dlom: status("dlom", "DLOM", [period, hasCompanyType, hasShareOwnershipType], [balance, income]),
     dlocPfc: status("dlocPfc", "DLOC/PFC", [period, hasCompanyType, hasShareOwnershipType, hasDlocPfcAnswers]),
     taxSimulation: status("taxSimulation", "Simulasi Potensi Pajak", [period], [
       balance,

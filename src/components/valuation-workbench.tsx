@@ -105,10 +105,8 @@ import {
   createEmptyDlomState,
   dlomFactorDefinitions,
   normalizeDlomState,
-  type DlomCompanyMarketability,
   type DlomFactorId,
   type DlomState,
-  type DlomInterestBasis,
   type DlomCalculation,
 } from "@/lib/valuation/dlom";
 import {
@@ -441,7 +439,7 @@ export function ValuationWorkbench() {
       snapshot,
     ],
   );
-  const dlomCalculation = useMemo(() => calculateDlom(dlom, snapshot), [dlom, snapshot]);
+  const dlomCalculation = useMemo(() => calculateDlom(dlom, snapshot, caseProfile), [caseProfile, dlom, snapshot]);
   const dlocPfcCalculation = useMemo(() => calculateDlocPfc(dlocPfc, caseProfile), [caseProfile, dlocPfc]);
   const taxSimulationResult = useMemo(
     () =>
@@ -989,13 +987,6 @@ export function ValuationWorkbench() {
     commitCoreState((current) => ({
       ...current,
       assumptions: { ...current.assumptions, [key]: value },
-    }));
-  }
-
-  function updateDlomSetting(key: "companyMarketability" | "interestBasis", value: DlomCompanyMarketability | DlomInterestBasis) {
-    commitCoreState((current) => ({
-      ...current,
-      dlom: normalizeDlomState({ ...current.dlom, [key]: value }),
     }));
   }
 
@@ -1812,7 +1803,6 @@ export function ValuationWorkbench() {
             calculation={dlomCalculation}
             readiness={readiness.dlom}
             onNavigate={navigateToWorkflowTab}
-            onUpdateSetting={updateDlomSetting}
             onUpdateFactor={updateDlomFactor}
           />
         ) : null}
@@ -2065,14 +2055,12 @@ function DlomSection({
   calculation,
   readiness,
   onNavigate,
-  onUpdateSetting,
   onUpdateFactor,
 }: {
   dlom: DlomState;
   calculation: DlomCalculation;
   readiness: SectionReadiness;
   onNavigate: (tabId: WorkflowTabId) => void;
-  onUpdateSetting: (key: "companyMarketability" | "interestBasis", value: DlomCompanyMarketability | DlomInterestBasis) => void;
   onUpdateFactor: (id: DlomFactorId, patch: Partial<DlomState["factors"][DlomFactorId]>) => void;
 }) {
   return (
@@ -2115,29 +2103,17 @@ function DlomSection({
           <FileSearch size={22} />
         </div>
         <ReadinessPanel status={readiness} onNavigate={onNavigate} />
-        <div className="dlom-control-grid">
-          <label className="field">
-            <span>Basis marketability</span>
-            <select
-              value={dlom.companyMarketability}
-              onChange={(event) => onUpdateSetting("companyMarketability", event.target.value as DlomCompanyMarketability)}
-            >
-              <option value="">Pilih</option>
-              <option value="DLOM Perusahaan tertutup">DLOM Perusahaan tertutup</option>
-              <option value="DLOM Perusahaan terbuka">DLOM Perusahaan terbuka</option>
-            </select>
-          </label>
-          <label className="field">
-            <span>Basis interest yang dinilai</span>
-            <select
-              value={dlom.interestBasis}
-              onChange={(event) => onUpdateSetting("interestBasis", event.target.value as DlomInterestBasis)}
-            >
-              <option value="">Pilih</option>
-              <option value="Minoritas">Minoritas</option>
-              <option value="Mayoritas">Mayoritas</option>
-            </select>
-          </label>
+        <div className="dlom-control-grid" data-testid="dlom-basis-grid">
+          <DlomBasisField
+            label="Basis marketability"
+            value={calculation.companyMarketability || "Isi Data Awal"}
+            source="Terhubung dari Jenis Perusahaan"
+          />
+          <DlomBasisField
+            label="Basis interest yang dinilai"
+            value={calculation.interestBasis || "Isi Data Awal"}
+            source="Terhubung dari Jenis Kepemilikan Saham"
+          />
           <DerivedCaseField label="Rentang DLOM" value={calculation.rangeLabel} />
           <DerivedCaseField label="Formula" value="Batas bawah + (skor / 10 x selisih rentang)" />
         </div>
@@ -2160,6 +2136,14 @@ function DlomSection({
         </div>
         <div className="table-wrap dlom-table-wrap">
           <table className="dlom-table" data-testid="dlom-factor-table">
+            <colgroup>
+              <col className="dlom-no-column" />
+              <col className="dlom-factor-column" />
+              <col className="dlom-answer-column" />
+              <col className="dlom-score-column" />
+              <col className="dlom-evidence-column" />
+              <col className="dlom-override-column" />
+            </colgroup>
             <thead>
               <tr>
                 <th>No.</th>
@@ -2217,16 +2201,6 @@ function DlomSection({
             </tbody>
           </table>
         </div>
-      </section>
-
-      <section className="panel">
-        <div className="panel-heading">
-          <div>
-            <p className="eyebrow">Jejak formula</p>
-            <h3>DLOM trace</h3>
-          </div>
-        </div>
-        <FormulaList traces={calculation.traces} />
       </section>
     </>
   );
@@ -3242,11 +3216,7 @@ function sanitizeDlomState(value: unknown): DlomState {
     }),
   ) as DlomState["factors"];
 
-  return normalizeDlomState({
-    companyMarketability: typeof value.companyMarketability === "string" ? (value.companyMarketability as DlomCompanyMarketability) : "",
-    interestBasis: typeof value.interestBasis === "string" ? (value.interestBasis as DlomInterestBasis) : "",
-    factors,
-  });
+  return normalizeDlomState({ factors });
 }
 
 function sanitizeDlocPfcState(value: unknown): DlocPfcState {
@@ -3287,11 +3257,7 @@ function sanitizeTaxSimulationState(value: unknown): TaxSimulationState {
 }
 
 function hasDlomInput(value: DlomState): boolean {
-  return (
-    value.companyMarketability.trim() !== "" ||
-    value.interestBasis.trim() !== "" ||
-    Object.values(value.factors).some((factor) => factor.answer.trim() !== "" || factor.overrideReason.trim() !== "")
-  );
+  return Object.values(value.factors).some((factor) => factor.answer.trim() !== "" || factor.overrideReason.trim() !== "");
 }
 
 function hasDlocPfcInput(value: DlocPfcState): boolean {
@@ -3958,6 +3924,16 @@ function DerivedCaseField({
     <div className={state === "invalid" ? "derived-field invalid" : "derived-field"}>
       <span>{label}</span>
       <output>{value}</output>
+    </div>
+  );
+}
+
+function DlomBasisField({ label, value, source }: { label: string; value: string; source: string }) {
+  return (
+    <div className="derived-field dlom-derived-field">
+      <span>{label}</span>
+      <output>{value}</output>
+      <small>{source}</small>
     </div>
   );
 }

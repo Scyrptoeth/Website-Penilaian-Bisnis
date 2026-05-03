@@ -165,10 +165,18 @@ test("added analysis sections use readiness gates before sample data and render 
 });
 
 test("DLOM and tax simulation render workbook-derived scenario layer after loading sample", async ({ page }) => {
+  await openWorkflowTab(page, "DLOM");
+  await expect(page.getByTestId("dlom-basis-grid")).toContainText("Isi Data Awal");
+  await expect(page.getByTestId("dlom-basis-grid").locator("select")).toHaveCount(0);
+  await expect(page.getByTestId("dlom-summary")).toContainText("Belum lengkap");
+
   await page.getByRole("button", { name: "Muat contoh workbook" }).click();
 
   await openWorkflowTab(page, "DLOM");
-  await expect(page.getByTestId("dlom-summary")).toContainText("25%");
+  await expect(page.getByTestId("dlom-basis-grid")).toContainText("DLOM Perusahaan tertutup");
+  await expect(page.getByTestId("dlom-basis-grid")).toContainText("Minoritas");
+  await expect(page.getByRole("heading", { name: "DLOM trace" })).toHaveCount(0);
+  await expect(page.getByTestId("dlom-summary")).toContainText("35%");
   await expect(page.getByTestId("dlom-summary")).toContainText("Rendah");
   await expect(page.getByTestId("dlom-factor-table")).toContainText("Entry Barrier Perijinan Usaha");
   await expect(page.getByLabel("Jawaban DLOM Profitabilitas (EBITDA)")).toHaveValue("Diatas");
@@ -181,7 +189,7 @@ test("DLOM and tax simulation render workbook-derived scenario layer after loadi
 
   await openWorkflowTab(page, "Simulasi Potensi Pajak");
   await expect(page.getByTestId("tax-simulation-summary")).toContainText("AAM");
-  await expect(page.getByTestId("tax-simulation-summary")).toContainText("DLOM 25%");
+  await expect(page.getByTestId("tax-simulation-summary")).toContainText("DLOM 35%");
   await expect(page.getByTestId("tax-simulation-summary")).toContainText("DLOC 34%");
   await expect(page.getByTestId("tax-simulation-table")).toContainText("AAM");
   await expect(page.getByTestId("tax-simulation-table")).toContainText("EEM");

@@ -34,9 +34,12 @@ export type DlomFactorInput = {
   overrideReason: string;
 };
 
+export type DlomBasisInput = {
+  companyType: string;
+  shareOwnershipType: string;
+};
+
 export type DlomState = {
-  companyMarketability: DlomCompanyMarketability;
-  interestBasis: DlomInterestBasis;
   factors: Record<DlomFactorId, DlomFactorInput>;
 };
 
@@ -204,8 +207,6 @@ export const dlomFactorDefinitions: DlomFactorDefinition[] = [
 
 export function createEmptyDlomState(): DlomState {
   return {
-    companyMarketability: "",
-    interestBasis: "",
     factors: Object.fromEntries(
       dlomFactorDefinitions.map((factor) => [factor.id, { answer: "", overrideReason: "" }]),
     ) as Record<DlomFactorId, DlomFactorInput>,
@@ -214,8 +215,6 @@ export function createEmptyDlomState(): DlomState {
 
 export function buildSampleDlomState(): DlomState {
   return {
-    companyMarketability: "DLOM Perusahaan tertutup",
-    interestBasis: "Mayoritas",
     factors: {
       licenseEntryBarrier: { answer: "Ada", overrideReason: "" },
       scaleEntryBarrier: { answer: "Segmen Tertentu", overrideReason: "" },
@@ -231,7 +230,7 @@ export function buildSampleDlomState(): DlomState {
   };
 }
 
-export function calculateDlom(state: DlomState, snapshot: FinancialStatementSnapshot): DlomCalculation {
+export function calculateDlom(state: DlomState, snapshot: FinancialStatementSnapshot, basisInput: DlomBasisInput): DlomCalculation {
   const factors = dlomFactorDefinitions.map((definition): DlomFactorResult => {
     const input = state.factors[definition.id] ?? { answer: "", overrideReason: "" };
     const option = definition.options.find((item) => item.label === input.answer);
@@ -246,7 +245,9 @@ export function calculateDlom(state: DlomState, snapshot: FinancialStatementSnap
       status: option ? "answered" : "missing",
     };
   });
-  const range = resolveDlomRange(state.companyMarketability, state.interestBasis);
+  const companyMarketability = deriveDlomCompanyMarketability(basisInput.companyType);
+  const interestBasis = deriveDlomInterestBasis(basisInput.shareOwnershipType);
+  const range = resolveDlomRange(companyMarketability, interestBasis);
   const totalScore = factors.reduce((sum, factor) => sum + factor.score, 0);
   const maxScore = 10;
   const isComplete = Boolean(range && factors.every((factor) => factor.status === "answered"));
@@ -258,8 +259,8 @@ export function calculateDlom(state: DlomState, snapshot: FinancialStatementSnap
   const taxpayerResistance = status === "Rendah" ? "Tinggi" : status === "Moderat" ? "Moderat" : status === "Tinggi" ? "Rendah" : "Belum lengkap";
 
   return {
-    companyMarketability: state.companyMarketability,
-    interestBasis: state.interestBasis,
+    companyMarketability,
+    interestBasis,
     rangeLabel: range ? `${formatRate(range.min)} - ${formatRate(range.max)}` : "Belum lengkap",
     rangeMin,
     rangeMax,
@@ -284,7 +285,7 @@ export function calculateDlom(state: DlomState, snapshot: FinancialStatementSnap
         formula: "Marketability basis + interest basis",
         value: rangeSpread,
         valueFormat: "percent",
-        note: range ? `${state.companyMarketability} · ${state.interestBasis} menghasilkan rentang ${formatRate(range.min)} - ${formatRate(range.max)}.` : "Basis DLOM belum lengkap.",
+        note: range ? `${companyMarketability} · ${interestBasis} menghasilkan rentang ${formatRate(range.min)} - ${formatRate(range.max)}.` : "Basis DLOM dari Data Awal belum lengkap.",
       },
       {
         label: "DLOM Objek Penilaian",
@@ -301,8 +302,6 @@ export function normalizeDlomState(value: DlomState): DlomState {
   const empty = createEmptyDlomState();
 
   return {
-    companyMarketability: isCompanyMarketability(value.companyMarketability) ? value.companyMarketability : empty.companyMarketability,
-    interestBasis: isInterestBasis(value.interestBasis) ? value.interestBasis : empty.interestBasis,
     factors: Object.fromEntries(
       dlomFactorDefinitions.map((definition) => {
         const input = value.factors[definition.id] ?? empty.factors[definition.id];
@@ -312,6 +311,26 @@ export function normalizeDlomState(value: DlomState): DlomState {
       }),
     ) as Record<DlomFactorId, DlomFactorInput>,
   };
+}
+
+export function deriveDlomCompanyMarketability(companyType: string): DlomCompanyMarketability {
+  if (companyType === "Tertutup") {
+    return "DLOM Perusahaan tertutup";
+  }
+
+  if (companyType === "Terbuka (Tbk)") {
+    return "DLOM Perusahaan terbuka";
+  }
+
+  return "";
+}
+
+export function deriveDlomInterestBasis(shareOwnershipType: string): DlomInterestBasis {
+  if (shareOwnershipType === "Minoritas" || shareOwnershipType === "Mayoritas") {
+    return shareOwnershipType;
+  }
+
+  return "";
 }
 
 function resolveDlomRange(
@@ -418,14 +437,6 @@ function buildRecommendation(id: DlomFactorId, snapshot: FinancialStatementSnaps
   }
 
   return emptyRecommendation;
-}
-
-function isCompanyMarketability(value: string): value is DlomCompanyMarketability {
-  return value === "" || value === "DLOM Perusahaan tertutup" || value === "DLOM Perusahaan terbuka";
-}
-
-function isInterestBasis(value: string): value is DlomInterestBasis {
-  return value === "" || value === "Minoritas" || value === "Mayoritas";
 }
 
 function formatRate(value: number): string {

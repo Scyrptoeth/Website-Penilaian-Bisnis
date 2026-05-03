@@ -29,14 +29,30 @@ const dlocPfc = calculateDlocPfc(buildSampleDlocPfcState(), caseProfile);
 
 describe("DLOM and tax simulation scenario layer", () => {
   it("reproduces the workbook DLOM score and rate for the sample case", () => {
-    const dlom = calculateDlom(buildSampleDlomState(), snapshot);
+    const dlom = calculateDlom(buildSampleDlomState(), snapshot, caseProfile);
 
     assert.equal(dlom.isComplete, true);
-    assert.equal(dlom.rangeLabel, "20% - 40%");
+    assert.equal(dlom.companyMarketability, "DLOM Perusahaan tertutup");
+    assert.equal(dlom.interestBasis, "Minoritas");
+    assert.equal(dlom.rangeLabel, "30% - 50%");
     assert.equal(dlom.totalScore, 2.5);
-    assertAlmostEqual(dlom.dlomRate, 0.25, 1e-12);
+    assertAlmostEqual(dlom.dlomRate, 0.35, 1e-12);
     assert.equal(dlom.status, "Rendah");
     assert.equal(dlom.taxpayerResistance, "Tinggi");
+  });
+
+  it("keeps DLOM incomplete when the Data Awal basis is missing", () => {
+    const blankBasisDlom = calculateDlom(buildSampleDlomState(), snapshot, {
+      ...caseProfile,
+      companyType: "",
+      shareOwnershipType: "",
+    });
+
+    assert.equal(blankBasisDlom.companyMarketability, "");
+    assert.equal(blankBasisDlom.interestBasis, "");
+    assert.equal(blankBasisDlom.rangeLabel, "Belum lengkap");
+    assert.equal(blankBasisDlom.isComplete, false);
+    assert.equal(blankBasisDlom.dlomRate, 0);
   });
 
   it("calculates DLOC/PFC from Data Awal and workbook questionnaire without mutating base valuation", () => {
@@ -53,7 +69,7 @@ describe("DLOM and tax simulation scenario layer", () => {
   it("switches DLOC/PFC to negative PFC for majority ownership so the tax layer increases value", () => {
     const majorityCaseProfile = { ...caseProfile, shareOwnershipType: "Mayoritas" };
     const majorityPfc = calculateDlocPfc(buildSampleDlocPfcState(), majorityCaseProfile);
-    const dlom = calculateDlom(buildSampleDlomState(), snapshot);
+    const dlom = calculateDlom(buildSampleDlomState(), snapshot, majorityCaseProfile);
     const simulation = calculateTaxSimulation({
       methods: [methods.aam],
       dlom,
@@ -72,7 +88,7 @@ describe("DLOM and tax simulation scenario layer", () => {
   });
 
   it("keeps base method values clean while tax simulation applies DLOM after method comparison", () => {
-    const dlom = calculateDlom(buildSampleDlomState(), snapshot);
+    const dlom = calculateDlom(buildSampleDlomState(), snapshot, caseProfile);
     const simulation = calculateTaxSimulation({
       methods: [methods.aam, methods.eem, methods.dcf],
       dlom,
@@ -87,19 +103,19 @@ describe("DLOM and tax simulation scenario layer", () => {
     assert.ok(aam);
     assert.equal(simulation.primaryMethod, "AAM");
     assertAlmostEqual(aam.baseEquityValue, methods.aam.equityValue, 0.01);
-    assertAlmostEqual(aam.dlomRate, 0.25, 1e-12);
-    assertAlmostEqual(aam.valueAfterDlom, methods.aam.equityValue * 0.75, 0.01);
+    assertAlmostEqual(aam.dlomRate, 0.35, 1e-12);
+    assertAlmostEqual(aam.valueAfterDlom, methods.aam.equityValue * (1 - dlom.dlomRate), 0.01);
     assertAlmostEqual(aam.dlocPfcRate, 0.34, 1e-12);
-    assertAlmostEqual(aam.dlocPfcAdjustment, -(methods.aam.equityValue * 0.75 * 0.34), 0.01);
+    assertAlmostEqual(aam.dlocPfcAdjustment, -(methods.aam.equityValue * (1 - dlom.dlomRate) * 0.34), 0.01);
     assertAlmostEqual(aam.sharePercentage, 1_600_000_000 / 5_280_000_000, 1e-12);
-    assertAlmostEqual(aam.marketValueOfTransferredInterest, methods.aam.equityValue * 0.75 * (1 - 0.34) * aam.sharePercentage, 0.01);
+    assertAlmostEqual(aam.marketValueOfTransferredInterest, methods.aam.equityValue * (1 - dlom.dlomRate) * (1 - 0.34) * aam.sharePercentage, 0.01);
     assert.ok(aam.potentialTaxableDifference > 0);
     assert.ok(aam.potentialTax > 0);
     assert.equal(methods.aam.traces.some((trace) => trace.note.includes("DLOM/DLOC tidak diterapkan")), true);
   });
 
   it("warns instead of silently finalizing blank-case tax simulation", () => {
-    const dlom = calculateDlom(createEmptyDlomState(), snapshot);
+    const dlom = calculateDlom(createEmptyDlomState(), snapshot, caseProfile);
     const simulation = calculateTaxSimulation({
       methods: [methods.aam, methods.eem, methods.dcf],
       dlom,
@@ -116,7 +132,7 @@ describe("DLOM and tax simulation scenario layer", () => {
   });
 
   it("requires a complete DLOC/PFC questionnaire or a reasoned override before applying the tax layer", () => {
-    const dlom = calculateDlom(createEmptyDlomState(), snapshot);
+    const dlom = calculateDlom(createEmptyDlomState(), snapshot, caseProfile);
     const incompleteDlocPfc = calculateDlocPfc(createEmptyDlocPfcState(), caseProfile);
     const simulation = calculateTaxSimulation({
       methods: [methods.aam],

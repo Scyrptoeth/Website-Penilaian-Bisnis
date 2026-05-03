@@ -41,7 +41,7 @@ describe("workbench readiness", () => {
     assert.equal(readiness.valuationAam.isReady, false);
     assert.equal(readiness.valuationEemDcf.isReady, false);
     assert.equal(readiness.wacc.isReady, false);
-    assert.equal(readiness.dlom.isReady, true);
+    assert.equal(readiness.dlom.isReady, false);
     assert.equal(readiness.dlocPfc.isReady, false);
     assert.equal(readiness.taxSimulation.isReady, true);
     assert.ok(readiness.taxSimulation.warnings.some((item) => item.targetTab === "taxSimulation"));
@@ -50,6 +50,7 @@ describe("workbench readiness", () => {
     assert.ok(readiness.valuationAam.missing.some((item) => item.targetTab === "balance"));
     assert.ok(readiness.valuationAam.missing.every((item) => item.targetTab !== "wacc" && item.targetTab !== "eemDcfAssumptions"));
     assert.ok(readiness.valuationEemDcf.missing.some((item) => item.targetTab === "income"));
+    assert.ok(readiness.dlom.missing.some((item) => item.targetTab === "periods"));
     assert.ok(readiness.noplatFcf.missing.some((item) => item.targetTab === "eemDcfAssumptions"));
     assert.ok(readiness.payablesCashFlow.fulfilled.some((item) => item.targetTab === "periods"));
   });
