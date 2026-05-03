@@ -1,7 +1,10 @@
 import * as XLSX from "xlsx";
-import { operatingWorkingCapital } from "./calculations";
+import { interestBearingDebt, operatingWorkingCapital } from "./calculations";
+import { calculateWaccAssumption, type WaccCalculation } from "./assumption-calculators";
 import { categoryLabelMap } from "./category-options";
 import { getPeriodYearOffset, parseInputNumber, statementLabels, type AccountRow, type AssumptionState, type CaseProfile, type CaseProfileDerived, type FixedAssetScheduleRow, type FixedAssetScheduleSummary, type MappedRow, type Period } from "./case-model";
+import { valuationDriverGovernancePolicy } from "./valuation-driver-governance-policy";
+import { applyBlueFontToXlsxCells, prepareXlsxForExcelRecalculation, type XlsxCellRef } from "./xlsx-style-patcher";
 import type { AamAdjustmentLine, AamAdjustmentModel } from "./aam-adjustments";
 import type { DlocPfcCalculation } from "./dloc-pfc";
 import type { DlomCalculation } from "./dlom";
@@ -41,20 +44,33 @@ export type ValuationExcelExportInput = {
 type WorkbookBuild = {
   workbook: XLSX.WorkBook;
   filename: string;
+  sourceOriginEntries?: TemplateOriginEntry[];
+  blueCells?: XlsxCellRef[];
 };
 
 type SheetCell = string | number | boolean | null | XLSX.CellObject;
 type SheetRow = SheetCell[];
 type SheetRefs = Record<string, string>;
 type MethodRefs = Record<ValuationMethod, string>;
-type TemplatePatch = {
+type TemplateSourceOrigin = "website-sourced" | "web-derived" | "template-default" | "template-formula" | "deferred/unmapped";
+type TemplatePatchStatus = "mapped" | "formula-neutralized" | "formula-corrected" | "cached-formula";
+type TemplateCellStatus = TemplatePatchStatus | "template-default" | "template-formula" | "deferred/unmapped";
+type TemplateFontMark = "default" | "blue";
+
+type TemplateOriginEntry = {
   sheet: string;
   cell: string;
   label: string;
   value: string | number;
   source: string;
-  status: "mapped" | "formula-neutralized" | "formula-corrected" | "cached-formula";
+  status: TemplateCellStatus;
   previousFormula: string;
+  sourceOrigin: TemplateSourceOrigin;
+  fontMark: TemplateFontMark;
+};
+
+type TemplatePatch = TemplateOriginEntry & {
+  status: TemplatePatchStatus;
 };
 
 type TemplateUnmapped = {
@@ -214,17 +230,38 @@ export function buildValuationTemplateWorkbook(input: ValuationExcelExportInput,
   patchIncomeStatementTemplateSheet(workbook, input, patches);
   patchKeyDriversTemplateSheet(workbook, input, patches, unmapped);
   patchWaccTemplateSheet(workbook, input, patches);
+  patchDiscountRateTemplateSheet(workbook, input, patches, unmapped);
   patchDlomTemplateSheet(workbook, input, patches);
   patchDlocPfcTemplateSheet(workbook, input, patches);
   patchTaxSimulationTemplateSheet(workbook, input, patches);
   patchTemplateAssumptionSheets(workbook, input, patches);
   patchAamTemplateSheet(workbook, input, patches);
   patchTemplateFormulaCaches(workbook, input, patches);
-  appendTemplateAuditSheet(workbook, input, patches, unmapped, exportedAt);
+  recordDeferredHighImpactTemplateGaps(input, unmapped);
+  const sourceOriginEntries = buildTemplateOriginEntries(workbook, patches);
+  const blueCells = sourceOriginEntries
+    .filter((entry) => entry.fontMark === "blue")
+    .map((entry): XlsxCellRef => ({ sheet: entry.sheet, cell: entry.cell }));
+
+  appendTemplateAuditSheet(workbook, input, sourceOriginEntries, unmapped, exportedAt);
 
   return {
     workbook,
     filename: buildTemplateWorkbookFilename(input.caseProfile.objectTaxpayerName, exportedAt),
+    sourceOriginEntries,
+    blueCells,
+  };
+}
+
+export function writeValuationTemplateWorkbook(input: ValuationExcelExportInput, templateData: ArrayBuffer | Uint8Array) {
+  const build = buildValuationTemplateWorkbook(input, templateData);
+  const workbookData = XLSX.write(build.workbook, { bookType: "xlsx", compression: true, type: "array", cellStyles: true }) as ArrayBuffer;
+  const recalculationReadyData = prepareXlsxForExcelRecalculation(workbookData);
+  const data = applyBlueFontToXlsxCells(recalculationReadyData, build.blueCells ?? []);
+
+  return {
+    ...build,
+    data,
   };
 }
 
@@ -236,9 +273,9 @@ export async function downloadValuationTemplateWorkbook(input: ValuationExcelExp
   }
 
   const templateData = await response.arrayBuffer();
-  const { workbook, filename } = buildValuationTemplateWorkbook(input, templateData);
+  const { data, filename } = writeValuationTemplateWorkbook(input, templateData);
 
-  XLSX.writeFile(workbook, filename, { compression: true, cellStyles: true });
+  downloadXlsxBytes(data, filename);
 }
 
 function buildSummarySheet(input: ValuationExcelExportInput, methodRefs: MethodRefs, taxRefs: SheetRefs, exportedAt: Date) {
@@ -916,7 +953,16 @@ function patchKeyDriversTemplateSheet(
   if (input.snapshot.revenueGrowth !== 0) {
     ["E", "F", "G", "H", "I", "J"].forEach((column) => {
       writeTemplateCell(workbook, patches, "KEY DRIVERS", `${column}15`, input.snapshot.revenueGrowth, "Sales volume increment", "Resolved revenue growth");
-      writeTemplateCell(workbook, patches, "KEY DRIVERS", `${column}18`, 0, "Sales price increment", "No separate website price-growth state; web revenue growth is mapped once through volume increment.");
+      writeTemplateCell(
+        workbook,
+        patches,
+        "KEY DRIVERS",
+        `${column}18`,
+        0,
+        "Sales price increment",
+        "No separate website price-growth state; web revenue growth is mapped once through volume increment.",
+        "deferred/unmapped",
+      );
     });
   }
 }
@@ -941,6 +987,88 @@ function patchWaccTemplateSheet(workbook: XLSX.WorkBook, input: ValuationExcelEx
   writeTemplateRateIfPresent(workbook, patches, "WACC", "B28", input.resolvedAssumptions.waccBankSwastaInvestmentLoanRate, "Bank Swasta investment loan rate");
   writeTemplateRateIfPresent(workbook, patches, "WACC", "B29", input.resolvedAssumptions.waccBankUmumInvestmentLoanRate, "Bank Umum investment loan rate");
   writeTemplateCell(workbook, patches, "WACC", "E22", input.snapshot.wacc, "Weighted Average Cost of Capital", "Resolved WACC used by web valuation engine");
+}
+
+function patchDiscountRateTemplateSheet(
+  workbook: XLSX.WorkBook,
+  input: ValuationExcelExportInput,
+  patches: TemplatePatch[],
+  unmapped: TemplateUnmapped[],
+) {
+  const calculation = resolveTemplateDiscountRateCalculation(input.resolvedAssumptions);
+
+  writeTemplateCell(workbook, patches, "DISCOUNT RATE", "C2", input.snapshot.taxRate, "Tax Rate", "Resolved tax assumption", "web-derived");
+  writeTemplateRateInputIfPresent(workbook, patches, "DISCOUNT RATE", "C3", input.resolvedAssumptions.waccRiskFreeRate, "Risk Free", "Risk-free rate from resolved WACC assumptions");
+  writeTemplateRateInputIfPresent(workbook, patches, "DISCOUNT RATE", "C5", input.resolvedAssumptions.waccEquityRiskPremium, "Equity Risk Premium (Rating)", "Equity risk premium from resolved WACC assumptions");
+
+  if (calculation) {
+    const debtToEquity = calculation.equityWeight > 0 ? calculation.debtWeight / calculation.equityWeight : 0;
+    const formulaCompatibleCountrySpread = finiteNumber(-calculation.countryRiskAdjustment);
+    const rawDefaultSpread = input.resolvedAssumptions.waccRatingBasedDefaultSpread.trim()
+      ? parseInputNumber(input.resolvedAssumptions.waccRatingBasedDefaultSpread)
+      : null;
+    const spreadOrigin: TemplateSourceOrigin =
+      rawDefaultSpread !== null && nearlyEqual(formulaCompatibleCountrySpread, rawDefaultSpread) ? "website-sourced" : "web-derived";
+    const unleveredBeta = calculation.beta / (1 + (1 - input.snapshot.taxRate) * debtToEquity);
+    const debtWaccComponent = calculation.debtWeight * calculation.afterTaxCostOfDebt;
+    const equityWaccComponent = calculation.equityWeight * calculation.costOfEquity;
+    const componentWacc = debtWaccComponent + equityWaccComponent;
+
+    writeTemplateCell(workbook, patches, "DISCOUNT RATE", "C4", calculation.beta, "Beta", "Resolved WACC beta after comparable/governance rules", "web-derived");
+    writeTemplateCell(
+      workbook,
+      patches,
+      "DISCOUNT RATE",
+      "C6",
+      formulaCompatibleCountrySpread,
+      "Country Default Spread (Based on Rating)",
+      "Formula-compatible country/default spread used by resolved WACC calculation",
+      spreadOrigin,
+    );
+    writeTemplateCell(workbook, patches, "DISCOUNT RATE", "C8", debtToEquity, "DER industry", "Debt/equity ratio from resolved WACC weights", "web-derived");
+    refreshTemplateFormulaCachedValue(workbook, patches, "DISCOUNT RATE", "H1", unleveredBeta, "Unlevered beta", "Resolved WACC calculation cached while preserving template formula");
+    refreshTemplateFormulaCachedValue(workbook, patches, "DISCOUNT RATE", "H2", calculation.beta, "Levered beta", "Resolved WACC calculation cached while preserving template formula");
+    refreshTemplateFormulaCachedValue(workbook, patches, "DISCOUNT RATE", "H3", calculation.costOfEquity, "Cost of equity", "Resolved WACC calculation cached while preserving template formula");
+    refreshTemplateFormulaCachedValue(workbook, patches, "DISCOUNT RATE", "H4", calculation.afterTaxCostOfDebt, "After-tax cost of debt", "Resolved WACC calculation cached while preserving template formula");
+    refreshTemplateFormulaCachedValue(workbook, patches, "DISCOUNT RATE", "F7", calculation.debtWeight, "Debt weight", "Resolved WACC calculation cached while preserving template formula");
+    refreshTemplateFormulaCachedValue(workbook, patches, "DISCOUNT RATE", "G7", calculation.afterTaxCostOfDebt, "Debt cost", "Resolved WACC calculation cached while preserving template formula");
+    refreshTemplateFormulaCachedValue(workbook, patches, "DISCOUNT RATE", "F8", calculation.equityWeight, "Equity weight", "Resolved WACC calculation cached while preserving template formula");
+    refreshTemplateFormulaCachedValue(workbook, patches, "DISCOUNT RATE", "G8", calculation.costOfEquity, "Equity cost", "Resolved WACC calculation cached while preserving template formula");
+    refreshTemplateFormulaCachedValue(workbook, patches, "DISCOUNT RATE", "H7", debtWaccComponent, "Debt WACC component", "Resolved WACC calculation cached while preserving template formula");
+    refreshTemplateFormulaCachedValue(workbook, patches, "DISCOUNT RATE", "H8", equityWaccComponent, "Equity WACC component", "Resolved WACC calculation cached while preserving template formula");
+    refreshTemplateFormulaCachedValue(workbook, patches, "DISCOUNT RATE", "C9", calculation.costOfEquity, "CoE", "Resolved WACC calculation cached while preserving template formula");
+    refreshTemplateFormulaCachedValue(workbook, patches, "DISCOUNT RATE", "C10", calculation.afterTaxCostOfDebt, "CoD", "Resolved WACC calculation cached while preserving template formula");
+
+    if (nearlyEqual(componentWacc, input.snapshot.wacc)) {
+      refreshTemplateFormulaCachedValue(workbook, patches, "DISCOUNT RATE", "H10", input.snapshot.wacc, "Weighted Average Cost of Capital (WACC)", "Resolved WACC calculation cached while preserving template formula");
+      refreshTemplateFormulaCachedValue(workbook, patches, "DISCOUNT RATE", "C11", input.snapshot.wacc, "WACC", "Resolved WACC calculation cached while preserving template formula");
+    } else {
+      writeTemplateCell(workbook, patches, "DISCOUNT RATE", "H10", input.snapshot.wacc, "Weighted Average Cost of Capital (WACC)", "Resolved WACC override used by web valuation engine", "web-derived");
+      writeTemplateCell(workbook, patches, "DISCOUNT RATE", "C11", input.snapshot.wacc, "WACC", "Resolved WACC override used by web valuation engine", "web-derived");
+    }
+  } else {
+    unmapped.push({
+      field: "DISCOUNT RATE WACC components",
+      value: input.snapshot.wacc,
+      reason: "Resolved assumptions do not contain enough inputs to safely rebuild the template CAPM component table; final WACC anchor remains mapped on WACC/STAT sheets.",
+    });
+  }
+
+  if (input.resolvedAssumptions.waccPreTaxCostOfDebt.trim()) {
+    writeTemplateCell(
+      workbook,
+      patches,
+      "DISCOUNT RATE",
+      "C7",
+      parseInputNumber(input.resolvedAssumptions.waccPreTaxCostOfDebt),
+      "Debt Rate",
+      "Pre-tax cost of debt from resolved WACC assumptions",
+    );
+  } else if (calculation) {
+    writeTemplateCell(workbook, patches, "DISCOUNT RATE", "C7", calculation.preTaxCostOfDebt, "Debt Rate", "Pre-tax cost of debt derived from resolved WACC assumptions", "web-derived");
+  }
+
+  writeTemplateCell(workbook, patches, "DISCOUNT RATE", "C12", input.snapshot.terminalGrowth, "Growth", "Resolved terminal growth used by web valuation engine", "web-derived");
 }
 
 function patchDlomTemplateSheet(workbook: XLSX.WorkBook, input: ValuationExcelExportInput, patches: TemplatePatch[]) {
@@ -1036,7 +1164,16 @@ function patchAamTemplateSheet(workbook: XLSX.WorkBook, input: ValuationExcelExp
 }
 
 function patchTemplateFormulaCaches(workbook: XLSX.WorkBook, input: ValuationExcelExportInput, patches: TemplatePatch[]) {
+  const adjustedInterestBearingDebt = adjustedAamInterestBearingDebt(input);
+  const aamNettAssetValue = input.results.aam.equityValue + adjustedInterestBearingDebt;
+
+  refreshTemplateFormulaCachedValue(workbook, patches, "AAM", "E51", aamNettAssetValue, "AAM nett asset value before interest-bearing debt", "Web AAM bridge cached while preserving template formula");
+  refreshTemplateFormulaCachedValue(workbook, patches, "AAM", "E52", adjustedInterestBearingDebt, "AAM interest-bearing debt", "Web AAM bridge cached while preserving template formula");
   refreshTemplateFormulaCachedValue(workbook, patches, "AAM", "E53", input.results.aam.equityValue, "AAM equity value", "Web valuation engine result cached while preserving template formula");
+  refreshTemplateFormulaCachedValue(workbook, patches, "AAM", "E55", input.results.aam.equityValue, "AAM equity value after DLOM bridge", "Web AAM bridge cached while preserving template formula");
+  refreshTemplateFormulaCachedValue(workbook, patches, "AAM", "E57", input.results.aam.equityValue, "AAM market value of equity 100%", "Web AAM bridge cached while preserving template formula");
+  refreshTemplateFormulaCachedValue(workbook, patches, "AAM", "E59", input.results.aam.equityValue, "AAM market value of 100% equity", "Web AAM bridge cached while preserving template formula");
+  refreshTemplateFormulaCachedValue(workbook, patches, "AAM", "E60", aamValuePerShare(input), "AAM value per share", "Web AAM bridge cached while preserving template formula");
   refreshTemplateFormulaCachedValue(workbook, patches, "EEM", "D34", input.results.eem.equityValue, "EEM equity value", "Web valuation engine result cached while preserving template formula");
   refreshTemplateFormulaCachedValue(workbook, patches, "DCF", "C33", input.results.dcf.equityValue, "DCF equity value", "Web valuation engine result cached while preserving template formula");
   refreshTemplateFormulaCachedValue(workbook, patches, "STAT_EEM", "B22", input.results.eem.equityValue, "STAT EEM equity value", "Web valuation engine result cached while preserving template formula");
@@ -1049,18 +1186,214 @@ function patchTemplateFormulaCaches(workbook: XLSX.WorkBook, input: ValuationExc
   }
 
   refreshTemplateFormulaCachedValue(workbook, patches, "SIMULASI POTENSI PAJAK", "E1", primaryTaxRow.baseEquityValue, "Tax simulation base equity value", "Primary tax simulation row");
+  refreshTemplateFormulaCachedValue(workbook, patches, "SIMULASI POTENSI PAJAK", "D3", -primaryTaxRow.dlomRate, "Tax simulation DLOM rate", "Primary tax simulation row");
   refreshTemplateFormulaCachedValue(workbook, patches, "SIMULASI POTENSI PAJAK", "E3", primaryTaxRow.dlomAdjustment, "Tax simulation DLOM adjustment", "Primary tax simulation row");
   refreshTemplateFormulaCachedValue(workbook, patches, "SIMULASI POTENSI PAJAK", "E4", primaryTaxRow.valueAfterDlom, "Tax simulation value after DLOM", "Primary tax simulation row");
+  refreshTemplateFormulaCachedValue(workbook, patches, "SIMULASI POTENSI PAJAK", "D6", -primaryTaxRow.dlocPfcRate, "Tax simulation DLOC/PFC rate", "Primary tax simulation row");
   refreshTemplateFormulaCachedValue(workbook, patches, "SIMULASI POTENSI PAJAK", "E6", primaryTaxRow.dlocPfcAdjustment, "Tax simulation DLOC/PFC adjustment", "Primary tax simulation row");
   refreshTemplateFormulaCachedValue(workbook, patches, "SIMULASI POTENSI PAJAK", "E7", primaryTaxRow.marketValueOfEquity100, "Tax simulation market value of equity 100%", "Primary tax simulation row");
+  refreshTemplateFormulaCachedValue(workbook, patches, "SIMULASI POTENSI PAJAK", "E11", primaryTaxRow.marketValueOfEquity100, "Tax simulation market value of equity 100% bridge", "Primary tax simulation row");
+  refreshTemplateFormulaCachedValue(workbook, patches, "SIMULASI POTENSI PAJAK", "E12", primaryTaxRow.sharePercentage, "Tax simulation share percentage", "Primary tax simulation row");
   refreshTemplateFormulaCachedValue(workbook, patches, "SIMULASI POTENSI PAJAK", "E13", primaryTaxRow.marketValueOfTransferredInterest, "Tax simulation transferred-interest market value", "Primary tax simulation row");
+  if (!input.taxSimulation.reportedTransferValue.trim()) {
+    refreshTemplateFormulaCachedValue(workbook, patches, "SIMULASI POTENSI PAJAK", "E14", primaryTaxRow.reportedTransferValue, "Tax simulation reported transfer value", "Primary tax simulation row");
+  }
   refreshTemplateFormulaCachedValue(workbook, patches, "SIMULASI POTENSI PAJAK", "E15", primaryTaxRow.transferValueDifference, "Tax simulation transfer value difference", "Primary tax simulation row");
+  refreshTemplateFormulaCachedValue(workbook, patches, "SIMULASI POTENSI PAJAK", "E17", input.caseProfile.subjectTaxpayerType || primaryTaxRow.taxBasisLabel, "Tax simulation taxpayer type", "Primary tax simulation row");
+  refreshTemplateFormulaCachedValue(
+    workbook,
+    patches,
+    "SIMULASI POTENSI PAJAK",
+    "E18",
+    primaryTaxRow.appliedTaxYear ?? primaryTaxRow.requestedTaxYear ?? 0,
+    "Tax simulation applied tax year",
+    "Primary tax simulation row",
+  );
+}
+
+function resolveTemplateDiscountRateCalculation(assumptions: AssumptionState): WaccCalculation | null {
+  const calculation = calculateWaccAssumption(assumptions);
+
+  if (!calculation || assumptions.wacc.trim() || !assumptions.waccSource.startsWith("market-suggestion")) {
+    return calculation;
+  }
+
+  const { lowBetaThreshold, minimumReviewableRate, smartSuggestionBetaFloor } = valuationDriverGovernancePolicy.wacc;
+  const needsGovernedBase =
+    calculation.wacc < minimumReviewableRate ||
+    calculation.beta < lowBetaThreshold ||
+    calculation.costOfEquity < calculation.afterTaxCostOfDebt;
+
+  if (!needsGovernedBase) {
+    return calculation;
+  }
+
+  const riskFreeRate = assumptions.waccRiskFreeRate.trim() ? parseInputNumber(assumptions.waccRiskFreeRate) : null;
+  const equityRiskPremium = assumptions.waccEquityRiskPremium.trim() ? parseInputNumber(assumptions.waccEquityRiskPremium) : null;
+
+  if (riskFreeRate === null || equityRiskPremium === null) {
+    return calculation;
+  }
+
+  const beta = Math.max(calculation.beta, smartSuggestionBetaFloor);
+  const countryRiskAdjustment = Math.max(0, calculation.countryRiskAdjustment);
+  const costOfEquity = riskFreeRate + beta * equityRiskPremium + countryRiskAdjustment;
+  const wacc = calculation.debtWeight * calculation.afterTaxCostOfDebt + calculation.equityWeight * costOfEquity;
+
+  return {
+    ...calculation,
+    beta,
+    countryRiskAdjustment,
+    costOfEquity,
+    wacc,
+  };
+}
+
+function adjustedAamInterestBearingDebt(input: ValuationExcelExportInput): number {
+  const interestDebtAdjustment = input.aamAdjustmentModel.liabilityLines
+    .filter((line) => line.id === "bank-loan-short-term" || line.id === "bank-loan-long-term")
+    .reduce((sum, line) => sum + line.adjustment, 0);
+
+  return interestBearingDebt(input.snapshot) + interestDebtAdjustment;
+}
+
+function aamValuePerShare(input: ValuationExcelExportInput): number {
+  const capitalBaseFull = parseInputNumber(input.caseProfile.capitalBaseFull);
+
+  return capitalBaseFull > 0 ? input.results.aam.equityValue / capitalBaseFull : 0;
+}
+
+function recordDeferredHighImpactTemplateGaps(input: ValuationExcelExportInput, unmapped: TemplateUnmapped[]) {
+  unmapped.push({
+    field: "Projection sheets full row-level rebuild",
+    value: "PROY LR / PROY BALANCE SHEET / PROY CASH FLOW STATEMENT / PROY NOPLAT / PROY FIXED ASSETS",
+    reason: "Projection sheets retain the legacy template formula graph. V2 patches upstream anchors and DCF/STAT_DCF cached outputs, but a row-level projection rewrite is deferred until workbook parity is reviewer-approved.",
+  });
+
+  const primaryTaxRow = input.taxSimulationResult.primaryRow;
+
+  if (!primaryTaxRow) {
+    return;
+  }
+
+  unmapped.push({
+    field: "Tax regime detail outputs",
+    value: primaryTaxRow.potentialTax,
+    reason: `The template tax sheet has a compact value bridge only. Detailed ${primaryTaxRow.taxBasisLabel}, rounded taxable income ${primaryTaxRow.taxableIncomeRounded}, effective tax rate, brackets, and source-law fields remain in the web tax engine/audit until a safe template destination exists.`,
+  });
+}
+
+function buildTemplateOriginEntries(workbook: XLSX.WorkBook, patches: TemplatePatch[]): TemplateOriginEntry[] {
+  const patchKeys = new Set(patches.map((patch) => templateCellKey(patch.sheet, patch.cell)));
+  const entries: TemplateOriginEntry[] = [...patches];
+
+  workbook.SheetNames.forEach((sheetName) => {
+    if (sheetName === "PVB_EXPORT_V2_AUDIT") {
+      return;
+    }
+
+    const worksheet = workbook.Sheets[sheetName];
+    const rangeText = worksheet?.["!ref"];
+
+    if (!worksheet || !rangeText) {
+      return;
+    }
+
+    const range = XLSX.utils.decode_range(rangeText);
+
+    for (let rowIndex = range.s.r; rowIndex <= range.e.r; rowIndex += 1) {
+      for (let columnIndex = range.s.c; columnIndex <= range.e.c; columnIndex += 1) {
+        const cellAddress = XLSX.utils.encode_cell({ r: rowIndex, c: columnIndex });
+
+        if (patchKeys.has(templateCellKey(sheetName, cellAddress))) {
+          continue;
+        }
+
+        const cell = worksheet[cellAddress];
+
+        if (!cell || !isTemplateDataCell(cell)) {
+          continue;
+        }
+
+        const sourceOrigin: TemplateSourceOrigin = cell.f ? "template-formula" : "template-default";
+        entries.push({
+          sheet: sheetName,
+          cell: cellAddress,
+          label: templateCellLabel(worksheet, rowIndex, columnIndex),
+          value: templateOriginCellValue(cell),
+          source: cell.f ? "Template formula retained from reference workbook" : "Template default/reference value retained from reference workbook",
+          status: sourceOrigin,
+          previousFormula: typeof cell.f === "string" ? cell.f : "",
+          sourceOrigin,
+          fontMark: "blue",
+        });
+      }
+    }
+  });
+
+  return entries;
+}
+
+function isTemplateDataCell(cell: XLSX.CellObject): boolean {
+  if (cell.t === "n" || cell.t === "b") {
+    return true;
+  }
+
+  return typeof cell.f === "string" && (typeof cell.v === "number" || typeof cell.v === "string" || typeof cell.v === "boolean");
+}
+
+function templateOriginCellValue(cell: XLSX.CellObject): string | number {
+  if (typeof cell.v === "number" || typeof cell.v === "string") {
+    return cell.v;
+  }
+
+  if (typeof cell.v === "boolean") {
+    return cell.v ? "TRUE" : "FALSE";
+  }
+
+  return "";
+}
+
+function templateCellLabel(worksheet: XLSX.WorkSheet, rowIndex: number, columnIndex: number): string {
+  const sameRowLabel = findLeftTextCell(worksheet, rowIndex, columnIndex);
+
+  if (sameRowLabel) {
+    return sameRowLabel;
+  }
+
+  const aboveCell = worksheet[XLSX.utils.encode_cell({ r: rowIndex - 1, c: columnIndex })];
+
+  if (typeof aboveCell?.v === "string" && !aboveCell.f) {
+    return aboveCell.v;
+  }
+
+  return "Template data cell";
+}
+
+function findLeftTextCell(worksheet: XLSX.WorkSheet, rowIndex: number, columnIndex: number): string {
+  for (let nextColumnIndex = columnIndex - 1; nextColumnIndex >= 0; nextColumnIndex -= 1) {
+    const cell = worksheet[XLSX.utils.encode_cell({ r: rowIndex, c: nextColumnIndex })];
+
+    if (typeof cell?.v === "string" && !cell.f) {
+      return cell.v;
+    }
+  }
+
+  return "";
+}
+
+function templateCellKey(sheet: string, cell: string): string {
+  return `${sheet}!${cell}`;
+}
+
+function fontMarkForSourceOrigin(sourceOrigin: TemplateSourceOrigin): TemplateFontMark {
+  return sourceOrigin === "template-default" || sourceOrigin === "template-formula" || sourceOrigin === "deferred/unmapped" ? "blue" : "default";
 }
 
 function appendTemplateAuditSheet(
   workbook: XLSX.WorkBook,
   input: ValuationExcelExportInput,
-  patches: TemplatePatch[],
+  originEntries: TemplateOriginEntry[],
   unmapped: TemplateUnmapped[],
   exportedAt: Date,
 ) {
@@ -1072,13 +1405,13 @@ function appendTemplateAuditSheet(
     ["Object taxpayer", input.caseProfile.objectTaxpayerName || "-"],
     ["Active period", input.periods.find((period) => period.id === input.activePeriodId)?.label ?? input.activePeriodId],
     [],
-    ["Patched Cells"],
-    ["Sheet", "Cell", "Label", "Value", "Source", "Status", "Previous Formula"],
-    ...patches.map((patch): SheetRow => [patch.sheet, patch.cell, patch.label, patch.value, patch.source, patch.status, patch.previousFormula]),
+    ["Source-Origin Matrix"],
+    ["Sheet", "Cell", "Label", "Value", "Source", "Source Origin", "Status", "Font Mark", "Previous Formula"],
+    ...originEntries.map((entry): SheetRow => [entry.sheet, entry.cell, entry.label, entry.value, entry.source, entry.sourceOrigin, entry.status, entry.fontMark, entry.previousFormula]),
     [],
     ["Unmapped / Deferred Fields"],
-    ["Field", "Value", "Reason"],
-    ...unmapped.map((item): SheetRow => [item.field, item.value, item.reason]),
+    ["Field", "Value", "Source Origin", "Status", "Reason"],
+    ...unmapped.map((item): SheetRow => [item.field, item.value, "deferred/unmapped", "deferred/unmapped", item.reason]),
     [],
     ["Validation"],
     ["Check", "Status"],
@@ -1086,7 +1419,7 @@ function appendTemplateAuditSheet(
     [],
     ["Formula Preservation / Recalculation"],
     ["Behavior", "Status", "Detail"],
-    ["Template formulas", "Preserved where not patched", "Formula cells that are intentionally overwritten are marked as formula-neutralized with the previous formula recorded."],
+    ["Template formulas", "Preserved where not patched", "Formula cells retained from the template are classified as template-formula and marked with blue font unless a web-derived cache is explicitly refreshed."],
     ["Cached values", "Refreshed for key outputs", "AAM, EEM, DCF, STAT_EEM, STAT_DCF, and selected tax bridge output cells keep formulas and receive web-engine cached values."],
     ["Browser recalculation", "Not available", "The browser export library writes formulas but does not evaluate the workbook formula graph."],
     ["Excel recalculation metadata", "Not guaranteed", "Open the workbook in Excel or another spreadsheet engine for authoritative recalculation after export."],
@@ -1095,7 +1428,7 @@ function appendTemplateAuditSheet(
     ...input.taxSimulationResult.warnings.map((warning): SheetRow => [warning]),
   ];
   const worksheet = XLSX.utils.aoa_to_sheet(rows);
-  worksheet["!cols"] = [{ wch: 24 }, { wch: 18 }, { wch: 42 }, { wch: 24 }, { wch: 56 }, { wch: 24 }, { wch: 56 }];
+  worksheet["!cols"] = [{ wch: 24 }, { wch: 18 }, { wch: 42 }, { wch: 24 }, { wch: 56 }, { wch: 22 }, { wch: 24 }, { wch: 14 }, { wch: 56 }];
 
   appendSheet(workbook, "PVB_EXPORT_V2_AUDIT", worksheet);
 }
@@ -1146,6 +1479,7 @@ function writeTemplateCell(
   value: string | number,
   label: string,
   source: string,
+  sourceOrigin: TemplateSourceOrigin = "website-sourced",
 ) {
   const worksheet = workbook.Sheets[sheet];
 
@@ -1172,6 +1506,8 @@ function writeTemplateCell(
     source,
     status: previousFormula ? "formula-neutralized" : "mapped",
     previousFormula,
+    sourceOrigin,
+    fontMark: fontMarkForSourceOrigin(sourceOrigin),
   });
 }
 
@@ -1184,6 +1520,7 @@ function writeTemplateFormulaCell(
   cachedValue: string | number,
   label: string,
   source: string,
+  sourceOrigin: TemplateSourceOrigin = "web-derived",
 ) {
   const worksheet = workbook.Sheets[sheet];
 
@@ -1210,6 +1547,8 @@ function writeTemplateFormulaCell(
     source,
     status: "formula-corrected",
     previousFormula,
+    sourceOrigin,
+    fontMark: fontMarkForSourceOrigin(sourceOrigin),
   });
 }
 
@@ -1232,7 +1571,7 @@ function refreshTemplateFormulaCachedValue(
   const previousFormula = typeof existing?.f === "string" ? existing.f : "";
 
   if (!previousFormula) {
-    writeTemplateCell(workbook, patches, sheet, cellAddress, cachedValue, label, source);
+    writeTemplateCell(workbook, patches, sheet, cellAddress, cachedValue, label, source, "web-derived");
     return;
   }
 
@@ -1253,6 +1592,8 @@ function refreshTemplateFormulaCachedValue(
     source,
     status: "cached-formula",
     previousFormula,
+    sourceOrigin: "web-derived",
+    fontMark: "default",
   });
 }
 
@@ -1269,6 +1610,22 @@ function writeTemplateTextIfPresent(
   }
 
   writeTemplateCell(workbook, patches, sheet, cellAddress, value, label, "Resolved WACC assumptions");
+}
+
+function writeTemplateRateInputIfPresent(
+  workbook: XLSX.WorkBook,
+  patches: TemplatePatch[],
+  sheet: string,
+  cellAddress: string,
+  value: string,
+  label: string,
+  source: string,
+) {
+  if (!value.trim()) {
+    return;
+  }
+
+  writeTemplateCell(workbook, patches, sheet, cellAddress, parseInputNumber(value), label, source);
 }
 
 function writeTemplateNumberIfPresent(
@@ -1465,7 +1822,15 @@ function numberCell(value: number, format: "currency" | "percent" | "number" = "
 }
 
 function finiteNumber(value: number): number {
+  if (Object.is(value, -0)) {
+    return 0;
+  }
+
   return Number.isFinite(value) ? value : 0;
+}
+
+function nearlyEqual(left: number, right: number): boolean {
+  return Math.abs(left - right) < 1e-9;
 }
 
 function createSheet(rows: SheetRow[], widths: number[]) {
@@ -1477,6 +1842,21 @@ function createSheet(rows: SheetRow[], widths: number[]) {
 
 function appendSheet(workbook: XLSX.WorkBook, name: string, worksheet: XLSX.WorkSheet) {
   XLSX.utils.book_append_sheet(workbook, worksheet, name);
+}
+
+function downloadXlsxBytes(data: Uint8Array, filename: string) {
+  const buffer = new ArrayBuffer(data.byteLength);
+  new Uint8Array(buffer).set(data);
+  const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.style.display = "none";
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
 }
 
 function localCell(rowIndex: number, columnIndex: number): string {

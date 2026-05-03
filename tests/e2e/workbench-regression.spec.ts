@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
+import { readFileSync } from "node:fs";
 import * as XLSX from "xlsx";
+import { getCellFontRgbFromXlsx, getWorkbookCalcPrAttributesFromXlsx, hasXlsxEntry } from "../helpers/xlsx-style";
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
@@ -366,8 +368,20 @@ test("exports the active workbench state through the primary template-clone XLSX
   expect(workbook.Sheets.DLOM.F34.f).toBe("LEFT(C32,3)+(F33/F31*F32)");
   expect(workbook.Sheets["DLOC(PFC)"].B20.f).toBe('IF(LOWER(HOME!B7)="tertutup","DLOC Perusahaan tertutup ","DLOC Perusahaan terbuka ")');
   expect(workbook.Sheets.PVB_EXPORT_V2_AUDIT.A1.v).toBe("Export XLSX V2 Audit");
-  expect(workbook.Sheets.PVB_EXPORT_V2_AUDIT.F9.v).toBe("Status");
-  expect(workbook.Sheets.PVB_EXPORT_V2_AUDIT.G9.v).toBe("Previous Formula");
+  expect(workbook.Sheets.PVB_EXPORT_V2_AUDIT.F9.v).toBe("Source Origin");
+  expect(workbook.Sheets.PVB_EXPORT_V2_AUDIT.G9.v).toBe("Status");
+  expect(workbook.Sheets.PVB_EXPORT_V2_AUDIT.H9.v).toBe("Font Mark");
+  expect(workbook.Sheets.PVB_EXPORT_V2_AUDIT.I9.v).toBe("Previous Formula");
+
+  const downloadedXlsx = readFileSync(downloadPath);
+  const calcPr = getWorkbookCalcPrAttributesFromXlsx(downloadedXlsx);
+  expect(getCellFontRgbFromXlsx(downloadedXlsx, "KEY DRIVERS", "E18")).toBe("FF0000FF");
+  expect(getCellFontRgbFromXlsx(downloadedXlsx, "DLOM", "F34")).toBe("FF0000FF");
+  expect(getCellFontRgbFromXlsx(downloadedXlsx, "SIMULASI POTENSI PAJAK", "C3")).toBe("FF0000FF");
+  expect(getCellFontRgbFromXlsx(downloadedXlsx, "HOME", "B4")).not.toBe("FF0000FF");
+  expect(calcPr.fullCalcOnLoad).toBe("1");
+  expect(calcPr.forceFullCalc).toBe("1");
+  expect(hasXlsxEntry(downloadedXlsx, "xl/calcChain.xml")).toBe(false);
 });
 
 test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators, and active valuation sources", async ({ page }) => {
