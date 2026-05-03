@@ -306,7 +306,7 @@ const requiredReturnSuggestionOrder: RequiredReturnOnNtaSuggestionKey[] = [
 const WORKBENCH_STORAGE_KEY = "penilaian-valuasi-bisnis.workbench.v1";
 const WORKBENCH_SCROLL_STORAGE_KEY = "penilaian-valuasi-bisnis.scroll.v1";
 const WORKBENCH_SIDEBAR_STORAGE_KEY = "penilaian-valuasi-bisnis.sidebar.v1";
-const WORKBENCH_STORAGE_VERSION = 9;
+const WORKBENCH_STORAGE_VERSION = 10;
 
 type PersistedWorkbenchState = {
   version: typeof WORKBENCH_STORAGE_VERSION;
@@ -3365,12 +3365,14 @@ function isLegacySampleWorkbookDraft(caseProfile: CaseProfile, dlom: DlomState, 
     return false;
   }
 
-  const rowIds = new Set(rows.map((row) => row.id));
-
-  if (!rowIds.has("sample-revenue") || !rowIds.has("sample-cash-hand")) {
+  if (!hasWorkbookUpdateDlomRows(rows) || !hasWorkbookUpdateDlomAnswers(dlom)) {
     return false;
   }
 
+  return true;
+}
+
+function hasWorkbookUpdateDlomAnswers(dlom: DlomState): boolean {
   const sampleDlom = buildSampleDlomState();
 
   return dlomFactorDefinitions.every((definition) => {
@@ -3379,6 +3381,29 @@ function isLegacySampleWorkbookDraft(caseProfile: CaseProfile, dlom: DlomState, 
 
     return current.answer === sample.answer;
   });
+}
+
+function hasWorkbookUpdateDlomRows(rows: AccountRow[]): boolean {
+  const rowIds = new Set(rows.map((row) => row.id));
+
+  if (rowIds.has("sample-revenue") && rowIds.has("sample-cash-hand")) {
+    return true;
+  }
+
+  return (
+    rows.some((row) => rowLooksLikeWorkbookValue(row, ["revenue", "penjualan"], 16_663_916_100)) &&
+    rows.some((row) => rowLooksLikeWorkbookValue(row, ["cash", "kas"], 717_848_795))
+  );
+}
+
+function rowLooksLikeWorkbookValue(row: AccountRow, labelHints: string[], expectedValue: number): boolean {
+  const normalizedName = row.accountName.toLowerCase();
+
+  if (!labelHints.some((hint) => normalizedName.includes(hint))) {
+    return false;
+  }
+
+  return Object.values(row.values).some((value) => Math.abs(parseInputNumber(value) - expectedValue) < 1);
 }
 
 function sanitizeDlocPfcState(value: unknown): DlocPfcState {

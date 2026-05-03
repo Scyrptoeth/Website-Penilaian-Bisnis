@@ -221,30 +221,30 @@ test("DLOM and tax simulation render workbook-derived scenario layer after loadi
   await expect(page.getByText("DLOM skenario")).toBeVisible();
 });
 
-test("legacy sample DLOM drafts migrate to workbook UPDATE basis without showing formula UI", async ({ page }) => {
+test("legacy workbook-like DLOM drafts migrate to workbook UPDATE basis without showing formula UI", async ({ page }) => {
   await page.addInitScript(({ key, state }) => {
     window.localStorage.setItem(key, JSON.stringify(state));
   }, {
     key: "penilaian-valuasi-bisnis.workbench.v1",
     state: {
-      version: 8,
+      version: 9,
       savedAt: "2026-05-03T00:00:00.000Z",
       periods: [{ id: "p2021", label: "2021", valuationDate: "2021-12-31", yearOffset: 0 }],
       activePeriodId: "p2021",
       rows: [
         {
-          id: "sample-cash-hand",
+          id: "manual-cash-hand",
           statement: "balance_sheet",
-          accountName: "Kas",
-          categoryOverride: "CASH_ON_HAND",
+          accountName: "Cash on Hands (Kas + Kas)",
+          categoryOverride: "",
           balanceSheetClassification: "",
           labelOverrides: [],
           values: { p2021: "717.848.795" },
         },
         {
-          id: "sample-revenue",
+          id: "manual-revenue",
           statement: "income_statement",
-          accountName: "Penjualan",
+          accountName: "Revenue (Penjualan)",
           categoryOverride: "REVENUE",
           balanceSheetClassification: "",
           labelOverrides: [],
@@ -283,7 +283,7 @@ test("legacy sample DLOM drafts migrate to workbook UPDATE basis without showing
   await expect(page.getByTestId("dlom-basis-grid")).toContainText("20% - 40%");
   await expect(page.getByTestId("dlom-basis-grid")).not.toContainText("Formula");
   await expect(page.getByTestId("dlom-summary")).toContainText("25%");
-  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(9);
+  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(10);
 });
 
 test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators, and active valuation sources", async ({ page }) => {
@@ -402,7 +402,7 @@ test("legacy positive income-statement expense drafts migrate once and remain us
   await amountInput.press("Home");
   await amountInput.press("Delete");
   await expect(amountInput).toHaveValue("100");
-  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(9);
+  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(10);
 
   await page.reload();
   await openWorkflowTab(page, "Laba Rugi");
