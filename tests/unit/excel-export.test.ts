@@ -24,7 +24,7 @@ import { buildSampleTaxSimulationState, calculateTaxSimulation } from "../../src
 import { buildValidationChecks } from "../../src/lib/valuation/validation-checks";
 
 describe("valuation Excel export", () => {
-  it("builds a multi-sheet workbook with editable formulas for key valuation outputs", () => {
+  it("still builds the legacy V1 audit workbook for internal fallback coverage", () => {
     const input = buildSampleExportInput();
     const { workbook, filename } = buildValuationWorkbook(input);
 
@@ -51,9 +51,10 @@ describe("valuation Excel export", () => {
     assert.equal(workbook.Sheets["10_Tax_Simulation"]["Q2"].f, "P2*R2");
   });
 
-  it("builds a template-clone V2 workbook while preserving the reference sheets and formulas", () => {
+  it("builds the primary template-clone XLSX workbook while preserving formulas and recording mapping status", () => {
     const templateData = readFileSync("public/templates/kkp-saham-final-account-category-review-update.xlsx");
-    const { workbook, filename } = buildValuationTemplateWorkbook(buildSampleExportInput(), templateData);
+    const input = buildSampleExportInput();
+    const { workbook, filename } = buildValuationTemplateWorkbook(input, templateData);
 
     assert.match(filename, /valuation-export-v2-template-clone-2026-05-03\.xlsx$/);
     assert.equal(workbook.SheetNames.length, 69);
@@ -68,10 +69,27 @@ describe("valuation Excel export", () => {
     assert.equal(workbook.Sheets.HOME.B19.v, 2022);
     assert.equal(workbook.Sheets["BALANCE SHEET"].E8.v, 717848795);
     assert.equal(workbook.Sheets["INCOME STATEMENT"].E6.v, 16663916100);
+    assert.equal(workbook.Sheets.STAT_ASSUMPTIONS.B5.v, input.snapshot.taxRate);
+    assert.equal(workbook.Sheets.STAT_ASSUMPTIONS.B6.f, "WACC!E22");
+    assert.equal(workbook.Sheets.STAT_ASSUMPTIONS.B6.v, input.snapshot.wacc);
+    assert.equal(workbook.Sheets.STAT_ASSUMPTIONS.B9.v, input.snapshot.revenueGrowth);
+    assert.equal(workbook.Sheets.STAT_ASSUMPTIONS.B10.v, input.snapshot.requiredReturnOnNta);
+    assert.equal(workbook.Sheets.AAM.E53.f, "E51-E52");
+    assert.equal(workbook.Sheets.AAM.E53.v, input.results.aam.equityValue);
+    assert.equal(workbook.Sheets.EEM.D34.f, "D31+D32+D33");
+    assert.equal(workbook.Sheets.EEM.D34.v, input.results.eem.equityValue);
+    assert.equal(workbook.Sheets.DCF.C33.f, "SUM(C29:C32)");
+    assert.equal(workbook.Sheets.DCF.C33.v, input.results.dcf.equityValue);
     assert.equal(workbook.Sheets.DLOM.F34.f, "LEFT(C32,3)+(F33/F31*F32)");
     assert.equal(workbook.Sheets["DLOC(PFC)"].B20.f, 'IF(LOWER(HOME!B7)="tertutup","DLOC Perusahaan tertutup ","DLOC Perusahaan terbuka ")');
     assert.equal(workbook.Sheets["SIMULASI POTENSI PAJAK"].E1.f, 'IF(C1="AAM", AAM!E53, IF(C1="EEM", EEM!D34, IF(C1="DCF", DCF!C33, "")))');
+    assert.equal(workbook.Sheets["SIMULASI POTENSI PAJAK"].E1.v, input.taxSimulationResult.primaryRow?.baseEquityValue);
     assert.equal(workbook.Sheets.PVB_EXPORT_V2_AUDIT.A1.v, "Export XLSX V2 Audit");
+    assert.equal(workbook.Sheets.PVB_EXPORT_V2_AUDIT.F9.v, "Status");
+    assert.equal(workbook.Sheets.PVB_EXPORT_V2_AUDIT.G9.v, "Previous Formula");
+    assertAuditContains(workbook.Sheets.PVB_EXPORT_V2_AUDIT, "STAT_ASSUMPTIONS", "B6", "formula-corrected");
+    assertAuditContains(workbook.Sheets.PVB_EXPORT_V2_AUDIT, "AAM", "E53", "cached-formula");
+    assertAuditContains(workbook.Sheets.PVB_EXPORT_V2_AUDIT, "BALANCE SHEET", "E8", "formula-neutralized");
   });
 });
 
@@ -168,6 +186,20 @@ function findFormulaByLabel(sheet: WorkSheet, label: string): string {
   }
 
   assert.fail(`Formula row not found for ${label}`);
+}
+
+function assertAuditContains(sheet: WorkSheet, sheetName: string, cellAddress: string, status: string) {
+  const rangeText = sheet["!ref"];
+  assert.ok(rangeText);
+  const range = decodeRange(rangeText);
+
+  for (let row = range.s.r; row <= range.e.r; row += 1) {
+    if (sheet[encodeCell(row, 0)]?.v === sheetName && sheet[encodeCell(row, 1)]?.v === cellAddress && sheet[encodeCell(row, 5)]?.v === status) {
+      return;
+    }
+  }
+
+  assert.fail(`Audit row not found for ${sheetName}!${cellAddress} with ${status}`);
 }
 
 function decodeRange(ref: string) {

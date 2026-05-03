@@ -100,7 +100,7 @@ import { formatDisplayDate, formatEditableNumber, formatIdr, formatInputNumber, 
 import { buildWorkbenchReadiness, type SectionReadiness, type WorkbenchReadiness, type WorkbenchSectionId } from "@/lib/valuation/readiness";
 import { buildSectionAnalysis, type AnalysisRow, type AnalysisValue, type PeriodAnalysis, type RatioRow, type SectionAnalysis } from "@/lib/valuation/section-analysis";
 import { buildValidationChecks } from "@/lib/valuation/validation-checks";
-import { downloadValuationTemplateWorkbook, downloadValuationWorkbook } from "@/lib/valuation/excel-export";
+import { downloadValuationTemplateWorkbook } from "@/lib/valuation/excel-export";
 import {
   buildSampleDlomState,
   calculateDlom,
@@ -1160,11 +1160,7 @@ export function ValuationWorkbench() {
     };
   }
 
-  function exportWorkbook() {
-    downloadValuationWorkbook(getExportInput());
-  }
-
-  async function exportTemplateWorkbook() {
+  async function exportWorkbook() {
     if (isTemplateExporting) {
       return;
     }
@@ -1174,7 +1170,7 @@ export function ValuationWorkbench() {
     try {
       await downloadValuationTemplateWorkbook(getExportInput());
     } catch (error) {
-      window.alert(error instanceof Error ? error.message : "Export XLSX V2 gagal dijalankan.");
+      window.alert(error instanceof Error ? error.message : "Export XLSX gagal dijalankan.");
     } finally {
       setIsTemplateExporting(false);
     }
@@ -1262,13 +1258,9 @@ export function ValuationWorkbench() {
                 <Upload size={18} />
                 Muat contoh workbook
               </button>
-              <button className="button secondary" type="button" onClick={exportWorkbook}>
+              <button className="button secondary" type="button" onClick={exportWorkbook} disabled={isTemplateExporting} aria-busy={isTemplateExporting}>
                 <Download size={18} />
-                Export XLSX V1
-              </button>
-              <button className="button secondary" type="button" onClick={exportTemplateWorkbook} disabled={isTemplateExporting} aria-busy={isTemplateExporting}>
-                <Download size={18} />
-                {isTemplateExporting ? "Menyiapkan V2" : "Export XLSX V2"}
+                {isTemplateExporting ? "Menyiapkan XLSX" : "Export XLSX"}
               </button>
               <button className="button ghost" type="button" onClick={resetForm} disabled={!hasAnyInput}>
                 <Eraser size={18} />

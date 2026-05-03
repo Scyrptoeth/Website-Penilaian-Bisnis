@@ -53,6 +53,8 @@ type TemplatePatch = {
   label: string;
   value: string | number;
   source: string;
+  status: "mapped" | "formula-neutralized" | "formula-corrected" | "cached-formula";
+  previousFormula: string;
 };
 
 type TemplateUnmapped = {
@@ -215,6 +217,9 @@ export function buildValuationTemplateWorkbook(input: ValuationExcelExportInput,
   patchDlomTemplateSheet(workbook, input, patches);
   patchDlocPfcTemplateSheet(workbook, input, patches);
   patchTaxSimulationTemplateSheet(workbook, input, patches);
+  patchTemplateAssumptionSheets(workbook, input, patches);
+  patchAamTemplateSheet(workbook, input, patches);
+  patchTemplateFormulaCaches(workbook, input, patches);
   appendTemplateAuditSheet(workbook, input, patches, unmapped, exportedAt);
 
   return {
@@ -975,6 +980,83 @@ function patchTaxSimulationTemplateSheet(workbook: XLSX.WorkBook, input: Valuati
   }
 }
 
+function patchTemplateAssumptionSheets(workbook: XLSX.WorkBook, input: ValuationExcelExportInput, patches: TemplatePatch[]) {
+  const statAssumptionsSheet = ["STAT", "ASSUMPTIONS"].join("_");
+  const waccFormula = ["WACC", "E22"].join("!");
+
+  writeTemplateCell(workbook, patches, statAssumptionsSheet, "B5", input.snapshot.taxRate, "Statutory corporate tax rate", "Resolved tax assumption");
+  writeTemplateFormulaCell(workbook, patches, statAssumptionsSheet, "B6", waccFormula, input.snapshot.wacc, "Source WACC", "Resolved WACC used by web valuation engine");
+  writeTemplateCell(workbook, patches, statAssumptionsSheet, "B8", input.snapshot.terminalGrowth, "Base terminal growth", "Resolved terminal growth");
+  writeTemplateCell(workbook, patches, statAssumptionsSheet, "B9", input.snapshot.revenueGrowth, "Revenue growth", "Resolved revenue growth");
+  writeTemplateCell(workbook, patches, statAssumptionsSheet, "B10", input.snapshot.requiredReturnOnNta, "Return on net tangible assets", "Resolved required return on NTA");
+}
+
+function patchAamTemplateSheet(workbook: XLSX.WorkBook, input: ValuationExcelExportInput, patches: TemplatePatch[]) {
+  const adjustmentCells: Record<string, string> = {
+    "cash-on-hand": "D9",
+    "cash-on-bank-deposit": "D10",
+    "account-receivable": "D11",
+    "employee-receivable": "D12",
+    inventory: "D13",
+    "marketable-securities": "D14",
+    "excess-cash": "D14",
+    "surplus-asset-cash": "D14",
+    "other-current-assets": "D14",
+    "fixed-assets-net": "D20",
+    "non-operating-fixed-assets": "D21",
+    "other-non-current-assets": "D21",
+    "intangible-assets": "D23",
+    "bank-loan-short-term": "D28",
+    "account-payable": "D29",
+    "tax-payable": "D30",
+    "other-payable": "D31",
+    "interest-payable": "D31",
+    "bank-loan-long-term": "D35",
+    "other-non-current-liabilities": "D36",
+  };
+  const combinedAdjustments = new Map<string, { label: string; value: number }>();
+
+  [...input.aamAdjustmentModel.assetLines, ...input.aamAdjustmentModel.liabilityLines].forEach((line) => {
+    const cellAddress = adjustmentCells[line.id];
+
+    if (!cellAddress || line.isBridgeLine) {
+      return;
+    }
+
+    const existing = combinedAdjustments.get(cellAddress);
+    combinedAdjustments.set(cellAddress, {
+      label: existing ? `${existing.label}; ${line.label}` : line.label,
+      value: (existing?.value ?? 0) + line.adjustment,
+    });
+  });
+
+  combinedAdjustments.forEach((item, cellAddress) => {
+    writeTemplateCell(workbook, patches, "AAM", cellAddress, item.value, `AAM fair-value adjustment: ${item.label}`, "AAM adjustment model");
+  });
+}
+
+function patchTemplateFormulaCaches(workbook: XLSX.WorkBook, input: ValuationExcelExportInput, patches: TemplatePatch[]) {
+  refreshTemplateFormulaCachedValue(workbook, patches, "AAM", "E53", input.results.aam.equityValue, "AAM equity value", "Web valuation engine result cached while preserving template formula");
+  refreshTemplateFormulaCachedValue(workbook, patches, "EEM", "D34", input.results.eem.equityValue, "EEM equity value", "Web valuation engine result cached while preserving template formula");
+  refreshTemplateFormulaCachedValue(workbook, patches, "DCF", "C33", input.results.dcf.equityValue, "DCF equity value", "Web valuation engine result cached while preserving template formula");
+  refreshTemplateFormulaCachedValue(workbook, patches, "STAT_EEM", "B22", input.results.eem.equityValue, "STAT EEM equity value", "Web valuation engine result cached while preserving template formula");
+  refreshTemplateFormulaCachedValue(workbook, patches, "STAT_DCF", "B39", input.results.dcf.equityValue, "STAT DCF equity value", "Web valuation engine result cached while preserving template formula");
+
+  const primaryTaxRow = input.taxSimulationResult.primaryRow;
+
+  if (!primaryTaxRow) {
+    return;
+  }
+
+  refreshTemplateFormulaCachedValue(workbook, patches, "SIMULASI POTENSI PAJAK", "E1", primaryTaxRow.baseEquityValue, "Tax simulation base equity value", "Primary tax simulation row");
+  refreshTemplateFormulaCachedValue(workbook, patches, "SIMULASI POTENSI PAJAK", "E3", primaryTaxRow.dlomAdjustment, "Tax simulation DLOM adjustment", "Primary tax simulation row");
+  refreshTemplateFormulaCachedValue(workbook, patches, "SIMULASI POTENSI PAJAK", "E4", primaryTaxRow.valueAfterDlom, "Tax simulation value after DLOM", "Primary tax simulation row");
+  refreshTemplateFormulaCachedValue(workbook, patches, "SIMULASI POTENSI PAJAK", "E6", primaryTaxRow.dlocPfcAdjustment, "Tax simulation DLOC/PFC adjustment", "Primary tax simulation row");
+  refreshTemplateFormulaCachedValue(workbook, patches, "SIMULASI POTENSI PAJAK", "E7", primaryTaxRow.marketValueOfEquity100, "Tax simulation market value of equity 100%", "Primary tax simulation row");
+  refreshTemplateFormulaCachedValue(workbook, patches, "SIMULASI POTENSI PAJAK", "E13", primaryTaxRow.marketValueOfTransferredInterest, "Tax simulation transferred-interest market value", "Primary tax simulation row");
+  refreshTemplateFormulaCachedValue(workbook, patches, "SIMULASI POTENSI PAJAK", "E15", primaryTaxRow.transferValueDifference, "Tax simulation transfer value difference", "Primary tax simulation row");
+}
+
 function appendTemplateAuditSheet(
   workbook: XLSX.WorkBook,
   input: ValuationExcelExportInput,
@@ -991,8 +1073,8 @@ function appendTemplateAuditSheet(
     ["Active period", input.periods.find((period) => period.id === input.activePeriodId)?.label ?? input.activePeriodId],
     [],
     ["Patched Cells"],
-    ["Sheet", "Cell", "Label", "Value", "Source"],
-    ...patches.map((patch): SheetRow => [patch.sheet, patch.cell, patch.label, patch.value, patch.source]),
+    ["Sheet", "Cell", "Label", "Value", "Source", "Status", "Previous Formula"],
+    ...patches.map((patch): SheetRow => [patch.sheet, patch.cell, patch.label, patch.value, patch.source, patch.status, patch.previousFormula]),
     [],
     ["Unmapped / Deferred Fields"],
     ["Field", "Value", "Reason"],
@@ -1002,11 +1084,18 @@ function appendTemplateAuditSheet(
     ["Check", "Status"],
     ...input.validationChecks.map((check): SheetRow => [check.label, check.ok ? "OK" : "Needs review"]),
     [],
+    ["Formula Preservation / Recalculation"],
+    ["Behavior", "Status", "Detail"],
+    ["Template formulas", "Preserved where not patched", "Formula cells that are intentionally overwritten are marked as formula-neutralized with the previous formula recorded."],
+    ["Cached values", "Refreshed for key outputs", "AAM, EEM, DCF, STAT_EEM, STAT_DCF, and selected tax bridge output cells keep formulas and receive web-engine cached values."],
+    ["Browser recalculation", "Not available", "The browser export library writes formulas but does not evaluate the workbook formula graph."],
+    ["Excel recalculation metadata", "Not guaranteed", "Open the workbook in Excel or another spreadsheet engine for authoritative recalculation after export."],
+    [],
     ["Tax Simulation Warnings"],
     ...input.taxSimulationResult.warnings.map((warning): SheetRow => [warning]),
   ];
   const worksheet = XLSX.utils.aoa_to_sheet(rows);
-  worksheet["!cols"] = [{ wch: 24 }, { wch: 18 }, { wch: 42 }, { wch: 24 }, { wch: 56 }];
+  worksheet["!cols"] = [{ wch: 24 }, { wch: 18 }, { wch: 42 }, { wch: 24 }, { wch: 56 }, { wch: 24 }, { wch: 56 }];
 
   appendSheet(workbook, "PVB_EXPORT_V2_AUDIT", worksheet);
 }
@@ -1065,6 +1154,7 @@ function writeTemplateCell(
   }
 
   const existing = worksheet[cellAddress] ?? {};
+  const previousFormula = typeof existing.f === "string" ? existing.f : "";
   const nextCell: XLSX.CellObject = {
     ...existing,
     t: typeof value === "number" ? "n" : "s",
@@ -1074,7 +1164,15 @@ function writeTemplateCell(
   delete nextCell.f;
   delete nextCell.w;
   worksheet[cellAddress] = nextCell;
-  patches.push({ sheet, cell: cellAddress, label, value, source });
+  patches.push({
+    sheet,
+    cell: cellAddress,
+    label,
+    value,
+    source,
+    status: previousFormula ? "formula-neutralized" : "mapped",
+    previousFormula,
+  });
 }
 
 function writeTemplateFormulaCell(
@@ -1094,6 +1192,7 @@ function writeTemplateFormulaCell(
   }
 
   const existing = worksheet[cellAddress] ?? {};
+  const previousFormula = typeof existing.f === "string" ? existing.f : "";
   const nextCell: XLSX.CellObject = {
     ...existing,
     t: typeof cachedValue === "number" ? "n" : "s",
@@ -1103,7 +1202,58 @@ function writeTemplateFormulaCell(
 
   delete nextCell.w;
   worksheet[cellAddress] = nextCell;
-  patches.push({ sheet, cell: cellAddress, label, value: cachedValue, source });
+  patches.push({
+    sheet,
+    cell: cellAddress,
+    label,
+    value: cachedValue,
+    source,
+    status: "formula-corrected",
+    previousFormula,
+  });
+}
+
+function refreshTemplateFormulaCachedValue(
+  workbook: XLSX.WorkBook,
+  patches: TemplatePatch[],
+  sheet: string,
+  cellAddress: string,
+  cachedValue: string | number,
+  label: string,
+  source: string,
+) {
+  const worksheet = workbook.Sheets[sheet];
+
+  if (!worksheet) {
+    return;
+  }
+
+  const existing = worksheet[cellAddress];
+  const previousFormula = typeof existing?.f === "string" ? existing.f : "";
+
+  if (!previousFormula) {
+    writeTemplateCell(workbook, patches, sheet, cellAddress, cachedValue, label, source);
+    return;
+  }
+
+  const nextCell: XLSX.CellObject = {
+    ...existing,
+    t: typeof cachedValue === "number" ? "n" : "s",
+    v: typeof cachedValue === "number" ? finiteNumber(cachedValue) : cachedValue,
+    f: previousFormula,
+  };
+
+  delete nextCell.w;
+  worksheet[cellAddress] = nextCell;
+  patches.push({
+    sheet,
+    cell: cellAddress,
+    label,
+    value: cachedValue,
+    source,
+    status: "cached-formula",
+    previousFormula,
+  });
 }
 
 function writeTemplateTextIfPresent(

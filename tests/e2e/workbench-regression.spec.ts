@@ -332,43 +332,14 @@ test("legacy workbook-like DLOM drafts migrate to workbook UPDATE basis without 
   await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(10);
 });
 
-test("exports the active workbench state as a multi-sheet XLSX workbook", async ({ page }) => {
+test("exports the active workbench state through the primary template-clone XLSX workflow", async ({ page }) => {
   await page.getByRole("button", { name: "Muat contoh workbook" }).click();
+  await expect(page.getByRole("button", { name: "Export XLSX" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Export XLSX V1" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Export XLSX V2" })).toHaveCount(0);
 
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Export XLSX V1" }).click();
-  const download = await downloadPromise;
-  const downloadPath = await download.path();
-
-  assertDownloadPath(downloadPath);
-  expect(download.suggestedFilename()).toMatch(/valuation-export-v1-\d{4}-\d{2}-\d{2}\.xlsx$/);
-
-  const workbook = XLSX.readFile(downloadPath);
-  expect(workbook.SheetNames).toEqual([
-    "00_Summary",
-    "01_Case_Profile",
-    "02_Inputs",
-    "03_Fixed_Assets",
-    "04_Assumptions",
-    "05_Snapshot",
-    "06_AAM",
-    "07_EEM",
-    "08_DCF",
-    "09_DLOM_DLOC",
-    "10_Tax_Simulation",
-    "11_Section_Analysis",
-    "12_Audit_Trace",
-  ]);
-  expect(workbook.Sheets["00_Summary"]["A1"].v).toBe("Penilaian Bisnis II - Workbook Export");
-  expect(workbook.Sheets["06_AAM"]["!ref"]).toBeTruthy();
-  expect(workbook.Sheets["10_Tax_Simulation"]["Q2"].f).toBe("P2*R2");
-});
-
-test("exports the active workbench state as a template-clone XLSX V2 workbook", async ({ page }) => {
-  await page.getByRole("button", { name: "Muat contoh workbook" }).click();
-
-  const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Export XLSX V2" }).click();
+  await page.getByRole("button", { name: "Export XLSX" }).click();
   const download = await downloadPromise;
   const downloadPath = await download.path();
 
@@ -387,9 +358,16 @@ test("exports the active workbench state as a template-clone XLSX V2 workbook", 
   expect(workbook.Sheets.HOME.B4.v).toBe("Makmur Jaya Sejati Raya");
   expect(workbook.Sheets["BALANCE SHEET"].E8.v).toBe(717848795);
   expect(workbook.Sheets["INCOME STATEMENT"].E6.v).toBe(16663916100);
+  expect(workbook.Sheets.STAT_ASSUMPTIONS.B6.f).toBe("WACC!E22");
+  expect(workbook.Sheets.STAT_ASSUMPTIONS.B9.v).toBeCloseTo(0.22757714145120844);
+  expect(workbook.Sheets.AAM.E53.f).toBe("E51-E52");
+  expect(workbook.Sheets.EEM.D34.f).toBe("D31+D32+D33");
+  expect(workbook.Sheets.DCF.C33.f).toBe("SUM(C29:C32)");
   expect(workbook.Sheets.DLOM.F34.f).toBe("LEFT(C32,3)+(F33/F31*F32)");
   expect(workbook.Sheets["DLOC(PFC)"].B20.f).toBe('IF(LOWER(HOME!B7)="tertutup","DLOC Perusahaan tertutup ","DLOC Perusahaan terbuka ")');
   expect(workbook.Sheets.PVB_EXPORT_V2_AUDIT.A1.v).toBe("Export XLSX V2 Audit");
+  expect(workbook.Sheets.PVB_EXPORT_V2_AUDIT.F9.v).toBe("Status");
+  expect(workbook.Sheets.PVB_EXPORT_V2_AUDIT.G9.v).toBe("Previous Formula");
 });
 
 test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators, and active valuation sources", async ({ page }) => {
