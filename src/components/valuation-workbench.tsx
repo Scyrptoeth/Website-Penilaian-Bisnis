@@ -5416,7 +5416,6 @@ function FixedAssetScheduleEditor({
       <div className="subpanel-heading">
         <div>
           <p className="eyebrow">Jadwal Aset Tetap</p>
-          <h4>A. Biaya Perolehan · B. Penyusutan · Nilai Buku Neto</h4>
         </div>
         <div className="toolbar">
           <span className="status-pill muted">Saldo akhir dan nilai neto otomatis</span>
@@ -5602,7 +5601,7 @@ function FixedAssetNetValueTable({ periods, schedule }: { periods: Period[]; sch
 
   return (
     <div className="fixed-asset-section">
-      <h5>Nilai buku neto aset tetap</h5>
+      <h5>C. Nilai Buku Neto Aset Tetap</h5>
       <div className="table-wrap fixed-asset-table-wrap">
         <table className="fixed-asset-table net-value-table" data-testid="fixed-asset-net-value-table">
           <thead>

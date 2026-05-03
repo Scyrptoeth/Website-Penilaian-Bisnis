@@ -75,10 +75,12 @@ test("fixed asset schedule remains empty until user adds a class and then rolls 
   await page.getByRole("button", { name: /Tambah Y-1/ }).click();
   await openWorkflowTab(page, "Neraca & Aset Tetap");
   await expect(page.getByRole("button", { name: "Jadwal Aset Tetap" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "A. Biaya Perolehan · B. Penyusutan · Nilai Buku Neto" })).toHaveCount(0);
   await expect(page.getByTestId("fixed-asset-empty")).toBeVisible();
 
   await page.getByRole("button", { name: "Tambah kelas aset" }).click();
   await expect(page.getByTestId("fixed-asset-row")).toHaveCount(2);
+  await expect(page.getByRole("heading", { name: "C. Nilai Buku Neto Aset Tetap" })).toBeVisible();
 
   const acquisition = page.getByTestId("fixed-asset-acquisition-table");
   const depreciation = page.getByTestId("fixed-asset-depreciation-table");
