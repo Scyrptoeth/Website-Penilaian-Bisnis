@@ -112,6 +112,16 @@ import {
   type DlomCalculation,
 } from "@/lib/valuation/dlom";
 import {
+  buildSampleDlocPfcState,
+  calculateDlocPfc,
+  createEmptyDlocPfcState,
+  dlocPfcFactorDefinitions,
+  normalizeDlocPfcState,
+  type DlocPfcCalculation,
+  type DlocPfcFactorId,
+  type DlocPfcState,
+} from "@/lib/valuation/dloc-pfc";
+import {
   buildSampleTaxSimulationState,
   calculateTaxSimulation,
   createEmptyTaxSimulationState,
@@ -295,7 +305,7 @@ const requiredReturnSuggestionOrder: RequiredReturnOnNtaSuggestionKey[] = [
 const WORKBENCH_STORAGE_KEY = "penilaian-valuasi-bisnis.workbench.v1";
 const WORKBENCH_SCROLL_STORAGE_KEY = "penilaian-valuasi-bisnis.scroll.v1";
 const WORKBENCH_SIDEBAR_STORAGE_KEY = "penilaian-valuasi-bisnis.sidebar.v1";
-const WORKBENCH_STORAGE_VERSION = 5;
+const WORKBENCH_STORAGE_VERSION = 6;
 
 type PersistedWorkbenchState = {
   version: typeof WORKBENCH_STORAGE_VERSION;
@@ -309,6 +319,7 @@ type PersistedWorkbenchState = {
   assumptions: AssumptionState;
   caseProfile: CaseProfile;
   dlom: DlomState;
+  dlocPfc: DlocPfcState;
   taxSimulation: TaxSimulationState;
 };
 
@@ -326,6 +337,7 @@ const workflowTabs: Array<{ id: WorkflowTabId; label: string }> = [
   { id: "valuationAam", label: "Penilaian AAM" },
   { id: "valuationEemDcf", label: "Penilaian EEM/DCF" },
   { id: "dlom", label: "DLOM" },
+  { id: "dlocPfc", label: "DLOC/PFC" },
   { id: "taxSimulation", label: "Simulasi Potensi Pajak" },
   { id: "payablesCashFlow", label: "Utang & Arus Kas" },
   { id: "noplatFcf", label: "NOPLAT & FCF" },
@@ -345,6 +357,7 @@ export function ValuationWorkbench() {
   const [assumptions, setAssumptions] = useState<AssumptionState>(emptyAssumptions);
   const [caseProfile, setCaseProfile] = useState<CaseProfile>(emptyCaseProfile);
   const [dlom, setDlom] = useState<DlomState>(createEmptyDlomState);
+  const [dlocPfc, setDlocPfc] = useState<DlocPfcState>(createEmptyDlocPfcState);
   const [taxSimulation, setTaxSimulation] = useState<TaxSimulationState>(createEmptyTaxSimulationState);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isDraftRestored, setIsDraftRestored] = useState(false);
@@ -429,17 +442,19 @@ export function ValuationWorkbench() {
     ],
   );
   const dlomCalculation = useMemo(() => calculateDlom(dlom, snapshot), [dlom, snapshot]);
+  const dlocPfcCalculation = useMemo(() => calculateDlocPfc(dlocPfc, caseProfile), [caseProfile, dlocPfc]);
   const taxSimulationResult = useMemo(
     () =>
       calculateTaxSimulation({
         methods: [results.aam, results.eem, results.dcf],
         dlom: dlomCalculation,
+        dlocPfc: dlocPfcCalculation,
         state: taxSimulation,
         caseProfile,
         caseProfileDerived,
         snapshot,
       }),
-    [caseProfile, caseProfileDerived, dlomCalculation, results.aam, results.dcf, results.eem, snapshot, taxSimulation],
+    [caseProfile, caseProfileDerived, dlocPfcCalculation, dlomCalculation, results.aam, results.dcf, results.eem, snapshot, taxSimulation],
   );
   const sectionAnalysis = useMemo(
     () => buildSectionAnalysis(periods, rows, assumptions, fixedAssetScheduleRows),
@@ -548,11 +563,24 @@ export function ValuationWorkbench() {
     Object.values(caseProfile).some((value) => value.trim() !== "") ||
     Object.values(assumptions).some((value) => value.trim() !== "") ||
     hasDlomInput(dlom) ||
+    hasDlocPfcInput(dlocPfc) ||
     hasTaxSimulationInput(taxSimulation);
   const checks = buildValidationChecks(rows, mappedRows, resolvedAssumptions, snapshot, balanceSheetGap, fixedAssetSchedule);
   const readiness = useMemo(
-    () => buildWorkbenchReadiness({ periods, rows, mappedRows, assumptions: resolvedAssumptions, snapshot, fixedAssetSchedule }),
-    [fixedAssetSchedule, mappedRows, periods, resolvedAssumptions, rows, snapshot],
+    () =>
+      buildWorkbenchReadiness({
+        periods,
+        rows,
+        mappedRows,
+        assumptions: resolvedAssumptions,
+        snapshot,
+        fixedAssetSchedule,
+        caseProfile,
+        caseProfileDerived,
+        dlocPfc: dlocPfcCalculation,
+        taxSimulation,
+      }),
+    [caseProfile, caseProfileDerived, dlocPfcCalculation, fixedAssetSchedule, mappedRows, periods, resolvedAssumptions, rows, snapshot, taxSimulation],
   );
 
   function getCurrentCoreState(): WorkbenchCoreState {
@@ -566,6 +594,7 @@ export function ValuationWorkbench() {
       assumptions,
       caseProfile,
       dlom,
+      dlocPfc,
       taxSimulation,
     };
   }
@@ -580,6 +609,7 @@ export function ValuationWorkbench() {
     setAssumptions(state.assumptions);
     setCaseProfile(state.caseProfile);
     setDlom(state.dlom);
+    setDlocPfc(state.dlocPfc);
     setTaxSimulation(state.taxSimulation);
   }
 
@@ -651,6 +681,7 @@ export function ValuationWorkbench() {
       setAssumptions(storedState.assumptions);
       setCaseProfile(storedState.caseProfile);
       setDlom(storedState.dlom);
+      setDlocPfc(storedState.dlocPfc);
       setTaxSimulation(storedState.taxSimulation);
       setUndoStack([]);
       setRedoStack([]);
@@ -677,6 +708,7 @@ export function ValuationWorkbench() {
       assumptions,
       caseProfile,
       dlom,
+      dlocPfc,
       taxSimulation,
     });
   }, [
@@ -684,6 +716,7 @@ export function ValuationWorkbench() {
     activePeriodId,
     assumptions,
     caseProfile,
+    dlocPfc,
     dlom,
     fixedAssetScheduleRows,
     isDraftRestored,
@@ -982,6 +1015,22 @@ export function ValuationWorkbench() {
     }));
   }
 
+  function updateDlocPfcFactor(id: DlocPfcFactorId, patch: Partial<DlocPfcState["factors"][DlocPfcFactorId]>) {
+    commitCoreState((current) => ({
+      ...current,
+      dlocPfc: normalizeDlocPfcState({
+        ...current.dlocPfc,
+        factors: {
+          ...current.dlocPfc.factors,
+          [id]: {
+            ...current.dlocPfc.factors[id],
+            ...patch,
+          },
+        },
+      }),
+    }));
+  }
+
   function updateTaxSimulation(patch: Partial<TaxSimulationState>) {
     commitCoreState((current) => ({
       ...current,
@@ -994,6 +1043,8 @@ export function ValuationWorkbench() {
             : current.taxSimulation.reportedTransferValue,
         dlocPfcRate:
           patch.dlocPfcRate !== undefined ? formatEditableNumber(patch.dlocPfcRate) : current.taxSimulation.dlocPfcRate,
+        dlocPfcOverrideReason:
+          patch.dlocPfcOverrideReason !== undefined ? patch.dlocPfcOverrideReason : current.taxSimulation.dlocPfcOverrideReason,
       }),
     }));
   }
@@ -1083,6 +1134,7 @@ export function ValuationWorkbench() {
       assumptions: buildSampleAssumptions(),
       caseProfile: buildSampleCaseProfile(),
       dlom: buildSampleDlomState(),
+      dlocPfc: buildSampleDlocPfcState(),
       taxSimulation: buildSampleTaxSimulationState(),
     }));
   }
@@ -1099,6 +1151,7 @@ export function ValuationWorkbench() {
       assumptions: emptyAssumptions,
       caseProfile: emptyCaseProfile,
       dlom: createEmptyDlomState(),
+      dlocPfc: createEmptyDlocPfcState(),
       taxSimulation: createEmptyTaxSimulationState(),
     }));
 
@@ -1764,11 +1817,21 @@ export function ValuationWorkbench() {
           />
         ) : null}
 
+        {activeWorkflowTab === "dlocPfc" ? (
+          <DlocPfcSection
+            calculation={dlocPfcCalculation}
+            readiness={readiness.dlocPfc}
+            onNavigate={navigateToWorkflowTab}
+            onUpdateFactor={updateDlocPfcFactor}
+          />
+        ) : null}
+
         {activeWorkflowTab === "taxSimulation" ? (
           <TaxSimulationSection
             state={taxSimulation}
             result={taxSimulationResult}
             dlom={dlomCalculation}
+            dlocPfc={dlocPfcCalculation}
             caseProfileDerived={caseProfileDerived}
             readiness={readiness.taxSimulation}
             onNavigate={navigateToWorkflowTab}
@@ -2169,10 +2232,170 @@ function DlomSection({
   );
 }
 
+function DlocPfcSection({
+  calculation,
+  readiness,
+  onNavigate,
+  onUpdateFactor,
+}: {
+  calculation: DlocPfcCalculation;
+  readiness: SectionReadiness;
+  onNavigate: (tabId: WorkflowTabId) => void;
+  onUpdateFactor: (id: DlocPfcFactorId, patch: Partial<DlocPfcState["factors"][DlocPfcFactorId]>) => void;
+}) {
+  return (
+    <>
+      <section className="section-grid dlom-summary-grid" data-testid="dloc-pfc-summary">
+        <article className="metric-card">
+          <div className="card-title">
+            <Calculator size={20} />
+            <span>DLOC/PFC Objek Penilaian</span>
+          </div>
+          <strong>{calculation.isComplete ? formatPercent(calculation.signedRate) : "Belum lengkap"}</strong>
+          <p>{calculation.adjustmentType || "Status"} berasal dari Jenis Kepemilikan Saham di Data Awal.</p>
+        </article>
+        <article className="metric-card">
+          <div className="card-title">
+            <TableProperties size={20} />
+            <span>Jumlah skor</span>
+          </div>
+          <strong>
+            {formatNumber(calculation.totalScore)} / {formatNumber(calculation.maxScore)}
+          </strong>
+          <p>Questionnaire workbook: 5 faktor dengan skor 0, 0,5, atau 1.</p>
+        </article>
+        <article className="metric-card">
+          <div className="card-title">
+            <AlertTriangle size={20} />
+            <span>Status & resistensi WP</span>
+          </div>
+          <strong>{calculation.status}</strong>
+          <p>Potensi resistensi wajib pajak: {calculation.taxpayerResistance}.</p>
+        </article>
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Discount Lack of Control / Premium for Control</p>
+            <h3>Basis dan rentang DLOC/PFC</h3>
+          </div>
+          <GitBranch size={22} />
+        </div>
+        <ReadinessPanel status={readiness} onNavigate={onNavigate} />
+        <div className="dlom-control-grid">
+          <DerivedCaseField label="Jenis Perusahaan" value={calculation.companyBasis || "Isi Data Awal"} />
+          <DerivedCaseField label="Status adjustment" value={calculation.adjustmentType || "Isi Data Awal"} />
+          <DerivedCaseField label="Rentang workbook" value={calculation.rangeLabel} />
+          <DerivedCaseField label="Sign convention" value="DLOC positif turun; PFC negatif naik" />
+        </div>
+        <MetricTraceGrid
+          metrics={[
+            ["Range minimum", formatPercent(calculation.rangeMin)],
+            ["Range maksimum", formatPercent(calculation.rangeMax)],
+            ["Unsigned rate", calculation.isComplete ? formatPercent(calculation.unsignedRate) : "Belum lengkap"],
+            ["Signed rate", calculation.isComplete ? formatPercent(calculation.signedRate) : "Belum lengkap"],
+          ]}
+        />
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Questionnaire workbook</p>
+            <h3>Faktor kendali dan skor</h3>
+          </div>
+        </div>
+        <div className="table-wrap dlom-table-wrap">
+          <table className="dlom-table" data-testid="dloc-pfc-factor-table">
+            <thead>
+              <tr>
+                <th>No.</th>
+                <th>Faktor</th>
+                <th>Jawaban final</th>
+                <th className="numeric-cell">Skor</th>
+                <th>Basis bukti</th>
+                <th>Catatan reviewer</th>
+              </tr>
+            </thead>
+            <tbody>
+              {calculation.factors.map((factor) => (
+                <tr key={factor.id}>
+                  <td>{factor.no}</td>
+                  <td>
+                    <strong>{factor.factor}</strong>
+                    <span>{factor.prompt}</span>
+                  </td>
+                  <td>
+                    <select
+                      aria-label={`Jawaban DLOC/PFC ${factor.factor}`}
+                      value={factor.answer}
+                      onChange={(event) => onUpdateFactor(factor.id, { answer: event.target.value })}
+                    >
+                      <option value="">Pilih</option>
+                      {factor.options.map((option) => (
+                        <option value={option.label} key={option.label}>
+                          {option.label} · skor {formatNumber(option.score)}
+                        </option>
+                      ))}
+                    </select>
+                    {factor.status === "missing" ? <span className="badge warning">Belum lengkap</span> : <span className="badge ok">Terisi</span>}
+                  </td>
+                  <td className="numeric-cell">{formatNumber(factor.score)}</td>
+                  <td>
+                    <span>{factor.evidenceBasis}</span>
+                  </td>
+                  <td>
+                    <textarea
+                      aria-label={`Catatan DLOC/PFC ${factor.factor}`}
+                      value={factor.overrideReason}
+                      onChange={(event) => onUpdateFactor(factor.id, { overrideReason: event.target.value })}
+                      placeholder="Dokumen pendukung, judgement reviewer, atau referensi pemeriksaan."
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="split-panel">
+        <article className="panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Jejak formula</p>
+              <h3>DLOC/PFC trace</h3>
+            </div>
+          </div>
+          <FormulaList traces={calculation.traces} />
+        </article>
+        <article className="panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Audit position</p>
+              <h3>Hubungan ke simulasi pajak</h3>
+            </div>
+          </div>
+          <MetricTraceGrid
+            metrics={[
+              ["Base valuation", "AAM/EEM/DCF tetap before DLOC/PFC"],
+              ["Tax simulation", "Memakai signed rate otomatis jika lengkap"],
+              ["DLOC", "Rate positif menjadi discount"],
+              ["PFC", "Rate negatif menjadi premium"],
+            ]}
+          />
+        </article>
+      </section>
+    </>
+  );
+}
+
 function TaxSimulationSection({
   state,
   result,
   dlom,
+  dlocPfc,
   caseProfileDerived,
   readiness,
   onNavigate,
@@ -2181,6 +2404,7 @@ function TaxSimulationSection({
   state: TaxSimulationState;
   result: TaxSimulationResult;
   dlom: DlomCalculation;
+  dlocPfc: DlocPfcCalculation;
   caseProfileDerived: CaseProfileDerived;
   readiness: SectionReadiness;
   onNavigate: (tabId: WorkflowTabId) => void;
@@ -2213,7 +2437,13 @@ function TaxSimulationSection({
             <span>Layer aktif</span>
           </div>
           <strong>{state.applyDlom ? `DLOM ${formatPercent(dlom.dlomRate)}` : "Before DLOM"}</strong>
-          <p>DLOC/PFC: {state.applyDlocPfc ? "Aktif sebagai placeholder terpisah" : "Belum diterapkan"}.</p>
+          <p>
+            DLOC/PFC:{" "}
+            {state.applyDlocPfc
+              ? `${dlocPfc.adjustmentType || "Belum lengkap"} ${dlocPfc.isComplete ? formatPercent(dlocPfc.signedRate) : "0%"}`
+              : "Belum diterapkan"}
+            .
+          </p>
         </article>
       </section>
 
@@ -2253,13 +2483,35 @@ function TaxSimulationSection({
           <label className="toggle-field">
             <input type="checkbox" checked={state.applyDlocPfc} onChange={(event) => onUpdate({ applyDlocPfc: event.target.checked })} />
             <span>Apply DLOC/PFC</span>
-            <small>Layer placeholder; detail formula menunggu konsep DLOC/PFC berikutnya.</small>
+            <small>
+              {dlocPfc.isComplete
+                ? `Otomatis dari tab DLOC/PFC: ${dlocPfc.adjustmentType} ${formatPercent(dlocPfc.signedRate)}.`
+                : "Rate 0% sampai DLOC/PFC lengkap atau override beralasan tersedia."}
+            </small>
+          </label>
+          <label className="toggle-field">
+            <input
+              type="checkbox"
+              checked={state.useDlocPfcOverride}
+              onChange={(event) => onUpdate({ useDlocPfcOverride: event.target.checked })}
+            />
+            <span>Override DLOC/PFC</span>
+            <small>Wajib alasan; signed rate positif = discount DLOC, negatif = premium PFC.</small>
           </label>
           <label className="field">
-            <span>DLOC/PFC rate</span>
-            <input inputMode="decimal" value={state.dlocPfcRate} onChange={(event) => onUpdate({ dlocPfcRate: event.target.value })} placeholder="0%" />
+            <span>Override DLOC/PFC signed rate</span>
+            <input inputMode="decimal" value={state.dlocPfcRate} onChange={(event) => onUpdate({ dlocPfcRate: event.target.value })} placeholder="contoh 0,34 atau -0,34" />
           </label>
+          <DerivedCaseField label="Calculated DLOC/PFC" value={dlocPfc.isComplete ? `${dlocPfc.adjustmentType} ${formatPercent(dlocPfc.signedRate)}` : "Belum lengkap"} />
           <DerivedCaseField label={caseProfileDerived.capitalProportionLabel} value={formatCaseProfileProportion(caseProfileDerived)} />
+          <label className="field wide">
+            <span>Alasan override DLOC/PFC</span>
+            <textarea
+              value={state.dlocPfcOverrideReason}
+              onChange={(event) => onUpdate({ dlocPfcOverrideReason: event.target.value })}
+              placeholder="Wajib bila memakai override rate; jelaskan dokumen, judgement, dan beda dari hasil questionnaire."
+            />
+          </label>
           <label className="field wide">
             <span>Catatan simulasi</span>
             <textarea value={state.note} onChange={(event) => onUpdate({ note: event.target.value })} placeholder="Dasar pemilihan metode, posisi DLOM, dan catatan review pajak." />
@@ -2324,6 +2576,7 @@ function TaxSimulationSection({
                   <td className="numeric-cell">
                     {formatPercent(row.dlocPfcRate)}
                     <span>{formatIdr(row.dlocPfcAdjustment)}</span>
+                    <span>{row.dlocPfcSource}</span>
                   </td>
                   <td className="numeric-cell">{formatIdr(row.marketValueOfEquity100)}</td>
                   <td className="numeric-cell">{formatPercent(row.sharePercentage)}</td>
@@ -2363,7 +2616,7 @@ function TaxSimulationSection({
               ["Base AAM/EEM/DCF", "Before DLOM dan before DLOC/PFC"],
               ["Urutan adjustment", "Base -> DLOM -> DLOC/PFC -> porsi saham/modal -> selisih pajak"],
               ["Primary Method blank case", "Not selected sampai reviewer memilih"],
-              ["DLOC/PFC", "Struktur disiapkan; detail formula menyusul fase berikutnya"],
+              ["DLOC/PFC", dlocPfc.isComplete ? `${dlocPfc.adjustmentType} otomatis dari questionnaire` : "Menunggu questionnaire atau override beralasan"],
             ]}
           />
         </article>
@@ -2740,6 +2993,7 @@ function readPersistedWorkbenchState(): PersistedWorkbenchState | null {
     const assumptions = sanitizeAssumptions(parsed.assumptions);
     const caseProfile = sanitizeCaseProfile(parsed.caseProfile);
     const dlom = sanitizeDlomState(parsed.dlom);
+    const dlocPfc = sanitizeDlocPfcState(parsed.dlocPfc);
     const taxSimulation = sanitizeTaxSimulationState(parsed.taxSimulation);
     const activePeriodId = typeof parsed.activePeriodId === "string" ? parsed.activePeriodId : "";
     const isFixedAssetScheduleEnabled =
@@ -2757,6 +3011,7 @@ function readPersistedWorkbenchState(): PersistedWorkbenchState | null {
       assumptions,
       caseProfile,
       dlom,
+      dlocPfc,
       taxSimulation,
     };
   } catch {
@@ -2994,6 +3249,26 @@ function sanitizeDlomState(value: unknown): DlomState {
   });
 }
 
+function sanitizeDlocPfcState(value: unknown): DlocPfcState {
+  if (!isRecord(value)) {
+    return createEmptyDlocPfcState();
+  }
+
+  const factorSource = isRecord(value.factors) ? value.factors : {};
+  const factors = Object.fromEntries(
+    dlocPfcFactorDefinitions.map((definition) => {
+      const input = factorSource[definition.id];
+      const inputRecord = isRecord(input) ? input : {};
+      const answer = typeof inputRecord.answer === "string" ? inputRecord.answer : "";
+      const overrideReason = typeof inputRecord.overrideReason === "string" ? inputRecord.overrideReason : "";
+
+      return [definition.id, { answer, overrideReason }];
+    }),
+  ) as DlocPfcState["factors"];
+
+  return normalizeDlocPfcState({ factors });
+}
+
 function sanitizeTaxSimulationState(value: unknown): TaxSimulationState {
   if (!isRecord(value)) {
     return createEmptyTaxSimulationState();
@@ -3003,7 +3278,9 @@ function sanitizeTaxSimulationState(value: unknown): TaxSimulationState {
     primaryMethod: typeof value.primaryMethod === "string" ? (value.primaryMethod as ValuationMethod | "") : "",
     applyDlom: typeof value.applyDlom === "boolean" ? value.applyDlom : false,
     applyDlocPfc: typeof value.applyDlocPfc === "boolean" ? value.applyDlocPfc : false,
+    useDlocPfcOverride: typeof value.useDlocPfcOverride === "boolean" ? value.useDlocPfcOverride : false,
     dlocPfcRate: typeof value.dlocPfcRate === "string" ? formatEditableNumber(value.dlocPfcRate) : "",
+    dlocPfcOverrideReason: typeof value.dlocPfcOverrideReason === "string" ? value.dlocPfcOverrideReason : "",
     reportedTransferValue: typeof value.reportedTransferValue === "string" ? formatEditableNumber(value.reportedTransferValue) : "",
     note: typeof value.note === "string" ? value.note : "",
   });
@@ -3017,12 +3294,18 @@ function hasDlomInput(value: DlomState): boolean {
   );
 }
 
+function hasDlocPfcInput(value: DlocPfcState): boolean {
+  return Object.values(value.factors).some((factor) => factor.answer.trim() !== "" || factor.overrideReason.trim() !== "");
+}
+
 function hasTaxSimulationInput(value: TaxSimulationState): boolean {
   return (
     value.primaryMethod !== "" ||
     value.applyDlom ||
     value.applyDlocPfc ||
+    value.useDlocPfcOverride ||
     value.dlocPfcRate.trim() !== "" ||
+    value.dlocPfcOverrideReason.trim() !== "" ||
     value.reportedTransferValue.trim() !== "" ||
     value.note.trim() !== ""
   );
@@ -5200,9 +5483,21 @@ function FormulaList({ traces }: { traces: FormulaTrace[] }) {
             <code>{trace.formula}</code>
             <p>{trace.note}</p>
           </div>
-          <span>{formatIdr(trace.value)}</span>
+          <span>{formatFormulaTraceValue(trace)}</span>
         </div>
       ))}
     </div>
   );
+}
+
+function formatFormulaTraceValue(trace: FormulaTrace): string {
+  if (trace.valueFormat === "percent") {
+    return formatPercent(trace.value);
+  }
+
+  if (trace.valueFormat === "number") {
+    return formatNumber(trace.value);
+  }
+
+  return formatIdr(trace.value);
 }

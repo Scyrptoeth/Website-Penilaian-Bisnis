@@ -1,5 +1,6 @@
 import type { CaseProfile, CaseProfileDerived } from "./case-model";
 import { parseInputNumber } from "./case-model";
+import type { DlocPfcCalculation } from "./dloc-pfc";
 import type { DlomCalculation } from "./dlom";
 import type { FinancialStatementSnapshot, FormulaTrace, MethodOutput, ValuationMethod } from "./types";
 
@@ -7,7 +8,9 @@ export type TaxSimulationState = {
   primaryMethod: ValuationMethod | "";
   applyDlom: boolean;
   applyDlocPfc: boolean;
+  useDlocPfcOverride: boolean;
   dlocPfcRate: string;
+  dlocPfcOverrideReason: string;
   reportedTransferValue: string;
   note: string;
 };
@@ -21,6 +24,7 @@ export type TaxSimulationMethodRow = {
   valueAfterDlom: number;
   dlocPfcRate: number;
   dlocPfcAdjustment: number;
+  dlocPfcSource: string;
   marketValueOfEquity100: number;
   sharePercentage: number;
   marketValueOfTransferredInterest: number;
@@ -43,7 +47,9 @@ export function createEmptyTaxSimulationState(): TaxSimulationState {
     primaryMethod: "",
     applyDlom: false,
     applyDlocPfc: false,
+    useDlocPfcOverride: false,
     dlocPfcRate: "",
+    dlocPfcOverrideReason: "",
     reportedTransferValue: "",
     note: "",
   };
@@ -53,16 +59,19 @@ export function buildSampleTaxSimulationState(): TaxSimulationState {
   return {
     primaryMethod: "AAM",
     applyDlom: true,
-    applyDlocPfc: false,
+    applyDlocPfc: true,
+    useDlocPfcOverride: false,
     dlocPfcRate: "",
+    dlocPfcOverrideReason: "",
     reportedTransferValue: "1.600.000.000",
-    note: "Sample workbook default: AAM sebagai primary method; DLOM dihitung sebagai scenario layer.",
+    note: "Sample workbook default: AAM sebagai primary method; DLOM dan DLOC/PFC dihitung sebagai scenario layer.",
   };
 }
 
 export function calculateTaxSimulation({
   methods,
   dlom,
+  dlocPfc,
   state,
   caseProfile,
   caseProfileDerived,
@@ -70,6 +79,7 @@ export function calculateTaxSimulation({
 }: {
   methods: MethodOutput[];
   dlom: DlomCalculation;
+  dlocPfc: DlocPfcCalculation;
   state: TaxSimulationState;
   caseProfile: CaseProfile;
   caseProfileDerived: CaseProfileDerived;
@@ -77,12 +87,13 @@ export function calculateTaxSimulation({
 }): TaxSimulationResult {
   const sharePercentage = caseProfileDerived.capitalProportionStatus === "valid" ? caseProfileDerived.capitalProportion ?? 0 : 0;
   const reportedTransferValue = readReportedTransferValue(state, caseProfile);
-  const dlocPfcRate = state.applyDlocPfc ? parseRateInput(state.dlocPfcRate) : 0;
+  const dlocPfcRateResolution = resolveDlocPfcRate(state, dlocPfc);
+  const dlocPfcRate = dlocPfcRateResolution.rate;
   const dlomRate = state.applyDlom && dlom.isComplete ? dlom.dlomRate : 0;
   const rows = methods.map((method): TaxSimulationMethodRow => {
     const dlomAdjustment = -(method.equityValue * dlomRate);
     const valueAfterDlom = method.equityValue + dlomAdjustment;
-    const dlocPfcAdjustment = valueAfterDlom * dlocPfcRate;
+    const dlocPfcAdjustment = -(valueAfterDlom * dlocPfcRate);
     const marketValueOfEquity100 = valueAfterDlom + dlocPfcAdjustment;
     const marketValueOfTransferredInterest = marketValueOfEquity100 * sharePercentage;
     const potentialTaxableDifference = Math.max(0, marketValueOfTransferredInterest - reportedTransferValue);
@@ -97,6 +108,7 @@ export function calculateTaxSimulation({
       valueAfterDlom,
       dlocPfcRate,
       dlocPfcAdjustment,
+      dlocPfcSource: dlocPfcRateResolution.sourceLabel,
       marketValueOfEquity100,
       sharePercentage,
       marketValueOfTransferredInterest,
@@ -119,9 +131,11 @@ export function calculateTaxSimulation({
         },
         {
           label: "DLOC/PFC adjustment",
-          formula: "Equity value after DLOM x DLOC/PFC rate",
+          formula: "Equity value after DLOM x DLOC/PFC signed rate x -1",
           value: dlocPfcAdjustment,
-          note: state.applyDlocPfc ? "Layer DLOC/PFC aktif; logic detail dapat diperluas pada fase berikutnya." : "DLOC/PFC belum diterapkan.",
+          note: state.applyDlocPfc
+            ? `${dlocPfcRateResolution.sourceLabel}. DLOC positif menurunkan nilai; PFC negatif menaikkan nilai melalui multiplier -1.`
+            : "DLOC/PFC belum diterapkan.",
         },
         {
           label: "Market value of transferred interest",
@@ -139,7 +153,7 @@ export function calculateTaxSimulation({
     };
   });
 
-  const warnings = buildWarnings({ state, dlom, sharePercentage, reportedTransferValue, dlocPfcRate });
+  const warnings = buildWarnings({ state, dlom, dlocPfc, sharePercentage, reportedTransferValue, dlocPfcRateResolution });
   const primaryRow = rows.find((row) => row.method === state.primaryMethod) ?? null;
 
   return {
@@ -158,9 +172,49 @@ export function normalizeTaxSimulationState(value: TaxSimulationState): TaxSimul
     primaryMethod,
     applyDlom: typeof value.applyDlom === "boolean" ? value.applyDlom : empty.applyDlom,
     applyDlocPfc: typeof value.applyDlocPfc === "boolean" ? value.applyDlocPfc : empty.applyDlocPfc,
+    useDlocPfcOverride: typeof value.useDlocPfcOverride === "boolean" ? value.useDlocPfcOverride : empty.useDlocPfcOverride,
     dlocPfcRate: typeof value.dlocPfcRate === "string" ? value.dlocPfcRate : empty.dlocPfcRate,
+    dlocPfcOverrideReason: typeof value.dlocPfcOverrideReason === "string" ? value.dlocPfcOverrideReason : empty.dlocPfcOverrideReason,
     reportedTransferValue: typeof value.reportedTransferValue === "string" ? value.reportedTransferValue : empty.reportedTransferValue,
     note: typeof value.note === "string" ? value.note : empty.note,
+  };
+}
+
+export function resolveDlocPfcRate(
+  state: TaxSimulationState,
+  dlocPfc: DlocPfcCalculation,
+): { rate: number; sourceLabel: string; usesOverride: boolean; hasValidOverride: boolean } {
+  if (!state.applyDlocPfc) {
+    return { rate: 0, sourceLabel: "DLOC/PFC tidak aktif", usesOverride: false, hasValidOverride: false };
+  }
+
+  const overrideInput = state.dlocPfcRate.trim();
+  const overrideReason = state.dlocPfcOverrideReason.trim();
+  const hasValidOverride = state.useDlocPfcOverride && overrideInput !== "" && overrideReason !== "";
+
+  if (hasValidOverride) {
+    return {
+      rate: parseRateInput(overrideInput),
+      sourceLabel: `Override manual dengan alasan: ${overrideReason}`,
+      usesOverride: true,
+      hasValidOverride: true,
+    };
+  }
+
+  if (dlocPfc.isComplete) {
+    return {
+      rate: dlocPfc.signedRate,
+      sourceLabel: `Rate otomatis dari tab DLOC/PFC (${dlocPfc.adjustmentType})`,
+      usesOverride: false,
+      hasValidOverride: false,
+    };
+  }
+
+  return {
+    rate: 0,
+    sourceLabel: "DLOC/PFC belum lengkap dan override valid belum tersedia",
+    usesOverride: false,
+    hasValidOverride: false,
   };
 }
 
@@ -218,15 +272,17 @@ function readReportedTransferValue(state: TaxSimulationState, caseProfile: CaseP
 function buildWarnings({
   state,
   dlom,
+  dlocPfc,
   sharePercentage,
   reportedTransferValue,
-  dlocPfcRate,
+  dlocPfcRateResolution,
 }: {
   state: TaxSimulationState;
   dlom: DlomCalculation;
+  dlocPfc: DlocPfcCalculation;
   sharePercentage: number;
   reportedTransferValue: number;
-  dlocPfcRate: number;
+  dlocPfcRateResolution: ReturnType<typeof resolveDlocPfcRate>;
 }): string[] {
   const warnings: string[] = [];
 
@@ -238,8 +294,24 @@ function buildWarnings({
     warnings.push("Apply DLOM aktif, tetapi modul DLOM belum lengkap sehingga rate DLOM diperlakukan 0%.");
   }
 
-  if (state.applyDlocPfc && dlocPfcRate === 0) {
-    warnings.push("Apply DLOC/PFC aktif, tetapi rate masih 0%; layer disiapkan sebagai placeholder sampai konsep DLOC/PFC lengkap.");
+  if (state.applyDlocPfc && !dlocPfc.isComplete && !dlocPfcRateResolution.hasValidOverride) {
+    warnings.push("Apply DLOC/PFC aktif, tetapi questionnaire DLOC/PFC belum lengkap dan override beralasan belum tersedia; rate diperlakukan 0%.");
+  }
+
+  if (state.applyDlocPfc && state.useDlocPfcOverride && state.dlocPfcRate.trim() === "") {
+    warnings.push("Override DLOC/PFC aktif, tetapi rate override belum diisi.");
+  }
+
+  if (state.applyDlocPfc && state.useDlocPfcOverride && state.dlocPfcOverrideReason.trim() === "") {
+    warnings.push("Override DLOC/PFC aktif, tetapi alasan override wajib diisi untuk audit trail.");
+  }
+
+  if (state.applyDlocPfc && dlocPfc.adjustmentType === "DLOC" && dlocPfcRateResolution.rate < 0) {
+    warnings.push("DLOC dari kepemilikan minoritas seharusnya memakai signed rate positif agar adjustment menurunkan nilai.");
+  }
+
+  if (state.applyDlocPfc && dlocPfc.adjustmentType === "PFC" && dlocPfcRateResolution.rate > 0) {
+    warnings.push("PFC dari kepemilikan mayoritas seharusnya memakai signed rate negatif agar adjustment menaikkan nilai.");
   }
 
   if (sharePercentage <= 0 || sharePercentage > 1) {

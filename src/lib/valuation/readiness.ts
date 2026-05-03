@@ -1,11 +1,15 @@
 import type {
   AccountRow,
   AssumptionState,
+  CaseProfile,
+  CaseProfileDerived,
   FixedAssetScheduleSummary,
   MappedRow,
   Period,
 } from "./case-model";
 import { calculateRequiredReturnOnNtaAssumption, calculateWaccAssumption } from "./assumption-calculators";
+import type { DlocPfcCalculation } from "./dloc-pfc";
+import { resolveDlocPfcRate, type TaxSimulationState } from "./tax-simulation";
 import type { AccountCategory, FinancialStatementSnapshot } from "./types";
 
 export type WorkbenchSectionId =
@@ -18,6 +22,7 @@ export type WorkbenchSectionId =
   | "valuationAam"
   | "valuationEemDcf"
   | "dlom"
+  | "dlocPfc"
   | "taxSimulation"
   | "payablesCashFlow"
   | "noplatFcf"
@@ -53,6 +58,10 @@ export function buildWorkbenchReadiness({
   assumptions,
   snapshot,
   fixedAssetSchedule,
+  caseProfile,
+  caseProfileDerived,
+  dlocPfc,
+  taxSimulation,
 }: {
   periods: Period[];
   rows: AccountRow[];
@@ -60,6 +69,10 @@ export function buildWorkbenchReadiness({
   assumptions: AssumptionState;
   snapshot: FinancialStatementSnapshot;
   fixedAssetSchedule: FixedAssetScheduleSummary;
+  caseProfile: CaseProfile;
+  caseProfileDerived: CaseProfileDerived;
+  dlocPfc: DlocPfcCalculation;
+  taxSimulation: TaxSimulationState;
 }): WorkbenchReadiness {
   const categorySet = new Set(mappedRows.map((item) => item.effectiveCategory));
   const hasPeriod = periods.length > 0;
@@ -135,6 +148,34 @@ export function buildWorkbenchReadiness({
     "balance",
     "Isi Aset Tetap",
   );
+  const dlocPfcRateResolution = resolveDlocPfcRate(taxSimulation, dlocPfc);
+  const hasCompanyType = criterion(caseProfile.companyType.trim() !== "", "Jenis Perusahaan tersedia untuk rentang DLOC/PFC", "periods", "Isi Data Awal");
+  const hasShareOwnershipType = criterion(
+    caseProfile.shareOwnershipType.trim() !== "",
+    "Jenis Kepemilikan Saham tersedia untuk status DLOC/PFC",
+    "periods",
+    "Isi Data Awal",
+  );
+  const hasDlocPfcAnswers = criterion(dlocPfc.factors.every((factor) => factor.status === "answered"), "Questionnaire DLOC/PFC lengkap", "dlocPfc", "Isi DLOC/PFC");
+  const primaryMethod = criterion(taxSimulation.primaryMethod !== "", "Primary Method simulasi pajak dipilih", "taxSimulation", "Pilih Primary Method");
+  const reportedTransferValue = criterion(
+    taxSimulation.reportedTransferValue.trim() !== "" || caseProfile.capitalBaseValued.trim() !== "",
+    "Nilai pengalihan dilaporkan tersedia",
+    "taxSimulation",
+    "Isi Nilai Pengalihan",
+  );
+  const shareRatio = criterion(
+    caseProfileDerived.capitalProportionStatus === "valid",
+    "Porsi saham/modal yang dinilai valid",
+    "periods",
+    "Isi Data Awal",
+  );
+  const dlocPfcReadyForTax = criterion(
+    !taxSimulation.applyDlocPfc || dlocPfc.isComplete || dlocPfcRateResolution.hasValidOverride,
+    "DLOC/PFC siap dipakai atau override beralasan tersedia",
+    "dlocPfc",
+    "Lengkapi DLOC/PFC",
+  );
 
   return {
     periods: status("periods", "Data Awal", [period]),
@@ -161,7 +202,15 @@ export function buildWorkbenchReadiness({
       mapped,
     ]),
     dlom: status("dlom", "DLOM", [period], [balance, income]),
-    taxSimulation: status("taxSimulation", "Simulasi Potensi Pajak", [period], [balance, income]),
+    dlocPfc: status("dlocPfc", "DLOC/PFC", [period, hasCompanyType, hasShareOwnershipType, hasDlocPfcAnswers]),
+    taxSimulation: status("taxSimulation", "Simulasi Potensi Pajak", [period], [
+      balance,
+      income,
+      primaryMethod,
+      reportedTransferValue,
+      shareRatio,
+      dlocPfcReadyForTax,
+    ]),
     payablesCashFlow: status("payablesCashFlow", "Utang & Arus Kas", [
       period,
       comparativePeriod,

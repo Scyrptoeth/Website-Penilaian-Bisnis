@@ -173,13 +173,21 @@ test("DLOM and tax simulation render workbook-derived scenario layer after loadi
   await expect(page.getByTestId("dlom-factor-table")).toContainText("Entry Barrier Perijinan Usaha");
   await expect(page.getByLabel("Jawaban DLOM Profitabilitas (EBITDA)")).toHaveValue("Diatas");
 
+  await openWorkflowTab(page, "DLOC/PFC");
+  await expect(page.getByTestId("dloc-pfc-summary")).toContainText("34%");
+  await expect(page.getByTestId("dloc-pfc-summary")).toContainText("Rendah");
+  await expect(page.getByTestId("dloc-pfc-factor-table")).toContainText("Perjanjian antara Pemegang Saham");
+  await expect(page.getByLabel("Jawaban DLOC/PFC Penunjukkan Manajemen")).toHaveValue("Sebagian");
+
   await openWorkflowTab(page, "Simulasi Potensi Pajak");
   await expect(page.getByTestId("tax-simulation-summary")).toContainText("AAM");
   await expect(page.getByTestId("tax-simulation-summary")).toContainText("DLOM 25%");
+  await expect(page.getByTestId("tax-simulation-summary")).toContainText("DLOC 34%");
   await expect(page.getByTestId("tax-simulation-table")).toContainText("AAM");
   await expect(page.getByTestId("tax-simulation-table")).toContainText("EEM");
   await expect(page.getByTestId("tax-simulation-table")).toContainText("DCF");
   await expect(page.getByTestId("tax-simulation-table")).toContainText("Primary");
+  await expect(page.getByTestId("tax-simulation-table")).toContainText("Rate otomatis dari tab DLOC/PFC");
   await expect(page.getByText("AAM primary method")).toBeVisible();
 });
 
@@ -299,7 +307,7 @@ test("legacy positive income-statement expense drafts migrate once and remain us
   await amountInput.press("Home");
   await amountInput.press("Delete");
   await expect(amountInput).toHaveValue("100");
-  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(5);
+  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(6);
 
   await page.reload();
   await openWorkflowTab(page, "Laba Rugi");

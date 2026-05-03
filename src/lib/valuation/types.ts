@@ -157,6 +157,7 @@ export interface FormulaTrace {
   formula: string;
   value: number;
   note: string;
+  valueFormat?: "currency" | "percent" | "number";
 }
 
 export interface MethodOutput {
