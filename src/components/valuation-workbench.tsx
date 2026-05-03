@@ -100,7 +100,7 @@ import { formatDisplayDate, formatEditableNumber, formatIdr, formatInputNumber, 
 import { buildWorkbenchReadiness, type SectionReadiness, type WorkbenchReadiness, type WorkbenchSectionId } from "@/lib/valuation/readiness";
 import { buildSectionAnalysis, type AnalysisRow, type AnalysisValue, type PeriodAnalysis, type RatioRow, type SectionAnalysis } from "@/lib/valuation/section-analysis";
 import { buildValidationChecks } from "@/lib/valuation/validation-checks";
-import { downloadValuationWorkbook } from "@/lib/valuation/excel-export";
+import { downloadValuationTemplateWorkbook, downloadValuationWorkbook } from "@/lib/valuation/excel-export";
 import {
   buildSampleDlomState,
   calculateDlom,
@@ -366,6 +366,7 @@ export function ValuationWorkbench() {
   const [activeWorkflowTab, setActiveWorkflowTab] = useState<WorkflowTabId>("periods");
   const [undoStack, setUndoStack] = useState<WorkbenchCoreState[]>([]);
   const [redoStack, setRedoStack] = useState<WorkbenchCoreState[]>([]);
+  const [isTemplateExporting, setIsTemplateExporting] = useState(false);
 
   const mappedRows = useMemo(() => rows.map((row) => mapRow(row)), [rows]);
   const caseProfileDerived = useMemo(() => buildCaseProfileDerived(caseProfile), [caseProfile]);
@@ -1134,8 +1135,8 @@ export function ValuationWorkbench() {
     }));
   }
 
-  function exportWorkbook() {
-    downloadValuationWorkbook({
+  function getExportInput() {
+    return {
       periods,
       activePeriodId,
       rows,
@@ -1156,7 +1157,27 @@ export function ValuationWorkbench() {
       sectionAnalysis,
       readiness,
       validationChecks: checks,
-    });
+    };
+  }
+
+  function exportWorkbook() {
+    downloadValuationWorkbook(getExportInput());
+  }
+
+  async function exportTemplateWorkbook() {
+    if (isTemplateExporting) {
+      return;
+    }
+
+    setIsTemplateExporting(true);
+
+    try {
+      await downloadValuationTemplateWorkbook(getExportInput());
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Export XLSX V2 gagal dijalankan.");
+    } finally {
+      setIsTemplateExporting(false);
+    }
   }
 
   function resetForm() {
@@ -1243,7 +1264,11 @@ export function ValuationWorkbench() {
               </button>
               <button className="button secondary" type="button" onClick={exportWorkbook}>
                 <Download size={18} />
-                Export XLSX
+                Export XLSX V1
+              </button>
+              <button className="button secondary" type="button" onClick={exportTemplateWorkbook} disabled={isTemplateExporting} aria-busy={isTemplateExporting}>
+                <Download size={18} />
+                {isTemplateExporting ? "Menyiapkan V2" : "Export XLSX V2"}
               </button>
               <button className="button ghost" type="button" onClick={resetForm} disabled={!hasAnyInput}>
                 <Eraser size={18} />

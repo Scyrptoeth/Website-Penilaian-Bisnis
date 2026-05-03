@@ -1,13 +1,13 @@
 import * as XLSX from "xlsx";
 import { operatingWorkingCapital } from "./calculations";
 import { categoryLabelMap } from "./category-options";
-import { parseInputNumber, statementLabels, type AccountRow, type AssumptionState, type CaseProfile, type CaseProfileDerived, type FixedAssetScheduleRow, type FixedAssetScheduleSummary, type MappedRow, type Period } from "./case-model";
+import { getPeriodYearOffset, parseInputNumber, statementLabels, type AccountRow, type AssumptionState, type CaseProfile, type CaseProfileDerived, type FixedAssetScheduleRow, type FixedAssetScheduleSummary, type MappedRow, type Period } from "./case-model";
 import type { AamAdjustmentLine, AamAdjustmentModel } from "./aam-adjustments";
 import type { DlocPfcCalculation } from "./dloc-pfc";
 import type { DlomCalculation } from "./dlom";
 import type { SectionAnalysis } from "./section-analysis";
 import type { TaxSimulationResult, TaxSimulationState } from "./tax-simulation";
-import type { FinancialStatementSnapshot, FormulaTrace, ValuationMethod } from "./types";
+import type { AccountCategory, FinancialStatementSnapshot, FormulaTrace, ValuationMethod } from "./types";
 import type { ValidationCheck } from "./validation-checks";
 import type { WorkbenchReadiness } from "./readiness";
 import type { calculateAllMethods } from "./calculations";
@@ -47,11 +47,25 @@ type SheetCell = string | number | boolean | null | XLSX.CellObject;
 type SheetRow = SheetCell[];
 type SheetRefs = Record<string, string>;
 type MethodRefs = Record<ValuationMethod, string>;
+type TemplatePatch = {
+  sheet: string;
+  cell: string;
+  label: string;
+  value: string | number;
+  source: string;
+};
+
+type TemplateUnmapped = {
+  field: string;
+  value: string | number;
+  reason: string;
+};
 
 const currencyFormat = '#,##0;[Red](#,##0);"-"';
 const numberFormat = '#,##0.00;[Red](#,##0.00);"-"';
 const integerFormat = '#,##0;[Red](#,##0);"-"';
 const percentFormat = '0.00%;[Red](0.00%);"-"';
+const templateWorkbookUrl = "/templates/kkp-saham-final-account-category-review-update.xlsx";
 
 const caseProfileLabels: Record<keyof CaseProfile, string> = {
   objectTaxpayerName: "Nama Wajib Pajak Objek",
@@ -175,6 +189,51 @@ export function downloadValuationWorkbook(input: ValuationExcelExportInput): voi
   const { workbook, filename } = buildValuationWorkbook(input);
 
   XLSX.writeFile(workbook, filename, { compression: true });
+}
+
+export function buildValuationTemplateWorkbook(input: ValuationExcelExportInput, templateData: ArrayBuffer | Uint8Array): WorkbookBuild {
+  const exportedAt = input.exportedAt ?? new Date();
+  const workbook = XLSX.read(templateData, { type: "array", cellFormula: true, cellStyles: true, cellNF: true });
+  const patches: TemplatePatch[] = [];
+  const unmapped: TemplateUnmapped[] = [];
+
+  workbook.Props = {
+    ...(workbook.Props ?? {}),
+    Title: "Penilaian Valuasi Bisnis Export XLSX V2",
+    Subject: "Full template clone generated from active website state",
+    Author: "Penilaian Bisnis II",
+    Company: input.caseProfile.objectTaxpayerName || "Penilaian Bisnis II",
+    CreatedDate: exportedAt,
+  };
+
+  patchHomeSheet(workbook, input, patches);
+  patchFixedAssetTemplateSheet(workbook, input, patches, unmapped);
+  patchBalanceSheetTemplateSheet(workbook, input, patches);
+  patchIncomeStatementTemplateSheet(workbook, input, patches);
+  patchKeyDriversTemplateSheet(workbook, input, patches, unmapped);
+  patchWaccTemplateSheet(workbook, input, patches);
+  patchDlomTemplateSheet(workbook, input, patches);
+  patchDlocPfcTemplateSheet(workbook, input, patches);
+  patchTaxSimulationTemplateSheet(workbook, input, patches);
+  appendTemplateAuditSheet(workbook, input, patches, unmapped, exportedAt);
+
+  return {
+    workbook,
+    filename: buildTemplateWorkbookFilename(input.caseProfile.objectTaxpayerName, exportedAt),
+  };
+}
+
+export async function downloadValuationTemplateWorkbook(input: ValuationExcelExportInput): Promise<void> {
+  const response = await fetch(templateWorkbookUrl);
+
+  if (!response.ok) {
+    throw new Error(`Template workbook tidak bisa dimuat (${response.status}).`);
+  }
+
+  const templateData = await response.arrayBuffer();
+  const { workbook, filename } = buildValuationTemplateWorkbook(input, templateData);
+
+  XLSX.writeFile(workbook, filename, { compression: true, cellStyles: true });
 }
 
 function buildSummarySheet(input: ValuationExcelExportInput, methodRefs: MethodRefs, taxRefs: SheetRefs, exportedAt: Date) {
@@ -693,6 +752,467 @@ function buildAuditTraceSheet(input: ValuationExcelExportInput) {
   return createSheet(rows, [24, 18, 38, 58, 18, 68]);
 }
 
+function patchHomeSheet(workbook: XLSX.WorkBook, input: ValuationExcelExportInput, patches: TemplatePatch[]) {
+  const profile = input.caseProfile;
+
+  writeTemplateCell(workbook, patches, "HOME", "B4", profile.objectTaxpayerName, "Nama Objek Pajak", "Case profile");
+  writeTemplateCell(workbook, patches, "HOME", "B5", profile.objectTaxpayerNpwp, "NPWP Objek Pajak", "Case profile");
+  writeTemplateCell(workbook, patches, "HOME", "B6", profile.companySector, "Sektor Perusahaan", "Case profile");
+  writeTemplateCell(workbook, patches, "HOME", "B7", profile.companyType, "Jenis Perusahaan", "Case profile");
+  writeTemplateCell(workbook, patches, "HOME", "B9", profile.subjectTaxpayerName, "Nama Subjek Pajak", "Case profile");
+  writeTemplateCell(workbook, patches, "HOME", "B10", profile.subjectTaxpayerNpwp, "NPWP Subjek Pajak", "Case profile");
+  writeTemplateCell(workbook, patches, "HOME", "B11", profile.subjectTaxpayerType, "Jenis Subjek Pajak", "Case profile");
+  writeTemplateCell(workbook, patches, "HOME", "B12", profile.shareOwnershipType, "Jenis Kepemilikan Saham", "Case profile");
+  writeTemplateCell(workbook, patches, "HOME", "B14", profile.transferType, "Jenis Peralihan", "Case profile");
+  writeTemplateCell(workbook, patches, "HOME", "B15", parseInputNumber(profile.capitalBaseFull), "Capital base 100%", "Case profile");
+  writeTemplateCell(workbook, patches, "HOME", "B16", parseInputNumber(profile.capitalBaseValued), "Capital base valued", "Case profile");
+  writeTemplateCell(workbook, patches, "HOME", "B19", parseInputNumber(profile.transactionYear), "Tahun Transaksi Pengalihan", "Case profile");
+  writeTemplateCell(workbook, patches, "HOME", "B22", profile.valuationObject, "Objek Penilaian", "Case profile");
+}
+
+function patchFixedAssetTemplateSheet(
+  workbook: XLSX.WorkBook,
+  input: ValuationExcelExportInput,
+  patches: TemplatePatch[],
+  unmapped: TemplateUnmapped[],
+) {
+  const templateRows = [
+    { key: "land", label: "Land", acquisitionBeginningRow: 8, acquisitionAdditionsRow: 17, depreciationBeginningRow: 36, depreciationAdditionsRow: 45 },
+    { key: "building", label: "Building", acquisitionBeginningRow: 9, acquisitionAdditionsRow: 18, depreciationBeginningRow: 37, depreciationAdditionsRow: 46 },
+    { key: "equipment", label: "Equipment, Laboratory, & Machinery", acquisitionBeginningRow: 10, acquisitionAdditionsRow: 19, depreciationBeginningRow: 38, depreciationAdditionsRow: 47 },
+    { key: "vehicle", label: "Vehicle & Heavy Equipment", acquisitionBeginningRow: 11, acquisitionAdditionsRow: 20, depreciationBeginningRow: 39, depreciationAdditionsRow: 48 },
+    { key: "officeInventory", label: "Office Inventory", acquisitionBeginningRow: 12, acquisitionAdditionsRow: 21, depreciationBeginningRow: 40, depreciationAdditionsRow: 49 },
+    { key: "electrical", label: "Electrical", acquisitionBeginningRow: 13, acquisitionAdditionsRow: 22, depreciationBeginningRow: 41, depreciationAdditionsRow: 50 },
+  ] as const;
+  const matchedRowIds = new Set<string>();
+
+  templateRows.forEach((templateRow) => {
+    const scheduleRow = input.fixedAssetSchedule.rows.find((item) => matchesTemplateAssetClass(item.row.assetName, templateRow.key));
+
+    if (!scheduleRow) {
+      return;
+    }
+
+    matchedRowIds.add(scheduleRow.row.id);
+    [
+      templateRow.acquisitionBeginningRow,
+      templateRow.acquisitionAdditionsRow,
+      templateRow.acquisitionBeginningRow + 18,
+      templateRow.depreciationBeginningRow,
+      templateRow.depreciationAdditionsRow,
+      templateRow.depreciationBeginningRow + 18,
+      templateRow.depreciationBeginningRow + 27,
+    ].forEach((rowNumber) => {
+      writeTemplateCell(workbook, patches, "FIXED ASSET", `B${rowNumber}`, scheduleRow.row.assetName || templateRow.label, `${templateRow.label} class label`, "Fixed asset schedule");
+    });
+
+    input.periods.forEach((period) => {
+      const column = templateColumnForPeriod(period);
+
+      if (!column) {
+        return;
+      }
+
+      const amounts = scheduleRow.amounts[period.id];
+
+      if (!amounts) {
+        return;
+      }
+
+      const source = `Fixed asset schedule: ${scheduleRow.row.assetName || templateRow.label} / ${period.label}`;
+
+      if (getPeriodYearOffset(period) === -2) {
+        writeTemplateCell(workbook, patches, "FIXED ASSET", `${column}${templateRow.acquisitionBeginningRow}`, amounts.acquisitionBeginning, `${templateRow.label} acquisition beginning`, source);
+        writeTemplateCell(workbook, patches, "FIXED ASSET", `${column}${templateRow.depreciationBeginningRow}`, amounts.depreciationBeginning, `${templateRow.label} depreciation beginning`, source);
+      }
+
+      writeTemplateCell(workbook, patches, "FIXED ASSET", `${column}${templateRow.acquisitionAdditionsRow}`, amounts.acquisitionAdditions, `${templateRow.label} acquisition additions`, source);
+      writeTemplateCell(workbook, patches, "FIXED ASSET", `${column}${templateRow.depreciationAdditionsRow}`, amounts.depreciationAdditions, `${templateRow.label} depreciation additions`, source);
+    });
+  });
+
+  input.fixedAssetSchedule.rows.forEach((item) => {
+    if (!matchedRowIds.has(item.row.id)) {
+      unmapped.push({
+        field: `Fixed asset class: ${item.row.assetName || item.row.id}`,
+        value: input.periods.map((period) => `${period.label} net=${item.amounts[period.id]?.netValue ?? 0}`).join("; "),
+        reason: "No clear matching fixed asset class row in template V2.",
+      });
+    }
+  });
+
+  if (!input.fixedAssetSchedule.hasInput && input.snapshot.fixedAssetsNet !== 0) {
+    unmapped.push({
+      field: "Direct fixed asset net value",
+      value: input.snapshot.fixedAssetsNet,
+      reason: "Template V2 expects fixed asset roll-forward components; direct net fixed asset rows are not enough to safely patch the schedule.",
+    });
+  }
+}
+
+function patchBalanceSheetTemplateSheet(workbook: XLSX.WorkBook, input: ValuationExcelExportInput, patches: TemplatePatch[]) {
+  const rows: Array<{ row: number; label: string; categories: AccountCategory[]; absolute?: boolean }> = [
+    { row: 8, label: "Cash on Hands", categories: ["CASH_ON_HAND"], absolute: true },
+    { row: 9, label: "Cash on Bank", categories: ["CASH_ON_BANK"], absolute: true },
+    { row: 10, label: "Account Receivable", categories: ["ACCOUNT_RECEIVABLE"], absolute: true },
+    { row: 11, label: "Other Receivable", categories: ["EMPLOYEE_RECEIVABLE"], absolute: true },
+    { row: 12, label: "Inventory", categories: ["INVENTORY"], absolute: true },
+    { row: 13, label: "Others Current Assets", categories: ["CURRENT_ASSET", "EXCESS_CASH", "MARKETABLE_SECURITIES", "SURPLUS_ASSET_CASH"], absolute: true },
+    { row: 22, label: "Non Current Assets", categories: ["NON_CURRENT_ASSET", "NON_OPERATING_FIXED_ASSETS"], absolute: true },
+    { row: 23, label: "Intangible Assets", categories: ["INTANGIBLE_ASSETS"], absolute: true },
+    { row: 30, label: "Bank Loan-Short Term", categories: ["BANK_LOAN_SHORT_TERM"], absolute: true },
+    { row: 31, label: "Account Payables", categories: ["ACCOUNT_PAYABLE"], absolute: true },
+    { row: 32, label: "Tax Payable", categories: ["TAX_PAYABLE"], absolute: true },
+    { row: 33, label: "Other Payables", categories: ["OTHER_PAYABLE", "INTEREST_PAYABLE"], absolute: true },
+    { row: 37, label: "Bank Loan-Long Term", categories: ["BANK_LOAN_LONG_TERM", "INTEREST_BEARING_DEBT"], absolute: true },
+    { row: 38, label: "Related Party Payable & Employee Benefits", categories: ["NON_CURRENT_LIABILITIES"], absolute: true },
+    { row: 42, label: "Paid Up Capital", categories: ["MODAL_DISETOR"], absolute: true },
+    { row: 43, label: "Additional Paid In Capital", categories: ["PENAMBAHAN_MODAL_DISETOR"], absolute: true },
+    { row: 45, label: "Retained Earnings Surplus", categories: ["RETAINED_EARNINGS_SURPLUS"], absolute: true },
+  ];
+
+  rows.forEach((mapping) => patchPeriodCategoryValues(workbook, input, patches, "BALANCE SHEET", mapping.row, mapping.label, mapping.categories, mapping.absolute ?? false));
+}
+
+function patchIncomeStatementTemplateSheet(workbook: XLSX.WorkBook, input: ValuationExcelExportInput, patches: TemplatePatch[]) {
+  const rows: Array<{ row: number; label: string; categories: AccountCategory[] }> = [
+    { row: 6, label: "Revenue", categories: ["REVENUE"] },
+    { row: 7, label: "Cost of Good Sold", categories: ["COST_OF_GOOD_SOLD"] },
+    { row: 12, label: "Other Operating Expense", categories: ["OPERATING_EXPENSE", "SELLING_EXPENSE"] },
+    { row: 13, label: "General & Administrative Overheads", categories: ["GENERAL_ADMINISTRATIVE_OVERHEADS"] },
+    { row: 26, label: "Interest Income", categories: ["INTEREST_INCOME"] },
+    { row: 27, label: "Interest Expense", categories: ["INTEREST_EXPENSE"] },
+    { row: 30, label: "Non Operating Income", categories: ["NON_OPERATING_INCOME"] },
+    { row: 33, label: "Corporate Tax", categories: ["CORPORATE_TAX"] },
+  ];
+
+  rows.forEach((mapping) => patchPeriodCategoryValues(workbook, input, patches, "INCOME STATEMENT", mapping.row, mapping.label, mapping.categories, false));
+}
+
+function patchKeyDriversTemplateSheet(
+  workbook: XLSX.WorkBook,
+  input: ValuationExcelExportInput,
+  patches: TemplatePatch[],
+  unmapped: TemplateUnmapped[],
+) {
+  writeTemplateCell(workbook, patches, "KEY DRIVERS", "C11", input.snapshot.taxRate, "Corporate Tax Rate", "Resolved assumptions");
+  patchProjectionDriverRow(workbook, patches, "KEY DRIVERS", 28, input.snapshot.arDays, "AR days", "Resolved assumptions / historical driver");
+  patchProjectionDriverRow(workbook, patches, "KEY DRIVERS", 29, input.snapshot.inventoryDays, "Inventory days", "Resolved assumptions / historical driver");
+  patchProjectionDriverRow(workbook, patches, "KEY DRIVERS", 30, input.snapshot.apDays, "Account payable days", "Resolved assumptions / historical driver");
+
+  if (input.snapshot.otherPayableDays !== 0) {
+    unmapped.push({
+      field: "Other payable days",
+      value: input.snapshot.otherPayableDays,
+      reason: "Template KEY DRIVERS has AR, inventory, and AP rows but no clear separate other payable days row.",
+    });
+  }
+
+  if (input.snapshot.revenueGrowth !== 0) {
+    ["E", "F", "G", "H", "I", "J"].forEach((column) => {
+      writeTemplateCell(workbook, patches, "KEY DRIVERS", `${column}15`, input.snapshot.revenueGrowth, "Sales volume increment", "Resolved revenue growth");
+      writeTemplateCell(workbook, patches, "KEY DRIVERS", `${column}18`, 0, "Sales price increment", "No separate website price-growth state; web revenue growth is mapped once through volume increment.");
+    });
+  }
+}
+
+function patchWaccTemplateSheet(workbook: XLSX.WorkBook, input: ValuationExcelExportInput, patches: TemplatePatch[]) {
+  writeTemplateRateIfPresent(workbook, patches, "WACC", "B4", input.resolvedAssumptions.waccEquityRiskPremium, "Equity Risk Premium");
+  writeTemplateRateIfPresent(workbook, patches, "WACC", "B5", input.resolvedAssumptions.waccRatingBasedDefaultSpread, "Rating Based Default Spread");
+  writeTemplateRateIfPresent(workbook, patches, "WACC", "B6", input.resolvedAssumptions.waccRiskFreeRate, "Risk Free (SUN)");
+  writeTemplateTextIfPresent(workbook, patches, "WACC", "A11", input.resolvedAssumptions.waccComparable1Name, "Comparable 1 name");
+  writeTemplateRateIfPresent(workbook, patches, "WACC", "B11", input.resolvedAssumptions.waccComparable1BetaLevered, "Comparable 1 beta levered");
+  writeTemplateNumberIfPresent(workbook, patches, "WACC", "C11", input.resolvedAssumptions.waccComparable1MarketCap, "Comparable 1 market cap");
+  writeTemplateNumberIfPresent(workbook, patches, "WACC", "D11", input.resolvedAssumptions.waccComparable1Debt, "Comparable 1 debt");
+  writeTemplateTextIfPresent(workbook, patches, "WACC", "A12", input.resolvedAssumptions.waccComparable2Name, "Comparable 2 name");
+  writeTemplateRateIfPresent(workbook, patches, "WACC", "B12", input.resolvedAssumptions.waccComparable2BetaLevered, "Comparable 2 beta levered");
+  writeTemplateNumberIfPresent(workbook, patches, "WACC", "C12", input.resolvedAssumptions.waccComparable2MarketCap, "Comparable 2 market cap");
+  writeTemplateNumberIfPresent(workbook, patches, "WACC", "D12", input.resolvedAssumptions.waccComparable2Debt, "Comparable 2 debt");
+  writeTemplateTextIfPresent(workbook, patches, "WACC", "A13", input.resolvedAssumptions.waccComparable3Name, "Comparable 3 name");
+  writeTemplateRateIfPresent(workbook, patches, "WACC", "B13", input.resolvedAssumptions.waccComparable3BetaLevered, "Comparable 3 beta levered");
+  writeTemplateNumberIfPresent(workbook, patches, "WACC", "C13", input.resolvedAssumptions.waccComparable3MarketCap, "Comparable 3 market cap");
+  writeTemplateNumberIfPresent(workbook, patches, "WACC", "D13", input.resolvedAssumptions.waccComparable3Debt, "Comparable 3 debt");
+  writeTemplateRateIfPresent(workbook, patches, "WACC", "B27", input.resolvedAssumptions.waccBankPerseroInvestmentLoanRate, "Bank Persero investment loan rate");
+  writeTemplateRateIfPresent(workbook, patches, "WACC", "B28", input.resolvedAssumptions.waccBankSwastaInvestmentLoanRate, "Bank Swasta investment loan rate");
+  writeTemplateRateIfPresent(workbook, patches, "WACC", "B29", input.resolvedAssumptions.waccBankUmumInvestmentLoanRate, "Bank Umum investment loan rate");
+  writeTemplateCell(workbook, patches, "WACC", "E22", input.snapshot.wacc, "Weighted Average Cost of Capital", "Resolved WACC used by web valuation engine");
+}
+
+function patchDlomTemplateSheet(workbook: XLSX.WorkBook, input: ValuationExcelExportInput, patches: TemplatePatch[]) {
+  const factorCells = ["F7", "F9", "F11", "F13", "F15", "F17", "F19", "F21", "F23", "F25"];
+
+  input.dlomCalculation.factors.forEach((factor, index) => {
+    writeTemplateCell(workbook, patches, "DLOM", factorCells[index], factor.answer, factor.factor, "DLOM questionnaire");
+  });
+  writeTemplateCell(workbook, patches, "DLOM", "C30", dlomTemplateCompanyMarketability(input.caseProfile.companyType), "DLOM company marketability basis", "Case profile / DLOM basis");
+  writeTemplateCell(workbook, patches, "DLOM", "C31", input.dlomCalculation.interestBasis || input.caseProfile.shareOwnershipType, "DLOM interest basis", "DLOM calculation");
+}
+
+function patchDlocPfcTemplateSheet(workbook: XLSX.WorkBook, input: ValuationExcelExportInput, patches: TemplatePatch[]) {
+  const factorCells = ["E7", "E9", "E11", "E13", "E15"];
+
+  input.dlocPfcCalculation.factors.forEach((factor, index) => {
+    writeTemplateCell(workbook, patches, "DLOC(PFC)", factorCells[index], factor.answer, factor.factor, "DLOC/PFC questionnaire");
+  });
+  writeTemplateFormulaCell(
+    workbook,
+    patches,
+    "DLOC(PFC)",
+    "B20",
+    'IF(LOWER(HOME!B7)="tertutup","DLOC Perusahaan tertutup ","DLOC Perusahaan terbuka ")',
+    dlocTemplateCompanyBasis(input.caseProfile.companyType),
+    "DLOC/PFC company basis",
+    "Formula patched to keep the template logic traceable while handling case differences in HOME!B7.",
+  );
+  writeTemplateCell(workbook, patches, "DLOC(PFC)", "B21", input.caseProfile.shareOwnershipType, "DLOC/PFC ownership basis", "Case profile");
+}
+
+function patchTaxSimulationTemplateSheet(workbook: XLSX.WorkBook, input: ValuationExcelExportInput, patches: TemplatePatch[]) {
+  writeTemplateCell(workbook, patches, "SIMULASI POTENSI PAJAK", "C1", input.taxSimulation.primaryMethod || "AAM", "Primary valuation method", "Tax simulation state");
+
+  if (input.taxSimulation.reportedTransferValue.trim()) {
+    writeTemplateCell(workbook, patches, "SIMULASI POTENSI PAJAK", "E14", parseInputNumber(input.taxSimulation.reportedTransferValue), "Reported transfer value", "Tax simulation override");
+  }
+}
+
+function appendTemplateAuditSheet(
+  workbook: XLSX.WorkBook,
+  input: ValuationExcelExportInput,
+  patches: TemplatePatch[],
+  unmapped: TemplateUnmapped[],
+  exportedAt: Date,
+) {
+  const rows: SheetRow[] = [
+    ["Export XLSX V2 Audit"],
+    ["Generated at", exportedAt.toISOString()],
+    ["Template", templateWorkbookUrl],
+    ["Basis", "Full template clone; main input cells are patched from active website state; formulas and layout are preserved where possible."],
+    ["Object taxpayer", input.caseProfile.objectTaxpayerName || "-"],
+    ["Active period", input.periods.find((period) => period.id === input.activePeriodId)?.label ?? input.activePeriodId],
+    [],
+    ["Patched Cells"],
+    ["Sheet", "Cell", "Label", "Value", "Source"],
+    ...patches.map((patch): SheetRow => [patch.sheet, patch.cell, patch.label, patch.value, patch.source]),
+    [],
+    ["Unmapped / Deferred Fields"],
+    ["Field", "Value", "Reason"],
+    ...unmapped.map((item): SheetRow => [item.field, item.value, item.reason]),
+    [],
+    ["Validation"],
+    ["Check", "Status"],
+    ...input.validationChecks.map((check): SheetRow => [check.label, check.ok ? "OK" : "Needs review"]),
+    [],
+    ["Tax Simulation Warnings"],
+    ...input.taxSimulationResult.warnings.map((warning): SheetRow => [warning]),
+  ];
+  const worksheet = XLSX.utils.aoa_to_sheet(rows);
+  worksheet["!cols"] = [{ wch: 24 }, { wch: 18 }, { wch: 42 }, { wch: 24 }, { wch: 56 }];
+
+  appendSheet(workbook, "PVB_EXPORT_V2_AUDIT", worksheet);
+}
+
+function patchPeriodCategoryValues(
+  workbook: XLSX.WorkBook,
+  input: ValuationExcelExportInput,
+  patches: TemplatePatch[],
+  sheet: string,
+  row: number,
+  label: string,
+  categories: AccountCategory[],
+  absolute: boolean,
+) {
+  input.periods.forEach((period) => {
+    const column = templateColumnForPeriod(period);
+
+    if (!column) {
+      return;
+    }
+
+    const value = aggregateMappedRows(input.mappedRows, period.id, categories);
+    const normalizedValue = absolute ? Math.abs(value) : value;
+
+    writeTemplateCell(workbook, patches, sheet, `${column}${row}`, normalizedValue, label, `${period.label}: ${categories.join(", ")}`);
+  });
+}
+
+function patchProjectionDriverRow(
+  workbook: XLSX.WorkBook,
+  patches: TemplatePatch[],
+  sheet: string,
+  row: number,
+  value: number,
+  label: string,
+  source: string,
+) {
+  ["D", "E", "F", "G", "H", "I", "J"].forEach((column) => {
+    writeTemplateCell(workbook, patches, sheet, `${column}${row}`, value, label, source);
+  });
+}
+
+function writeTemplateCell(
+  workbook: XLSX.WorkBook,
+  patches: TemplatePatch[],
+  sheet: string,
+  cellAddress: string,
+  value: string | number,
+  label: string,
+  source: string,
+) {
+  const worksheet = workbook.Sheets[sheet];
+
+  if (!worksheet) {
+    return;
+  }
+
+  const existing = worksheet[cellAddress] ?? {};
+  const nextCell: XLSX.CellObject = {
+    ...existing,
+    t: typeof value === "number" ? "n" : "s",
+    v: typeof value === "number" ? finiteNumber(value) : value,
+  };
+
+  delete nextCell.f;
+  delete nextCell.w;
+  worksheet[cellAddress] = nextCell;
+  patches.push({ sheet, cell: cellAddress, label, value, source });
+}
+
+function writeTemplateFormulaCell(
+  workbook: XLSX.WorkBook,
+  patches: TemplatePatch[],
+  sheet: string,
+  cellAddress: string,
+  formula: string,
+  cachedValue: string | number,
+  label: string,
+  source: string,
+) {
+  const worksheet = workbook.Sheets[sheet];
+
+  if (!worksheet) {
+    return;
+  }
+
+  const existing = worksheet[cellAddress] ?? {};
+  const nextCell: XLSX.CellObject = {
+    ...existing,
+    t: typeof cachedValue === "number" ? "n" : "s",
+    v: typeof cachedValue === "number" ? finiteNumber(cachedValue) : cachedValue,
+    f: formula,
+  };
+
+  delete nextCell.w;
+  worksheet[cellAddress] = nextCell;
+  patches.push({ sheet, cell: cellAddress, label, value: cachedValue, source });
+}
+
+function writeTemplateTextIfPresent(
+  workbook: XLSX.WorkBook,
+  patches: TemplatePatch[],
+  sheet: string,
+  cellAddress: string,
+  value: string,
+  label: string,
+) {
+  if (!value.trim()) {
+    return;
+  }
+
+  writeTemplateCell(workbook, patches, sheet, cellAddress, value, label, "Resolved WACC assumptions");
+}
+
+function writeTemplateNumberIfPresent(
+  workbook: XLSX.WorkBook,
+  patches: TemplatePatch[],
+  sheet: string,
+  cellAddress: string,
+  value: string,
+  label: string,
+) {
+  if (!value.trim()) {
+    return;
+  }
+
+  writeTemplateCell(workbook, patches, sheet, cellAddress, parseInputNumber(value), label, "Resolved WACC assumptions");
+}
+
+function writeTemplateRateIfPresent(
+  workbook: XLSX.WorkBook,
+  patches: TemplatePatch[],
+  sheet: string,
+  cellAddress: string,
+  value: string,
+  label: string,
+) {
+  writeTemplateNumberIfPresent(workbook, patches, sheet, cellAddress, value, label);
+}
+
+function aggregateMappedRows(mappedRows: MappedRow[], periodId: string, categories: AccountCategory[]): number {
+  return mappedRows.reduce((sum, item) => {
+    if (!categories.includes(item.effectiveCategory)) {
+      return sum;
+    }
+
+    return sum + parseInputNumber(item.row.values[periodId] ?? "");
+  }, 0);
+}
+
+function templateColumnForPeriod(period: Period): "C" | "D" | "E" | null {
+  const yearOffset = getPeriodYearOffset(period);
+
+  if (yearOffset === -2) {
+    return "C";
+  }
+
+  if (yearOffset === -1) {
+    return "D";
+  }
+
+  if (yearOffset === 0) {
+    return "E";
+  }
+
+  return null;
+}
+
+function matchesTemplateAssetClass(assetName: string, key: string): boolean {
+  const normalized = assetName.toLowerCase();
+
+  if (key === "land") {
+    return normalized.includes("land") || normalized.includes("tanah");
+  }
+
+  if (key === "building") {
+    return normalized.includes("building") || normalized.includes("bangunan");
+  }
+
+  if (key === "equipment") {
+    return normalized.includes("equipment") || normalized.includes("laboratory") || normalized.includes("machinery") || normalized.includes("sarana") || normalized.includes("prasarana");
+  }
+
+  if (key === "vehicle") {
+    return normalized.includes("vehicle") || normalized.includes("heavy") || normalized.includes("kendaraan") || normalized.includes("alat berat");
+  }
+
+  if (key === "officeInventory") {
+    return normalized.includes("office") || normalized.includes("inventory") || normalized.includes("inventaris");
+  }
+
+  if (key === "electrical") {
+    return normalized.includes("electrical") || normalized.includes("listrik");
+  }
+
+  return false;
+}
+
+function dlomTemplateCompanyMarketability(companyType: string): string {
+  return companyType === "Terbuka (Tbk)" ? "DLOM Perusahaan terbuka " : "DLOM Perusahaan tertutup ";
+}
+
+function dlocTemplateCompanyBasis(companyType: string): string {
+  return companyType === "Terbuka (Tbk)" ? "DLOC Perusahaan terbuka " : "DLOC Perusahaan tertutup ";
+}
+
 function appendAamLines(rows: SheetRow[], title: string, lines: AamAdjustmentLine[]): string {
   rows.push([]);
   rows.push([title]);
@@ -821,7 +1341,14 @@ function buildWorkbookFilename(companyName: string, exportedAt: Date): string {
   const datePart = exportedAt.toISOString().slice(0, 10);
   const companyPart = slugify(companyName || "penilaian-valuasi-bisnis");
 
-  return `${companyPart}-valuation-export-${datePart}.xlsx`;
+  return `${companyPart}-valuation-export-v1-${datePart}.xlsx`;
+}
+
+function buildTemplateWorkbookFilename(companyName: string, exportedAt: Date): string {
+  const datePart = exportedAt.toISOString().slice(0, 10);
+  const companyPart = slugify(companyName || "penilaian-valuasi-bisnis");
+
+  return `${companyPart}-valuation-export-v2-template-clone-${datePart}.xlsx`;
 }
 
 function slugify(value: string): string {

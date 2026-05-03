@@ -336,12 +336,12 @@ test("exports the active workbench state as a multi-sheet XLSX workbook", async 
   await page.getByRole("button", { name: "Muat contoh workbook" }).click();
 
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Export XLSX" }).click();
+  await page.getByRole("button", { name: "Export XLSX V1" }).click();
   const download = await downloadPromise;
   const downloadPath = await download.path();
 
   assertDownloadPath(downloadPath);
-  expect(download.suggestedFilename()).toMatch(/valuation-export-\d{4}-\d{2}-\d{2}\.xlsx$/);
+  expect(download.suggestedFilename()).toMatch(/valuation-export-v1-\d{4}-\d{2}-\d{2}\.xlsx$/);
 
   const workbook = XLSX.readFile(downloadPath);
   expect(workbook.SheetNames).toEqual([
@@ -362,6 +362,34 @@ test("exports the active workbench state as a multi-sheet XLSX workbook", async 
   expect(workbook.Sheets["00_Summary"]["A1"].v).toBe("Penilaian Bisnis II - Workbook Export");
   expect(workbook.Sheets["06_AAM"]["!ref"]).toBeTruthy();
   expect(workbook.Sheets["10_Tax_Simulation"]["Q2"].f).toBe("P2*R2");
+});
+
+test("exports the active workbench state as a template-clone XLSX V2 workbook", async ({ page }) => {
+  await page.getByRole("button", { name: "Muat contoh workbook" }).click();
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export XLSX V2" }).click();
+  const download = await downloadPromise;
+  const downloadPath = await download.path();
+
+  assertDownloadPath(downloadPath);
+  expect(download.suggestedFilename()).toMatch(/valuation-export-v2-template-clone-\d{4}-\d{2}-\d{2}\.xlsx$/);
+
+  const workbook = XLSX.readFile(downloadPath, { cellFormula: true });
+  expect(workbook.SheetNames).toHaveLength(69);
+  expect(workbook.SheetNames[0]).toBe("CATATAN FINAL");
+  expect(workbook.SheetNames).toContain("BALANCE SHEET");
+  expect(workbook.SheetNames).toContain("INCOME STATEMENT");
+  expect(workbook.SheetNames).toContain("AAM");
+  expect(workbook.SheetNames).toContain("DCF");
+  expect(workbook.SheetNames).toContain("SIMULASI POTENSI PAJAK");
+  expect(workbook.SheetNames.at(-1)).toBe("PVB_EXPORT_V2_AUDIT");
+  expect(workbook.Sheets.HOME.B4.v).toBe("Makmur Jaya Sejati Raya");
+  expect(workbook.Sheets["BALANCE SHEET"].E8.v).toBe(717848795);
+  expect(workbook.Sheets["INCOME STATEMENT"].E6.v).toBe(16663916100);
+  expect(workbook.Sheets.DLOM.F34.f).toBe("LEFT(C32,3)+(F33/F31*F32)");
+  expect(workbook.Sheets["DLOC(PFC)"].B20.f).toBe('IF(LOWER(HOME!B7)="tertutup","DLOC Perusahaan tertutup ","DLOC Perusahaan terbuka ")');
+  expect(workbook.Sheets.PVB_EXPORT_V2_AUDIT.A1.v).toBe("Export XLSX V2 Audit");
 });
 
 test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators, and active valuation sources", async ({ page }) => {

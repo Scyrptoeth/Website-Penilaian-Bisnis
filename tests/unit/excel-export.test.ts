@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import type { WorkSheet } from "xlsx";
 import { buildAamAdjustmentModel } from "../../src/lib/valuation/aam-adjustments";
@@ -16,7 +17,7 @@ import {
 } from "../../src/lib/valuation/case-model";
 import { buildSampleDlocPfcState, calculateDlocPfc } from "../../src/lib/valuation/dloc-pfc";
 import { buildSampleDlomState, calculateDlom } from "../../src/lib/valuation/dlom";
-import { buildValuationWorkbook } from "../../src/lib/valuation/excel-export";
+import { buildValuationTemplateWorkbook, buildValuationWorkbook, type ValuationExcelExportInput } from "../../src/lib/valuation/excel-export";
 import { buildWorkbenchReadiness } from "../../src/lib/valuation/readiness";
 import { buildSectionAnalysis } from "../../src/lib/valuation/section-analysis";
 import { buildSampleTaxSimulationState, calculateTaxSimulation } from "../../src/lib/valuation/tax-simulation";
@@ -24,6 +25,57 @@ import { buildValidationChecks } from "../../src/lib/valuation/validation-checks
 
 describe("valuation Excel export", () => {
   it("builds a multi-sheet workbook with editable formulas for key valuation outputs", () => {
+    const input = buildSampleExportInput();
+    const { workbook, filename } = buildValuationWorkbook(input);
+
+    assert.match(filename, /valuation-export-v1-2026-05-03\.xlsx$/);
+    assert.deepEqual(workbook.SheetNames, [
+      "00_Summary",
+      "01_Case_Profile",
+      "02_Inputs",
+      "03_Fixed_Assets",
+      "04_Assumptions",
+      "05_Snapshot",
+      "06_AAM",
+      "07_EEM",
+      "08_DCF",
+      "09_DLOM_DLOC",
+      "10_Tax_Simulation",
+      "11_Section_Analysis",
+      "12_Audit_Trace",
+    ]);
+
+    assert.match(findFormulaByLabel(workbook.Sheets["06_AAM"], "AAM equity value"), /-/);
+    assert.match(findFormulaByLabel(workbook.Sheets["07_EEM"], "EEM equity value"), /\+/);
+    assert.match(findFormulaByLabel(workbook.Sheets["08_DCF"], "DCF equity value"), /\+/);
+    assert.equal(workbook.Sheets["10_Tax_Simulation"]["Q2"].f, "P2*R2");
+  });
+
+  it("builds a template-clone V2 workbook while preserving the reference sheets and formulas", () => {
+    const templateData = readFileSync("public/templates/kkp-saham-final-account-category-review-update.xlsx");
+    const { workbook, filename } = buildValuationTemplateWorkbook(buildSampleExportInput(), templateData);
+
+    assert.match(filename, /valuation-export-v2-template-clone-2026-05-03\.xlsx$/);
+    assert.equal(workbook.SheetNames.length, 69);
+    assert.equal(workbook.SheetNames[0], "CATATAN FINAL");
+    assert.ok(workbook.SheetNames.includes("BALANCE SHEET"));
+    assert.ok(workbook.SheetNames.includes("INCOME STATEMENT"));
+    assert.ok(workbook.SheetNames.includes("AAM"));
+    assert.ok(workbook.SheetNames.includes("DCF"));
+    assert.ok(workbook.SheetNames.includes("SIMULASI POTENSI PAJAK"));
+    assert.equal(workbook.SheetNames.at(-1), "PVB_EXPORT_V2_AUDIT");
+    assert.equal(workbook.Sheets.HOME.B4.v, "Makmur Jaya Sejati Raya");
+    assert.equal(workbook.Sheets.HOME.B19.v, 2022);
+    assert.equal(workbook.Sheets["BALANCE SHEET"].E8.v, 717848795);
+    assert.equal(workbook.Sheets["INCOME STATEMENT"].E6.v, 16663916100);
+    assert.equal(workbook.Sheets.DLOM.F34.f, "LEFT(C32,3)+(F33/F31*F32)");
+    assert.equal(workbook.Sheets["DLOC(PFC)"].B20.f, 'IF(LOWER(HOME!B7)="tertutup","DLOC Perusahaan tertutup ","DLOC Perusahaan terbuka ")');
+    assert.equal(workbook.Sheets["SIMULASI POTENSI PAJAK"].E1.f, 'IF(C1="AAM", AAM!E53, IF(C1="EEM", EEM!D34, IF(C1="DCF", DCF!C33, "")))');
+    assert.equal(workbook.Sheets.PVB_EXPORT_V2_AUDIT.A1.v, "Export XLSX V2 Audit");
+  });
+});
+
+function buildSampleExportInput(): ValuationExcelExportInput {
     const periods = buildSamplePeriods();
     const rows = buildSampleRows();
     const mappedRows = rows.map(mapRow);
@@ -74,7 +126,7 @@ describe("valuation Excel export", () => {
       taxSimulation,
     });
 
-    const { workbook, filename } = buildValuationWorkbook({
+    return {
       periods,
       activePeriodId: "p2021",
       rows,
@@ -96,31 +148,8 @@ describe("valuation Excel export", () => {
       readiness,
       validationChecks,
       exportedAt: new Date("2026-05-03T00:00:00.000Z"),
-    });
-
-    assert.match(filename, /valuation-export-2026-05-03\.xlsx$/);
-    assert.deepEqual(workbook.SheetNames, [
-      "00_Summary",
-      "01_Case_Profile",
-      "02_Inputs",
-      "03_Fixed_Assets",
-      "04_Assumptions",
-      "05_Snapshot",
-      "06_AAM",
-      "07_EEM",
-      "08_DCF",
-      "09_DLOM_DLOC",
-      "10_Tax_Simulation",
-      "11_Section_Analysis",
-      "12_Audit_Trace",
-    ]);
-
-    assert.match(findFormulaByLabel(workbook.Sheets["06_AAM"], "AAM equity value"), /-/);
-    assert.match(findFormulaByLabel(workbook.Sheets["07_EEM"], "EEM equity value"), /\+/);
-    assert.match(findFormulaByLabel(workbook.Sheets["08_DCF"], "DCF equity value"), /\+/);
-    assert.equal(workbook.Sheets["10_Tax_Simulation"]["Q2"].f, "P2*R2");
-  });
-});
+    };
+}
 
 function findFormulaByLabel(sheet: WorkSheet, label: string): string {
   const rangeText = sheet["!ref"];
