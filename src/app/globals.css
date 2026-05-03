@@ -2454,6 +2454,42 @@ td span {
   grid-column: 1 / -1;
 }
 
+.audit-disclosure {
+  margin-top: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-raised);
+}
+
+.audit-disclosure.compact {
+  margin-top: 10px;
+}
+
+.audit-disclosure summary {
+  min-height: 40px;
+  padding: 10px 12px;
+  cursor: pointer;
+  color: var(--accent-ink);
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.audit-disclosure[open] summary {
+  border-bottom: 1px solid var(--line);
+}
+
+.audit-disclosure-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 10px;
+}
+
+.audit-disclosure .metric-trace-grid {
+  margin: 10px;
+}
+
 .field textarea,
 .dlom-table textarea {
   width: 100%;
@@ -2811,6 +2847,7 @@ td span {
   .sensitivity-grid,
   .active-driver-strip,
   .audit-reference-grid,
+  .audit-disclosure-grid,
   .data-awal-grid,
   .case-transaction-grid,
   .dlom-control-grid,

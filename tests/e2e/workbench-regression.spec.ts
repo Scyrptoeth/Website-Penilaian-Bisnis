@@ -172,6 +172,7 @@ test("DLOM and tax simulation render workbook-derived scenario layer after loadi
   await expect(page.getByTestId("dlom-basis-grid")).toContainText("Isi Data Awal");
   await expect(page.getByTestId("dlom-basis-grid").locator("select")).toHaveCount(0);
   await expect(page.getByTestId("dlom-summary")).toContainText("Belum lengkap");
+  await expect(page.getByTestId("dlom-factor-table")).toContainText("Belum lengkap");
 
   await page.getByRole("button", { name: "Muat contoh workbook" }).click();
 
@@ -207,6 +208,7 @@ test("DLOM and tax simulation render workbook-derived scenario layer after loadi
   await expect(page.getByTestId("dlom-factor-table")).toContainText("Keterangan Tambahan");
   await expect(page.getByTestId("dlom-factor-table")).not.toContainText("Alasan override");
   await expect(page.getByTestId("dlom-factor-table")).toContainText("Entry Barrier Perijinan Usaha");
+  await expect(page.getByTestId("dlom-factor-table")).toContainText("Terisi");
   await expect(page.getByLabel("Jawaban DLOM Profitabilitas (EBITDA)")).toHaveValue("Diatas");
 
   await page.setViewportSize({ width: 2430, height: 1350 });
@@ -246,14 +248,22 @@ test("DLOM and tax simulation render workbook-derived scenario layer after loadi
   await expect(page.getByTestId("tax-simulation-table")).toContainText("Primary");
   await expect(page.getByTestId("tax-simulation-table")).toContainText("Rate otomatis dari tab DLOC/PFC");
   await expect(page.getByText("AAM primary method")).toBeVisible();
+  await expect(page.getByLabel("Catatan skenario manual")).not.toBeVisible();
+  await expect(page.getByText("Jejak audit basis perhitungan")).toBeVisible();
+  await expect(page.getByText("Hubungan ke base valuation")).toHaveCount(0);
+  await expect(page.getByText("Detail sumber tarif dan dasar hukum")).toBeVisible();
+  await expect(page.getByText("Effective rate")).not.toBeVisible();
 
   await page.getByLabel("Basis final").selectOption("manualScenario");
   await page.getByLabel("Skenario DLOM").fill("0,1");
   await page.getByLabel("Skenario DLOC/PFC").fill("0,2");
+  await page.getByText("Catatan audit skenario").click();
   await page.getByLabel("Catatan skenario manual").fill("Reviewer what-if");
   await expect(page.getByTestId("tax-simulation-summary")).toContainText("Final memakai Skenario manual");
   await expect(page.getByTestId("tax-simulation-table")).toContainText("Skenario manual");
   await expect(page.getByText("DLOM skenario")).toBeVisible();
+  await page.getByText("Detail sumber tarif dan dasar hukum").click();
+  await expect(page.getByText("Effective rate")).toBeVisible();
 });
 
 test("legacy workbook-like DLOM drafts migrate to workbook UPDATE basis without showing formula UI", async ({ page }) => {

@@ -2170,6 +2170,7 @@ function DlomSection({
                           </option>
                         ))}
                       </select>
+                      {factor.status === "missing" ? <span className="badge warning">Belum lengkap</span> : <span className="badge ok">Terisi</span>}
                       {factor.isOverride ? <span className="badge warning">Override rekomendasi</span> : null}
                     </td>
                     <td className="numeric-cell">{formatNumber(factor.score)}</td>
@@ -2446,19 +2447,24 @@ function TaxSimulationSection({
             <span>Skenario DLOC/PFC</span>
             <input inputMode="decimal" value={state.scenarioDlocPfcRate} onChange={(event) => onUpdate({ scenarioDlocPfcRate: event.target.value })} placeholder="Input positif; sistem tentukan DLOC/PFC" />
           </label>
-          <label className="field wide">
-            <span>Catatan skenario manual</span>
-            <textarea
-              value={state.scenarioReason}
-              onChange={(event) => onUpdate({ scenarioReason: event.target.value })}
-              placeholder="Isi bila skenario manual dipakai sebagai basis final; tidak mengubah tab DLOM atau DLOC/PFC."
-            />
-          </label>
-          <label className="field wide">
-            <span>Catatan simulasi</span>
-            <textarea value={state.note} onChange={(event) => onUpdate({ note: event.target.value })} placeholder="Dasar pemilihan metode, posisi DLOM, dan catatan review pajak." />
-          </label>
         </div>
+        <details className="audit-disclosure">
+          <summary>Catatan audit skenario</summary>
+          <div className="audit-disclosure-grid">
+            <label className="field">
+              <span>Catatan skenario manual</span>
+              <textarea
+                value={state.scenarioReason}
+                onChange={(event) => onUpdate({ scenarioReason: event.target.value })}
+                placeholder="Isi bila skenario manual dipakai sebagai basis final; tidak mengubah tab DLOM atau DLOC/PFC."
+              />
+            </label>
+            <label className="field">
+              <span>Catatan simulasi</span>
+              <textarea value={state.note} onChange={(event) => onUpdate({ note: event.target.value })} placeholder="Dasar pemilihan metode, posisi DLOM, dan catatan review pajak." />
+            </label>
+          </div>
+        </details>
       </section>
 
       {result.warnings.length > 0 ? (
@@ -2583,23 +2589,16 @@ function TaxSimulationSection({
         </div>
       </section>
 
-      <section className="split-panel">
-        <article className="panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Formula trace</p>
-              <h3>{primaryRow ? `${primaryRow.method} primary method` : "Primary Method belum dipilih"}</h3>
-            </div>
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Formula trace</p>
+            <h3>{primaryRow ? `${primaryRow.method} primary method` : "Primary Method belum dipilih"}</h3>
           </div>
-          {primaryRow ? <FormulaList traces={primaryRow.traces} /> : <div className="empty-state">Pilih Primary Method untuk melihat jejak formula final.</div>}
-        </article>
-        <article className="panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Audit position</p>
-              <h3>Hubungan ke base valuation</h3>
-            </div>
-          </div>
+        </div>
+        {primaryRow ? <FormulaList traces={primaryRow.traces} /> : <div className="empty-state">Pilih Primary Method untuk melihat jejak formula final.</div>}
+        <details className="audit-disclosure compact">
+          <summary>Jejak audit basis perhitungan</summary>
           <MetricTraceGrid
             metrics={[
               ["Base AAM/EEM/DCF", "Before DLOM dan before DLOC/PFC"],
@@ -2608,7 +2607,7 @@ function TaxSimulationSection({
               ["Skenario manual", "Tidak mengubah tab DLOM dan DLOC/PFC"],
             ]}
           />
-        </article>
+        </details>
       </section>
 
       {primaryRow?.taxBrackets.length ? (
@@ -2647,14 +2646,17 @@ function TaxSimulationSection({
               </tbody>
             </table>
           </div>
-          <MetricTraceGrid
-            metrics={[
-              ["Dasar hukum", primaryRow.taxSourceLegalBasis],
-              ["Sumber tarif", primaryRow.taxSourceTitle],
-              ["Catatan", primaryRow.taxSourceNote],
-              ["Effective rate", formatPercent(primaryRow.effectiveTaxRate)],
-            ]}
-          />
+          <details className="audit-disclosure compact">
+            <summary>Detail sumber tarif dan dasar hukum</summary>
+            <MetricTraceGrid
+              metrics={[
+                ["Dasar hukum", primaryRow.taxSourceLegalBasis],
+                ["Sumber tarif", primaryRow.taxSourceTitle],
+                ["Catatan", primaryRow.taxSourceNote],
+                ["Effective rate", formatPercent(primaryRow.effectiveTaxRate)],
+              ]}
+            />
+          </details>
         </section>
       ) : null}
     </>
