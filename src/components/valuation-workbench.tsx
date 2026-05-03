@@ -105,6 +105,7 @@ import {
   createEmptyDlomState,
   dlomFactorDefinitions,
   normalizeDlomState,
+  workbookUpdateDlomBasisOverride,
   type DlomBasisOverride,
   type DlomFactorId,
   type DlomState,
@@ -305,7 +306,7 @@ const requiredReturnSuggestionOrder: RequiredReturnOnNtaSuggestionKey[] = [
 const WORKBENCH_STORAGE_KEY = "penilaian-valuasi-bisnis.workbench.v1";
 const WORKBENCH_SCROLL_STORAGE_KEY = "penilaian-valuasi-bisnis.scroll.v1";
 const WORKBENCH_SIDEBAR_STORAGE_KEY = "penilaian-valuasi-bisnis.sidebar.v1";
-const WORKBENCH_STORAGE_VERSION = 8;
+const WORKBENCH_STORAGE_VERSION = 9;
 
 type PersistedWorkbenchState = {
   version: typeof WORKBENCH_STORAGE_VERSION;
@@ -2117,7 +2118,6 @@ function DlomSection({
             source={calculation.interestBasisSource}
           />
           <DerivedCaseField label="Rentang DLOM" value={calculation.rangeLabel} />
-          <DerivedCaseField label="Formula" value="DLOM!F34 = LEFT(C32,3)+(F33/F31*F32)" />
         </div>
         <MetricTraceGrid
           metrics={[
@@ -3065,7 +3065,12 @@ function readPersistedWorkbenchState(): PersistedWorkbenchState | null {
     const aamAdjustments = sanitizeAamAdjustments(parsed.aamAdjustments);
     const assumptions = sanitizeAssumptions(parsed.assumptions);
     const caseProfile = sanitizeCaseProfile(parsed.caseProfile);
-    const dlom = sanitizeDlomState(parsed.dlom);
+    const dlom = migrateWorkbookUpdateDlomBasisIfNeeded({
+      version: parsed.version,
+      dlom: sanitizeDlomState(parsed.dlom),
+      caseProfile,
+      rows,
+    });
     const dlocPfc = sanitizeDlocPfcState(parsed.dlocPfc);
     const taxSimulation = sanitizeTaxSimulationState(parsed.taxSimulation);
     const activePeriodId = typeof parsed.activePeriodId === "string" ? parsed.activePeriodId : "";
@@ -3328,6 +3333,52 @@ function sanitizeDlomState(value: unknown): DlomState {
   ) as DlomState["factors"];
 
   return normalizeDlomState({ factors, basisOverride });
+}
+
+function migrateWorkbookUpdateDlomBasisIfNeeded({
+  version,
+  dlom,
+  caseProfile,
+  rows,
+}: {
+  version: number;
+  dlom: DlomState;
+  caseProfile: CaseProfile;
+  rows: AccountRow[];
+}): DlomState {
+  if (version >= WORKBENCH_STORAGE_VERSION || dlom.basisOverride || !isLegacySampleWorkbookDraft(caseProfile, dlom, rows)) {
+    return dlom;
+  }
+
+  return normalizeDlomState({
+    ...dlom,
+    basisOverride: workbookUpdateDlomBasisOverride,
+  });
+}
+
+function isLegacySampleWorkbookDraft(caseProfile: CaseProfile, dlom: DlomState, rows: AccountRow[]): boolean {
+  if (
+    caseProfile.objectTaxpayerName !== "Makmur Jaya Sejati Raya" ||
+    caseProfile.companyType !== "Tertutup" ||
+    caseProfile.shareOwnershipType !== "Minoritas"
+  ) {
+    return false;
+  }
+
+  const rowIds = new Set(rows.map((row) => row.id));
+
+  if (!rowIds.has("sample-revenue") || !rowIds.has("sample-cash-hand")) {
+    return false;
+  }
+
+  const sampleDlom = buildSampleDlomState();
+
+  return dlomFactorDefinitions.every((definition) => {
+    const current = dlom.factors[definition.id];
+    const sample = sampleDlom.factors[definition.id];
+
+    return current.answer === sample.answer;
+  });
 }
 
 function sanitizeDlocPfcState(value: unknown): DlocPfcState {

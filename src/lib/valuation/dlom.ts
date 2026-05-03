@@ -90,7 +90,7 @@ const emptyRecommendation: DlomRecommendation = {
   source: "Manual reviewer judgment",
 };
 
-const sampleWorkbookDlomBasisOverride: DlomBasisOverride = {
+export const workbookUpdateDlomBasisOverride: DlomBasisOverride = {
   interestBasis: "Mayoritas",
   sourceLabel: "Workbook UPDATE DLOM!C31",
 };
@@ -229,7 +229,7 @@ export function createEmptyDlomState(): DlomState {
 
 export function buildSampleDlomState(): DlomState {
   return {
-    basisOverride: sampleWorkbookDlomBasisOverride,
+    basisOverride: workbookUpdateDlomBasisOverride,
     factors: {
       licenseEntryBarrier: { answer: "Ada", overrideReason: "" },
       scaleEntryBarrier: { answer: "Segmen Tertentu", overrideReason: "" },

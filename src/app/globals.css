@@ -2436,7 +2436,13 @@ td span {
   text-align: right;
 }
 
-.dlom-control-grid,
+.dlom-control-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
 .tax-control-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
