@@ -4163,7 +4163,6 @@ function WaccMarketSuggestionPanel({
       <AssumptionCalculatorHeader
         label="Saran otomatis"
         value={`${suggestion.year}`}
-        impact="Input pasar tahunan; hasil WACC tetap harus melewati tinjauan tata kelola."
       />
       <div className="table-wrap wacc-source-table">
         <table>
@@ -4236,7 +4235,6 @@ function WaccCalculatorPanel({
       <AssumptionCalculatorHeader
         label="Kalkulator WACC"
         value={calculation ? formatPercent(calculation.wacc) : formatRateInput(assumptions.wacc)}
-        impact="DCF discount rate dan EEM capitalization rate"
       />
       <InlineGovernanceList title="Tata kelola WACC" items={waccGovernanceItems} />
       <div className="calculator-input-grid">
@@ -4825,14 +4823,14 @@ function formatRequiredReturnFormulaLabel(calculation: RequiredReturnOnNtaCalcul
   return "100% ekuitas x Ke";
 }
 
-function AssumptionCalculatorHeader({ label, value, impact }: { label: string; value: string; impact: string }) {
+function AssumptionCalculatorHeader({ label, value, impact }: { label: string; value: string; impact?: string }) {
   return (
     <div className="assumption-calculator-heading">
       <div>
         <span>{label}</span>
         <strong>{value}</strong>
       </div>
-      <small>{impact}</small>
+      {impact ? <small>{impact}</small> : null}
     </div>
   );
 }

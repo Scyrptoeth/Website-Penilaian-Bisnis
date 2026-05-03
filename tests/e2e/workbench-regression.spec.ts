@@ -308,9 +308,11 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await openWorkflowTab(page, "WACC");
   await expect(page.getByTestId("wacc-suggestion-card")).toContainText("2023");
   await expect(page.getByTestId("wacc-suggestion-card")).toContainText("Equity Risk Premium");
+  await expect(page.getByTestId("wacc-suggestion-card")).not.toContainText("Input pasar tahunan");
   await page.getByRole("button", { name: /Isi input pasar 2023/ }).click();
   await expect(page.getByTestId("wacc-calculator")).toContainText("Default spread berbasis rating");
   await expect(page.getByTestId("wacc-calculator")).toContainText("isi dengan beta manual yang memiliki sumber dan justifikasi penilai");
+  await expect(page.getByTestId("wacc-calculator")).not.toContainText("DCF discount rate dan EEM capitalization rate");
   await expect(page.getByTestId("wacc-calculator")).not.toContainText("DISCOUNT RATE");
   await expect(page.getByTestId("wacc-comparable-table")).toContainText("Perusahaan Pembanding");
   await expect(page.getByTestId("wacc-capital-structure-table")).toContainText("Struktur Kapital");
