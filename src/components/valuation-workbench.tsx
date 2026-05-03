@@ -332,7 +332,6 @@ const workflowTabs: Array<{ id: WorkflowTabId; label: string }> = [
   { id: "periods", label: "Data Awal" },
   { id: "balance", label: "Neraca & Aset Tetap" },
   { id: "income", label: "Laba Rugi" },
-  { id: "mapping", label: "Pemetaan & Label" },
   { id: "wacc", label: "WACC" },
   { id: "eemDcfAssumptions", label: "Asumsi EEM/DCF" },
   { id: "valuationAam", label: "Penilaian AAM" },

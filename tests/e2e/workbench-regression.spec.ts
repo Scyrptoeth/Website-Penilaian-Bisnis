@@ -10,6 +10,7 @@ test.beforeEach(async ({ page }) => {
 test("period workflow, scoped categories, and display-only balance sheet classification", async ({ page }) => {
   await expect(page.locator(".mobile-workflow-tabs")).toBeHidden();
   await expect(workflowNav(page).getByRole("button", { name: "Data Awal" })).toHaveAttribute("aria-current", "page");
+  await expect(workflowNav(page).getByRole("button", { name: "Pemetaan & Label" })).toHaveCount(0);
   await expect(page.getByTestId("case-profile-panel")).toBeVisible();
   await expect(page.getByRole("button", { name: /Buat checkpoint/i })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Kembali checkpoint/i })).toHaveCount(0);

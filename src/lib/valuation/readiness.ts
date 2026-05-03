@@ -86,6 +86,8 @@ export function buildWorkbenchReadiness({
     snapshot.totalLiabilities !== 0;
   const hasIncomeInput =
     rows.some((row) => row.statement === "income_statement") || snapshot.revenue !== 0 || snapshot.ebit !== 0 || snapshot.commercialNpat !== 0;
+  const hasBalanceRows = rows.some((row) => row.statement === "balance_sheet") || fixedAssetSchedule.hasInput;
+  const hasIncomeRowsOnly = rows.some((row) => row.statement === "income_statement") && !hasBalanceRows;
   const hasTaxRate = assumptions.taxRate.trim() !== "";
   const hasWacc = assumptions.wacc.trim() !== "" || calculateWaccAssumption(assumptions) !== null;
   const hasWaccMarketInputs =
@@ -127,7 +129,12 @@ export function buildWorkbenchReadiness({
   const comparativePeriod = criterion(hasComparativePeriod, "Minimal dua periode untuk movement dan cash-flow bridge", "periods", "Tambah Periode");
   const balance = criterion(hasBalanceInput, "Data neraca / fixed asset tersedia", "balance", "Isi Neraca");
   const income = criterion(hasIncomeInput, "Data laba rugi tersedia", "income", "Isi Laba Rugi");
-  const mapped = criterion(hasMappedAccount, "Akun sudah dipetakan atau siap ditinjau", "mapping", "Review Mapping");
+  const mapped = criterion(
+    hasMappedAccount,
+    "Akun sudah dikategorikan atau siap ditinjau",
+    hasIncomeRowsOnly ? "income" : "balance",
+    "Tinjau Kategori Akun",
+  );
   const anyAccount = criterion(hasAnyAccountInput, "Minimal satu akun/schedule sudah diinput", "balance", "Isi Akun");
   const taxRateForEemDcf = criterion(hasTaxRate, "Tarif pajak tersedia", "eemDcfAssumptions", "Isi Asumsi EEM/DCF");
   const taxRateForWacc = criterion(hasTaxRate, "Tarif pajak untuk after-tax cost of debt tersedia", "eemDcfAssumptions", "Isi Tarif Pajak");
@@ -180,7 +187,7 @@ export function buildWorkbenchReadiness({
     periods: status("periods", "Data Awal", [period]),
     balance: status("balance", "Neraca & Aset Tetap", [period]),
     income: status("income", "Laba Rugi", [period, income]),
-    mapping: status("mapping", "Pemetaan & Label", [anyAccount, mapped]),
+    mapping: status("mapping", "Kategorisasi Akun", [anyAccount, mapped]),
     wacc: status("wacc", "WACC", [period, taxRateForWacc, waccMarketInputs, wacc]),
     eemDcfAssumptions: status("eemDcfAssumptions", "Asumsi EEM/DCF", [period], [
       taxRateForEemDcf,

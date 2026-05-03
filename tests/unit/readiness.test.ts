@@ -53,6 +53,8 @@ describe("workbench readiness", () => {
     assert.ok(readiness.dlom.missing.some((item) => item.targetTab === "periods"));
     assert.ok(readiness.noplatFcf.missing.some((item) => item.targetTab === "eemDcfAssumptions"));
     assert.ok(readiness.payablesCashFlow.fulfilled.some((item) => item.targetTab === "periods"));
+    assert.ok(readiness.valuationAam.missing.every((item) => item.targetTab !== "mapping"));
+    assert.ok(readiness.valuationEemDcf.missing.every((item) => item.targetTab !== "mapping"));
   });
 
   it("marks sample workbook-derived data ready for the added analysis sections", () => {
