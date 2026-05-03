@@ -100,6 +100,26 @@ import { buildWorkbenchReadiness, type SectionReadiness, type WorkbenchReadiness
 import { buildSectionAnalysis, type AnalysisRow, type AnalysisValue, type PeriodAnalysis, type RatioRow, type SectionAnalysis } from "@/lib/valuation/section-analysis";
 import { buildValidationChecks } from "@/lib/valuation/validation-checks";
 import {
+  buildSampleDlomState,
+  calculateDlom,
+  createEmptyDlomState,
+  dlomFactorDefinitions,
+  normalizeDlomState,
+  type DlomCompanyMarketability,
+  type DlomFactorId,
+  type DlomState,
+  type DlomInterestBasis,
+  type DlomCalculation,
+} from "@/lib/valuation/dlom";
+import {
+  buildSampleTaxSimulationState,
+  calculateTaxSimulation,
+  createEmptyTaxSimulationState,
+  normalizeTaxSimulationState,
+  type TaxSimulationResult,
+  type TaxSimulationState,
+} from "@/lib/valuation/tax-simulation";
+import {
   buildAssumptionGovernance,
   type AssumptionGovernanceItem,
   type AssumptionGovernanceResult,
@@ -143,7 +163,7 @@ import {
   buildTerminalGrowthSuggestion,
   type TerminalGrowthSuggestion,
 } from "@/lib/valuation/terminal-growth-suggestions";
-import type { AccountCategory, FormulaTrace } from "@/lib/valuation/types";
+import type { AccountCategory, FormulaTrace, ValuationMethod } from "@/lib/valuation/types";
 const confidenceBandLabels: Record<ReturnType<typeof mapRow>["mapping"]["confidenceBand"], string> = {
   high: "Tinggi",
   medium: "Sedang",
@@ -275,7 +295,7 @@ const requiredReturnSuggestionOrder: RequiredReturnOnNtaSuggestionKey[] = [
 const WORKBENCH_STORAGE_KEY = "penilaian-valuasi-bisnis.workbench.v1";
 const WORKBENCH_SCROLL_STORAGE_KEY = "penilaian-valuasi-bisnis.scroll.v1";
 const WORKBENCH_SIDEBAR_STORAGE_KEY = "penilaian-valuasi-bisnis.sidebar.v1";
-const WORKBENCH_STORAGE_VERSION = 4;
+const WORKBENCH_STORAGE_VERSION = 5;
 
 type PersistedWorkbenchState = {
   version: typeof WORKBENCH_STORAGE_VERSION;
@@ -288,6 +308,8 @@ type PersistedWorkbenchState = {
   aamAdjustments: AamAdjustmentState;
   assumptions: AssumptionState;
   caseProfile: CaseProfile;
+  dlom: DlomState;
+  taxSimulation: TaxSimulationState;
 };
 
 type WorkbenchCoreState = Omit<PersistedWorkbenchState, "version" | "savedAt">;
@@ -303,6 +325,8 @@ const workflowTabs: Array<{ id: WorkflowTabId; label: string }> = [
   { id: "eemDcfAssumptions", label: "Asumsi EEM/DCF" },
   { id: "valuationAam", label: "Penilaian AAM" },
   { id: "valuationEemDcf", label: "Penilaian EEM/DCF" },
+  { id: "dlom", label: "DLOM" },
+  { id: "taxSimulation", label: "Simulasi Potensi Pajak" },
   { id: "payablesCashFlow", label: "Utang & Arus Kas" },
   { id: "noplatFcf", label: "NOPLAT & FCF" },
   { id: "ratiosCapital", label: "Rasio & Efisiensi Modal" },
@@ -320,6 +344,8 @@ export function ValuationWorkbench() {
   const [aamAdjustments, setAamAdjustments] = useState<AamAdjustmentState>({});
   const [assumptions, setAssumptions] = useState<AssumptionState>(emptyAssumptions);
   const [caseProfile, setCaseProfile] = useState<CaseProfile>(emptyCaseProfile);
+  const [dlom, setDlom] = useState<DlomState>(createEmptyDlomState);
+  const [taxSimulation, setTaxSimulation] = useState<TaxSimulationState>(createEmptyTaxSimulationState);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isDraftRestored, setIsDraftRestored] = useState(false);
   const [activeWorkflowTab, setActiveWorkflowTab] = useState<WorkflowTabId>("periods");
@@ -401,6 +427,19 @@ export function ValuationWorkbench() {
       aamAdjustmentModel.missingNoteCount,
       snapshot,
     ],
+  );
+  const dlomCalculation = useMemo(() => calculateDlom(dlom, snapshot), [dlom, snapshot]);
+  const taxSimulationResult = useMemo(
+    () =>
+      calculateTaxSimulation({
+        methods: [results.aam, results.eem, results.dcf],
+        dlom: dlomCalculation,
+        state: taxSimulation,
+        caseProfile,
+        caseProfileDerived,
+        snapshot,
+      }),
+    [caseProfile, caseProfileDerived, dlomCalculation, results.aam, results.dcf, results.eem, snapshot, taxSimulation],
   );
   const sectionAnalysis = useMemo(
     () => buildSectionAnalysis(periods, rows, assumptions, fixedAssetScheduleRows),
@@ -507,7 +546,9 @@ export function ValuationWorkbench() {
         period.valuationDate,
     ) ||
     Object.values(caseProfile).some((value) => value.trim() !== "") ||
-    Object.values(assumptions).some((value) => value.trim() !== "");
+    Object.values(assumptions).some((value) => value.trim() !== "") ||
+    hasDlomInput(dlom) ||
+    hasTaxSimulationInput(taxSimulation);
   const checks = buildValidationChecks(rows, mappedRows, resolvedAssumptions, snapshot, balanceSheetGap, fixedAssetSchedule);
   const readiness = useMemo(
     () => buildWorkbenchReadiness({ periods, rows, mappedRows, assumptions: resolvedAssumptions, snapshot, fixedAssetSchedule }),
@@ -524,6 +565,8 @@ export function ValuationWorkbench() {
       aamAdjustments,
       assumptions,
       caseProfile,
+      dlom,
+      taxSimulation,
     };
   }
 
@@ -536,6 +579,8 @@ export function ValuationWorkbench() {
     setAamAdjustments(state.aamAdjustments);
     setAssumptions(state.assumptions);
     setCaseProfile(state.caseProfile);
+    setDlom(state.dlom);
+    setTaxSimulation(state.taxSimulation);
   }
 
   function commitCoreState(update: (current: WorkbenchCoreState) => WorkbenchCoreState) {
@@ -605,6 +650,8 @@ export function ValuationWorkbench() {
       setAamAdjustments(storedState.aamAdjustments);
       setAssumptions(storedState.assumptions);
       setCaseProfile(storedState.caseProfile);
+      setDlom(storedState.dlom);
+      setTaxSimulation(storedState.taxSimulation);
       setUndoStack([]);
       setRedoStack([]);
     }
@@ -629,8 +676,22 @@ export function ValuationWorkbench() {
       aamAdjustments,
       assumptions,
       caseProfile,
+      dlom,
+      taxSimulation,
     });
-  }, [aamAdjustments, activePeriodId, assumptions, caseProfile, fixedAssetScheduleRows, isDraftRestored, isFixedAssetScheduleEnabled, periods, rows]);
+  }, [
+    aamAdjustments,
+    activePeriodId,
+    assumptions,
+    caseProfile,
+    dlom,
+    fixedAssetScheduleRows,
+    isDraftRestored,
+    isFixedAssetScheduleEnabled,
+    periods,
+    rows,
+    taxSimulation,
+  ]);
 
   useEffect(() => {
     if (!isDraftRestored) {
@@ -898,6 +959,45 @@ export function ValuationWorkbench() {
     }));
   }
 
+  function updateDlomSetting(key: "companyMarketability" | "interestBasis", value: DlomCompanyMarketability | DlomInterestBasis) {
+    commitCoreState((current) => ({
+      ...current,
+      dlom: normalizeDlomState({ ...current.dlom, [key]: value }),
+    }));
+  }
+
+  function updateDlomFactor(id: DlomFactorId, patch: Partial<DlomState["factors"][DlomFactorId]>) {
+    commitCoreState((current) => ({
+      ...current,
+      dlom: normalizeDlomState({
+        ...current.dlom,
+        factors: {
+          ...current.dlom.factors,
+          [id]: {
+            ...current.dlom.factors[id],
+            ...patch,
+          },
+        },
+      }),
+    }));
+  }
+
+  function updateTaxSimulation(patch: Partial<TaxSimulationState>) {
+    commitCoreState((current) => ({
+      ...current,
+      taxSimulation: normalizeTaxSimulationState({
+        ...current.taxSimulation,
+        ...patch,
+        reportedTransferValue:
+          patch.reportedTransferValue !== undefined
+            ? formatEditableNumber(patch.reportedTransferValue)
+            : current.taxSimulation.reportedTransferValue,
+        dlocPfcRate:
+          patch.dlocPfcRate !== undefined ? formatEditableNumber(patch.dlocPfcRate) : current.taxSimulation.dlocPfcRate,
+      }),
+    }));
+  }
+
   function updateWaccComparableName(slot: WaccComparableSlot, value: string) {
     commitCoreState((current) => {
       const selectedComparable = findIdxComparableByLabel(current.caseProfile.companySector, value);
@@ -982,6 +1082,8 @@ export function ValuationWorkbench() {
       aamAdjustments: {},
       assumptions: buildSampleAssumptions(),
       caseProfile: buildSampleCaseProfile(),
+      dlom: buildSampleDlomState(),
+      taxSimulation: buildSampleTaxSimulationState(),
     }));
   }
 
@@ -996,6 +1098,8 @@ export function ValuationWorkbench() {
       aamAdjustments: {},
       assumptions: emptyAssumptions,
       caseProfile: emptyCaseProfile,
+      dlom: createEmptyDlomState(),
+      taxSimulation: createEmptyTaxSimulationState(),
     }));
 
     if (typeof window !== "undefined") {
@@ -1649,6 +1753,29 @@ export function ValuationWorkbench() {
         )
         ) : null}
 
+        {activeWorkflowTab === "dlom" ? (
+          <DlomSection
+            dlom={dlom}
+            calculation={dlomCalculation}
+            readiness={readiness.dlom}
+            onNavigate={navigateToWorkflowTab}
+            onUpdateSetting={updateDlomSetting}
+            onUpdateFactor={updateDlomFactor}
+          />
+        ) : null}
+
+        {activeWorkflowTab === "taxSimulation" ? (
+          <TaxSimulationSection
+            state={taxSimulation}
+            result={taxSimulationResult}
+            dlom={dlomCalculation}
+            caseProfileDerived={caseProfileDerived}
+            readiness={readiness.taxSimulation}
+            onNavigate={navigateToWorkflowTab}
+            onUpdate={updateTaxSimulation}
+          />
+        ) : null}
+
         {activeWorkflowTab === "payablesCashFlow" ? (
           readiness.payablesCashFlow.isReady ? (
             <PayablesCashFlowSection analysis={sectionAnalysis} />
@@ -1867,6 +1994,381 @@ function ReadinessOverview({ readiness, onNavigate }: { readiness: WorkbenchRead
         );
       })}
     </section>
+  );
+}
+
+function DlomSection({
+  dlom,
+  calculation,
+  readiness,
+  onNavigate,
+  onUpdateSetting,
+  onUpdateFactor,
+}: {
+  dlom: DlomState;
+  calculation: DlomCalculation;
+  readiness: SectionReadiness;
+  onNavigate: (tabId: WorkflowTabId) => void;
+  onUpdateSetting: (key: "companyMarketability" | "interestBasis", value: DlomCompanyMarketability | DlomInterestBasis) => void;
+  onUpdateFactor: (id: DlomFactorId, patch: Partial<DlomState["factors"][DlomFactorId]>) => void;
+}) {
+  return (
+    <>
+      <section className="section-grid dlom-summary-grid" data-testid="dlom-summary">
+        <article className="metric-card">
+          <div className="card-title">
+            <Calculator size={20} />
+            <span>DLOM Objek Penilaian</span>
+          </div>
+          <strong>{calculation.isComplete ? formatPercent(calculation.dlomRate) : "Belum lengkap"}</strong>
+          <p>Scenario layer; base AAM/EEM/DCF tetap sebelum DLOM.</p>
+        </article>
+        <article className="metric-card">
+          <div className="card-title">
+            <TableProperties size={20} />
+            <span>Jumlah skor</span>
+          </div>
+          <strong>
+            {formatNumber(calculation.totalScore)} / {formatNumber(calculation.maxScore)}
+          </strong>
+          <p>Baseline workbook: 10 faktor dengan skor 0, 0,5, atau 1.</p>
+        </article>
+        <article className="metric-card">
+          <div className="card-title">
+            <AlertTriangle size={20} />
+            <span>Status & resistensi WP</span>
+          </div>
+          <strong>{calculation.status}</strong>
+          <p>Potensi resistensi wajib pajak: {calculation.taxpayerResistance}.</p>
+        </article>
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Discount Lack of Marketability</p>
+            <h3>Basis dan rentang DLOM</h3>
+          </div>
+          <FileSearch size={22} />
+        </div>
+        <ReadinessPanel status={readiness} onNavigate={onNavigate} />
+        <div className="dlom-control-grid">
+          <label className="field">
+            <span>Basis marketability</span>
+            <select
+              value={dlom.companyMarketability}
+              onChange={(event) => onUpdateSetting("companyMarketability", event.target.value as DlomCompanyMarketability)}
+            >
+              <option value="">Pilih</option>
+              <option value="DLOM Perusahaan tertutup">DLOM Perusahaan tertutup</option>
+              <option value="DLOM Perusahaan terbuka">DLOM Perusahaan terbuka</option>
+            </select>
+          </label>
+          <label className="field">
+            <span>Basis interest yang dinilai</span>
+            <select
+              value={dlom.interestBasis}
+              onChange={(event) => onUpdateSetting("interestBasis", event.target.value as DlomInterestBasis)}
+            >
+              <option value="">Pilih</option>
+              <option value="Minoritas">Minoritas</option>
+              <option value="Mayoritas">Mayoritas</option>
+            </select>
+          </label>
+          <DerivedCaseField label="Rentang DLOM" value={calculation.rangeLabel} />
+          <DerivedCaseField label="Formula" value="Batas bawah + (skor / 10 x selisih rentang)" />
+        </div>
+        <MetricTraceGrid
+          metrics={[
+            ["Range minimum", formatPercent(calculation.rangeMin)],
+            ["Range maksimum", formatPercent(calculation.rangeMax)],
+            ["Selisih rentang", formatPercent(calculation.rangeSpread)],
+            ["DLOM resmi", calculation.isComplete ? formatPercent(calculation.dlomRate) : "Belum lengkap"],
+          ]}
+        />
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Scoring workbook</p>
+            <h3>Faktor, rekomendasi, dan override</h3>
+          </div>
+        </div>
+        <div className="table-wrap dlom-table-wrap">
+          <table className="dlom-table" data-testid="dlom-factor-table">
+            <thead>
+              <tr>
+                <th>No.</th>
+                <th>Faktor</th>
+                <th>Jawaban final</th>
+                <th className="numeric-cell">Skor</th>
+                <th>Rekomendasi & evidence</th>
+                <th>Alasan override</th>
+              </tr>
+            </thead>
+            <tbody>
+              {calculation.factors.map((factor) => {
+                const input = dlom.factors[factor.id];
+
+                return (
+                  <tr key={factor.id}>
+                    <td>{factor.no}</td>
+                    <td>
+                      <strong>{factor.factor}</strong>
+                      <span>{factor.prompt}</span>
+                      <span>Basis bukti: {factor.evidenceBasis}</span>
+                    </td>
+                    <td>
+                      <select
+                        aria-label={`Jawaban DLOM ${factor.factor}`}
+                        value={input.answer}
+                        onChange={(event) => onUpdateFactor(factor.id, { answer: event.target.value })}
+                      >
+                        <option value="">Pilih</option>
+                        {factor.options.map((option) => (
+                          <option value={option.label} key={option.label}>
+                            {option.label} · skor {formatNumber(option.score)}
+                          </option>
+                        ))}
+                      </select>
+                      {factor.isOverride ? <span className="badge warning">Override rekomendasi</span> : null}
+                    </td>
+                    <td className="numeric-cell">{formatNumber(factor.score)}</td>
+                    <td>
+                      <strong>{factor.recommendation.answer || "Manual"}</strong>
+                      <span>{formatScore(factor.recommendation.confidence)} confidence · {factor.recommendation.source}</span>
+                      <span>{factor.recommendation.evidence}</span>
+                    </td>
+                    <td>
+                      <textarea
+                        aria-label={`Alasan override ${factor.factor}`}
+                        value={input.overrideReason}
+                        onChange={(event) => onUpdateFactor(factor.id, { overrideReason: event.target.value })}
+                        placeholder="Catatan reviewer, dokumen pendukung, atau alasan judgement."
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Jejak formula</p>
+            <h3>DLOM trace</h3>
+          </div>
+        </div>
+        <FormulaList traces={calculation.traces} />
+      </section>
+    </>
+  );
+}
+
+function TaxSimulationSection({
+  state,
+  result,
+  dlom,
+  caseProfileDerived,
+  readiness,
+  onNavigate,
+  onUpdate,
+}: {
+  state: TaxSimulationState;
+  result: TaxSimulationResult;
+  dlom: DlomCalculation;
+  caseProfileDerived: CaseProfileDerived;
+  readiness: SectionReadiness;
+  onNavigate: (tabId: WorkflowTabId) => void;
+  onUpdate: (patch: Partial<TaxSimulationState>) => void;
+}) {
+  const primaryRow = result.primaryRow;
+
+  return (
+    <>
+      <section className="section-grid tax-summary-grid" data-testid="tax-simulation-summary">
+        <article className="metric-card">
+          <div className="card-title">
+            <Calculator size={20} />
+            <span>Primary Method</span>
+          </div>
+          <strong>{state.primaryMethod || "Not selected"}</strong>
+          <p>Blank case wajib memilih metode; sample workbook memakai AAM.</p>
+        </article>
+        <article className="metric-card">
+          <div className="card-title">
+            <Banknote size={20} />
+            <span>Potensi pajak final</span>
+          </div>
+          <strong>{primaryRow ? formatIdr(primaryRow.potentialTax) : "Belum dikunci"}</strong>
+          <p>{primaryRow ? primaryRow.taxBasisLabel : "Pilih Primary Method untuk summary/report."}</p>
+        </article>
+        <article className="metric-card">
+          <div className="card-title">
+            <GitBranch size={20} />
+            <span>Layer aktif</span>
+          </div>
+          <strong>{state.applyDlom ? `DLOM ${formatPercent(dlom.dlomRate)}` : "Before DLOM"}</strong>
+          <p>DLOC/PFC: {state.applyDlocPfc ? "Aktif sebagai placeholder terpisah" : "Belum diterapkan"}.</p>
+        </article>
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Scenario controls</p>
+            <h3>Simulasi Potensi Pajak</h3>
+          </div>
+          <TableProperties size={22} />
+        </div>
+        <ReadinessPanel status={readiness} onNavigate={onNavigate} />
+        <div className="tax-control-grid">
+          <label className="field">
+            <span>Primary Method</span>
+            <select value={state.primaryMethod} onChange={(event) => onUpdate({ primaryMethod: event.target.value as ValuationMethod | "" })}>
+              <option value="">Not selected</option>
+              <option value="AAM">AAM</option>
+              <option value="EEM">EEM</option>
+              <option value="DCF">DCF</option>
+            </select>
+          </label>
+          <label className="field">
+            <span>Nilai pengalihan saham yang dilaporkan</span>
+            <input
+              inputMode="decimal"
+              value={state.reportedTransferValue}
+              onChange={(event) => onUpdate({ reportedTransferValue: event.target.value })}
+              placeholder="Fallback dari Data Awal bila kosong"
+            />
+          </label>
+          <label className="toggle-field">
+            <input type="checkbox" checked={state.applyDlom} onChange={(event) => onUpdate({ applyDlom: event.target.checked })} />
+            <span>Apply DLOM</span>
+            <small>{dlom.isComplete ? `Rate ${formatPercent(dlom.dlomRate)} dari tab DLOM.` : "Rate 0% sampai DLOM lengkap."}</small>
+          </label>
+          <label className="toggle-field">
+            <input type="checkbox" checked={state.applyDlocPfc} onChange={(event) => onUpdate({ applyDlocPfc: event.target.checked })} />
+            <span>Apply DLOC/PFC</span>
+            <small>Layer placeholder; detail formula menunggu konsep DLOC/PFC berikutnya.</small>
+          </label>
+          <label className="field">
+            <span>DLOC/PFC rate</span>
+            <input inputMode="decimal" value={state.dlocPfcRate} onChange={(event) => onUpdate({ dlocPfcRate: event.target.value })} placeholder="0%" />
+          </label>
+          <DerivedCaseField label={caseProfileDerived.capitalProportionLabel} value={formatCaseProfileProportion(caseProfileDerived)} />
+          <label className="field wide">
+            <span>Catatan simulasi</span>
+            <textarea value={state.note} onChange={(event) => onUpdate({ note: event.target.value })} placeholder="Dasar pemilihan metode, posisi DLOM, dan catatan review pajak." />
+          </label>
+        </div>
+      </section>
+
+      {result.warnings.length > 0 ? (
+        <section className="review-band compact-review">
+          <div>
+            <p className="eyebrow">Pemeriksaan simulasi</p>
+            <h3>Perlu tinjauan</h3>
+          </div>
+          <div className="risk-grid">
+            {result.warnings.map((warning) => (
+              <div className="risk-item" key={warning}>
+                <AlertTriangle size={18} />
+                <span>{warning}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Comparison table</p>
+            <h3>AAM, EEM, dan DCF berdampingan</h3>
+          </div>
+        </div>
+        <div className="table-wrap tax-table-wrap">
+          <table className="tax-simulation-table" data-testid="tax-simulation-table">
+            <thead>
+              <tr>
+                <th>Metode</th>
+                <th className="numeric-cell">Base equity</th>
+                <th className="numeric-cell">DLOM</th>
+                <th className="numeric-cell">After DLOM</th>
+                <th className="numeric-cell">DLOC/PFC</th>
+                <th className="numeric-cell">Market value 100%</th>
+                <th className="numeric-cell">Porsi</th>
+                <th className="numeric-cell">Nilai pengalihan wajar</th>
+                <th className="numeric-cell">Dilaporkan</th>
+                <th className="numeric-cell">Selisih potensi</th>
+                <th className="numeric-cell">Potensi pajak</th>
+              </tr>
+            </thead>
+            <tbody>
+              {result.rows.map((row) => (
+                <tr className={row.isPrimary ? "primary-method-row" : ""} key={row.method}>
+                  <td>
+                    <strong>{row.method}</strong>
+                    {row.isPrimary ? <span className="badge ok">Primary</span> : <span>Comparison</span>}
+                  </td>
+                  <td className="numeric-cell">{formatIdr(row.baseEquityValue)}</td>
+                  <td className="numeric-cell">
+                    {formatPercent(row.dlomRate)}
+                    <span>{formatIdr(row.dlomAdjustment)}</span>
+                  </td>
+                  <td className="numeric-cell">{formatIdr(row.valueAfterDlom)}</td>
+                  <td className="numeric-cell">
+                    {formatPercent(row.dlocPfcRate)}
+                    <span>{formatIdr(row.dlocPfcAdjustment)}</span>
+                  </td>
+                  <td className="numeric-cell">{formatIdr(row.marketValueOfEquity100)}</td>
+                  <td className="numeric-cell">{formatPercent(row.sharePercentage)}</td>
+                  <td className="numeric-cell">{formatIdr(row.marketValueOfTransferredInterest)}</td>
+                  <td className="numeric-cell">{formatIdr(row.reportedTransferValue)}</td>
+                  <td className="numeric-cell">{formatIdr(row.potentialTaxableDifference)}</td>
+                  <td className="numeric-cell">
+                    <strong>{formatIdr(row.potentialTax)}</strong>
+                    <span>{row.taxBasisLabel}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="split-panel">
+        <article className="panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Formula trace</p>
+              <h3>{primaryRow ? `${primaryRow.method} primary method` : "Primary Method belum dipilih"}</h3>
+            </div>
+          </div>
+          {primaryRow ? <FormulaList traces={primaryRow.traces} /> : <div className="empty-state">Pilih Primary Method untuk melihat jejak formula final.</div>}
+        </article>
+        <article className="panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Audit position</p>
+              <h3>Hubungan ke base valuation</h3>
+            </div>
+          </div>
+          <MetricTraceGrid
+            metrics={[
+              ["Base AAM/EEM/DCF", "Before DLOM dan before DLOC/PFC"],
+              ["Urutan adjustment", "Base -> DLOM -> DLOC/PFC -> porsi saham/modal -> selisih pajak"],
+              ["Primary Method blank case", "Not selected sampai reviewer memilih"],
+              ["DLOC/PFC", "Struktur disiapkan; detail formula menyusul fase berikutnya"],
+            ]}
+          />
+        </article>
+      </section>
+    </>
   );
 }
 
@@ -2237,6 +2739,8 @@ function readPersistedWorkbenchState(): PersistedWorkbenchState | null {
     const aamAdjustments = sanitizeAamAdjustments(parsed.aamAdjustments);
     const assumptions = sanitizeAssumptions(parsed.assumptions);
     const caseProfile = sanitizeCaseProfile(parsed.caseProfile);
+    const dlom = sanitizeDlomState(parsed.dlom);
+    const taxSimulation = sanitizeTaxSimulationState(parsed.taxSimulation);
     const activePeriodId = typeof parsed.activePeriodId === "string" ? parsed.activePeriodId : "";
     const isFixedAssetScheduleEnabled =
       typeof parsed.isFixedAssetScheduleEnabled === "boolean" ? parsed.isFixedAssetScheduleEnabled : fixedAssetScheduleRows.length > 0;
@@ -2252,6 +2756,8 @@ function readPersistedWorkbenchState(): PersistedWorkbenchState | null {
       aamAdjustments,
       assumptions,
       caseProfile,
+      dlom,
+      taxSimulation,
     };
   } catch {
     return null;
@@ -2462,6 +2968,64 @@ function sanitizeCaseProfile(value: unknown): CaseProfile {
   return Object.fromEntries(
     caseProfileKeys.map((key) => [key, typeof source[key] === "string" ? source[key] : ""]),
   ) as CaseProfile;
+}
+
+function sanitizeDlomState(value: unknown): DlomState {
+  if (!isRecord(value)) {
+    return createEmptyDlomState();
+  }
+
+  const factorSource = isRecord(value.factors) ? value.factors : {};
+  const factors = Object.fromEntries(
+    dlomFactorDefinitions.map((definition) => {
+      const input = factorSource[definition.id];
+      const inputRecord = isRecord(input) ? input : {};
+      const answer = typeof inputRecord.answer === "string" ? inputRecord.answer : "";
+      const overrideReason = typeof inputRecord.overrideReason === "string" ? inputRecord.overrideReason : "";
+
+      return [definition.id, { answer, overrideReason }];
+    }),
+  ) as DlomState["factors"];
+
+  return normalizeDlomState({
+    companyMarketability: typeof value.companyMarketability === "string" ? (value.companyMarketability as DlomCompanyMarketability) : "",
+    interestBasis: typeof value.interestBasis === "string" ? (value.interestBasis as DlomInterestBasis) : "",
+    factors,
+  });
+}
+
+function sanitizeTaxSimulationState(value: unknown): TaxSimulationState {
+  if (!isRecord(value)) {
+    return createEmptyTaxSimulationState();
+  }
+
+  return normalizeTaxSimulationState({
+    primaryMethod: typeof value.primaryMethod === "string" ? (value.primaryMethod as ValuationMethod | "") : "",
+    applyDlom: typeof value.applyDlom === "boolean" ? value.applyDlom : false,
+    applyDlocPfc: typeof value.applyDlocPfc === "boolean" ? value.applyDlocPfc : false,
+    dlocPfcRate: typeof value.dlocPfcRate === "string" ? formatEditableNumber(value.dlocPfcRate) : "",
+    reportedTransferValue: typeof value.reportedTransferValue === "string" ? formatEditableNumber(value.reportedTransferValue) : "",
+    note: typeof value.note === "string" ? value.note : "",
+  });
+}
+
+function hasDlomInput(value: DlomState): boolean {
+  return (
+    value.companyMarketability.trim() !== "" ||
+    value.interestBasis.trim() !== "" ||
+    Object.values(value.factors).some((factor) => factor.answer.trim() !== "" || factor.overrideReason.trim() !== "")
+  );
+}
+
+function hasTaxSimulationInput(value: TaxSimulationState): boolean {
+  return (
+    value.primaryMethod !== "" ||
+    value.applyDlom ||
+    value.applyDlocPfc ||
+    value.dlocPfcRate.trim() !== "" ||
+    value.reportedTransferValue.trim() !== "" ||
+    value.note.trim() !== ""
+  );
 }
 
 function sanitizeStringRecord(value: unknown): Record<string, string> {

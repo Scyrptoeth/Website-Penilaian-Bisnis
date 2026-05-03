@@ -17,6 +17,8 @@ export type WorkbenchSectionId =
   | "eemDcfAssumptions"
   | "valuationAam"
   | "valuationEemDcf"
+  | "dlom"
+  | "taxSimulation"
   | "payablesCashFlow"
   | "noplatFcf"
   | "ratiosCapital"
@@ -158,6 +160,8 @@ export function buildWorkbenchReadiness({
       requiredReturn,
       mapped,
     ]),
+    dlom: status("dlom", "DLOM", [period], [balance, income]),
+    taxSimulation: status("taxSimulation", "Simulasi Potensi Pajak", [period], [balance, income]),
     payablesCashFlow: status("payablesCashFlow", "Utang & Arus Kas", [
       period,
       comparativePeriod,

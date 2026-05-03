@@ -31,6 +31,8 @@ describe("workbench readiness", () => {
     assert.equal(readiness.valuationAam.isReady, false);
     assert.equal(readiness.valuationEemDcf.isReady, false);
     assert.equal(readiness.wacc.isReady, false);
+    assert.equal(readiness.dlom.isReady, true);
+    assert.equal(readiness.taxSimulation.isReady, true);
     assert.equal(readiness.payablesCashFlow.isReady, false);
     assert.equal(readiness.noplatFcf.isReady, false);
     assert.ok(readiness.valuationAam.missing.some((item) => item.targetTab === "balance"));
@@ -61,6 +63,8 @@ describe("workbench readiness", () => {
     assert.equal(readiness.ratiosCapital.isReady, true);
     assert.equal(readiness.valuationAam.isReady, true);
     assert.equal(readiness.valuationEemDcf.isReady, true);
+    assert.equal(readiness.dlom.isReady, true);
+    assert.equal(readiness.taxSimulation.isReady, true);
     assert.equal(readiness.ratiosCapital.warnings.length, 0);
   });
 });

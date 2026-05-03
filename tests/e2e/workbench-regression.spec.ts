@@ -164,6 +164,25 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByText("Referensi audit sistem")).toBeVisible();
 });
 
+test("DLOM and tax simulation render workbook-derived scenario layer after loading sample", async ({ page }) => {
+  await page.getByRole("button", { name: "Muat contoh workbook" }).click();
+
+  await openWorkflowTab(page, "DLOM");
+  await expect(page.getByTestId("dlom-summary")).toContainText("25%");
+  await expect(page.getByTestId("dlom-summary")).toContainText("Rendah");
+  await expect(page.getByTestId("dlom-factor-table")).toContainText("Entry Barrier Perijinan Usaha");
+  await expect(page.getByLabel("Jawaban DLOM Profitabilitas (EBITDA)")).toHaveValue("Diatas");
+
+  await openWorkflowTab(page, "Simulasi Potensi Pajak");
+  await expect(page.getByTestId("tax-simulation-summary")).toContainText("AAM");
+  await expect(page.getByTestId("tax-simulation-summary")).toContainText("DLOM 25%");
+  await expect(page.getByTestId("tax-simulation-table")).toContainText("AAM");
+  await expect(page.getByTestId("tax-simulation-table")).toContainText("EEM");
+  await expect(page.getByTestId("tax-simulation-table")).toContainText("DCF");
+  await expect(page.getByTestId("tax-simulation-table")).toContainText("Primary");
+  await expect(page.getByText("AAM primary method")).toBeVisible();
+});
+
 test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators, and active valuation sources", async ({ page }) => {
   await page.getByLabel("Sektor Perusahaan").selectOption("Consumer Cyclicals");
   await page.getByLabel("Tanggal penilaian").fill("2023-12-31");
@@ -280,7 +299,7 @@ test("legacy positive income-statement expense drafts migrate once and remain us
   await amountInput.press("Home");
   await amountInput.press("Delete");
   await expect(amountInput).toHaveValue("100");
-  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(4);
+  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(5);
 
   await page.reload();
   await openWorkflowTab(page, "Laba Rugi");

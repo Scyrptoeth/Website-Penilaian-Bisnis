@@ -2432,6 +2432,85 @@ td span {
   text-align: right;
 }
 
+.dlom-control-grid,
+.tax-control-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.tax-control-grid .wide {
+  grid-column: 1 / -1;
+}
+
+.field textarea,
+.dlom-table textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 72px;
+  padding: 8px;
+  resize: vertical;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: #ffffff;
+  color: var(--ink);
+  line-height: 1.38;
+}
+
+.dlom-table {
+  min-width: 1180px;
+}
+
+.tax-simulation-table {
+  min-width: 1420px;
+}
+
+.dlom-table th:first-child,
+.dlom-table td:first-child {
+  width: 44px;
+}
+
+.numeric-cell {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.primary-method-row {
+  background: #f4fbf7;
+}
+
+.toggle-field {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 3px 8px;
+  align-content: center;
+  min-width: 0;
+  min-height: 48px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-raised);
+}
+
+.toggle-field input {
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+}
+
+.toggle-field span {
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+
+.toggle-field small {
+  grid-column: 2;
+  color: var(--muted);
+  line-height: 1.3;
+}
+
 .aam-adjustment-panel {
   display: grid;
   gap: 10px;
@@ -2659,6 +2738,8 @@ td span {
   .audit-reference-grid,
   .data-awal-grid,
   .case-transaction-grid,
+  .dlom-control-grid,
+  .tax-control-grid,
   .period-grid,
   .input-grid {
     grid-template-columns: 1fr;
