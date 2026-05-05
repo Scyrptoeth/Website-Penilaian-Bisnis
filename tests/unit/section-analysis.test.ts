@@ -40,6 +40,48 @@ describe("section analysis", () => {
     assert.equal(equityInjectionMovement.values.p2021, -3_150_000_000);
   });
 
+  it("builds detailed cash-flow statement rows with workbook trace metadata", () => {
+    const cfo = analysis.cashFlowStatementRows.find((row) => row.key === "cfo");
+    const equityInjection = analysis.cashFlowStatementRows.find((row) => row.key === "equity-injection");
+
+    assert.ok(cfo);
+    assert.ok(equityInjection);
+    assert.equal(cfo.workbookReference, "CFS!11");
+    assert.equal(equityInjection.isOverridable, true);
+    assert.equal(equityInjection.workbookReference, "CFS!22; BALANCE SHEET!42,43");
+    assert.equal(equityInjection.values.p2021, -3_150_000_000);
+  });
+
+  it("applies cash-flow overrides only when audit reason is present and recomputes final subtotals", () => {
+    const withoutReason = buildSectionAnalysis(periods, rows, assumptions, [], {
+      "non-operating-income": {
+        p2021: { value: "100.000.000", reason: "", updatedAt: "2026-05-05T00:00:00.000Z" },
+      },
+    });
+    const pendingNonOperating = withoutReason.cashFlowStatementRows.find((row) => row.key === "non-operating-income");
+
+    assert.ok(pendingNonOperating);
+    assert.equal(pendingNonOperating.overrideStatuses.p2021, "reason_required");
+    assert.equal(pendingNonOperating.values.p2021, pendingNonOperating.calculatedValues.p2021);
+
+    const withReason = buildSectionAnalysis(periods, rows, assumptions, [], {
+      "non-operating-income": {
+        p2021: { value: "100.000.000", reason: "Management cash-flow ledger support", updatedAt: "2026-05-05T00:00:00.000Z" },
+      },
+    });
+    const appliedNonOperating = withReason.cashFlowStatementRows.find((row) => row.key === "non-operating-income");
+    const beforeFinancing = withReason.cashFlowStatementRows.find((row) => row.key === "cash-flow-before-financing");
+
+    assert.ok(appliedNonOperating);
+    assert.ok(beforeFinancing);
+    assert.equal(appliedNonOperating.overrideStatuses.p2021, "applied");
+    assert.equal(appliedNonOperating.values.p2021, 100_000_000);
+    assert.equal(
+      beforeFinancing.values.p2021,
+      Number(withReason.cashFlowStatementRows.find((row) => row.key === "cfo")?.values.p2021) + 100_000_000 + Number(withReason.cashFlowStatementRows.find((row) => row.key === "capex")?.values.p2021),
+    );
+  });
+
   it("computes ROIC from NOPLAT over beginning corrected invested capital", () => {
     const roic = analysis.roicRows.find((row) => row.key === "roic");
     const periodAnalysis = analysis.periodAnalyses.find((item) => item.period.id === "p2021");

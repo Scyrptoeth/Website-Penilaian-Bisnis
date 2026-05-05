@@ -25,6 +25,7 @@ export type WorkbenchSectionId =
   | "dlom"
   | "dlocPfc"
   | "taxSimulation"
+  | "cashFlowStatement"
   | "payablesCashFlow"
   | "noplatFcf"
   | "ratiosCapital"
@@ -232,6 +233,15 @@ export function buildWorkbenchReadiness({
       reportedTransferValue,
       shareRatio,
       dlocPfcReadyForTax,
+    ]),
+    cashFlowStatement: status("cashFlowStatement", "Cash Flow Statement", [
+      period,
+      comparativePeriod,
+      balance,
+      income,
+      operatingWorkingCapital,
+      fixedAssetOrDepreciation,
+      mapped,
     ]),
     payablesCashFlow: status("payablesCashFlow", "Utang & Arus Kas", [
       period,

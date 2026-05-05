@@ -443,6 +443,18 @@ select:focus-visible,
   color: var(--ink-soft);
 }
 
+.status-pill.ok {
+  border-color: rgba(22, 101, 52, 0.35);
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.status-pill.warning {
+  border-color: rgba(161, 98, 7, 0.36);
+  background: var(--review-soft);
+  color: var(--review);
+}
+
 .section-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1145,6 +1157,146 @@ select {
   background: #fffdf4;
   color: var(--review);
   font-weight: 600;
+}
+
+.cash-flow-review-grid {
+  align-items: start;
+}
+
+.cash-flow-statement-wrap {
+  border-color: var(--line-strong);
+}
+
+.cash-flow-statement-table {
+  min-width: 1680px;
+}
+
+.cash-flow-statement-table th:first-child,
+.cash-flow-statement-table td:first-child {
+  width: 220px;
+}
+
+.cash-flow-statement-table th:nth-child(2),
+.cash-flow-statement-table td:nth-child(2) {
+  width: 290px;
+}
+
+.cash-flow-statement-table th:nth-child(3),
+.cash-flow-statement-table td:nth-child(3) {
+  width: 150px;
+  text-align: left;
+}
+
+.cash-flow-statement-table th.period-column,
+.cash-flow-statement-table td.period-column {
+  width: 148px;
+}
+
+.cash-flow-statement-table thead tr:first-child th:nth-child(1),
+.cash-flow-statement-table tbody tr:not(.analysis-section-row) td:nth-child(1) {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: var(--surface);
+}
+
+.cash-flow-statement-table thead tr:first-child th:nth-child(2),
+.cash-flow-statement-table tbody tr:not(.analysis-section-row) td:nth-child(2) {
+  position: sticky;
+  left: 220px;
+  z-index: 3;
+  background: var(--surface);
+}
+
+.cash-flow-statement-table thead tr:first-child th:nth-child(3),
+.cash-flow-statement-table tbody tr:not(.analysis-section-row) td:nth-child(3) {
+  position: sticky;
+  left: 510px;
+  z-index: 3;
+  background: var(--surface);
+}
+
+.cash-flow-statement-table thead tr:first-child th:nth-child(-n + 3) {
+  z-index: 4;
+  background: var(--surface-muted);
+}
+
+.cash-flow-statement-table .analysis-total-row td:nth-child(-n + 3) {
+  background: var(--accent-soft);
+}
+
+.cash-flow-statement-table .analysis-warning-row td:nth-child(-n + 3) {
+  background: #fffdf4;
+}
+
+.cash-flow-statement-table td:first-child span,
+.cash-flow-statement-table td:nth-child(2) span,
+.cash-flow-statement-table td:nth-child(2) small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 8.4px;
+  line-height: 1.35;
+}
+
+.override-cell {
+  text-align: left;
+  vertical-align: top;
+}
+
+.cash-flow-override-stack {
+  display: grid;
+  gap: 5px;
+  min-width: 130px;
+}
+
+.cash-flow-override-stack input,
+.cash-flow-override-stack textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 8.8px;
+}
+
+.cash-flow-override-stack input {
+  min-height: 30px;
+  padding: 0 7px;
+  text-align: right;
+}
+
+.cash-flow-override-stack textarea {
+  min-height: 52px;
+  padding: 7px;
+  resize: vertical;
+}
+
+.override-status {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 24px;
+  align-items: center;
+  padding: 0 7px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+  color: var(--ink-soft);
+  font-family: var(--font-mono), monospace;
+  font-size: 7.8px;
+}
+
+.override-status.applied {
+  border-color: rgba(22, 101, 52, 0.35);
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.override-status.reason_required {
+  border-color: rgba(161, 98, 7, 0.36);
+  background: var(--review-soft);
+  color: var(--review);
 }
 
 .audit-reference {

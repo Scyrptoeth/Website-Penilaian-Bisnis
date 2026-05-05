@@ -2,6 +2,7 @@ import {
   buildFixedAssetScheduleSummary,
   buildSnapshot,
   getChronologicalPeriods,
+  parseInputNumber,
   type AccountRow,
   type AssumptionState,
   type FixedAssetScheduleRow,
@@ -27,6 +28,37 @@ export type AnalysisRow = {
   values: Record<string, AnalysisValue>;
   note?: string;
   kind?: "section" | "subtotal" | "warning";
+};
+
+export type CashFlowOverrideEntry = {
+  value: string;
+  reason: string;
+  updatedAt: string;
+};
+
+export type CashFlowOverrideState = Record<string, Record<string, CashFlowOverrideEntry>>;
+
+export type CashFlowOverrideStatus = "none" | "applied" | "reason_required" | "not_allowed";
+
+export type CashFlowStatementSection =
+  | "operating"
+  | "working_capital"
+  | "investing"
+  | "financing"
+  | "cash_reconciliation";
+
+export type CashFlowStatementRow = AnalysisRow & {
+  section: CashFlowStatementSection;
+  workbookReference: string;
+  reliability: "derived" | "review" | "reconciliation";
+  isOverridable: boolean;
+  calculatedValues: Record<string, AnalysisValue>;
+  overrideInputs: Record<string, string>;
+  overrideValues: Record<string, AnalysisValue>;
+  overrideReasons: Record<string, string>;
+  overrideStatuses: Record<string, CashFlowOverrideStatus>;
+  overrideUpdatedAt: Record<string, string>;
+  validationMessages: Record<string, string>;
 };
 
 export type RatioRow = AnalysisRow & {
@@ -72,6 +104,7 @@ export type SectionAnalysis = {
   periodAnalyses: PeriodAnalysis[];
   payablesRows: AnalysisRow[];
   cashFlowRows: AnalysisRow[];
+  cashFlowStatementRows: CashFlowStatementRow[];
   noplatRows: AnalysisRow[];
   fcfRows: AnalysisRow[];
   ratioRows: RatioRow[];
@@ -83,6 +116,7 @@ export function buildSectionAnalysis(
   rows: AccountRow[],
   assumptions: AssumptionState,
   fixedAssetScheduleRows: FixedAssetScheduleRow[] = [],
+  cashFlowOverrides: CashFlowOverrideState = {},
 ): SectionAnalysis {
   const chronologicalPeriods = getChronologicalPeriods(periods);
   const fixedAssetSchedule = buildFixedAssetScheduleSummary(periods, fixedAssetScheduleRows);
@@ -159,6 +193,7 @@ export function buildSectionAnalysis(
     periodAnalyses,
     payablesRows: buildPayablesRows(periodAnalyses),
     cashFlowRows: buildCashFlowRows(periodAnalyses),
+    cashFlowStatementRows: buildCashFlowStatementRows(periodAnalyses, cashFlowOverrides),
     noplatRows: buildNoplatRows(periodAnalyses),
     fcfRows: buildFcfRows(periodAnalyses),
     ratioRows: buildRatioRows(periodAnalyses),
@@ -245,6 +280,349 @@ function buildCashFlowRows(periodAnalyses: PeriodAnalysis[]): AnalysisRow[] {
     valueRow(periodAnalyses, "cash-movement", "Pemeriksaan mutasi kas", "Kas di tangan + bank", "Kas akhir - kas sebelumnya", (item) => item.cashMovement),
     valueRow(periodAnalyses, "cash-gap", "Selisih roll-forward kas", "Pemeriksaan audit", "Arus kas bersih terkoreksi - mutasi kas", (item) => item.cashFlowRollforwardGap, "warning"),
   ];
+}
+
+type CashFlowStatementRowSpec = Pick<
+  CashFlowStatementRow,
+  "key" | "label" | "source" | "formula" | "section" | "workbookReference" | "reliability" | "isOverridable" | "kind" | "note"
+> & {
+  calculate: (item: PeriodAnalysis, finalValues: Record<string, AnalysisValue>) => AnalysisValue;
+};
+
+const cashFlowStatementRowSpecs: CashFlowStatementRowSpec[] = [
+  {
+    key: "ebitda",
+    label: "EBITDA",
+    section: "operating",
+    source: "Laba Rugi + add-back penyusutan",
+    formula: "EBIT komersial + penyusutan",
+    workbookReference: "CFS!5; INCOME STATEMENT!18",
+    reliability: "derived",
+    isOverridable: true,
+    calculate: (item) => item.ebitda,
+  },
+  {
+    key: "operating-tax",
+    label: "Corporate tax cash flow",
+    section: "operating",
+    source: "Input pajak badan atau statutory fallback",
+    formula: "Pajak badan input; jika kosong -(EBIT x tarif pajak)",
+    workbookReference: "CFS!6; INCOME STATEMENT!33",
+    reliability: "review",
+    isOverridable: true,
+    calculate: (item) => item.snapshot.corporateTax || -item.normalizedTaxOnEbit,
+  },
+  {
+    key: "oca-change",
+    label: "(Kenaikan) penurunan aset lancar operasional",
+    section: "working_capital",
+    source: "Balance Sheet AR + inventory",
+    formula: "-((AR + inventory) kini - (AR + inventory) sebelumnya)",
+    workbookReference: "CFS!8; BALANCE SHEET!10,12",
+    reliability: "derived",
+    isOverridable: true,
+    calculate: (item) =>
+      item.previousSnapshot ? -(operatingCurrentAssets(item.snapshot) - operatingCurrentAssets(item.previousSnapshot)) : null,
+  },
+  {
+    key: "ocl-change",
+    label: "Kenaikan (penurunan) liabilitas lancar operasional",
+    section: "working_capital",
+    source: "Balance Sheet AP + utang lain-lain",
+    formula: "(AP + other payable) kini - (AP + other payable) sebelumnya",
+    workbookReference: "CFS!9; BALANCE SHEET!31,33",
+    reliability: "derived",
+    isOverridable: true,
+    calculate: (item) =>
+      item.previousSnapshot ? operatingCurrentLiabilities(item.snapshot) - operatingCurrentLiabilities(item.previousSnapshot) : null,
+  },
+  {
+    key: "working-capital-effect",
+    label: "Net working capital cash-flow effect",
+    section: "working_capital",
+    source: "Subtotal working capital final",
+    formula: "Perubahan OCA + perubahan OCL",
+    workbookReference: "CFS!10",
+    reliability: "reconciliation",
+    isOverridable: false,
+    kind: "subtotal",
+    calculate: (_item, finalValues) => sumNullable(finalValues["oca-change"], finalValues["ocl-change"]),
+  },
+  {
+    key: "cfo",
+    label: "Cash flow from operations",
+    section: "working_capital",
+    source: "Subtotal operating cash flow final",
+    formula: "EBITDA + pajak operasional + perubahan OCA + perubahan OCL",
+    workbookReference: "CFS!11",
+    reliability: "reconciliation",
+    isOverridable: false,
+    kind: "subtotal",
+    calculate: (_item, finalValues) =>
+      sumNullable(finalValues.ebitda, finalValues["operating-tax"], finalValues["oca-change"], finalValues["ocl-change"]),
+  },
+  {
+    key: "non-operating-income",
+    label: "Non-operating cash flow",
+    section: "investing",
+    source: "Pendapatan/beban non-operasional terpetakan",
+    formula: "Pendapatan / beban non-operasional",
+    workbookReference: "CFS!13; INCOME STATEMENT!30",
+    reliability: "review",
+    isOverridable: true,
+    calculate: (item) => item.snapshot.nonOperatingIncome,
+  },
+  {
+    key: "capex",
+    label: "Capital expenditure",
+    section: "investing",
+    source: "Jadwal aset tetap atau inferensi aset tetap",
+    formula: "-capital expenditure",
+    workbookReference: "CFS!17; FIXED ASSET!23",
+    reliability: "review",
+    isOverridable: true,
+    calculate: (item) => (item.previousSnapshot ? -item.capitalExpenditure : null),
+  },
+  {
+    key: "cash-flow-before-financing",
+    label: "Cash flow before financing",
+    section: "investing",
+    source: "Subtotal sebelum pendanaan final",
+    formula: "CFO + non-operating cash flow + capex",
+    workbookReference: "CFS!19",
+    reliability: "reconciliation",
+    isOverridable: false,
+    kind: "subtotal",
+    calculate: (_item, finalValues) => sumNullable(finalValues.cfo, finalValues["non-operating-income"], finalValues.capex),
+  },
+  {
+    key: "equity-injection",
+    label: "Equity injection movement",
+    section: "financing",
+    source: "Mutasi modal disetor + tambahan modal",
+    formula: "(Paid-up capital + additional paid-in capital) kini - sebelumnya",
+    workbookReference: "CFS!22; BALANCE SHEET!42,43",
+    reliability: "review",
+    isOverridable: true,
+    note: "Memakai movement antarperiode, bukan saldo akhir workbook.",
+    calculate: (item) =>
+      item.previousSnapshot
+        ? item.snapshot.paidUpCapital +
+          item.snapshot.additionalPaidInCapital -
+          (item.previousSnapshot.paidUpCapital + item.previousSnapshot.additionalPaidInCapital)
+        : null,
+  },
+  {
+    key: "new-loan",
+    label: "New loan",
+    section: "financing",
+    source: "Debt bridge pinjaman bank",
+    formula: "Penambahan pinjaman jangka pendek + jangka panjang",
+    workbookReference: "CFS!23; ACC PAYABLES!10,19",
+    reliability: "review",
+    isOverridable: true,
+    calculate: (item) => (item.previousSnapshot ? item.loanMovement.shortTermAddition + item.loanMovement.longTermAddition : null),
+  },
+  {
+    key: "interest-payment",
+    label: "Interest payment",
+    section: "financing",
+    source: "Beban bunga terpetakan",
+    formula: "Beban bunga",
+    workbookReference: "CFS!24; INCOME STATEMENT!27",
+    reliability: "review",
+    isOverridable: true,
+    calculate: (item) => item.snapshot.interestExpense,
+  },
+  {
+    key: "interest-income",
+    label: "Interest income",
+    section: "financing",
+    source: "Pendapatan bunga terpetakan",
+    formula: "Pendapatan bunga",
+    workbookReference: "CFS!25; INCOME STATEMENT!26",
+    reliability: "review",
+    isOverridable: true,
+    calculate: (item) => item.snapshot.interestIncome,
+  },
+  {
+    key: "principal-repayment",
+    label: "Principal repayment",
+    section: "financing",
+    source: "Debt bridge pinjaman bank",
+    formula: "Pembayaran pokok pinjaman jangka pendek + jangka panjang",
+    workbookReference: "CFS!26; ACC PAYABLES!20",
+    reliability: "review",
+    isOverridable: true,
+    calculate: (item) => (item.previousSnapshot ? item.loanMovement.shortTermRepayment + item.loanMovement.longTermRepayment : null),
+  },
+  {
+    key: "cash-flow-from-financing",
+    label: "Cash flow from financing",
+    section: "financing",
+    source: "Subtotal financing final",
+    formula: "Equity injection + new loan + interest payment + interest income + principal repayment",
+    workbookReference: "CFS!28",
+    reliability: "reconciliation",
+    isOverridable: false,
+    kind: "subtotal",
+    calculate: (_item, finalValues) =>
+      sumNullable(
+        finalValues["equity-injection"],
+        finalValues["new-loan"],
+        finalValues["interest-payment"],
+        finalValues["interest-income"],
+        finalValues["principal-repayment"],
+      ),
+  },
+  {
+    key: "net-cash-flow",
+    label: "Net cash flow",
+    section: "cash_reconciliation",
+    source: "Subtotal seluruh cash-flow final",
+    formula: "Cash flow before financing + cash flow from financing",
+    workbookReference: "CFS!30",
+    reliability: "reconciliation",
+    isOverridable: false,
+    kind: "subtotal",
+    calculate: (_item, finalValues) => sumNullable(finalValues["cash-flow-before-financing"], finalValues["cash-flow-from-financing"]),
+  },
+  {
+    key: "cash-beginning",
+    label: "Cash at beginning of period",
+    section: "cash_reconciliation",
+    source: "Saldo kas akhir periode sebelumnya atau seed manual",
+    formula: "Kas akhir periode sebelumnya; periode awal dapat di-seed manual",
+    workbookReference: "CFS!32",
+    reliability: "review",
+    isOverridable: true,
+    calculate: (item) => (item.previousSnapshot ? item.previousSnapshot.cashOnHand + item.previousSnapshot.cashOnBankDeposit : null),
+  },
+  {
+    key: "cash-on-bank",
+    label: "Cash on bank / deposit ending",
+    section: "cash_reconciliation",
+    source: "Balance Sheet cash on bank/deposit",
+    formula: "Cash on bank + deposit",
+    workbookReference: "CFS!35; BALANCE SHEET!9",
+    reliability: "derived",
+    isOverridable: false,
+    calculate: (item) => item.snapshot.cashOnBankDeposit,
+  },
+  {
+    key: "cash-on-hand",
+    label: "Cash on hand ending",
+    section: "cash_reconciliation",
+    source: "Balance Sheet cash on hand",
+    formula: "Cash on hand",
+    workbookReference: "CFS!36; BALANCE SHEET!8",
+    reliability: "derived",
+    isOverridable: false,
+    calculate: (item) => item.snapshot.cashOnHand,
+  },
+  {
+    key: "cash-ending",
+    label: "Cash at end of period",
+    section: "cash_reconciliation",
+    source: "Subtotal kas akhir final",
+    formula: "Cash on bank/deposit + cash on hand",
+    workbookReference: "CFS!33",
+    reliability: "reconciliation",
+    isOverridable: false,
+    kind: "subtotal",
+    calculate: (_item, finalValues) => sumNullable(finalValues["cash-on-bank"], finalValues["cash-on-hand"]),
+  },
+  {
+    key: "cash-movement",
+    label: "Cash movement per balance sheet",
+    section: "cash_reconciliation",
+    source: "Cash ending - cash beginning",
+    formula: "Kas akhir - kas awal",
+    workbookReference: "CFS!33 - CFS!32",
+    reliability: "reconciliation",
+    isOverridable: false,
+    calculate: (_item, finalValues) => sumNullable(finalValues["cash-ending"], negateNullable(finalValues["cash-beginning"])),
+  },
+  {
+    key: "cash-rollforward-gap",
+    label: "Cash roll-forward gap",
+    section: "cash_reconciliation",
+    source: "Audit reconciliation",
+    formula: "Net cash flow - cash movement",
+    workbookReference: "System audit check",
+    reliability: "reconciliation",
+    isOverridable: false,
+    kind: "warning",
+    calculate: (_item, finalValues) => sumNullable(finalValues["net-cash-flow"], negateNullable(finalValues["cash-movement"])),
+  },
+];
+
+function buildCashFlowStatementRows(
+  periodAnalyses: PeriodAnalysis[],
+  cashFlowOverrides: CashFlowOverrideState,
+): CashFlowStatementRow[] {
+  const rows = cashFlowStatementRowSpecs.map(
+    (spec): CashFlowStatementRow => ({
+      key: spec.key,
+      label: spec.label,
+      source: spec.source,
+      formula: spec.formula,
+      section: spec.section,
+      workbookReference: spec.workbookReference,
+      reliability: spec.reliability,
+      isOverridable: spec.isOverridable,
+      kind: spec.kind,
+      note: spec.note,
+      values: {},
+      calculatedValues: {},
+      overrideInputs: {},
+      overrideValues: {},
+      overrideReasons: {},
+      overrideStatuses: {},
+      overrideUpdatedAt: {},
+      validationMessages: {},
+    }),
+  );
+
+  for (const item of periodAnalyses) {
+    const finalValues: Record<string, AnalysisValue> = {};
+
+    cashFlowStatementRowSpecs.forEach((spec, index) => {
+      const calculatedValue = spec.calculate(item, finalValues);
+      const overrideEntry = cashFlowOverrides[spec.key]?.[item.period.id];
+      const overrideInput = overrideEntry?.value ?? "";
+      const overrideReason = overrideEntry?.reason ?? "";
+      const hasOverrideInput = overrideInput.trim() !== "";
+      const hasOverrideReason = overrideReason.trim() !== "";
+      const overrideValue = hasOverrideInput ? parseInputNumber(overrideInput) : null;
+      const isOverrideApplied = spec.isOverridable && hasOverrideInput && hasOverrideReason;
+      const finalValue = isOverrideApplied ? overrideValue : calculatedValue;
+      const status: CashFlowOverrideStatus = !spec.isOverridable
+        ? "not_allowed"
+        : isOverrideApplied
+          ? "applied"
+          : hasOverrideInput
+            ? "reason_required"
+            : "none";
+
+      finalValues[spec.key] = finalValue;
+
+      const row = rows[index];
+      row.calculatedValues[item.period.id] = calculatedValue;
+      row.overrideInputs[item.period.id] = overrideInput;
+      row.overrideValues[item.period.id] = isOverrideApplied ? overrideValue : null;
+      row.overrideReasons[item.period.id] = overrideReason;
+      row.overrideStatuses[item.period.id] = status;
+      row.overrideUpdatedAt[item.period.id] = overrideEntry?.updatedAt ?? "";
+      row.validationMessages[item.period.id] =
+        spec.isOverridable && hasOverrideInput && !hasOverrideReason
+          ? "Override belum diterapkan karena alasan audit wajib diisi."
+          : "";
+      row.values[item.period.id] = finalValue;
+    });
+  }
+
+  return rows;
 }
 
 function buildNoplatRows(periodAnalyses: PeriodAnalysis[]): AnalysisRow[] {
@@ -376,6 +754,18 @@ function valueRow(
     kind,
     note,
   };
+}
+
+function sumNullable(...values: AnalysisValue[]): AnalysisValue {
+  if (values.some((value) => value === null || !Number.isFinite(value))) {
+    return null;
+  }
+
+  return (values as number[]).reduce((sum, value) => sum + value, 0);
+}
+
+function negateNullable(value: AnalysisValue): AnalysisValue {
+  return value === null || !Number.isFinite(value) ? null : -value;
 }
 
 function ratioRow(

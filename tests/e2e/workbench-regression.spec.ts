@@ -179,6 +179,16 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByTestId("readiness-dcfProjection")).toContainText("Masih diperlukan");
 
   await loadSampleWorkbook(page);
+  await openWorkflowTab(page, "Cash Flow Statement");
+  await expect(page.getByText("Review arus kas historis")).toBeVisible();
+  await expect(page.getByText("Calculated · override · final · trace")).toBeVisible();
+  await expect(page.getByText("CFS!22; BALANCE SHEET!42,43")).toBeVisible();
+  await page.getByRole("textbox", { name: "Override Non-operating cash flow 2021", exact: true }).fill("100000000");
+  await expect(page.getByText("Butuh alasan", { exact: true })).toBeVisible();
+  await page.getByLabel("Alasan override Non-operating cash flow 2021").fill("Management cash-flow ledger support");
+  await expect(page.getByRole("table").getByText("Override diterapkan", { exact: true })).toBeVisible();
+  await expect(page.getByText("100.000.000").first()).toBeVisible();
+
   await openWorkflowTab(page, "Utang & Arus Kas");
   await expect(page.getByText("Bridge arus kas terkoreksi")).toBeVisible();
   await expect(page.getByText("Referensi audit sistem")).toBeVisible();
@@ -367,7 +377,7 @@ test("legacy workbook-like DLOM drafts migrate to workbook UPDATE basis without 
   await expect(page.getByTestId("dlom-basis-grid")).not.toContainText("Workbook UPDATE DLOM!C31");
   await expect(page.getByTestId("dlom-basis-grid")).not.toContainText("Formula");
   await expect(page.getByTestId("dlom-summary")).toContainText("25%");
-  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(11);
+  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(12);
 });
 
 test("exports the active workbench state through the primary template-clone XLSX workflow", async ({ page }) => {
@@ -639,7 +649,7 @@ test("legacy positive income-statement expense drafts migrate once and remain us
   await amountInput.press("Home");
   await amountInput.press("Delete");
   await expect(amountInput).toHaveValue("100");
-  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(11);
+  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(12);
 
   await page.reload();
   await openWorkflowTab(page, "Laba Rugi");

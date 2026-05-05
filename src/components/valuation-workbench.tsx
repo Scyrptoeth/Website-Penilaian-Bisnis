@@ -105,7 +105,18 @@ import {
   type KluSectorRecord,
 } from "@/lib/valuation/klu-sector";
 import { buildWorkbenchReadiness, type SectionReadiness, type WorkbenchReadiness, type WorkbenchSectionId } from "@/lib/valuation/readiness";
-import { buildSectionAnalysis, type AnalysisRow, type AnalysisValue, type PeriodAnalysis, type RatioRow, type SectionAnalysis } from "@/lib/valuation/section-analysis";
+import {
+  buildSectionAnalysis,
+  type AnalysisRow,
+  type AnalysisValue,
+  type CashFlowOverrideEntry,
+  type CashFlowOverrideState,
+  type CashFlowOverrideStatus,
+  type CashFlowStatementRow,
+  type PeriodAnalysis,
+  type RatioRow,
+  type SectionAnalysis,
+} from "@/lib/valuation/section-analysis";
 import { buildValidationChecks } from "@/lib/valuation/validation-checks";
 import { downloadValuationTemplateWorkbook } from "@/lib/valuation/excel-export";
 import { saveValuationPdfExportPayload } from "@/lib/valuation/pdf-export";
@@ -323,7 +334,7 @@ const requiredReturnSuggestionOrder: RequiredReturnOnNtaSuggestionKey[] = [
 const WORKBENCH_STORAGE_KEY = "penilaian-valuasi-bisnis.workbench.v1";
 const WORKBENCH_SCROLL_STORAGE_KEY = "penilaian-valuasi-bisnis.scroll.v1";
 const WORKBENCH_SIDEBAR_STORAGE_KEY = "penilaian-valuasi-bisnis.sidebar.v1";
-const WORKBENCH_STORAGE_VERSION = 11;
+const WORKBENCH_STORAGE_VERSION = 12;
 
 type PersistedWorkbenchState = {
   version: typeof WORKBENCH_STORAGE_VERSION;
@@ -339,6 +350,7 @@ type PersistedWorkbenchState = {
   dlom: DlomState;
   dlocPfc: DlocPfcState;
   taxSimulation: TaxSimulationState;
+  cashFlowOverrides: CashFlowOverrideState;
 };
 
 type WorkbenchCoreState = Omit<PersistedWorkbenchState, "version" | "savedAt">;
@@ -365,6 +377,7 @@ const workflowTabs: Array<{ id: WorkflowTabId; label: string }> = [
   { id: "dlom", label: "DLOM" },
   { id: "dlocPfc", label: "DLOC/PFC" },
   { id: "taxSimulation", label: "Simulasi Potensi Pajak" },
+  { id: "cashFlowStatement", label: "Cash Flow Statement" },
   { id: "payablesCashFlow", label: "Utang & Arus Kas" },
   { id: "noplatFcf", label: "NOPLAT & FCF" },
   { id: "ratiosCapital", label: "Rasio & Efisiensi Modal" },
@@ -385,6 +398,7 @@ export function ValuationWorkbench() {
   const [dlom, setDlom] = useState<DlomState>(createEmptyDlomState);
   const [dlocPfc, setDlocPfc] = useState<DlocPfcState>(createEmptyDlocPfcState);
   const [taxSimulation, setTaxSimulation] = useState<TaxSimulationState>(createEmptyTaxSimulationState);
+  const [cashFlowOverrides, setCashFlowOverrides] = useState<CashFlowOverrideState>({});
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isDraftRestored, setIsDraftRestored] = useState(false);
   const [activeWorkflowTab, setActiveWorkflowTab] = useState<WorkflowTabId>("periods");
@@ -484,8 +498,8 @@ export function ValuationWorkbench() {
     [caseProfile, caseProfileDerived, dlocPfcCalculation, dlomCalculation, results.aam, results.dcf, results.eem, snapshot, taxSimulation],
   );
   const sectionAnalysis = useMemo(
-    () => buildSectionAnalysis(periods, rows, assumptions, fixedAssetScheduleRows),
-    [periods, rows, assumptions, fixedAssetScheduleRows],
+    () => buildSectionAnalysis(periods, rows, assumptions, fixedAssetScheduleRows, cashFlowOverrides),
+    [periods, rows, assumptions, fixedAssetScheduleRows, cashFlowOverrides],
   );
   const balanceSheetView = useMemo(
     () => buildBalanceSheetView(periods, mappedRows, fixedAssetSchedule),
@@ -589,6 +603,7 @@ export function ValuationWorkbench() {
     ) ||
     Object.values(caseProfile).some((value) => value.trim() !== "") ||
     Object.values(assumptions).some((value) => value.trim() !== "") ||
+    hasCashFlowOverrideInput(cashFlowOverrides) ||
     hasDlomInput(dlom) ||
     hasDlocPfcInput(dlocPfc) ||
     hasTaxSimulationInput(taxSimulation);
@@ -623,6 +638,7 @@ export function ValuationWorkbench() {
       dlom,
       dlocPfc,
       taxSimulation,
+      cashFlowOverrides,
     };
   }
 
@@ -638,6 +654,7 @@ export function ValuationWorkbench() {
     setDlom(state.dlom);
     setDlocPfc(state.dlocPfc);
     setTaxSimulation(state.taxSimulation);
+    setCashFlowOverrides(state.cashFlowOverrides);
   }
 
   function commitCoreState(update: (current: WorkbenchCoreState) => WorkbenchCoreState) {
@@ -710,6 +727,7 @@ export function ValuationWorkbench() {
       setDlom(storedState.dlom);
       setDlocPfc(storedState.dlocPfc);
       setTaxSimulation(storedState.taxSimulation);
+      setCashFlowOverrides(storedState.cashFlowOverrides);
       setUndoStack([]);
       setRedoStack([]);
     }
@@ -737,11 +755,13 @@ export function ValuationWorkbench() {
       dlom,
       dlocPfc,
       taxSimulation,
+      cashFlowOverrides,
     });
   }, [
     aamAdjustments,
     activePeriodId,
     assumptions,
+    cashFlowOverrides,
     caseProfile,
     dlocPfc,
     dlom,
@@ -893,6 +913,7 @@ export function ValuationWorkbench() {
         periods: nextPeriods,
         rows,
         fixedAssetScheduleRows,
+        cashFlowOverrides: removeCashFlowOverridePeriod(current.cashFlowOverrides, id),
         activePeriodId:
           current.activePeriodId === id ? (defaultActivePeriod?.id ?? nextPeriods[nextPeriods.length - 1].id) : current.activePeriodId,
       };
@@ -1083,6 +1104,37 @@ export function ValuationWorkbench() {
     }));
   }
 
+  function updateCashFlowOverride(rowKey: string, periodId: string, patch: Partial<CashFlowOverrideEntry>) {
+    commitCoreState((current) => {
+      const currentEntry = current.cashFlowOverrides[rowKey]?.[periodId] ?? { value: "", reason: "", updatedAt: "" };
+      const nextEntry: CashFlowOverrideEntry = {
+        ...currentEntry,
+        ...patch,
+        value: patch.value !== undefined ? formatEditableNumber(patch.value) : currentEntry.value,
+        updatedAt: new Date().toISOString(),
+      };
+      const nextOverrides = { ...current.cashFlowOverrides };
+      const nextRowOverrides = { ...(nextOverrides[rowKey] ?? {}) };
+
+      if (!nextEntry.value.trim() && !nextEntry.reason.trim()) {
+        delete nextRowOverrides[periodId];
+      } else {
+        nextRowOverrides[periodId] = nextEntry;
+      }
+
+      if (Object.keys(nextRowOverrides).length === 0) {
+        delete nextOverrides[rowKey];
+      } else {
+        nextOverrides[rowKey] = nextRowOverrides;
+      }
+
+      return {
+        ...current,
+        cashFlowOverrides: nextOverrides,
+      };
+    });
+  }
+
   function updateWaccComparableName(slot: WaccComparableSlot, value: string) {
     commitCoreState((current) => {
       const selectedComparable = findIdxComparableByLabel(current.caseProfile.companySector, value);
@@ -1173,6 +1225,7 @@ export function ValuationWorkbench() {
       dlom: buildSampleDlomState(),
       dlocPfc: buildSampleDlocPfcState(),
       taxSimulation: buildSampleTaxSimulationState(),
+      cashFlowOverrides: {},
     }));
   }
 
@@ -1254,6 +1307,7 @@ export function ValuationWorkbench() {
       dlom: createEmptyDlomState(),
       dlocPfc: createEmptyDlocPfcState(),
       taxSimulation: createEmptyTaxSimulationState(),
+      cashFlowOverrides: {},
     }));
 
     if (typeof window !== "undefined") {
@@ -1979,6 +2033,19 @@ export function ValuationWorkbench() {
             onNavigate={navigateToWorkflowTab}
             onUpdate={updateTaxSimulation}
           />
+        ) : null}
+
+        {activeWorkflowTab === "cashFlowStatement" ? (
+          readiness.cashFlowStatement.isReady ? (
+            <CashFlowStatementSection
+              analysis={sectionAnalysis}
+              readiness={readiness.cashFlowStatement}
+              onNavigate={navigateToWorkflowTab}
+              onUpdateOverride={updateCashFlowOverride}
+            />
+          ) : (
+            <ReadinessPanel status={readiness.cashFlowStatement} onNavigate={navigateToWorkflowTab} force />
+          )
         ) : null}
 
         {activeWorkflowTab === "payablesCashFlow" ? (
@@ -3270,6 +3337,257 @@ function formatProjectionValue(value: number, display: DcfProjectionDisplay = "c
   return formatIdr(value);
 }
 
+const cashFlowStatementSectionLabels: Record<CashFlowStatementRow["section"], string> = {
+  operating: "Arus kas operasi",
+  working_capital: "Perubahan modal kerja operasional",
+  investing: "Non-operasi dan investasi",
+  financing: "Pendanaan",
+  cash_reconciliation: "Rekonsiliasi kas",
+};
+
+function CashFlowStatementSection({
+  analysis,
+  readiness,
+  onNavigate,
+  onUpdateOverride,
+}: {
+  analysis: SectionAnalysis;
+  readiness: SectionReadiness;
+  onNavigate: (tabId: WorkflowTabId) => void;
+  onUpdateOverride: (rowKey: string, periodId: string, patch: Partial<CashFlowOverrideEntry>) => void;
+}) {
+  const latest = getLatestPeriodAnalysis(analysis);
+  const latestPeriodId = latest?.period.id ?? "";
+  const netCashFlow = analysis.cashFlowStatementRows.find((row) => row.key === "net-cash-flow")?.values[latestPeriodId] ?? null;
+  const cashGap = analysis.cashFlowStatementRows.find((row) => row.key === "cash-rollforward-gap")?.values[latestPeriodId] ?? null;
+  const overrideCount = analysis.cashFlowStatementRows.reduce(
+    (count, row) => count + Object.values(row.overrideStatuses).filter((status) => status === "applied").length,
+    0,
+  );
+  const pendingOverrideCount = analysis.cashFlowStatementRows.reduce(
+    (count, row) => count + Object.values(row.overrideStatuses).filter((status) => status === "reason_required").length,
+    0,
+  );
+
+  return (
+    <>
+      <ReadinessPanel status={readiness} onNavigate={onNavigate} />
+
+      <section className="split-panel cash-flow-review-grid">
+        <article className="panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">CASH FLOW STATEMENT</p>
+              <h3>Review arus kas historis</h3>
+            </div>
+            <span className="status-pill muted">Derived + controlled override</span>
+          </div>
+          <EngineAuditReference
+            sourceLabel="Workbook reference + mesin kasus aktif"
+            summary="Struktur mengikuti sheet CASH FLOW STATEMENT, tetapi angka dihitung ulang dari Neraca, Laba Rugi, Aset Tetap, dan asumsi aktif."
+            metrics={[
+              { label: "Net cash flow", value: netCashFlow },
+              { label: "Cash roll-forward gap", value: cashGap },
+              { label: "Override diterapkan", value: overrideCount, display: "number" },
+              { label: "Override butuh alasan", value: pendingOverrideCount, display: "number" },
+            ]}
+            notes={[
+              "Override hanya memengaruhi final value jika nilai dan alasan audit sama-sama diisi.",
+              "Subtotal memakai final value agar pengguna dapat melihat dampak override ke rekonsiliasi.",
+              "Formula dan referensi workbook ditampilkan di setiap baris agar angka tidak muncul tanpa konteks.",
+            ]}
+          />
+        </article>
+
+        <article className="panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Interoperabilitas</p>
+              <h3>Koneksi EEM/DCF</h3>
+            </div>
+            <span className="status-pill muted">BS · IS · FA · assumptions</span>
+          </div>
+          <EngineAuditReference
+            sourceLabel="Mesin valuasi"
+            summary="Cash-flow statement historis menjadi jembatan review untuk kualitas input EEM/DCF, bukan default production fixture."
+            metrics={[
+              { label: "CFO historis", value: latest?.cashFlowFromOperations ?? null },
+              { label: "FCFF historis", value: latest?.freeCashFlow ?? null },
+              { label: "Operating WC", value: latest?.operatingWorkingCapital ?? null },
+              { label: "Capex", value: latest ? -latest.capitalExpenditure : null },
+            ]}
+            notes={[
+              "EEM tetap memakai NTA, NOPLAT, required return, aset non-operasional, dan debt sesuai engine.",
+              "DCF tetap memakai FCFF formula-driven dan driver proyeksi; tab ini membantu audit angka historis.",
+              "Cash beginning periode awal dapat di-seed manual bila workbook/source memiliki opening cash sebelum periode pertama.",
+            ]}
+          />
+        </article>
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Detail statement</p>
+            <h3>Calculated · override · final · trace</h3>
+          </div>
+          <span className="status-pill muted">Audit-ready table</span>
+        </div>
+        <CashFlowStatementTable rows={analysis.cashFlowStatementRows} periods={analysis.periods} onUpdateOverride={onUpdateOverride} />
+      </section>
+    </>
+  );
+}
+
+function CashFlowStatementTable({
+  rows,
+  periods,
+  onUpdateOverride,
+}: {
+  rows: CashFlowStatementRow[];
+  periods: Period[];
+  onUpdateOverride: (rowKey: string, periodId: string, patch: Partial<CashFlowOverrideEntry>) => void;
+}) {
+  return (
+    <div className="table-wrap cash-flow-statement-wrap">
+      <table className="analysis-table cash-flow-statement-table">
+        <thead>
+          <tr>
+            <th rowSpan={2}>Pos</th>
+            <th rowSpan={2}>Trace</th>
+            <th rowSpan={2}>Status</th>
+            {periods.map((period) => (
+              <th className="period-column" colSpan={3} key={period.id}>
+                {period.label || "Periode"}
+              </th>
+            ))}
+          </tr>
+          <tr>
+            {periods.flatMap((period) => [
+              <th className="period-column" key={`${period.id}-calculated`}>
+                Calculated
+              </th>,
+              <th className="period-column" key={`${period.id}-override`}>
+                Override
+              </th>,
+              <th className="period-column" key={`${period.id}-final`}>
+                Final
+              </th>,
+            ])}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.flatMap((row, index) => {
+            const sectionChanged = index === 0 || rows[index - 1]?.section !== row.section;
+            const rowClassName =
+              row.kind === "subtotal" ? "analysis-total-row" : row.kind === "warning" ? "analysis-warning-row" : "";
+            const rowCells = (
+              <tr className={rowClassName} key={row.key}>
+                <td>
+                  <strong>{row.label}</strong>
+                  {row.note ? <span>{row.note}</span> : null}
+                </td>
+                <td>
+                  <span>{row.source}</span>
+                  <code>{row.formula}</code>
+                  <small>{row.workbookReference}</small>
+                </td>
+                <td>
+                  <CashFlowReliabilityBadge row={row} />
+                </td>
+                {periods.flatMap((period) => {
+                  const status = row.overrideStatuses[period.id] ?? "none";
+                  const validationMessage = row.validationMessages[period.id] ?? "";
+
+                  return [
+                    <td className="numeric-cell period-column" key={`${row.key}-${period.id}-calculated`}>
+                      {formatAnalysisValue(row.calculatedValues[period.id] ?? null, "currency")}
+                    </td>,
+                    <td className="override-cell period-column" key={`${row.key}-${period.id}-override`}>
+                      {row.isOverridable ? (
+                        <div className="cash-flow-override-stack">
+                          <input
+                            aria-label={`Override ${row.label} ${period.label || "Periode"}`}
+                            inputMode="decimal"
+                            placeholder="Nilai"
+                            value={row.overrideInputs[period.id] ?? ""}
+                            onChange={(event) => onUpdateOverride(row.key, period.id, { value: event.target.value })}
+                          />
+                          <textarea
+                            aria-label={`Alasan override ${row.label} ${period.label || "Periode"}`}
+                            placeholder="Alasan audit"
+                            rows={2}
+                            value={row.overrideReasons[period.id] ?? ""}
+                            onChange={(event) => onUpdateOverride(row.key, period.id, { reason: event.target.value })}
+                          />
+                          <span className={`override-status ${status}`}>{cashFlowOverrideStatusLabel(status)}</span>
+                          {validationMessage ? <small className="warning-text">{validationMessage}</small> : null}
+                        </div>
+                      ) : (
+                        <span className="status-pill muted">Formula locked</span>
+                      )}
+                    </td>,
+                    <td className="numeric-cell period-column" key={`${row.key}-${period.id}-final`}>
+                      <strong>{formatAnalysisValue(row.values[period.id] ?? null, "currency")}</strong>
+                    </td>,
+                  ];
+                })}
+              </tr>
+            );
+
+            return sectionChanged
+              ? [
+                  <tr className="analysis-section-row" key={`${row.section}-section`}>
+                    <td colSpan={periods.length * 3 + 3}>{cashFlowStatementSectionLabels[row.section]}</td>
+                  </tr>,
+                  rowCells,
+                ]
+              : [rowCells];
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function CashFlowReliabilityBadge({ row }: { row: CashFlowStatementRow }) {
+  const label =
+    row.reliability === "derived"
+      ? "Derived"
+      : row.reliability === "review"
+        ? "Reviewable"
+        : "Reconciliation";
+  const className =
+    row.reliability === "derived"
+      ? "status-pill ok"
+      : row.reliability === "review"
+        ? "status-pill warning"
+        : "status-pill muted";
+
+  return (
+    <span className={className}>
+      {label}
+      {row.isOverridable ? " · override" : ""}
+    </span>
+  );
+}
+
+function cashFlowOverrideStatusLabel(status: CashFlowOverrideStatus): string {
+  if (status === "applied") {
+    return "Override diterapkan";
+  }
+
+  if (status === "reason_required") {
+    return "Butuh alasan";
+  }
+
+  if (status === "not_allowed") {
+    return "Formula locked";
+  }
+
+  return "Auto";
+}
+
 function PayablesCashFlowSection({ analysis }: { analysis: SectionAnalysis }) {
   const latest = getLatestPeriodAnalysis(analysis);
   const equityMovement =
@@ -3556,7 +3874,7 @@ function RatioTable({ rows, periods }: { rows: RatioRow[]; periods: Period[] }) 
 type EngineAuditMetric = {
   label: string;
   value: AnalysisValue;
-  display?: "currency" | "percent" | "multiple";
+  display?: "currency" | "percent" | "multiple" | "number";
 };
 
 function getLatestPeriodAnalysis(analysis: SectionAnalysis): PeriodAnalysis | null {
@@ -3597,9 +3915,13 @@ function EngineAuditReference({
   );
 }
 
-function formatAnalysisValue(value: AnalysisValue, display: "currency" | "percent" | "multiple"): string {
+function formatAnalysisValue(value: AnalysisValue, display: "currency" | "percent" | "multiple" | "number"): string {
   if (value === null || !Number.isFinite(value)) {
     return "Perlu data pembanding";
+  }
+
+  if (display === "number") {
+    return Intl.NumberFormat("id-ID").format(value);
   }
 
   if (display === "percent") {
@@ -3645,6 +3967,7 @@ function readPersistedWorkbenchState(): PersistedWorkbenchState | null {
     });
     const dlocPfc = sanitizeDlocPfcState(parsed.dlocPfc);
     const taxSimulation = sanitizeTaxSimulationState(parsed.taxSimulation);
+    const cashFlowOverrides = sanitizeCashFlowOverrides(parsed.cashFlowOverrides);
     const activePeriodId = typeof parsed.activePeriodId === "string" ? parsed.activePeriodId : "";
     const isFixedAssetScheduleEnabled =
       typeof parsed.isFixedAssetScheduleEnabled === "boolean" ? parsed.isFixedAssetScheduleEnabled : fixedAssetScheduleRows.length > 0;
@@ -3663,6 +3986,7 @@ function readPersistedWorkbenchState(): PersistedWorkbenchState | null {
       dlom,
       dlocPfc,
       taxSimulation,
+      cashFlowOverrides,
     };
   } catch {
     return null;
@@ -4047,6 +4371,54 @@ function hasTaxSimulationInput(value: TaxSimulationState): boolean {
     value.dlocPfcOverrideReason.trim() !== "" ||
     value.reportedTransferValue.trim() !== "" ||
     value.note.trim() !== ""
+  );
+}
+
+function sanitizeCashFlowOverrides(value: unknown): CashFlowOverrideState {
+  if (!isRecord(value)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).flatMap(([rowKey, periodEntries]) => {
+      if (!isRecord(periodEntries)) {
+        return [];
+      }
+
+      const sanitizedPeriodEntries = Object.fromEntries(
+        Object.entries(periodEntries).flatMap(([periodId, entry]) => {
+          if (!isRecord(entry)) {
+            return [];
+          }
+
+          const valueInput = typeof entry.value === "string" ? formatEditableNumber(entry.value) : "";
+          const reason = typeof entry.reason === "string" ? entry.reason : "";
+          const updatedAt = typeof entry.updatedAt === "string" ? entry.updatedAt : "";
+
+          return valueInput.trim() || reason.trim()
+            ? [[periodId, { value: valueInput, reason, updatedAt } satisfies CashFlowOverrideEntry]]
+            : [];
+        }),
+      );
+
+      return Object.keys(sanitizedPeriodEntries).length > 0 ? [[rowKey, sanitizedPeriodEntries]] : [];
+    }),
+  );
+}
+
+function hasCashFlowOverrideInput(value: CashFlowOverrideState): boolean {
+  return Object.values(value).some((row) =>
+    Object.values(row).some((entry) => entry.value.trim() !== "" || entry.reason.trim() !== ""),
+  );
+}
+
+function removeCashFlowOverridePeriod(value: CashFlowOverrideState, periodId: string): CashFlowOverrideState {
+  return Object.fromEntries(
+    Object.entries(value).flatMap(([rowKey, periodEntries]) => {
+      const nextEntries = { ...periodEntries };
+      delete nextEntries[periodId];
+      return Object.keys(nextEntries).length > 0 ? [[rowKey, nextEntries]] : [];
+    }),
   );
 }
 
