@@ -185,7 +185,7 @@ function buildDcfProxyProjection(forecast: DcfForecastRow[], rows: ProjectionBas
     rows: projectedRows,
     totals: buildProjectionTotals(forecast, projectedRows),
     hasProjection: true,
-    source: "Jadwal Aset Tetap + alokasi DCF",
+    source: "Proksi DCF berbasis jadwal aset tetap",
     note: "Beginning mengikuti ending tahun sebelumnya; additions dan penyusutan dialokasikan dari total engine DCF berdasarkan bobot penyusutan historis.",
     diagnostics: [],
   };
@@ -252,8 +252,8 @@ function buildWorkbookFormulaProjection(forecast: DcfForecastRow[], rows: Projec
     rows: projectedRows,
     totals,
     hasProjection: true,
-    source: "Formula KKP UPDATE.xlsx",
-    note: "Beginning mengikuti ending tahun sebelumnya; additions dan penyusutan mengikuti tren historis jadwal aset tetap seperti PROY FIXED ASSETS workbook UPDATE, dengan guard atas tren outlier.",
+    source: "Roll-forward aset tetap historis",
+    note: "Beginning mengikuti ending tahun sebelumnya; additions dan penyusutan mengikuti tren historis jadwal aset tetap, dengan guard atas tren outlier.",
     diagnostics: buildWorkbookFormulaDiagnostics(forecast, projectedRows, totals),
   };
 }
@@ -424,7 +424,7 @@ function buildWorkbookFormulaDiagnostics(
     diagnostics.push({
       code: "zero-additions",
       severity: "info",
-      message: "Formula workbook menghasilkan additions nol karena additions periode aktif nol; mode DCF proxy tetap tersedia sebagai baseline maintenance capex.",
+      message: "Model roll-forward historis menghasilkan additions nol karena additions periode aktif nol; mode Proksi DCF tetap tersedia sebagai baseline maintenance capex.",
     });
   }
 

@@ -9,7 +9,7 @@ import type { DcfForecastRow } from "../../src/lib/valuation/types";
 import { assertAlmostEqual, basePeriods } from "./test-utils";
 
 describe("fixed asset projection", () => {
-  it("uses workbook-formula mode by default and keeps DCF proxy as fallback", () => {
+  it("uses historical roll-forward mode by default and keeps DCF proxy as fallback", () => {
     const schedule = buildFixedAssetScheduleSummary(basePeriods, [
       fixedAssetRow(fixedAssetProjectionClassLabels[2], [
         ["100", "50", "10", "5"],
@@ -31,7 +31,7 @@ describe("fixed asset projection", () => {
 
     assert.equal(projection.hasProjection, true);
     assert.equal(projection.mode, "workbook-formula");
-    assert.equal(projection.source, "Formula KKP UPDATE.xlsx");
+    assert.equal(projection.source, "Roll-forward aset tetap historis");
     assert.equal(equipment?.amounts[2022].acquisitionBeginning, 170);
     assertAlmostEqual(equipment?.amounts[2022].acquisitionAdditions ?? 0, 8, 1e-9);
     assertAlmostEqual(equipment?.amounts[2022].depreciationAdditions ?? 0, 12.8, 1e-9);
@@ -45,7 +45,7 @@ describe("fixed asset projection", () => {
     assertAlmostEqual(projection.reconciliation[2022].capitalExpenditureDelta, -92, 1e-9);
   });
 
-  it("can preserve the prior DCF proxy projection mode explicitly", () => {
+  it("can preserve the DCF proxy projection mode explicitly", () => {
     const schedule = buildFixedAssetScheduleSummary(basePeriods, [
       fixedAssetRow(fixedAssetProjectionClassLabels[2], [
         ["100", "50", "10", "5"],
@@ -66,7 +66,7 @@ describe("fixed asset projection", () => {
     const vehicle = projection.rows.find((row) => row.assetName === fixedAssetProjectionClassLabels[3]);
 
     assert.equal(projection.mode, "dcf-proxy");
-    assert.equal(projection.source, "Jadwal Aset Tetap + alokasi DCF");
+    assert.equal(projection.source, "Proksi DCF berbasis jadwal aset tetap");
     assertAlmostEqual(equipment?.amounts[2022].acquisitionAdditions ?? 0, 40, 1e-9);
     assertAlmostEqual(equipment?.amounts[2022].depreciationAdditions ?? 0, 32, 1e-9);
     assertAlmostEqual(vehicle?.amounts[2022].acquisitionAdditions ?? 0, 60, 1e-9);

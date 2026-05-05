@@ -215,22 +215,22 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByTestId("dcf-balance-projection-table")).toContainText("Perlu input");
 
   await openWorkflowTab(page, "Penilaian EEM/DCF");
-  const workbookFormulaDcfValue = await page.getByTestId("dcf-base-equity-value").textContent();
+  const historicalRollForwardDcfValue = await page.getByTestId("dcf-base-equity-value").textContent();
 
   await openWorkflowTab(page, "Proyeksi Aset Tetap");
   await expect(page.getByRole("heading", { name: "Proyeksi Aset Tetap" })).toBeVisible();
   await expect(page.getByTestId("dcf-fixed-asset-projection-table")).toContainText("A. Acquisition Costs");
   await expect(page.getByTestId("dcf-fixed-asset-projection-table")).toContainText("Net Value Fixed Assets");
-  await expect(page.getByTestId("dcf-fixed-asset-projection-table")).toContainText("Formula KKP UPDATE.xlsx");
-  await expect(page.getByRole("radio", { name: /Formula KKP UPDATE/ })).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByTestId("dcf-fixed-asset-projection-table")).toContainText("Roll-forward aset tetap historis");
+  await expect(page.getByRole("radio", { name: /Roll-forward Historis/ })).toHaveAttribute("aria-checked", "true");
   await expect(page.getByTestId("dcf-fixed-asset-projection-table")).not.toContainText("Delta vs DCF capex");
   await expect(page.getByTestId("dcf-fixed-asset-projection-table")).not.toContainText("Belum dimodelkan");
   await expect(page.getByTestId("dcf-fixed-asset-projection-table")).not.toContainText("Perlu input");
-  await page.getByRole("radio", { name: /DCF proxy/ }).click();
-  await expect(page.getByRole("radio", { name: /DCF proxy/ })).toHaveAttribute("aria-checked", "true");
-  await expect(page.getByTestId("dcf-fixed-asset-projection-table")).toContainText("Jadwal Aset Tetap + alokasi DCF");
+  await page.getByRole("radio", { name: /Proksi DCF/ }).click();
+  await expect(page.getByRole("radio", { name: /Proksi DCF/ })).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByTestId("dcf-fixed-asset-projection-table")).toContainText("Proksi DCF berbasis jadwal aset tetap");
   await openWorkflowTab(page, "Penilaian EEM/DCF");
-  await expect.poll(() => page.getByTestId("dcf-base-equity-value").textContent()).not.toBe(workbookFormulaDcfValue);
+  await expect.poll(() => page.getByTestId("dcf-base-equity-value").textContent()).not.toBe(historicalRollForwardDcfValue);
 
   await openWorkflowTab(page, "Proyeksi Cash Flow Statement");
   await expect(page.getByRole("heading", { name: "Proyeksi Cash Flow Statement" })).toBeVisible();

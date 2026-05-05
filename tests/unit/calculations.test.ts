@@ -82,14 +82,14 @@ describe("valuation calculations", () => {
     );
     const projected = calculateDcf(snapshot, {
       fixedAssetProjection,
-      fixedAssetProjectionSource: "Formula KKP UPDATE.xlsx",
+      fixedAssetProjectionSource: "Roll-forward aset tetap historis",
     });
 
     assertAlmostEqual(projected.forecast[0].depreciation, base.forecast[0].depreciation * 0.5, 0.01);
     assertAlmostEqual(projected.forecast[0].capitalExpenditure, base.forecast[0].capitalExpenditure * 0.25, 0.01);
     assertAlmostEqual(projected.forecast[0].fixedAssetsEnding, snapshot.fixedAssetsNet - 100_000_000, 0.01);
     assert.notEqual(projected.equityValue, base.equityValue);
-    assert.equal(projected.traces[0].note.includes("Formula KKP UPDATE.xlsx"), true);
+    assert.equal(projected.traces[0].note.includes("Roll-forward aset tetap historis"), true);
   });
 
   it("keeps DCF and EEM sensitivities explicit and formula-derived", () => {

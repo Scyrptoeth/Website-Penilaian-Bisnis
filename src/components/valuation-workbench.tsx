@@ -3257,7 +3257,7 @@ const dcfBalanceProjectionRows: DcfProjectionLine[] = [
   {
     key: "fixed-assets-beginning",
     label: "Beginning",
-    source: "PROY FIXED ASSETS / engine DCF",
+    source: "Proyeksi Aset Tetap / engine DCF",
     formula: "Prior year fixed assets net",
     status: "calculated",
     workbookReference: "PROY BALANCE SHEET row 25",
@@ -3268,7 +3268,7 @@ const dcfBalanceProjectionRows: DcfProjectionLine[] = [
   {
     key: "fixed-assets-net",
     label: "Fixed Assets, Net",
-    source: "PROY FIXED ASSETS / engine DCF",
+    source: "Proyeksi Aset Tetap / engine DCF",
     formula: "Beginning net fixed assets + capex - depreciation",
     status: "calculated",
     workbookReference: "PROY BALANCE SHEET row 28",
@@ -3380,7 +3380,7 @@ function buildDcfFixedAssetProjectionRows(projection?: FixedAssetProjectionSumma
     source,
     formula: "Prior year acquisition ending by asset class",
     status,
-    workbookReference: "PROY FIXED ASSETS rows 8-13",
+    workbookReference: "Aset tetap / biaya perolehan awal",
     note,
     value: valueFor(index, "acquisitionBeginning"),
   })),
@@ -3390,7 +3390,7 @@ function buildDcfFixedAssetProjectionRows(projection?: FixedAssetProjectionSumma
     source,
     formula: "Sum acquisition beginning by asset class",
     status,
-    workbookReference: "PROY FIXED ASSETS row 14",
+    workbookReference: "Aset tetap / total biaya perolehan awal",
     note,
     value: (row, _index, context) => context.fixedAssetProjection?.totals[row.year]?.acquisitionBeginning ?? null,
     kind: "subtotal",
@@ -3400,9 +3400,9 @@ function buildDcfFixedAssetProjectionRows(projection?: FixedAssetProjectionSumma
     key: `acquisition-additions-${index}`,
     label,
     source,
-    formula: "DCF maintenance capex x historical depreciation allocation weight",
+    formula: "Active fixed asset projection mode determines acquisition additions by asset class",
     status,
-    workbookReference: "PROY FIXED ASSETS rows 17-22",
+    workbookReference: "Aset tetap / additions",
     note,
     value: valueFor(index, "acquisitionAdditions"),
   })),
@@ -3412,7 +3412,7 @@ function buildDcfFixedAssetProjectionRows(projection?: FixedAssetProjectionSumma
     source,
     formula: "Sum acquisition additions by asset class",
     status,
-    workbookReference: "PROY FIXED ASSETS row 23",
+    workbookReference: "Aset tetap / total additions",
     note,
     value: totalValueFor("acquisitionAdditions"),
     kind: "subtotal",
@@ -3424,7 +3424,7 @@ function buildDcfFixedAssetProjectionRows(projection?: FixedAssetProjectionSumma
     source,
     formula: "Acquisition beginning + acquisition additions",
     status,
-    workbookReference: "PROY FIXED ASSETS rows 26-31",
+    workbookReference: "Aset tetap / biaya perolehan akhir",
     note,
     value: valueFor(index, "acquisitionEnding"),
   })),
@@ -3434,7 +3434,7 @@ function buildDcfFixedAssetProjectionRows(projection?: FixedAssetProjectionSumma
     source,
     formula: "Sum acquisition ending by asset class",
     status,
-    workbookReference: "PROY FIXED ASSETS row 32",
+    workbookReference: "Aset tetap / total biaya perolehan akhir",
     note,
     value: (row, _index, context) => context.fixedAssetProjection?.totals[row.year]?.acquisitionEnding ?? null,
     kind: "subtotal",
@@ -3447,7 +3447,7 @@ function buildDcfFixedAssetProjectionRows(projection?: FixedAssetProjectionSumma
     source,
     formula: "Prior year accumulated depreciation ending by asset class",
     status,
-    workbookReference: "PROY FIXED ASSETS rows 36-41",
+    workbookReference: "Aset tetap / akumulasi penyusutan awal",
     note,
     value: valueFor(index, "depreciationBeginning"),
   })),
@@ -3457,7 +3457,7 @@ function buildDcfFixedAssetProjectionRows(projection?: FixedAssetProjectionSumma
     source,
     formula: "Sum depreciation beginning by asset class",
     status,
-    workbookReference: "PROY FIXED ASSETS row 42",
+    workbookReference: "Aset tetap / total akumulasi penyusutan awal",
     note,
     value: (row, _index, context) => context.fixedAssetProjection?.totals[row.year]?.depreciationBeginning ?? null,
     kind: "subtotal",
@@ -3467,9 +3467,9 @@ function buildDcfFixedAssetProjectionRows(projection?: FixedAssetProjectionSumma
     key: `depreciation-additions-${index}`,
     label,
     source,
-    formula: "Projected depreciation x historical depreciation allocation weight",
+    formula: "Active fixed asset projection mode determines depreciation additions by asset class",
     status,
-    workbookReference: "PROY FIXED ASSETS rows 45-50",
+    workbookReference: "Aset tetap / penyusutan tahun berjalan",
     note,
     value: valueFor(index, "depreciationAdditions"),
   })),
@@ -3479,7 +3479,7 @@ function buildDcfFixedAssetProjectionRows(projection?: FixedAssetProjectionSumma
     source,
     formula: "Sum depreciation additions by asset class",
     status,
-    workbookReference: "PROY FIXED ASSETS row 51",
+    workbookReference: "Aset tetap / total penyusutan tahun berjalan",
     note,
     value: totalValueFor("depreciationAdditions"),
     kind: "subtotal",
@@ -3491,7 +3491,7 @@ function buildDcfFixedAssetProjectionRows(projection?: FixedAssetProjectionSumma
     source,
     formula: "Depreciation beginning + depreciation additions",
     status,
-    workbookReference: "PROY FIXED ASSETS rows 54-59",
+    workbookReference: "Aset tetap / akumulasi penyusutan akhir",
     note,
     value: valueFor(index, "depreciationEnding"),
   })),
@@ -3501,7 +3501,7 @@ function buildDcfFixedAssetProjectionRows(projection?: FixedAssetProjectionSumma
     source,
     formula: "Sum depreciation ending by asset class",
     status,
-    workbookReference: "PROY FIXED ASSETS row 60",
+    workbookReference: "Aset tetap / total akumulasi penyusutan akhir",
     note,
     value: (row, _index, context) => context.fixedAssetProjection?.totals[row.year]?.depreciationEnding ?? null,
     kind: "subtotal",
@@ -3513,7 +3513,7 @@ function buildDcfFixedAssetProjectionRows(projection?: FixedAssetProjectionSumma
     source,
     formula: "Acquisition ending - depreciation ending",
     status,
-    workbookReference: "PROY FIXED ASSETS rows 63-68",
+    workbookReference: "Aset tetap / nilai buku neto",
     note,
     value: valueFor(index, "netValue"),
   })),
@@ -3523,7 +3523,7 @@ function buildDcfFixedAssetProjectionRows(projection?: FixedAssetProjectionSumma
     source,
     formula: "Sum net fixed assets by asset class",
     status,
-    workbookReference: "PROY FIXED ASSETS row 69",
+    workbookReference: "Aset tetap / total nilai buku neto",
     note,
     value: totalValueFor("netValue"),
     kind: "subtotal",
@@ -3545,15 +3545,15 @@ function describeFixedAssetProjectionSummary(projection: FixedAssetProjectionSum
 
   if (projection.mode === "workbook-formula") {
     return warningCount > 0
-      ? `${modeLabel} aktif mengikuti PROY FIXED ASSETS workbook UPDATE dan menjadi driver DCF; ada ${warningCount} warning model yang perlu direview.`
-      : `${modeLabel} aktif mengikuti PROY FIXED ASSETS workbook UPDATE dan menjadi driver DCF.`;
+      ? `${modeLabel} aktif mengikuti roll-forward aset tetap historis dan menjadi driver DCF; ada ${warningCount} warning model yang perlu direview.`
+      : `${modeLabel} aktif mengikuti roll-forward aset tetap historis dan menjadi driver DCF.`;
   }
 
   return `${modeLabel} aktif sebagai baseline maintenance capex dan menjadi driver DCF.`;
 }
 
 function formatFixedAssetProjectionMode(mode: FixedAssetProjectionSummary["mode"]): string {
-  return mode === "workbook-formula" ? "Formula KKP UPDATE" : "DCF proxy";
+  return mode === "workbook-formula" ? "Roll-forward Historis" : "Proksi DCF";
 }
 
 function buildDcfFixedAssetProjectionInput(
@@ -3637,7 +3637,7 @@ const dcfCashFlowProjectionRows: DcfProjectionLine[] = [
   {
     key: "capital-expenditure",
     label: "Cash Flow from Investment (Capital Expenditure)",
-    source: "PROY FIXED ASSETS / engine DCF",
+    source: "Proyeksi Aset Tetap / engine DCF",
     formula: "-capital expenditure",
     status: "calculated",
     workbookReference: "PROY CASH FLOW STATEMENT row 17",
@@ -3686,10 +3686,10 @@ const dcfProjectionConfigs: Record<ProjectionStatementKind, DcfProjectionConfig>
     testId: "dcf-balance-projection-table",
   },
   fixedAssets: {
-    eyebrow: "PROY FIXED ASSETS",
+    eyebrow: "PROYEKSI ASET TETAP",
     title: "Proyeksi Aset Tetap",
     badge: "Capex, depreciation, NBV",
-    summary: "Struktur mengikuti sheet PROY FIXED ASSETS; beginning, additions, ending, depreciation, dan nilai buku neto dihitung dengan roll-forward per kelas aset.",
+    summary: "Struktur roll-forward aset tetap; beginning, additions, ending, depreciation, dan nilai buku neto dihitung per kelas aset.",
     rows: [],
     testId: "dcf-fixed-asset-projection-table",
   },
@@ -3724,7 +3724,7 @@ function ProjectionStatementSection({
           ...dcfProjectionConfigs.fixedAssets,
           summary: fixedAssetProjection?.hasProjection
             ? describeFixedAssetProjectionSummary(fixedAssetProjection)
-            : "Struktur mengikuti sheet PROY FIXED ASSETS; detail per kelas aset membutuhkan jadwal historis agar angka proyeksi dapat dihitung.",
+            : "Detail per kelas aset membutuhkan jadwal historis agar angka proyeksi dapat dihitung.",
           rows: buildDcfFixedAssetProjectionRows(fixedAssetProjection),
         }
       : dcfProjectionConfigs[kind];
@@ -3812,12 +3812,12 @@ function FixedAssetProjectionModeSelector({
   const options: Array<{ mode: FixedAssetProjectionMode; label: string; description: string }> = [
     {
       mode: "workbook-formula",
-      label: "Formula KKP UPDATE",
-      description: "Additions dan depresiasi mengikuti roll-forward historis PROY FIXED ASSETS.",
+      label: "Roll-forward Historis",
+      description: "Additions dan depresiasi mengikuti tren historis jadwal aset tetap.",
     },
     {
       mode: "dcf-proxy",
-      label: "DCF proxy",
+      label: "Proksi DCF",
       description: "Capex mengikuti maintenance capex DCF dan depresiasi berbasis margin revenue.",
     },
   ];
