@@ -10,8 +10,25 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByTestId("valuation-workbench")).toBeVisible();
 });
 
+async function loadSampleWorkbook(page: Page) {
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        Boolean((window as Window & { __PVB_TEST_HOOKS__?: { loadSampleWorkbook: () => void } }).__PVB_TEST_HOOKS__?.loadSampleWorkbook),
+      ),
+    )
+    .toBe(true);
+  await page.evaluate(() =>
+    (window as Window & { __PVB_TEST_HOOKS__?: { loadSampleWorkbook: () => void } }).__PVB_TEST_HOOKS__?.loadSampleWorkbook(),
+  );
+}
+
 test("period workflow, scoped categories, and display-only balance sheet classification", async ({ page }) => {
   await expect(page.locator(".mobile-workflow-tabs")).toBeHidden();
+  await expect(page.locator(".brand-mark")).toHaveText("B-2");
+  await expect(page.getByRole("button", { name: "Muat contoh workbook" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Kosongkan" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Reset" })).toBeDisabled();
   await expect(workflowNav(page).getByRole("button", { name: "Data Awal" })).toHaveAttribute("aria-current", "page");
   await expect(workflowNav(page).getByRole("button", { name: "Pemetaan & Label" })).toHaveCount(0);
   await expect(page.getByTestId("case-profile-panel")).toBeVisible();
@@ -161,7 +178,7 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByTestId("readiness-dcfProjection")).toBeVisible();
   await expect(page.getByTestId("readiness-dcfProjection")).toContainText("Masih diperlukan");
 
-  await page.getByRole("button", { name: "Muat contoh workbook" }).click();
+  await loadSampleWorkbook(page);
   await openWorkflowTab(page, "Utang & Arus Kas");
   await expect(page.getByText("Bridge arus kas terkoreksi")).toBeVisible();
   await expect(page.getByText("Referensi audit sistem")).toBeVisible();
@@ -194,7 +211,7 @@ test("DLOM and tax simulation render workbook-derived scenario layer after loadi
   await expect(page.getByTestId("dlom-summary")).toContainText("Belum lengkap");
   await expect(page.getByTestId("dlom-factor-table")).toContainText("Belum lengkap");
 
-  await page.getByRole("button", { name: "Muat contoh workbook" }).click();
+  await loadSampleWorkbook(page);
 
   await openWorkflowTab(page, "DLOM");
   await expect(page.getByTestId("dlom-basis-grid")).toContainText("DLOM Perusahaan tertutup");
@@ -354,7 +371,7 @@ test("legacy workbook-like DLOM drafts migrate to workbook UPDATE basis without 
 });
 
 test("exports the active workbench state through the primary template-clone XLSX workflow", async ({ page }) => {
-  await page.getByRole("button", { name: "Muat contoh workbook" }).click();
+  await loadSampleWorkbook(page);
   await expect(page.getByRole("button", { name: "Export XLSX" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Export PDF" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Export XLSX V1" })).toHaveCount(0);
@@ -507,7 +524,7 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await expect(page.getByTestId("required-return-on-nta-calculator")).not.toContainText("BORROWING CAP");
   await expect(page.getByTestId("required-return-on-nta-calculator")).not.toContainText("DISCOUNT RATE");
 
-  await page.getByRole("button", { name: "Muat contoh workbook" }).click();
+  await loadSampleWorkbook(page);
   await openWorkflowTab(page, "WACC");
   await expect(page.getByTestId("wacc-calculator")).toContainText("Kalkulator WACC");
   await expect(page.getByTestId("wacc-calculator")).toContainText("Risk-free rate");

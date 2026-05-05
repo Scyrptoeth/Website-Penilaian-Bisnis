@@ -20,7 +20,6 @@ import {
   TableProperties,
   Trash2,
   Undo2,
-  Upload,
 } from "lucide-react";
 import { accountMappingRules } from "@/lib/valuation/account-taxonomy";
 import {
@@ -339,6 +338,14 @@ type PersistedWorkbenchState = {
 type WorkbenchCoreState = Omit<PersistedWorkbenchState, "version" | "savedAt">;
 
 type WorkflowTabId = WorkbenchSectionId;
+
+declare global {
+  interface Window {
+    __PVB_TEST_HOOKS__?: {
+      loadSampleWorkbook: () => void;
+    };
+  }
+}
 
 const workflowTabs: Array<{ id: WorkflowTabId; label: string }> = [
   { id: "periods", label: "Data Awal" },
@@ -1160,6 +1167,20 @@ export function ValuationWorkbench() {
     }));
   }
 
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.__PVB_TEST_HOOKS__ = {
+      loadSampleWorkbook: loadSample,
+    };
+
+    return () => {
+      delete window.__PVB_TEST_HOOKS__;
+    };
+  });
+
   function getExportInput() {
     return {
       periods,
@@ -1248,7 +1269,7 @@ export function ValuationWorkbench() {
       ) : (
         <aside className="sidebar">
           <div className="brand-block">
-            <div className="brand-mark">PVB</div>
+            <div className="brand-mark">B-2</div>
             <div className="brand-copy">
               <h1>PENILAIAN BISNIS II</h1>
             </div>
@@ -1288,10 +1309,6 @@ export function ValuationWorkbench() {
               <button className="icon-button" type="button" onClick={redoCoreChange} disabled={redoStack.length === 0} title="Redo perubahan data">
                 <Redo2 size={18} />
               </button>
-              <button className="button secondary" type="button" onClick={loadSample}>
-                <Upload size={18} />
-                Muat contoh workbook
-              </button>
               <button className="button secondary" type="button" onClick={exportWorkbook} disabled={isTemplateExporting} aria-busy={isTemplateExporting}>
                 <Download size={18} />
                 {isTemplateExporting ? "Menyiapkan XLSX" : "Export XLSX"}
@@ -1302,7 +1319,7 @@ export function ValuationWorkbench() {
               </button>
               <button className="button ghost" type="button" onClick={resetForm} disabled={!hasAnyInput}>
                 <Eraser size={18} />
-                Kosongkan
+                Reset
               </button>
             </div>
           </header>
