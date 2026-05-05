@@ -212,7 +212,9 @@ test("added analysis sections use readiness gates before sample data and render 
   await openWorkflowTab(page, "Proyeksi Neraca");
   await expect(page.getByRole("heading", { name: "Proyeksi Neraca" })).toBeVisible();
   await expect(page.getByTestId("dcf-balance-projection-table")).toContainText("Current Assets");
-  await expect(page.getByTestId("dcf-balance-projection-table")).toContainText("Perlu input");
+  await expect(page.getByTestId("dcf-balance-projection-table")).toContainText("Balance Control");
+  await expect(page.getByTestId("dcf-balance-projection-table")).not.toContainText("Perlu input");
+  await expect(page.getByTestId("dcf-balance-projection-table")).not.toContainText("Belum dimodelkan");
 
   await openWorkflowTab(page, "Penilaian EEM/DCF");
   const historicalRollForwardDcfValue = await page.getByTestId("dcf-base-equity-value").textContent();
@@ -546,7 +548,7 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await expect(page.getByTestId("wacc-calculator")).toContainText("isi dengan beta manual yang memiliki sumber dan justifikasi penilai");
   await expect(page.getByTestId("wacc-calculator")).not.toContainText("DCF discount rate dan EEM capitalization rate");
   await expect(page.getByTestId("discount-rate-analysis")).toContainText("Discount Rate Analysis (CAPM)");
-  await expect(page.getByTestId("discount-rate-analysis")).toContainText("DISCOUNT RATE");
+  await expect(page.getByTestId("discount-rate-analysis")).toContainText("Referensi teknis");
   await expect(page.getByTestId("wacc-comparable-table")).toContainText("Perusahaan Pembanding");
   await expect(page.getByTestId("wacc-capital-structure-table")).toContainText("Struktur Kapital");
   await page.getByTestId("wacc-comparable-table").getByRole("button", { name: "Terapkan Saran" }).click();

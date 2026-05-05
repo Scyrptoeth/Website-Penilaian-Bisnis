@@ -287,7 +287,7 @@ function buildSummarySheet(input: ValuationExcelExportInput, methodRefs: MethodR
   const rows: SheetRow[] = [
     ["Penilaian Bisnis II - Workbook Export"],
     ["Generated at", exportedAt.toISOString()],
-    ["Export basis", "Active website state. Layout is purpose-built for audit review and does not copy the reference Excel workbook format."],
+    ["Export basis", "Active website state. Layout is purpose-built for audit review."],
     [],
     ["Case", "Value"],
     ["Object taxpayer", input.caseProfile.objectTaxpayerName || "-"],
@@ -1292,8 +1292,8 @@ function aamValuePerShare(input: ValuationExcelExportInput): number {
 function recordDeferredHighImpactTemplateGaps(input: ValuationExcelExportInput, unmapped: TemplateUnmapped[]) {
   unmapped.push({
     field: "Projection sheets full row-level rebuild",
-    value: "PROY LR / PROY BALANCE SHEET / PROY CASH FLOW STATEMENT / PROY NOPLAT / PROY FIXED ASSETS",
-    reason: "Projection sheets retain the legacy template formula graph. V2 patches upstream anchors and DCF/STAT_DCF cached outputs, but a row-level projection rewrite is deferred until workbook parity is reviewer-approved.",
+    value: "Income projection / balance projection / cash-flow projection / NOPLAT / fixed-asset projection",
+    reason: "Projection exports keep the current template graph while the website calculation engine remains the authoritative audit view.",
   });
 
   const primaryTaxRow = input.taxSimulationResult.primaryRow;
@@ -1448,7 +1448,7 @@ function appendTemplateAuditSheet(
     ["Template formulas", "Preserved where not patched", "Formula cells retained from the template are classified as template-formula and marked with blue font unless a web-derived cache is explicitly refreshed."],
     ["Cached values", "Refreshed for key outputs", "AAM, EEM, DCF, STAT_EEM, STAT_DCF, and selected tax bridge output cells keep formulas and receive web-engine cached values."],
     ["Browser recalculation", "Not available", "The browser export library writes formulas but does not evaluate the workbook formula graph."],
-    ["Excel recalculation metadata", "Not guaranteed", "Open the workbook in Excel or another spreadsheet engine for authoritative recalculation after export."],
+    ["Spreadsheet recalculation metadata", "Not guaranteed", "Open the exported workbook in a spreadsheet engine for authoritative recalculation after export."],
     [],
     ["Tax Simulation Warnings"],
     ...input.taxSimulationResult.warnings.map((warning): SheetRow => [warning]),

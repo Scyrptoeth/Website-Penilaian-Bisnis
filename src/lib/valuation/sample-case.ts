@@ -19,6 +19,8 @@ export const sampleCase: FinancialStatementSnapshot = {
   accountReceivable: 191_055_111,
   employeeReceivable: 21_000_000,
   inventory: 0,
+  fixedAssetAcquisition: 21_000_894_104,
+  accumulatedDepreciation: 4_989_536_710,
   fixedAssetsNet: 16_011_357_394,
   nonOperatingFixedAssets: 0,
   intangibleAssets: 0,

@@ -23,6 +23,8 @@ type CalculationOptions = {
 export type DcfFixedAssetProjectionInput = {
   depreciation: number;
   capitalExpenditure: number;
+  fixedAssetGross?: number;
+  accumulatedDepreciation?: number;
   fixedAssetsEnding: number;
 };
 
@@ -198,9 +200,27 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
   let previousRevenue = snapshot.revenue;
   let previousNwc = operatingWorkingCapital(snapshot);
   let previousFixedAssetsNet = snapshot.fixedAssetsNet;
+  let previousFixedAssetGross = snapshot.fixedAssetAcquisition || snapshot.fixedAssetsNet + snapshot.accumulatedDepreciation;
+  let previousAccumulatedDepreciation = snapshot.accumulatedDepreciation;
+  let previousRetainedEarningsEnding = snapshot.retainedEarningsSurplus + snapshot.retainedEarningsCurrentProfit;
   const includeWorkingCapitalChange = options.includeWorkingCapitalChange ?? true;
   const wacc = options.wacc ?? snapshot.wacc;
   const startYear = forecastStartYear(snapshot);
+  const baseCash = snapshot.cashOnHand + snapshot.cashOnBankDeposit;
+  const cashOnHandShare = baseCash > 0 ? snapshot.cashOnHand / baseCash : 0;
+  const otherCurrentAssetsBase = positiveResidual(
+    snapshot.currentAssets,
+    snapshot.cashOnHand +
+      snapshot.cashOnBankDeposit +
+      snapshot.accountReceivable +
+      snapshot.employeeReceivable +
+      snapshot.inventory,
+  );
+  const otherNonCurrentAssetsBase = positiveResidual(
+    snapshot.nonCurrentAssets,
+    snapshot.fixedAssetsNet + snapshot.intangibleAssets,
+  );
+  const otherNonCurrentLiabilitiesBase = positiveResidual(snapshot.nonCurrentLiabilities, snapshot.bankLoanLongTerm);
 
   for (let period = 1; period <= 5; period += 1) {
     const year = startYear + period;
@@ -223,7 +243,40 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
     const changeInNwc = includeWorkingCapitalChange ? operatingNwc - previousNwc : 0;
     const maintenanceCapex = fixedAssetProjection?.capitalExpenditure ?? depreciation;
     const fixedAssetsBeginning = previousFixedAssetsNet;
-    const fixedAssetsEnding = fixedAssetProjection?.fixedAssetsEnding ?? Math.max(0, fixedAssetsBeginning + maintenanceCapex - depreciation);
+    const fixedAssetGross = fixedAssetProjection?.fixedAssetGross ?? previousFixedAssetGross + maintenanceCapex;
+    const accumulatedDepreciation = fixedAssetProjection?.accumulatedDepreciation ?? previousAccumulatedDepreciation + depreciation;
+    const fixedAssetsEnding =
+      fixedAssetProjection?.fixedAssetsEnding ?? Math.max(0, fixedAssetGross - accumulatedDepreciation);
+    const employeeReceivable = snapshot.employeeReceivable;
+    const otherCurrentAssets = otherCurrentAssetsBase;
+    const otherNonCurrentAssets = otherNonCurrentAssetsBase;
+    const intangibleAssets = snapshot.intangibleAssets;
+    const taxPayable = Math.max(0, statutoryTaxOnEbit);
+    const projectedOtherPayable = otherPayable + snapshot.interestPayable;
+    const bankLoanLongTerm = snapshot.bankLoanLongTerm;
+    const otherNonCurrentLiabilities = otherNonCurrentLiabilitiesBase;
+    const nonCurrentLiabilities = bankLoanLongTerm + otherNonCurrentLiabilities;
+    const paidUpCapital = snapshot.paidUpCapital;
+    const additionalPaidInCapital = snapshot.additionalPaidInCapital;
+    const retainedEarningsSurplus = previousRetainedEarningsEnding;
+    const retainedEarningsEnding = retainedEarningsSurplus + noplat;
+    const shareholdersEquity = paidUpCapital + additionalPaidInCapital + retainedEarningsEnding;
+    const nonCashAssets =
+      ar + employeeReceivable + inventory + otherCurrentAssets + fixedAssetsEnding + otherNonCurrentAssets + intangibleAssets;
+    const baseLiabilitiesAndEquity =
+      snapshot.bankLoanShortTerm + ap + taxPayable + projectedOtherPayable + nonCurrentLiabilities + shareholdersEquity;
+    const balancingCash = baseLiabilitiesAndEquity - nonCashAssets;
+    const cashTotal = Math.max(0, balancingCash);
+    const financingPlug = Math.max(0, -balancingCash);
+    const cashOnHand = cashTotal * cashOnHandShare;
+    const cashOnBankDeposit = cashTotal - cashOnHand;
+    const bankLoanShortTerm = snapshot.bankLoanShortTerm + financingPlug;
+    const currentAssets = cashTotal + ar + employeeReceivable + inventory + otherCurrentAssets;
+    const nonCurrentAssets = fixedAssetsEnding + otherNonCurrentAssets + intangibleAssets;
+    const totalAssets = currentAssets + nonCurrentAssets;
+    const currentLiabilities = bankLoanShortTerm + ap + taxPayable + projectedOtherPayable;
+    const liabilitiesAndEquity = currentLiabilities + nonCurrentLiabilities + shareholdersEquity;
+    const balanceControl = totalAssets - liabilitiesAndEquity;
     const grossCashFlow = noplat + depreciation;
     const grossInvestment = maintenanceCapex + changeInNwc;
     const freeCashFlow = grossCashFlow - grossInvestment;
@@ -241,17 +294,41 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
       ebit,
       statutoryTaxOnEbit,
       noplat,
+      cashOnHand,
+      cashOnBankDeposit,
       accountReceivable: ar,
+      employeeReceivable,
       inventory,
+      otherCurrentAssets,
+      currentAssets,
       operatingCurrentAssets,
       accountPayable: ap,
-      otherPayable,
+      taxPayable,
+      otherPayable: projectedOtherPayable,
+      bankLoanShortTerm,
+      currentLiabilities,
       operatingCurrentLiabilities,
       operatingNwc,
       changeInNwc,
       fixedAssetsBeginning,
+      fixedAssetGross,
+      accumulatedDepreciation,
       capitalExpenditure: maintenanceCapex,
       fixedAssetsEnding,
+      otherNonCurrentAssets,
+      intangibleAssets,
+      nonCurrentAssets,
+      totalAssets,
+      bankLoanLongTerm,
+      otherNonCurrentLiabilities,
+      nonCurrentLiabilities,
+      paidUpCapital,
+      additionalPaidInCapital,
+      retainedEarningsSurplus,
+      retainedEarningsEnding,
+      shareholdersEquity,
+      liabilitiesAndEquity,
+      balanceControl,
       grossCashFlow,
       grossInvestment,
       freeCashFlow,
@@ -262,6 +339,9 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
     previousRevenue = revenue;
     previousNwc = operatingNwc;
     previousFixedAssetsNet = fixedAssetsEnding;
+    previousFixedAssetGross = fixedAssetGross;
+    previousAccumulatedDepreciation = accumulatedDepreciation;
+    previousRetainedEarningsEnding = retainedEarningsEnding;
   }
 
   return rows;
@@ -356,4 +436,8 @@ export function calculateAllMethods(snapshot: FinancialStatementSnapshot, option
 function forecastStartYear(snapshot: FinancialStatementSnapshot): number {
   const yearMatch = snapshot.valuationDate.match(/\b(19|20)\d{2}\b/);
   return yearMatch ? Number(yearMatch[0]) : 2021;
+}
+
+function positiveResidual(total: number, knownComponents: number): number {
+  return Math.max(0, total - knownComponents);
 }

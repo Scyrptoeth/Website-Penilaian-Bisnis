@@ -48,6 +48,13 @@ describe("valuation calculations", () => {
       assertAlmostEqual(row.ebit, row.grossProfit - row.operatingExpenses - row.depreciation, 0.01);
       assertAlmostEqual(row.noplat, row.ebit - row.statutoryTaxOnEbit, 0.01);
       assertAlmostEqual(row.operatingNwc, row.operatingCurrentAssets - row.operatingCurrentLiabilities, 0.01);
+      assertAlmostEqual(row.currentAssets, row.cashOnHand + row.cashOnBankDeposit + row.accountReceivable + row.employeeReceivable + row.inventory + row.otherCurrentAssets, 0.01);
+      assertAlmostEqual(row.fixedAssetsEnding, row.fixedAssetGross - row.accumulatedDepreciation, 0.01);
+      assertAlmostEqual(row.totalAssets, row.currentAssets + row.nonCurrentAssets, 0.01);
+      assertAlmostEqual(row.currentLiabilities, row.bankLoanShortTerm + row.accountPayable + row.taxPayable + row.otherPayable, 0.01);
+      assertAlmostEqual(row.shareholdersEquity, row.paidUpCapital + row.additionalPaidInCapital + row.retainedEarningsEnding, 0.01);
+      assertAlmostEqual(row.liabilitiesAndEquity, row.currentLiabilities + row.nonCurrentLiabilities + row.shareholdersEquity, 0.01);
+      assertAlmostEqual(row.balanceControl, 0, 1);
       assertAlmostEqual(row.freeCashFlow, row.grossCashFlow - row.grossInvestment, 0.01);
       assertAlmostEqual(row.presentValue, row.freeCashFlow * row.discountFactor, 0.01);
       assert.ok(Number.isFinite(row.freeCashFlow));

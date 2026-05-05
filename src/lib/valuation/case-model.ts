@@ -905,6 +905,8 @@ export function buildSnapshot(
     accountReceivable,
     employeeReceivable,
     inventory,
+    fixedAssetAcquisition,
+    accumulatedDepreciation,
     fixedAssetsNet,
     nonOperatingFixedAssets,
     intangibleAssets,
