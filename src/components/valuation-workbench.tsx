@@ -1983,6 +1983,10 @@ export function ValuationWorkbench() {
               <strong>{formatIdr(results.sensitivities.dcfTaxPayableDebtLike.equityValue)}</strong>
             </div>
             <div>
+              <span>DCF - proyeksi neraca berbasis historis</span>
+              <strong>{formatIdr(results.sensitivities.dcfHistoricalDerivedProjection.equityValue)}</strong>
+            </div>
+            <div>
               <span>EEM utang pajak debt-like</span>
               <strong>{formatIdr(results.sensitivities.eemTaxPayableDebtLike.equityValue)}</strong>
             </div>

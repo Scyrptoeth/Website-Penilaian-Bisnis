@@ -7,6 +7,7 @@ type DcfOptions = {
   debtLikeTaxPayable?: boolean;
   fixedAssetProjection?: Record<number, DcfFixedAssetProjectionInput>;
   fixedAssetProjectionSource?: string;
+  projectionEngine?: "balance-reconciled" | "historical-derived";
 };
 
 type AamOptions = {
@@ -203,7 +204,9 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
   let previousFixedAssetGross = snapshot.fixedAssetAcquisition || snapshot.fixedAssetsNet + snapshot.accumulatedDepreciation;
   let previousAccumulatedDepreciation = snapshot.accumulatedDepreciation;
   let previousRetainedEarningsEnding = snapshot.retainedEarningsSurplus + snapshot.retainedEarningsCurrentProfit;
+  let previousTaxPayableEnding = snapshot.taxPayable;
   const includeWorkingCapitalChange = options.includeWorkingCapitalChange ?? true;
+  const useHistoricalDerivedProjection = options.projectionEngine === "historical-derived";
   const wacc = options.wacc ?? snapshot.wacc;
   const startYear = forecastStartYear(snapshot);
   const baseCash = snapshot.cashOnHand + snapshot.cashOnBankDeposit;
@@ -233,7 +236,18 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
     const grossProfit = revenue - cogs;
     const ebit = grossProfit - operatingExpenses - depreciation;
     const statutoryTaxOnEbit = ebit * snapshot.taxRate;
+    const taxExpenseForPayable = Math.max(0, statutoryTaxOnEbit);
+    const historicalTaxPayableTarget = taxExpenseForPayable * Math.max(0, snapshot.taxPayableToTaxExpenseRatio || 1);
+    const maximumTaxPayable = previousTaxPayableEnding + taxExpenseForPayable;
+    const taxPayable = useHistoricalDerivedProjection
+      ? Math.min(maximumTaxPayable, historicalTaxPayableTarget)
+      : Math.max(0, statutoryTaxOnEbit);
+    const cashTaxPaid = useHistoricalDerivedProjection ? Math.max(0, maximumTaxPayable - taxPayable) : statutoryTaxOnEbit;
     const noplat = ebit - statutoryTaxOnEbit;
+    const cashTaxAdjustedNoplat = ebit - cashTaxPaid;
+    const projectedNetIncome = useHistoricalDerivedProjection && snapshot.commercialNpatMargin
+      ? revenue * snapshot.commercialNpatMargin
+      : noplat;
     const ar = (revenue * snapshot.arDays) / 365;
     const inventory = (cogs * snapshot.inventoryDays) / 365;
     const ap = (cogs * snapshot.apDays) / 365;
@@ -252,7 +266,6 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
     const otherCurrentAssets = otherCurrentAssetsBase;
     const otherNonCurrentAssets = otherNonCurrentAssetsBase;
     const intangibleAssets = snapshot.intangibleAssets;
-    const taxPayable = Math.max(0, statutoryTaxOnEbit);
     const projectedOtherPayable = otherPayable + snapshot.interestPayable;
     const bankLoanLongTerm = snapshot.bankLoanLongTerm;
     const otherNonCurrentLiabilities = otherNonCurrentLiabilitiesBase;
@@ -260,15 +273,38 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
     const paidUpCapital = snapshot.paidUpCapital;
     const additionalPaidInCapital = snapshot.additionalPaidInCapital;
     const retainedEarningsSurplus = previousRetainedEarningsEnding;
-    const retainedEarningsEnding = retainedEarningsSurplus + noplat;
-    const shareholdersEquity = paidUpCapital + additionalPaidInCapital + retainedEarningsEnding;
+    let dividendDistribution = useHistoricalDerivedProjection
+      ? Math.max(0, projectedNetIncome * Math.max(0, snapshot.dividendPayoutRatio))
+      : 0;
+    let retainedEarningsEnding = retainedEarningsSurplus + projectedNetIncome - dividendDistribution;
+    let shareholdersEquity = paidUpCapital + additionalPaidInCapital + retainedEarningsEnding;
     const nonCashAssets =
       ar + employeeReceivable + inventory + otherCurrentAssets + fixedAssetsEnding + otherNonCurrentAssets + intangibleAssets;
-    const baseLiabilitiesAndEquity =
-      snapshot.bankLoanShortTerm + ap + taxPayable + projectedOtherPayable + nonCurrentLiabilities + shareholdersEquity;
-    const balancingCash = baseLiabilitiesAndEquity - nonCashAssets;
-    const cashTotal = Math.max(0, balancingCash);
-    const financingPlug = Math.max(0, -balancingCash);
+    const baseCashPolicyRatio = snapshot.cashToRevenueRatio || (previousRevenue ? baseCash / previousRevenue : 0);
+    let cashTotal = useHistoricalDerivedProjection ? Math.max(0, revenue * baseCashPolicyRatio) : 0;
+    let financingPlug = 0;
+
+    if (useHistoricalDerivedProjection) {
+      const totalAssetsBeforePlug = cashTotal + nonCashAssets;
+      const liabilitiesAndEquityBeforePlug =
+        snapshot.bankLoanShortTerm + ap + taxPayable + projectedOtherPayable + nonCurrentLiabilities + shareholdersEquity;
+      const balanceGap = totalAssetsBeforePlug - liabilitiesAndEquityBeforePlug;
+
+      if (balanceGap >= 0) {
+        financingPlug = balanceGap;
+      } else {
+        dividendDistribution += -balanceGap;
+        retainedEarningsEnding -= -balanceGap;
+        shareholdersEquity = paidUpCapital + additionalPaidInCapital + retainedEarningsEnding;
+      }
+    } else {
+      const baseLiabilitiesAndEquity =
+        snapshot.bankLoanShortTerm + ap + taxPayable + projectedOtherPayable + nonCurrentLiabilities + shareholdersEquity;
+      const balancingCash = baseLiabilitiesAndEquity - nonCashAssets;
+      cashTotal = Math.max(0, balancingCash);
+      financingPlug = Math.max(0, -balancingCash);
+    }
+
     const cashOnHand = cashTotal * cashOnHandShare;
     const cashOnBankDeposit = cashTotal - cashOnHand;
     const bankLoanShortTerm = snapshot.bankLoanShortTerm + financingPlug;
@@ -278,7 +314,7 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
     const currentLiabilities = bankLoanShortTerm + ap + taxPayable + projectedOtherPayable;
     const liabilitiesAndEquity = currentLiabilities + nonCurrentLiabilities + shareholdersEquity;
     const balanceControl = totalAssets - liabilitiesAndEquity;
-    const grossCashFlow = noplat + depreciation;
+    const grossCashFlow = (useHistoricalDerivedProjection ? cashTaxAdjustedNoplat : noplat) + depreciation;
     const grossInvestment = maintenanceCapex + changeInNwc;
     const freeCashFlow = grossCashFlow - grossInvestment;
     const cashBeginningBalance = previousCashEndingBalance;
@@ -314,7 +350,9 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
       depreciation,
       ebit,
       statutoryTaxOnEbit,
+      cashTaxPaid,
       noplat,
+      projectedNetIncome,
       cashOnHand,
       cashOnBankDeposit,
       accountReceivable: ar,
@@ -346,6 +384,7 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
       paidUpCapital,
       additionalPaidInCapital,
       retainedEarningsSurplus,
+      dividendDistribution,
       retainedEarningsEnding,
       shareholdersEquity,
       liabilitiesAndEquity,
@@ -378,6 +417,7 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
     previousAccumulatedDepreciation = accumulatedDepreciation;
     previousRetainedEarningsEnding = retainedEarningsEnding;
     previousCashEndingBalance = cashEndingBalance;
+    previousTaxPayableEnding = taxPayable;
   }
 
   return rows;
@@ -404,7 +444,9 @@ export function calculateDcf(
       label: "PV eksplisit FCFF",
       formula: "Jumlah FCFF tahunan / (1 + WACC)^n",
       value: explicitPv,
-      note: options.fixedAssetProjectionSource
+      note: options.projectionEngine === "historical-derived"
+        ? `Skenario pembanding memakai kebijakan kas, jadwal utang pajak, dan roll-forward ekuitas yang diturunkan dari ${snapshot.historicalProjectionYearCount || 1} periode historis pengguna.`
+        : options.fixedAssetProjectionSource
         ? `Proyeksi eksplisit lima tahun memakai ${options.fixedAssetProjectionSource} untuk depresiasi, capex, dan aset tetap neto.`
         : "Proyeksi eksplisit lima tahun berbasis margin historis dan operating WC days.",
     },
@@ -444,6 +486,7 @@ export function calculateAllMethods(snapshot: FinancialStatementSnapshot, option
   });
   const dcfNoIncrementalWorkingCapital = calculateDcf(snapshot, { ...dcfOptions, includeWorkingCapitalChange: false });
   const dcfTaxPayableDebtLike = calculateDcf(snapshot, { ...dcfOptions, debtLikeTaxPayable: true });
+  const dcfHistoricalDerivedProjection = calculateDcf(snapshot, { ...dcfOptions, projectionEngine: "historical-derived" });
   const eemTaxPayableDebtLike = {
     ...calculateEem(snapshot),
     equityValue: calculateEem(snapshot).equityValue - snapshot.taxPayable,
@@ -458,6 +501,7 @@ export function calculateAllMethods(snapshot: FinancialStatementSnapshot, option
       dcfTerminalUpside,
       dcfNoIncrementalWorkingCapital,
       dcfTaxPayableDebtLike,
+      dcfHistoricalDerivedProjection,
       eemTaxPayableDebtLike,
     },
     operatingWorkingCapital: operatingWorkingCapital(snapshot),

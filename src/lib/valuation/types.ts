@@ -111,6 +111,11 @@ export interface FinancialStatementSnapshot {
   inventoryDays: number;
   apDays: number;
   otherPayableDays: number;
+  cashToRevenueRatio: number;
+  taxPayableToTaxExpenseRatio: number;
+  commercialNpatMargin: number;
+  dividendPayoutRatio: number;
+  historicalProjectionYearCount: number;
   cashOnHand: number;
   cashOnBankDeposit: number;
   accountReceivable: number;
@@ -177,7 +182,9 @@ export interface DcfForecastRow {
   depreciation: number;
   ebit: number;
   statutoryTaxOnEbit: number;
+  cashTaxPaid: number;
   noplat: number;
+  projectedNetIncome: number;
   cashOnHand: number;
   cashOnBankDeposit: number;
   accountReceivable: number;
@@ -209,6 +216,7 @@ export interface DcfForecastRow {
   paidUpCapital: number;
   additionalPaidInCapital: number;
   retainedEarningsSurplus: number;
+  dividendDistribution: number;
   retainedEarningsEnding: number;
   shareholdersEquity: number;
   liabilitiesAndEquity: number;

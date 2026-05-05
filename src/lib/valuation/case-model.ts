@@ -900,6 +900,11 @@ export function buildSnapshot(
     inventoryDays: parseInputNumber(assumptions.inventoryDays) || historicalDrivers.inventoryDays,
     apDays: parseInputNumber(assumptions.apDays) || historicalDrivers.apDays,
     otherPayableDays: parseInputNumber(assumptions.otherPayableDays) || historicalDrivers.otherPayableDays,
+    cashToRevenueRatio: historicalDrivers.cashToRevenueRatio || (revenue ? (cashOnHand + cashOnBankDeposit) / revenue : 0),
+    taxPayableToTaxExpenseRatio: historicalDrivers.taxPayableToTaxExpenseRatio || 1,
+    commercialNpatMargin: historicalDrivers.commercialNpatMargin || (revenue ? retainedEarningsCurrentProfit / revenue : 0),
+    dividendPayoutRatio: historicalDrivers.dividendPayoutRatio,
+    historicalProjectionYearCount: historicalDrivers.historicalProjectionYearCount,
     cashOnHand,
     cashOnBankDeposit,
     accountReceivable,
@@ -1000,6 +1005,12 @@ export function deriveHistoricalDrivers(periods: Period[], mappedRows: MappedRow
     const inventory = amount(aggregate("INVENTORY"));
     const ap = amount(aggregate("ACCOUNT_PAYABLE"));
     const otherPayable = amount(aggregate("OTHER_PAYABLE"));
+    const cash = amount(aggregate("CASH_ON_HAND")) + amount(aggregate("CASH_ON_BANK"));
+    const taxPayable = amount(aggregate("TAX_PAYABLE"));
+    const corporateTax = amount(aggregate("CORPORATE_TAX"));
+    const commercialNpat = amount(aggregate("COMMERCIAL_NPAT"));
+    const retainedEarningsSurplus = amount(aggregate("RETAINED_EARNINGS_SURPLUS"));
+    const retainedEarningsCurrentProfit = amount(aggregate("RETAINED_EARNINGS_CURRENT_PROFIT"));
 
     return {
       revenue,
@@ -1011,6 +1022,11 @@ export function deriveHistoricalDrivers(periods: Period[], mappedRows: MappedRow
       inventory,
       ap,
       otherPayable,
+      cash,
+      taxPayable,
+      corporateTax,
+      commercialNpat,
+      retainedEarningsEnding: retainedEarningsSurplus + retainedEarningsCurrentProfit,
     };
   });
 
@@ -1022,6 +1038,16 @@ export function deriveHistoricalDrivers(periods: Period[], mappedRows: MappedRow
     .map((metric, index) => {
       const priorRevenue = periodMetrics[index].revenue;
       return priorRevenue > 0 && metric.revenue > 0 ? metric.revenue / priorRevenue - 1 : null;
+    })
+    .filter((value): value is number => value !== null && Number.isFinite(value));
+  const dividendPayoutRates = periodMetrics
+    .slice(1)
+    .map((metric, index) => {
+      const priorRetainedEarnings = periodMetrics[index].retainedEarningsEnding;
+      const profit = metric.commercialNpat || Math.max(0, metric.retainedEarningsEnding - priorRetainedEarnings);
+      const distribution = priorRetainedEarnings + profit - metric.retainedEarningsEnding;
+
+      return profit > 0 && distribution > 0 ? distribution / profit : null;
     })
     .filter((value): value is number => value !== null && Number.isFinite(value));
 
@@ -1036,6 +1062,13 @@ export function deriveHistoricalDrivers(periods: Period[], mappedRows: MappedRow
     inventoryDays: averageRatio(periodMetrics, (metric) => metric.inventory * 365, (metric) => Math.abs(metric.cogs)),
     apDays: averageRatio(periodMetrics, (metric) => metric.ap * 365, (metric) => Math.abs(metric.cogs)),
     otherPayableDays: averageRatio(periodMetrics, (metric) => metric.otherPayable * 365, (metric) => Math.abs(metric.selling + metric.ga)),
+    cashToRevenueRatio: averageRatio(periodMetrics, (metric) => metric.cash, (metric) => metric.revenue),
+    taxPayableToTaxExpenseRatio: averageRatio(periodMetrics, (metric) => metric.taxPayable, (metric) => metric.corporateTax),
+    commercialNpatMargin: averageRatio(periodMetrics, (metric) => metric.commercialNpat, (metric) => metric.revenue),
+    dividendPayoutRatio: dividendPayoutRates.length
+      ? clamp(dividendPayoutRates.reduce((sum, value) => sum + value, 0) / dividendPayoutRates.length, 0, 1)
+      : 0,
+    historicalProjectionYearCount: periodMetrics.filter((metric) => metric.revenue > 0).length,
   };
 }
 

@@ -47,6 +47,9 @@ describe("valuation calculations", () => {
       assertAlmostEqual(row.grossProfit, row.revenue - row.cogs, 0.01);
       assertAlmostEqual(row.ebit, row.grossProfit - row.operatingExpenses - row.depreciation, 0.01);
       assertAlmostEqual(row.noplat, row.ebit - row.statutoryTaxOnEbit, 0.01);
+      assertAlmostEqual(row.cashTaxPaid, row.statutoryTaxOnEbit, 0.01);
+      assertAlmostEqual(row.projectedNetIncome, row.noplat, 0.01);
+      assertAlmostEqual(row.dividendDistribution, 0, 0.01);
       assertAlmostEqual(row.operatingNwc, row.operatingCurrentAssets - row.operatingCurrentLiabilities, 0.01);
       assertAlmostEqual(row.currentAssets, row.cashOnHand + row.cashOnBankDeposit + row.accountReceivable + row.employeeReceivable + row.inventory + row.otherCurrentAssets, 0.01);
       assertAlmostEqual(row.fixedAssetsEnding, row.fixedAssetGross - row.accumulatedDepreciation, 0.01);
@@ -106,6 +109,20 @@ describe("valuation calculations", () => {
     assert.equal(projected.traces[0].note.includes("Roll-forward aset tetap historis"), true);
   });
 
+  it("keeps the historical-derived projection as a separate DCF sensitivity", () => {
+    const base = calculateDcf(snapshot);
+    const historicalDerived = calculateDcf(snapshot, { projectionEngine: "historical-derived" });
+
+    assert.notEqual(historicalDerived.equityValue, base.equityValue);
+    historicalDerived.forecast.forEach((row) => {
+      assertAlmostEqual(row.cashEndingBalance, row.revenue * snapshot.cashToRevenueRatio, 0.01);
+      assertAlmostEqual(row.balanceControl, 0, 1);
+      assertAlmostEqual(row.cashFlowControl, 0, 1);
+      assert.ok(row.cashTaxPaid >= 0);
+      assert.ok(row.projectedNetIncome >= 0);
+    });
+  });
+
   it("keeps DCF and EEM sensitivities explicit and formula-derived", () => {
     const baseDcf = calculateDcf(snapshot);
     const taxPayableDebtLikeDcf = calculateDcf(snapshot, { debtLikeTaxPayable: true });
@@ -116,6 +133,7 @@ describe("valuation calculations", () => {
     assert.ok(allMethods.sensitivities.dcfTerminalUpside);
     assert.ok(allMethods.sensitivities.dcfNoIncrementalWorkingCapital);
     assert.ok(allMethods.sensitivities.dcfTaxPayableDebtLike);
+    assert.ok(allMethods.sensitivities.dcfHistoricalDerivedProjection);
     assert.ok(allMethods.sensitivities.eemTaxPayableDebtLike);
     assertAlmostEqual(allMethods.sensitivities.eemTaxPayableDebtLike.equityValue, allMethods.eem.equityValue - snapshot.taxPayable, 0.01);
   });

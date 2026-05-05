@@ -217,6 +217,7 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByTestId("dcf-balance-projection-table")).not.toContainText("Belum dimodelkan");
 
   await openWorkflowTab(page, "Penilaian EEM/DCF");
+  await expect(page.getByText("DCF - proyeksi neraca berbasis historis")).toBeVisible();
   const historicalRollForwardDcfValue = await page.getByTestId("dcf-base-equity-value").textContent();
 
   await openWorkflowTab(page, "Proyeksi Aset Tetap");

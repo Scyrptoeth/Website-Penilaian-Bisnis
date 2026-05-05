@@ -628,6 +628,7 @@ function buildDcfSheet(input: ValuationExcelExportInput, snapshotRefs: SheetRefs
   rows.push(["DCF terminal upside", numberCell(input.results.sensitivities.dcfTerminalUpside.equityValue, "currency"), "Terminal growth upside"]);
   rows.push(["DCF no incremental working capital", numberCell(input.results.sensitivities.dcfNoIncrementalWorkingCapital.equityValue, "currency"), "Working capital change disabled"]);
   rows.push(["DCF tax payable debt-like", numberCell(input.results.sensitivities.dcfTaxPayableDebtLike.equityValue, "currency"), "Tax payable deducted as debt-like sensitivity"]);
+  rows.push(["DCF historical input projection", numberCell(input.results.sensitivities.dcfHistoricalDerivedProjection.equityValue, "currency"), "Cash, tax payable, and equity roll-forward derived from historical user inputs"]);
 
   return { ...createSheet(rows, [14, 18, 16, 16, 16, 16, 16, 16, 16, 16, 16, 18, 18, 18, 14, 18]), refs };
 }
