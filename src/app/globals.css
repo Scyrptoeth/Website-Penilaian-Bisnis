@@ -1591,6 +1591,19 @@ select {
   min-width: 860px;
 }
 
+.source-status-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 3px 8px;
+  border: 1px solid rgba(15, 118, 110, 0.2);
+  border-radius: 999px;
+  background: rgba(240, 253, 250, 0.86);
+  color: var(--accent-ink);
+  font-size: 9px;
+  font-weight: 800;
+}
+
 .discount-rate-analysis-card {
   display: grid;
   gap: 10px;
@@ -1666,37 +1679,52 @@ select {
   display: block;
   margin-top: 3px;
   overflow-wrap: anywhere;
-  font-family: var(--font-mono), monospace;
   font-size: 10px;
   font-weight: 650;
 }
 
 .discount-rate-trace-table table {
-  min-width: 1120px;
+  min-width: 980px;
 }
 
 .discount-rate-trace-table th:nth-child(1),
 .discount-rate-trace-table td:nth-child(1) {
-  width: 150px;
+  width: 190px;
 }
 
 .discount-rate-trace-table th:nth-child(2),
 .discount-rate-trace-table td:nth-child(2) {
-  width: 92px;
+  width: 430px;
 }
 
 .discount-rate-trace-table th:nth-child(3),
 .discount-rate-trace-table td:nth-child(3) {
-  width: 250px;
+  width: 130px;
 }
 
 .discount-rate-trace-table th:nth-child(4),
 .discount-rate-trace-table td:nth-child(4) {
-  width: 130px;
+  width: 180px;
+}
+
+.discount-rate-trace-table td strong {
+  display: block;
+  color: var(--ink);
+  font-size: 10px;
+}
+
+.discount-rate-trace-table td span {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 8.8px;
+  font-weight: 650;
+  line-height: 1.35;
 }
 
 .discount-rate-trace-table code,
-.discount-rate-bank-table code {
+.discount-rate-bank-table code,
+.discount-rate-audit-table code {
   display: inline-block;
   padding: 2px 5px;
   border: 1px solid var(--line);
@@ -1709,7 +1737,19 @@ select {
 }
 
 .discount-rate-bank-table table {
-  min-width: 620px;
+  min-width: 680px;
+}
+
+.workbook-audit-disclosure {
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.discount-rate-audit-table {
+  margin: 10px;
+}
+
+.discount-rate-audit-table table {
+  min-width: 860px;
 }
 
 .wacc-source-table th:nth-child(1),
@@ -1725,6 +1765,11 @@ select {
 
 .wacc-source-table th:nth-child(4),
 .wacc-source-table td:nth-child(4) {
+  width: 320px;
+}
+
+.wacc-source-table th:nth-child(5),
+.wacc-source-table td:nth-child(5) {
   width: 210px;
 }
 

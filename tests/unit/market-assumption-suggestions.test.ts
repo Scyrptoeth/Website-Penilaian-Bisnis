@@ -23,6 +23,20 @@ describe("market assumption suggestions", () => {
     assert.ok(averageInvestmentLoanRate(suggestion!) > 0);
   });
 
+  it("uses source-backed annual OJK SBDK debt-rate suggestions for 2020 through 2025", () => {
+    const suggestion2020 = getMarketAssumptionSuggestion("2020-12-31");
+    const suggestion2025 = getMarketAssumptionSuggestion("2025-06-30");
+
+    assert.equal(suggestion2020?.metrics.bankPerseroInvestmentLoan.value, 0.100312);
+    assert.equal(suggestion2020?.metrics.bankSwastaInvestmentLoan.value, 0.096151);
+    assert.equal(suggestion2020?.metrics.bankUmumInvestmentLoan.value, 0.096399);
+    assert.equal(suggestion2025?.metrics.bankPerseroInvestmentLoan.value, 0.085767);
+    assert.equal(suggestion2025?.metrics.bankSwastaInvestmentLoan.value, 0.083734);
+    assert.equal(suggestion2025?.metrics.bankUmumInvestmentLoan.value, 0.083859);
+    assert.match(suggestion2025?.metrics.bankUmumInvestmentLoan.method ?? "", /Januari-Juni 2025/);
+    assert.match(suggestion2025?.metrics.bankUmumInvestmentLoan.source ?? "", /OJK SBDK/);
+  });
+
   it("keeps each suggestion source-backed", () => {
     const suggestion = getMarketAssumptionSuggestion("2025-12-31");
 

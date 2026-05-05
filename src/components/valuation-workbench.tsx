@@ -1120,7 +1120,7 @@ export function ValuationWorkbench() {
 
   function applyWaccMarketSuggestion(suggestion: MarketAssumptionSuggestion) {
     const averageDebtRate = roundDiscountRateDebtRate(averageInvestmentLoanRate(suggestion));
-    const sourceNote = `Saran rata-rata tahunan ${suggestion.year}; ERP/default spread dari Damodaran, proxy SUN dari bukti pasar, dan proxy SBDK pinjaman investasi dari OJK.`;
+    const sourceNote = `Saran sistem tahunan ${suggestion.year}; ERP/default spread dari Damodaran, proxy SUN dari bukti pasar, dan debt rate dari rata-rata SBDK korporasi OJK.`;
 
     commitCoreState((current) => ({
       ...current,
@@ -4887,6 +4887,7 @@ function WaccMarketSuggestionPanel({
             <tr>
               <th>Input</th>
               <th className="numeric-cell">Saran</th>
+              <th>Status</th>
               <th>Metode</th>
               <th>Sumber</th>
             </tr>
@@ -4896,6 +4897,9 @@ function WaccMarketSuggestionPanel({
               <tr key={metric.key}>
                 <td>{metric.label}</td>
                 <td className="numeric-cell">{formatPercent(metric.value)}</td>
+                <td>
+                  <span className="source-status-pill">Saran sistem</span>
+                </td>
                 <td>
                   {metric.method}
                   <span>{metric.note}</span>
@@ -4912,7 +4916,7 @@ function WaccMarketSuggestionPanel({
       </div>
       <button className="button secondary" type="button" onClick={() => onApply(suggestion)}>
         <CheckCircle2 size={18} />
-        Isi input pasar {suggestion.year}
+        Terapkan Saran {suggestion.year}
       </button>
     </article>
   );
@@ -4997,32 +5001,34 @@ function WaccCalculatorPanel({
       />
       <div className="calculator-input-grid">
         <AssumptionInput
-          label="Pinjaman investasi Bank Persero"
+          label="Debt rate Bank Persero"
           value={assumptions.waccBankPerseroInvestmentLoanRate}
+          note="Saran sistem memakai rata-rata tahunan SBDK korporasi OJK sebagai proxy pre-tax debt rate."
           onChange={(value) => onChange("waccBankPerseroInvestmentLoanRate", value)}
         />
         <AssumptionInput
-          label="Pinjaman investasi Bank Pemda"
+          label="Debt rate Bank Pemda"
           value={assumptions.waccBankPemdaInvestmentLoanRate}
           onChange={(value) => onChange("waccBankPemdaInvestmentLoanRate", value)}
         />
         <AssumptionInput
-          label="Pinjaman investasi Bank Swasta"
+          label="Debt rate Bank Swasta"
           value={assumptions.waccBankSwastaInvestmentLoanRate}
+          note="Saran sistem memakai rata-rata tahunan SBDK korporasi OJK untuk bank non-Persero."
           onChange={(value) => onChange("waccBankSwastaInvestmentLoanRate", value)}
         />
         <AssumptionInput
-          label="Pinjaman investasi Bank Asing"
+          label="Debt rate Bank Asing"
           value={assumptions.waccBankAsingInvestmentLoanRate}
           onChange={(value) => onChange("waccBankAsingInvestmentLoanRate", value)}
         />
         <AssumptionInput
-          label="Pinjaman investasi Bank Campuran"
+          label="Debt rate Bank Campuran"
           value={assumptions.waccBankCampuranInvestmentLoanRate}
           onChange={(value) => onChange("waccBankCampuranInvestmentLoanRate", value)}
         />
         <AssumptionInput
-          label="Pinjaman investasi Bank Umum / proxy"
+          label="Debt rate Bank Umum / proxy"
           value={assumptions.waccBankUmumInvestmentLoanRate}
           note="Dipakai untuk smart suggestion tiga-rate bila input granular workbook lima bank belum tersedia."
           onChange={(value) => onChange("waccBankUmumInvestmentLoanRate", value)}
@@ -5267,34 +5273,169 @@ function DiscountRateAnalysisPanel({
   const equityRiskPremium = parseRateInput(assumptions.waccEquityRiskPremium);
   const ratingBasedDefaultSpread = parseRateInput(assumptions.waccRatingBasedDefaultSpread);
   const explicitDebtRate = parseRateInput(assumptions.waccPreTaxCostOfDebt);
+  const isMarketSuggestionApplied = assumptions.waccSource.startsWith("market-suggestion");
   const debtToEquity = calculation && calculation.equityWeight > 0 ? calculation.debtWeight / calculation.equityWeight : null;
   const unleveredBeta = calculation && taxRate !== null && debtToEquity !== null ? calculation.beta / (1 + (1 - taxRate) * debtToEquity) : null;
   const debtComponent = calculation ? calculation.debtWeight * calculation.afterTaxCostOfDebt : null;
   const equityComponent = calculation ? calculation.equityWeight * calculation.costOfEquity : null;
   const terminalGrowth = parseRateInput(assumptions.terminalGrowth);
   const workbookDebtFormula = bankLoanRate?.basis === "workbook-five-bank" ? "ROUND(AVERAGE(L6:L10)/100,3)" : "ROUND(average input bank rate,3)";
-  const debtRateNote = explicitDebtRate !== null
+  const debtRateNote = explicitDebtRate !== null && !isMarketSuggestionApplied
     ? "Override pre-tax cost of debt aktif; bank average tetap ditampilkan sebagai cross-check."
     : bankLoanRate
-      ? `${bankLoanRate.basisLabel}: raw ${formatPrecisePercent(bankLoanRate.rawAverageRate, 3)} -> rounded ${formatPercent(bankLoanRate.roundedRate)}.`
+      ? `${bankLoanRate.basisLabel}: rata-rata mentah ${formatPrecisePercent(bankLoanRate.rawAverageRate, 3)} dan nilai WACC ${formatPercent(bankLoanRate.roundedRate)}.`
       : "Lengkapi debt rate atau input pinjaman investasi bank.";
+  const debtRateSource =
+    explicitDebtRate !== null && !isMarketSuggestionApplied
+      ? "Override manual"
+      : isMarketSuggestionApplied
+        ? "Saran sistem diterapkan"
+        : "Saran sistem / input bank";
   const rows = [
-    ["Tax rate", "C2", "Input tarif pajak", formatOptionalRate(taxRate), "Dipakai untuk relevering beta dan after-tax debt cost."],
-    ["Risk free", "C3", "Input risk-free rate", formatOptionalRate(riskFreeRate), "Sumber dapat berasal dari smart suggestion atau input penilai."],
-    ["Beta", "C4 / H2", "BL = BU x (1 + (1 - t) x DER)", formatOptionalNumber(betaInput), "Fallback beta dipakai bila beta pembanding belum lengkap."],
-    ["Equity risk premium", "C5", "Input ERP", formatOptionalRate(equityRiskPremium), "ERP mendukung cost of equity."],
-    ["RBDS adjustment", "C6", "Ke = Rf + Beta x ERP - RBDS", formatOptionalRate(ratingBasedDefaultSpread), "Workbook mengurangkan RBDS; override wajib diberi dasar profesional."],
-    ["Debt rate", "C7 / L11", workbookDebtFormula, formatOptionalRate(explicitDebtRate ?? calculation?.preTaxCostOfDebt ?? null), debtRateNote],
-    ["DER industry", "C8", "D/E = debt weight / equity weight", formatOptionalNumber(debtToEquity), "Diturunkan dari bobot struktur modal aktif."],
-    ["Unlevered beta", "H1", "BU = BL / (1 + (1 - t) x DER)", formatOptionalNumber(unleveredBeta), "Trace parity workbook untuk beta tidak berutang."],
-    ["Cost of equity", "H3 / C9", "Ke = C3 + (H2 x C5) - C6", formatOptionalRate(calculation?.costOfEquity ?? null), "Nilai ini juga menjadi basis return ekuitas NTA bila disarankan."],
-    ["After-tax cost of debt", "H4 / C10", "Kd = debt rate x (1 - tax rate)", formatOptionalRate(calculation?.afterTaxCostOfDebt ?? null), "Konsisten dengan EEM/DCF dan required return on NTA."],
-    ["Debt weight", "F7", "DER / (1 + DER)", formatOptionalRate(calculation?.debtWeight ?? null), "Bobot utang pasar aktif."],
-    ["Equity weight", "F8", "1 - debt weight", formatOptionalRate(calculation?.equityWeight ?? null), "Bobot ekuitas pasar aktif."],
-    ["Debt WACC", "H7", "F7 x G7", formatOptionalRate(debtComponent), "Kontribusi utang terhadap WACC."],
-    ["Equity WACC", "H8", "F8 x G8", formatOptionalRate(equityComponent), "Kontribusi ekuitas terhadap WACC."],
-    ["WACC", "H10 / C11", "Debt WACC + Equity WACC", formatOptionalRate(calculation?.wacc ?? parseRateInput(assumptions.wacc)), "Nilai ini mengalir ke EEM capitalization rate dan DCF discount rate."],
-    ["Growth reference", "C12", "Linked growth reference", formatOptionalRate(terminalGrowth), "Ditampilkan sebagai referensi interoperabilitas, bukan input WACC."],
+    {
+      component: "Tax rate",
+      workbookRef: "C2",
+      workbookFormula: "Input tarif pajak",
+      method: "Tarif pajak aktif dipakai untuk relevering beta dan menghitung biaya utang setelah pajak.",
+      value: formatOptionalRate(taxRate),
+      source: "Input penilai / saran pajak",
+      note: "Interoperable dengan asumsi pajak tahunan yang tersedia di sistem.",
+    },
+    {
+      component: "Risk free",
+      workbookRef: "C3",
+      workbookFormula: "Input risk-free rate",
+      method: "Tingkat bebas risiko menjadi basis awal cost of equity sebelum premi risiko ekuitas.",
+      value: formatOptionalRate(riskFreeRate),
+      source: "Input penilai / saran pasar",
+      note: "Gunakan yield SUN pada tanggal penilaian bila tersedia.",
+    },
+    {
+      component: "Beta",
+      workbookRef: "C4 / H2",
+      workbookFormula: "BL = BU x (1 + (1 - t) x DER)",
+      method: "Beta aktif berasal dari pembanding sektor yang dire-lever sesuai struktur kapital; fallback manual hanya dipakai bila data pembanding belum lengkap.",
+      value: formatOptionalNumber(betaInput),
+      source: "Hasil pembanding / input manual",
+      note: "Nama formula workbook disimpan di detail audit.",
+    },
+    {
+      component: "Equity risk premium",
+      workbookRef: "C5",
+      workbookFormula: "Input ERP",
+      method: "Premi risiko ekuitas dikalikan beta untuk mengukur tambahan return ekuitas.",
+      value: formatOptionalRate(equityRiskPremium),
+      source: "Input penilai / saran pasar",
+      note: "Saran sistem memakai referensi Damodaran/NYU karena tidak tersedia sebagai tarif pemerintah.",
+    },
+    {
+      component: "RBDS adjustment",
+      workbookRef: "C6",
+      workbookFormula: "Ke = Rf + Beta x ERP - RBDS",
+      method: "Cost of equity mengikuti parity workbook: risk-free rate ditambah beta dikali ERP, lalu dikurangi rating-based default spread adjustment.",
+      value: formatOptionalRate(ratingBasedDefaultSpread),
+      source: "Input penilai / saran pasar",
+      note: "Override treatment wajib diberi dasar profesional.",
+    },
+    {
+      component: "Debt rate",
+      workbookRef: "C7 / L11",
+      workbookFormula: workbookDebtFormula,
+      method: "Jika override kosong, sistem memakai rata-rata debt rate bank yang tersedia lalu membulatkannya sesuai workbook.",
+      value: formatOptionalRate(explicitDebtRate ?? calculation?.preTaxCostOfDebt ?? null),
+      source: debtRateSource,
+      note: debtRateNote,
+    },
+    {
+      component: "DER industry",
+      workbookRef: "C8",
+      workbookFormula: "D/E = debt weight / equity weight",
+      method: "Rasio utang terhadap ekuitas diturunkan dari bobot struktur modal aktif.",
+      value: formatOptionalNumber(debtToEquity),
+      source: "Hasil formula",
+      note: "Mengikuti bobot pasar WACC yang sedang aktif.",
+    },
+    {
+      component: "Unlevered beta",
+      workbookRef: "H1",
+      workbookFormula: "BU = BL / (1 + (1 - t) x DER)",
+      method: "Beta tidak berutang dihitung ulang dari beta aktif, pajak, dan struktur kapital.",
+      value: formatOptionalNumber(unleveredBeta),
+      source: "Hasil formula",
+      note: "Ditampilkan untuk parity dengan sheet DISCOUNT RATE.",
+    },
+    {
+      component: "Cost of equity",
+      workbookRef: "H3 / C9",
+      workbookFormula: "Ke = C3 + (H2 x C5) - C6",
+      method: "Return ekuitas dihitung dari risk-free rate, beta, ERP, dan penyesuaian default spread.",
+      value: formatOptionalRate(calculation?.costOfEquity ?? null),
+      source: "Hasil formula",
+      note: "Nilai ini juga menjadi basis return ekuitas NTA bila disarankan.",
+    },
+    {
+      component: "After-tax cost of debt",
+      workbookRef: "H4 / C10",
+      workbookFormula: "Kd = debt rate x (1 - tax rate)",
+      method: "Biaya utang setelah pajak dihitung dari debt rate aktif setelah efek tax shield.",
+      value: formatOptionalRate(calculation?.afterTaxCostOfDebt ?? null),
+      source: "Hasil formula",
+      note: "Konsisten dengan EEM/DCF dan required return on NTA.",
+    },
+    {
+      component: "Debt weight",
+      workbookRef: "F7",
+      workbookFormula: "DER / (1 + DER)",
+      method: "Bobot utang memakai struktur kapital pasar atau fallback penilai.",
+      value: formatOptionalRate(calculation?.debtWeight ?? null),
+      source: "Hasil formula / input manual",
+      note: "Dipakai untuk kontribusi WACC sisi utang.",
+    },
+    {
+      component: "Equity weight",
+      workbookRef: "F8",
+      workbookFormula: "1 - debt weight",
+      method: "Bobot ekuitas adalah sisa struktur kapital setelah bobot utang.",
+      value: formatOptionalRate(calculation?.equityWeight ?? null),
+      source: "Hasil formula / input manual",
+      note: "Dipakai untuk kontribusi WACC sisi ekuitas.",
+    },
+    {
+      component: "Debt WACC",
+      workbookRef: "H7",
+      workbookFormula: "F7 x G7",
+      method: "Kontribusi utang dihitung dari bobot utang dikali after-tax cost of debt.",
+      value: formatOptionalRate(debtComponent),
+      source: "Hasil formula",
+      note: "Komponen pembentuk WACC final.",
+    },
+    {
+      component: "Equity WACC",
+      workbookRef: "H8",
+      workbookFormula: "F8 x G8",
+      method: "Kontribusi ekuitas dihitung dari bobot ekuitas dikali cost of equity.",
+      value: formatOptionalRate(equityComponent),
+      source: "Hasil formula",
+      note: "Komponen pembentuk WACC final.",
+    },
+    {
+      component: "WACC",
+      workbookRef: "H10 / C11",
+      workbookFormula: "Debt WACC + Equity WACC",
+      method: "WACC adalah penjumlahan kontribusi biaya modal utang dan ekuitas.",
+      value: formatOptionalRate(calculation?.wacc ?? parseRateInput(assumptions.wacc)),
+      source: "Hasil formula / override WACC",
+      note: "Mengalir ke EEM capitalization rate dan DCF discount rate.",
+    },
+    {
+      component: "Growth reference",
+      workbookRef: "C12",
+      workbookFormula: "Linked growth reference",
+      method: "Terminal growth ditampilkan sebagai referensi interoperabilitas untuk DCF, bukan input pembentuk WACC.",
+      value: formatOptionalRate(terminalGrowth),
+      source: "Input DCF / saran sektor",
+      note: "Tetap dipantau karena WACC harus lebih besar dari terminal growth.",
+    },
   ];
 
   return (
@@ -5302,29 +5443,29 @@ function DiscountRateAnalysisPanel({
       <div className="discount-rate-heading">
         <div>
           <span>Discount Rate Analysis (CAPM)</span>
-          <strong>Trace formula WACC berbasis sheet DISCOUNT RATE</strong>
+          <strong>Ringkasan perhitungan WACC berbasis CAPM</strong>
         </div>
-        <small>Source-of-truth formula: workbook UPDATE, sheet DISCOUNT RATE.</small>
+        <small>Formula source-of-truth tetap workbook UPDATE, sheet DISCOUNT RATE; detail teknis tersedia di audit.</small>
       </div>
       <div className="bank-loan-rate-strip" aria-label="Ringkasan debt rate pinjaman investasi">
         {bankLoanRate ? (
           <>
             <div>
-              <span>Basis debt rate</span>
+              <span>Dasar debt rate</span>
               <strong>{bankLoanRate.basisLabel}</strong>
             </div>
             <div>
-              <span>Raw average</span>
+              <span>Rata-rata mentah</span>
               <strong>{formatPrecisePercent(bankLoanRate.rawAverageRate, 3)}</strong>
             </div>
             <div>
-              <span>Rounded workbook</span>
+              <span>Nilai untuk WACC</span>
               <strong>{formatPercent(bankLoanRate.roundedRate)}</strong>
             </div>
           </>
         ) : (
           <div>
-            <span>Basis debt rate</span>
+            <span>Dasar debt rate</span>
             <strong>Belum ada input pinjaman investasi bank</strong>
           </div>
         )}
@@ -5334,22 +5475,21 @@ function DiscountRateAnalysisPanel({
           <thead>
             <tr>
               <th>Komponen</th>
-              <th>Cell</th>
-              <th>Formula workbook</th>
+              <th>Metode</th>
               <th>Nilai aktif</th>
-              <th>Catatan</th>
+              <th>Status & sumber</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map(([component, sourceCell, formula, value, note]) => (
-              <tr key={component}>
-                <td>{component}</td>
+            {rows.map((row) => (
+              <tr key={row.component}>
                 <td>
-                  <code>{sourceCell}</code>
+                  <strong>{row.component}</strong>
+                  <span>{row.note}</span>
                 </td>
-                <td>{formula}</td>
-                <td className="numeric-cell">{value}</td>
-                <td>{note}</td>
+                <td>{row.method}</td>
+                <td className="numeric-cell">{row.value}</td>
+                <td>{row.source}</td>
               </tr>
             ))}
           </tbody>
@@ -5360,8 +5500,8 @@ function DiscountRateAnalysisPanel({
           <table>
             <thead>
               <tr>
-                <th>Input debt rate</th>
-                <th>Cell / sumber</th>
+                <th>Basis debt rate</th>
+                <th>Status</th>
                 <th className="numeric-cell">Nilai aktif</th>
               </tr>
             </thead>
@@ -5369,9 +5509,7 @@ function DiscountRateAnalysisPanel({
               {bankLoanRate.rows.map((row) => (
                 <tr key={row.key}>
                   <td>{row.label}</td>
-                  <td>
-                    <code>{row.sourceCell}</code>
-                  </td>
+                  <td>{row.sourceCell === "Sistem" ? "Saran sistem / input aktif" : "Workbook DISCOUNT RATE"}</td>
                   <td className="numeric-cell">{formatOptionalRate(row.value)}</td>
                 </tr>
               ))}
@@ -5379,6 +5517,59 @@ function DiscountRateAnalysisPanel({
           </table>
         </div>
       ) : null}
+      <details className="audit-disclosure compact workbook-audit-disclosure">
+        <summary>Detail audit workbook</summary>
+        <div className="table-wrap discount-rate-audit-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Komponen</th>
+                <th>Referensi workbook</th>
+                <th>Formula teknis</th>
+                <th>Catatan audit</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={`${row.component}-audit`}>
+                  <td>{row.component}</td>
+                  <td>
+                    <code>{row.workbookRef}</code>
+                  </td>
+                  <td>
+                    <code>{row.workbookFormula}</code>
+                  </td>
+                  <td>{row.note}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {bankLoanRate ? (
+          <div className="table-wrap discount-rate-audit-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Input debt rate</th>
+                  <th>Referensi teknis</th>
+                  <th className="numeric-cell">Nilai aktif</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bankLoanRate.rows.map((row) => (
+                  <tr key={`${row.key}-audit`}>
+                    <td>{row.label}</td>
+                    <td>
+                      <code>{row.sourceCell}</code>
+                    </td>
+                    <td className="numeric-cell">{formatOptionalRate(row.value)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+      </details>
     </section>
   );
 }

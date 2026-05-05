@@ -502,7 +502,7 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await expect(page.getByTestId("wacc-suggestion-card")).toContainText("2023");
   await expect(page.getByTestId("wacc-suggestion-card")).toContainText("Equity Risk Premium");
   await expect(page.getByTestId("wacc-suggestion-card")).not.toContainText("Input pasar tahunan");
-  await page.getByRole("button", { name: /Isi input pasar 2023/ }).click();
+  await page.getByRole("button", { name: /Terapkan Saran 2023/ }).click();
   await expect(page.getByTestId("wacc-calculator")).toContainText("Rating-based default spread (RBDS)");
   await expect(page.getByTestId("wacc-calculator")).toContainText("isi dengan beta manual yang memiliki sumber dan justifikasi penilai");
   await expect(page.getByTestId("wacc-calculator")).not.toContainText("DCF discount rate dan EEM capitalization rate");
@@ -526,7 +526,7 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await expect(page.getByTestId("required-return-suggestion-card")).toContainText("Perlu input");
   await expect(fixedAssetCapacityInput).toHaveValue("");
   await expect(page.getByRole("button", { name: "Gunakan nilai sistem untuk Kapasitas aset tetap" })).toHaveCount(0);
-  await expect(page.getByLabel("After-tax debt cost")).toHaveValue("0,0702");
+  await expect(page.getByLabel("After-tax debt cost")).toHaveValue("0,06474");
   await expect(page.getByTestId("required-return-on-nta-calculator")).not.toContainText("BORROWING CAP");
   await expect(page.getByTestId("required-return-on-nta-calculator")).not.toContainText("DISCOUNT RATE");
 
@@ -534,7 +534,7 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await openWorkflowTab(page, "WACC");
   await expect(page.getByTestId("wacc-calculator")).toContainText("Kalkulator WACC");
   await expect(page.getByTestId("wacc-calculator")).toContainText("Risk-free rate");
-  await expect(page.getByTestId("discount-rate-analysis")).toContainText("Raw average");
+  await expect(page.getByTestId("discount-rate-analysis")).toContainText("Rata-rata mentah");
   await expect(page.getByTestId("discount-rate-analysis")).toContainText("8,804%");
   await expect(page.getByTestId("discount-rate-analysis")).toContainText("8,8%");
   await openWorkflowTab(page, "Asumsi EEM/DCF");
