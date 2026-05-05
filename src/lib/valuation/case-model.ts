@@ -752,6 +752,36 @@ export function buildSampleRows(): AccountRow[] {
   ];
 }
 
+export function buildSampleFixedAssetScheduleRows(): FixedAssetScheduleRow[] {
+  return [
+    fixedAssetSampleRow("sample-fa-office-inventory", "Office Inventory (Inventaris Tanaman Sawit + Inventaris Tanaman Sawit (TA))", [
+      [3_720_800_000, 6_424_709_610, 754_572_077, 96_535_873],
+      [null, 0, null, 887_557_596],
+      [10_145_509_610, 0, 1_738_665_546, 776_612_890],
+    ]),
+    fixedAssetSampleRow("sample-fa-vehicle-heavy-equipment", "Vehicle & Heavy Equipment (Alat Berat + Kendaraan)", [
+      [1_785_472_728, 275_000_000, 1_433_114_708, 204_862_713],
+      [null, 147_500_000, null, 188_370_924],
+      [2_207_972_728, 0, 1_826_348_345, 158_340_567],
+    ]),
+    fixedAssetSampleRow("sample-fa-equipment-machinery", "Equipment, Laboratory, & Machinery (Sarana & Prasarana)", [
+      [176_449_500, 0, 141_871_766, 13_163_777],
+      [null, 0, null, 10_861_752],
+      [176_449_500, 0, 165_897_295, 10_552_203],
+    ]),
+    fixedAssetSampleRow("sample-fa-building", "Building (Bangunan Mess/Barak + Bangunan Mess/Barak (TA) + Lapangan + Kantor)", [
+      [541_512_951, 110_000_000, 203_967_215, 38_919_212],
+      [null, 2_175_000, null, 34_008_756],
+      [653_687_951, 0, 276_895_183, 36_224_681],
+    ]),
+    fixedAssetSampleRow("sample-fa-land", "Land (Tanah Lahan Sawit + Tanah Lahan Sawit (TA))", [
+      [4_451_763_925, 3_365_510_390, 0, 0],
+      [null, 0, null, 0],
+      [7_817_274_315, 0, 0, 0],
+    ]),
+  ];
+}
+
 export function buildSnapshot(
   periods: Period[],
   activePeriodId: string,
@@ -909,6 +939,36 @@ export function buildSnapshot(
     interestIncome: activeAggregate("INTEREST_INCOME"),
     interestExpense: activeAggregate("INTEREST_EXPENSE"),
     nonOperatingIncome: activeAggregate("NON_OPERATING_INCOME"),
+  };
+}
+
+function fixedAssetSampleRow(
+  id: string,
+  assetName: string,
+  values: Array<[number | null, number | null, number | null, number | null]>,
+): FixedAssetScheduleRow {
+  return {
+    id,
+    assetName,
+    values: {
+      p2019: fixedAssetSampleValues(values[0]),
+      p2020: fixedAssetSampleValues(values[1]),
+      p2021: fixedAssetSampleValues(values[2]),
+    },
+  };
+}
+
+function fixedAssetSampleValues([acquisitionBeginning, acquisitionAdditions, depreciationBeginning, depreciationAdditions]: [
+  number | null,
+  number | null,
+  number | null,
+  number | null,
+]) {
+  return {
+    acquisitionBeginning: acquisitionBeginning === null ? "" : formatInputNumber(acquisitionBeginning),
+    acquisitionAdditions: acquisitionAdditions === null ? "" : formatInputNumber(acquisitionAdditions),
+    depreciationBeginning: depreciationBeginning === null ? "" : formatInputNumber(depreciationBeginning),
+    depreciationAdditions: depreciationAdditions === null ? "" : formatInputNumber(depreciationAdditions),
   };
 }
 

@@ -54,6 +54,7 @@ import {
 import {
   buildFixedAssetScheduleSummary,
   buildCaseProfileDerived,
+  buildSampleFixedAssetScheduleRows,
   buildSampleCaseProfile,
   buildSampleAssumptions,
   buildSamplePeriods,
@@ -120,6 +121,11 @@ import {
 import { buildValidationChecks } from "@/lib/valuation/validation-checks";
 import { downloadValuationTemplateWorkbook } from "@/lib/valuation/excel-export";
 import { saveValuationPdfExportPayload } from "@/lib/valuation/pdf-export";
+import {
+  buildFixedAssetProjection,
+  fixedAssetProjectionClassLabels,
+  type FixedAssetProjectionSummary,
+} from "@/lib/valuation/fixed-asset-projection";
 import {
   buildSampleDlomState,
   calculateDlom,
@@ -484,6 +490,10 @@ export function ValuationWorkbench() {
       aamAdjustmentModel.missingNoteCount,
       snapshot,
     ],
+  );
+  const fixedAssetProjection = useMemo(
+    () => buildFixedAssetProjection(results.dcf.forecast, periods, activePeriodId, fixedAssetSchedule),
+    [activePeriodId, fixedAssetSchedule, periods, results.dcf.forecast],
   );
   const dlomCalculation = useMemo(() => calculateDlom(dlom, snapshot, caseProfile), [caseProfile, dlom, snapshot]);
   const dlocPfcCalculation = useMemo(() => calculateDlocPfc(dlocPfc, caseProfile), [caseProfile, dlocPfc]);
@@ -1215,13 +1225,14 @@ export function ValuationWorkbench() {
 
   function loadSample() {
     const samplePeriods = buildSamplePeriods();
+    const sampleFixedAssetScheduleRows = buildSampleFixedAssetScheduleRows();
     commitCoreState((current) => ({
       ...current,
       periods: samplePeriods,
       activePeriodId: "p2021",
-      rows: buildSampleRows(),
-      isFixedAssetScheduleEnabled: false,
-      fixedAssetScheduleRows: [],
+      rows: buildSampleRows().filter((row) => row.id !== "sample-fixed-net"),
+      isFixedAssetScheduleEnabled: true,
+      fixedAssetScheduleRows: sampleFixedAssetScheduleRows,
       aamAdjustments: {},
       assumptions: buildSampleAssumptions(),
       caseProfile: buildSampleCaseProfile(),
@@ -2016,7 +2027,12 @@ export function ValuationWorkbench() {
 
         {activeWorkflowTab === "projectedFixedAssets" ? (
           readiness.projectedFixedAssets.isReady ? (
-            <ProjectionStatementSection kind="fixedAssets" forecast={results.dcf.forecast} snapshot={snapshot} />
+            <ProjectionStatementSection
+              kind="fixedAssets"
+              forecast={results.dcf.forecast}
+              snapshot={snapshot}
+              fixedAssetProjection={fixedAssetProjection}
+            />
           ) : (
             <ReadinessPanel status={readiness.projectedFixedAssets} onNavigate={navigateToWorkflowTab} force />
           )
@@ -2919,19 +2935,20 @@ type ProjectionStatementKind = "income" | "balance" | "fixedAssets" | "cashFlow"
 type DcfProjectionLine = {
   key: string;
   label: string;
-  source: string;
+  source: string | ((context: DcfProjectionContext) => string);
   formula: string;
-  status?: DcfProjectionStatus;
+  status?: DcfProjectionStatus | ((context: DcfProjectionContext) => DcfProjectionStatus);
   workbookReference?: string;
   display?: DcfProjectionDisplay;
   kind?: "section" | "subtotal";
-  note?: string;
+  note?: string | ((context: DcfProjectionContext) => string | undefined);
   value?: (row: DcfForecastRow, index: number, context: DcfProjectionContext) => number | null;
 };
 
 type DcfProjectionContext = {
   forecast: DcfForecastRow[];
   snapshot: FinancialStatementSnapshot;
+  fixedAssetProjection?: FixedAssetProjectionSummary;
 };
 
 type DcfProjectionConfig = {
@@ -3303,27 +3320,52 @@ const dcfBalanceProjectionRows: DcfProjectionLine[] = [
   projectionInputLine("balance-control", "Balance Control", "Full projected balance sheet belum lengkap.", "PROY BALANCE SHEET row 63"),
 ];
 
-const fixedAssetClassLabels = [
-  "Land (Tanah Lahan Sawit + Tanah Lahan Sawit (TA))",
-  "Building (Bangunan Mess/Barak + Bangunan Mess/Barak (TA) + Lapangan + Kantor)",
-  "Equipment, Laboratory, & Machinery (Sarana & Prasarana)",
-  "Vehicle & Heavy Equipment (Alat Berat + Kendaraan)",
-  "Office Inventory (Inventaris Tanaman Sawit + Inventaris Tanaman Sawit (TA))",
-  "Electrical",
-];
+function buildDcfFixedAssetProjectionRows(projection?: FixedAssetProjectionSummary): DcfProjectionLine[] {
+  const classLabels = projection?.rows.length ? projection.rows.map((row) => row.assetName) : fixedAssetProjectionClassLabels;
+  const source = (context: DcfProjectionContext) => context.fixedAssetProjection?.source ?? "Perlu input";
+  const status = (context: DcfProjectionContext) => (context.fixedAssetProjection?.hasProjection ? "calculated" : "requiresInput");
+  const note = (context: DcfProjectionContext) => context.fixedAssetProjection?.note;
+  const valueFor =
+    (assetIndex: number, key: keyof FixedAssetPeriodAmounts) =>
+    (row: DcfForecastRow, _index: number, context: DcfProjectionContext) =>
+      context.fixedAssetProjection?.rows[assetIndex]?.amounts[row.year]?.[key] ?? null;
 
-const dcfFixedAssetProjectionRows: DcfProjectionLine[] = [
+  return [
   sectionProjectionLine("fixed-asset-schedules", "Fixed Asset Schedules"),
   sectionProjectionLine("acquisition-costs", "A. Acquisition Costs"),
   sectionProjectionLine("acquisition-beginning", "Beginning"),
-  ...fixedAssetClassLabels.map((label, index) =>
-    projectionNotModeledLine(`acquisition-beginning-${index}`, label, "Butuh proyeksi gross acquisition cost per kelas aset.", "PROY FIXED ASSETS rows 8-13"),
-  ),
-  projectionInputLine("acquisition-beginning-total", "Total", "Gross acquisition cost beginning belum tersedia dari engine DCF net asset.", "PROY FIXED ASSETS row 14"),
+  ...classLabels.map((label, index) => ({
+    key: `acquisition-beginning-${index}`,
+    label,
+    source,
+    formula: "Prior year acquisition ending by asset class",
+    status,
+    workbookReference: "PROY FIXED ASSETS rows 8-13",
+    note,
+    value: valueFor(index, "acquisitionBeginning"),
+  })),
+  {
+    key: "acquisition-beginning-total",
+    label: "Total",
+    source,
+    formula: "Sum acquisition beginning by asset class",
+    status,
+    workbookReference: "PROY FIXED ASSETS row 14",
+    note,
+    value: (row, _index, context) => context.fixedAssetProjection?.totals[row.year]?.acquisitionBeginning ?? null,
+    kind: "subtotal",
+  },
   sectionProjectionLine("acquisition-additions", "Additions"),
-  ...fixedAssetClassLabels.map((label, index) =>
-    projectionInputLine(`acquisition-additions-${index}`, label, "Butuh alokasi capex per kelas aset.", "PROY FIXED ASSETS rows 17-22"),
-  ),
+  ...classLabels.map((label, index) => ({
+    key: `acquisition-additions-${index}`,
+    label,
+    source,
+    formula: "DCF maintenance capex x historical depreciation allocation weight",
+    status,
+    workbookReference: "PROY FIXED ASSETS rows 17-22",
+    note,
+    value: valueFor(index, "acquisitionAdditions"),
+  })),
   {
     key: "capital-expenditure",
     label: "Total",
@@ -3335,20 +3377,61 @@ const dcfFixedAssetProjectionRows: DcfProjectionLine[] = [
     kind: "subtotal",
   },
   sectionProjectionLine("acquisition-ending", "Ending"),
-  ...fixedAssetClassLabels.map((label, index) =>
-    projectionNotModeledLine(`acquisition-ending-${index}`, label, "Butuh gross acquisition roll-forward per kelas aset.", "PROY FIXED ASSETS rows 26-31"),
-  ),
-  projectionInputLine("acquisition-ending-total", "Total", "Gross acquisition cost ending belum tersedia dari engine DCF net asset.", "PROY FIXED ASSETS row 32"),
+  ...classLabels.map((label, index) => ({
+    key: `acquisition-ending-${index}`,
+    label,
+    source,
+    formula: "Acquisition beginning + acquisition additions",
+    status,
+    workbookReference: "PROY FIXED ASSETS rows 26-31",
+    note,
+    value: valueFor(index, "acquisitionEnding"),
+  })),
+  {
+    key: "acquisition-ending-total",
+    label: "Total",
+    source,
+    formula: "Sum acquisition ending by asset class",
+    status,
+    workbookReference: "PROY FIXED ASSETS row 32",
+    note,
+    value: (row, _index, context) => context.fixedAssetProjection?.totals[row.year]?.acquisitionEnding ?? null,
+    kind: "subtotal",
+  },
   sectionProjectionLine("depreciation-section", "B. Depreciation"),
   sectionProjectionLine("depreciation-beginning", "Beginning"),
-  ...fixedAssetClassLabels.map((label, index) =>
-    projectionNotModeledLine(`depreciation-beginning-${index}`, label, "Butuh accumulated depreciation beginning per kelas aset.", "PROY FIXED ASSETS rows 36-41"),
-  ),
-  projectionInputLine("depreciation-beginning-total", "Total", "Accumulated depreciation beginning membutuhkan jadwal gross/akumulasi.", "PROY FIXED ASSETS row 42"),
+  ...classLabels.map((label, index) => ({
+    key: `depreciation-beginning-${index}`,
+    label,
+    source,
+    formula: "Prior year accumulated depreciation ending by asset class",
+    status,
+    workbookReference: "PROY FIXED ASSETS rows 36-41",
+    note,
+    value: valueFor(index, "depreciationBeginning"),
+  })),
+  {
+    key: "depreciation-beginning-total",
+    label: "Total",
+    source,
+    formula: "Sum depreciation beginning by asset class",
+    status,
+    workbookReference: "PROY FIXED ASSETS row 42",
+    note,
+    value: (row, _index, context) => context.fixedAssetProjection?.totals[row.year]?.depreciationBeginning ?? null,
+    kind: "subtotal",
+  },
   sectionProjectionLine("depreciation-additions", "Additions"),
-  ...fixedAssetClassLabels.map((label, index) =>
-    projectionInputLine(`depreciation-additions-${index}`, label, "Butuh alokasi penyusutan per kelas aset.", "PROY FIXED ASSETS rows 45-50"),
-  ),
+  ...classLabels.map((label, index) => ({
+    key: `depreciation-additions-${index}`,
+    label,
+    source,
+    formula: "Projected depreciation x historical depreciation allocation weight",
+    status,
+    workbookReference: "PROY FIXED ASSETS rows 45-50",
+    note,
+    value: valueFor(index, "depreciationAdditions"),
+  })),
   {
     key: "depreciation-additions-total",
     label: "Total",
@@ -3360,14 +3443,38 @@ const dcfFixedAssetProjectionRows: DcfProjectionLine[] = [
     kind: "subtotal",
   },
   sectionProjectionLine("depreciation-ending", "Ending"),
-  ...fixedAssetClassLabels.map((label, index) =>
-    projectionNotModeledLine(`depreciation-ending-${index}`, label, "Butuh accumulated depreciation ending per kelas aset.", "PROY FIXED ASSETS rows 54-59"),
-  ),
-  projectionInputLine("depreciation-ending-total", "Total", "Accumulated depreciation ending membutuhkan jadwal gross/akumulasi.", "PROY FIXED ASSETS row 60"),
+  ...classLabels.map((label, index) => ({
+    key: `depreciation-ending-${index}`,
+    label,
+    source,
+    formula: "Depreciation beginning + depreciation additions",
+    status,
+    workbookReference: "PROY FIXED ASSETS rows 54-59",
+    note,
+    value: valueFor(index, "depreciationEnding"),
+  })),
+  {
+    key: "depreciation-ending-total",
+    label: "Total",
+    source,
+    formula: "Sum depreciation ending by asset class",
+    status,
+    workbookReference: "PROY FIXED ASSETS row 60",
+    note,
+    value: (row, _index, context) => context.fixedAssetProjection?.totals[row.year]?.depreciationEnding ?? null,
+    kind: "subtotal",
+  },
   sectionProjectionLine("net-value-fixed-assets", "Net Value Fixed Assets"),
-  ...fixedAssetClassLabels.map((label, index) =>
-    projectionInputLine(`net-value-${index}`, label, "Butuh net book value per kelas aset.", "PROY FIXED ASSETS rows 63-68"),
-  ),
+  ...classLabels.map((label, index) => ({
+    key: `net-value-${index}`,
+    label,
+    source,
+    formula: "Acquisition ending - depreciation ending",
+    status,
+    workbookReference: "PROY FIXED ASSETS rows 63-68",
+    note,
+    value: valueFor(index, "netValue"),
+  })),
   {
     key: "fixed-assets-ending",
     label: "Total",
@@ -3378,7 +3485,8 @@ const dcfFixedAssetProjectionRows: DcfProjectionLine[] = [
     value: (row) => row.fixedAssetsEnding,
     kind: "subtotal",
   },
-];
+  ];
+}
 
 const dcfCashFlowProjectionRows: DcfProjectionLine[] = [
   {
@@ -3494,8 +3602,8 @@ const dcfProjectionConfigs: Record<ProjectionStatementKind, DcfProjectionConfig>
     eyebrow: "PROY FIXED ASSETS",
     title: "Proyeksi Aset Tetap",
     badge: "Capex, depreciation, NBV",
-    summary: "Struktur mengikuti sheet PROY FIXED ASSETS; engine DCF menghitung total capex, penyusutan, dan nilai buku neto, sementara detail per kelas aset tetap menunggu input.",
-    rows: dcfFixedAssetProjectionRows,
+    summary: "Struktur mengikuti sheet PROY FIXED ASSETS; beginning, additions, ending, depreciation, dan nilai buku neto dihitung dengan roll-forward per kelas aset.",
+    rows: [],
     testId: "dcf-fixed-asset-projection-table",
   },
   cashFlow: {
@@ -3512,12 +3620,23 @@ function ProjectionStatementSection({
   kind,
   forecast,
   snapshot,
+  fixedAssetProjection,
 }: {
   kind: ProjectionStatementKind;
   forecast: DcfForecastRow[];
   snapshot: FinancialStatementSnapshot;
+  fixedAssetProjection?: FixedAssetProjectionSummary;
 }) {
-  const config = dcfProjectionConfigs[kind];
+  const config =
+    kind === "fixedAssets"
+      ? {
+          ...dcfProjectionConfigs.fixedAssets,
+          summary: fixedAssetProjection?.hasProjection
+            ? dcfProjectionConfigs.fixedAssets.summary
+            : "Struktur mengikuti sheet PROY FIXED ASSETS; detail per kelas aset membutuhkan jadwal historis agar angka proyeksi dapat dihitung.",
+          rows: buildDcfFixedAssetProjectionRows(fixedAssetProjection),
+        }
+      : dcfProjectionConfigs[kind];
   const firstForecast = forecast[0] ?? null;
   const finalForecast = forecast.at(-1) ?? null;
   const horizonLabel = firstForecast && finalForecast ? `${firstForecast.year}-${finalForecast.year}` : "Perlu data";
@@ -3574,7 +3693,7 @@ function ProjectionStatementSection({
         </div>
       </section>
 
-      <DcfProjectionPanel config={config} forecast={forecast} snapshot={snapshot} />
+      <DcfProjectionPanel config={config} forecast={forecast} snapshot={snapshot} fixedAssetProjection={fixedAssetProjection} />
     </>
   );
 }
@@ -3583,12 +3702,14 @@ function DcfProjectionPanel({
   config,
   forecast,
   snapshot,
+  fixedAssetProjection,
 }: {
   config: DcfProjectionConfig;
   forecast: DcfForecastRow[];
   snapshot: FinancialStatementSnapshot;
+  fixedAssetProjection?: FixedAssetProjectionSummary;
 }) {
-  const context = { forecast, snapshot };
+  const context = { forecast, snapshot, fixedAssetProjection };
   const traceRows = config.rows.filter((line) => line.kind !== "section");
 
   return (
@@ -3624,15 +3745,19 @@ function DcfProjectionPanel({
                 );
               }
 
+              const lineSource = resolveProjectionLineSource(line, context);
+              const lineStatus = resolveProjectionLineStatus(line, context);
+              const lineNote = resolveProjectionLineNote(line, context);
+
               return (
                 <tr className={line.kind === "subtotal" ? "analysis-total-row" : ""} key={line.key}>
                   <td>
                     <strong>{line.label}</strong>
-                    {line.note ? <span>{line.note}</span> : null}
+                    {lineNote ? <span>{lineNote}</span> : null}
                   </td>
-                  <td>{line.source}</td>
+                  <td>{lineSource}</td>
                   <td>
-                    <ProjectionStatusBadge status={line.status ?? "calculated"} />
+                    <ProjectionStatusBadge status={lineStatus} />
                   </td>
                   {forecast.map((row, index) => (
                     <td className="numeric-cell period-column" key={`${line.key}-${row.year}`}>
@@ -3666,7 +3791,7 @@ function DcfProjectionPanel({
                   <td>
                     <code>{line.formula}</code>
                   </td>
-                  <td>{line.note ?? projectionStatusLabels[line.status ?? "calculated"]}</td>
+                  <td>{resolveProjectionLineNote(line, context) ?? projectionStatusLabels[resolveProjectionLineStatus(line, context)]}</td>
                 </tr>
               ))}
             </tbody>
@@ -3675,6 +3800,22 @@ function DcfProjectionPanel({
       </details>
     </article>
   );
+}
+
+function resolveProjectionLineSource(line: DcfProjectionLine, context: DcfProjectionContext): string {
+  return typeof line.source === "function" ? line.source(context) : line.source;
+}
+
+function resolveProjectionLineStatus(line: DcfProjectionLine, context: DcfProjectionContext): DcfProjectionStatus {
+  if (!line.status) {
+    return "calculated";
+  }
+
+  return typeof line.status === "function" ? line.status(context) : line.status;
+}
+
+function resolveProjectionLineNote(line: DcfProjectionLine, context: DcfProjectionContext): string | undefined {
+  return typeof line.note === "function" ? line.note(context) : line.note;
 }
 
 function ProjectionStatusBadge({ status }: { status: DcfProjectionStatus }) {

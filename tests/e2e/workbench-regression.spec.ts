@@ -218,6 +218,9 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByRole("heading", { name: "Proyeksi Aset Tetap" })).toBeVisible();
   await expect(page.getByTestId("dcf-fixed-asset-projection-table")).toContainText("A. Acquisition Costs");
   await expect(page.getByTestId("dcf-fixed-asset-projection-table")).toContainText("Net Value Fixed Assets");
+  await expect(page.getByTestId("dcf-fixed-asset-projection-table")).toContainText("Jadwal Aset Tetap + alokasi DCF");
+  await expect(page.getByTestId("dcf-fixed-asset-projection-table")).not.toContainText("Belum dimodelkan");
+  await expect(page.getByTestId("dcf-fixed-asset-projection-table")).not.toContainText("Perlu input");
 
   await openWorkflowTab(page, "Proyeksi Cash Flow Statement");
   await expect(page.getByRole("heading", { name: "Proyeksi Cash Flow Statement" })).toBeVisible();
