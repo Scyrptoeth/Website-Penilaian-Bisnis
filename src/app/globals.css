@@ -2367,6 +2367,17 @@ select {
   overflow-wrap: anywhere;
 }
 
+.projection-diagnostics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.projection-diagnostics .status-pill {
+  max-width: 100%;
+}
+
 .sensitivity-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

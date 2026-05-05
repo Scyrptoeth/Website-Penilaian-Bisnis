@@ -3323,12 +3323,30 @@ const dcfBalanceProjectionRows: DcfProjectionLine[] = [
 function buildDcfFixedAssetProjectionRows(projection?: FixedAssetProjectionSummary): DcfProjectionLine[] {
   const classLabels = projection?.rows.length ? projection.rows.map((row) => row.assetName) : fixedAssetProjectionClassLabels;
   const source = (context: DcfProjectionContext) => context.fixedAssetProjection?.source ?? "Perlu input";
-  const status = (context: DcfProjectionContext) => (context.fixedAssetProjection?.hasProjection ? "calculated" : "requiresInput");
+  const status = (context: DcfProjectionContext) => fixedAssetProjectionStatus(context.fixedAssetProjection);
   const note = (context: DcfProjectionContext) => context.fixedAssetProjection?.note;
   const valueFor =
     (assetIndex: number, key: keyof FixedAssetPeriodAmounts) =>
     (row: DcfForecastRow, _index: number, context: DcfProjectionContext) =>
       context.fixedAssetProjection?.rows[assetIndex]?.amounts[row.year]?.[key] ?? null;
+  const totalValueFor =
+    (key: keyof FixedAssetPeriodAmounts) =>
+    (row: DcfForecastRow, _index: number, context: DcfProjectionContext) =>
+      context.fixedAssetProjection?.totals[row.year]?.[key] ?? null;
+  const reconciliationValueFor =
+    (key: "capitalExpenditureDelta" | "depreciationDelta" | "netValueDelta" | "dcfCapitalExpenditure" | "dcfDepreciation" | "dcfNetValue") =>
+    (row: DcfForecastRow, _index: number, context: DcfProjectionContext) =>
+      context.fixedAssetProjection?.reconciliation[row.year]?.[key] ?? null;
+  const reconciliationStatus =
+    (key: "capitalExpenditureDelta" | "depreciationDelta" | "netValueDelta") =>
+    (context: DcfProjectionContext) => {
+      if (!context.fixedAssetProjection?.hasProjection) {
+        return "requiresInput";
+      }
+
+      const hasVariance = context.forecast.some((row) => Math.abs(context.fixedAssetProjection?.reconciliation[row.year]?.[key] ?? 0) > 1);
+      return hasVariance ? "review" : "calculated";
+    };
 
   return [
   sectionProjectionLine("fixed-asset-schedules", "Fixed Asset Schedules"),
@@ -3369,11 +3387,33 @@ function buildDcfFixedAssetProjectionRows(projection?: FixedAssetProjectionSumma
   {
     key: "capital-expenditure",
     label: "Total",
-    source: "PROY FIXED ASSETS / engine DCF",
-    formula: "Maintenance capex = depreciation",
-    status: "calculated",
+    source,
+    formula: "Sum acquisition additions by asset class",
+    status,
     workbookReference: "PROY FIXED ASSETS row 23",
+    note,
+    value: totalValueFor("acquisitionAdditions"),
+    kind: "subtotal",
+  },
+  {
+    key: "capital-expenditure-dcf-control",
+    label: "DCF maintenance capex control",
+    source: "Engine DCF proxy",
+    formula: "DCF maintenance capex = projected depreciation",
+    status: (context) => (context.fixedAssetProjection?.mode === "dcf-proxy" ? "calculated" : "review"),
+    workbookReference: "DCF row 16 / STAT_DCF row 27",
     value: (row) => row.capitalExpenditure,
+    kind: "subtotal",
+  },
+  {
+    key: "capital-expenditure-delta",
+    label: "Delta vs DCF capex",
+    source: "Rekonsiliasi engine",
+    formula: "PROY FIXED ASSETS additions total - DCF maintenance capex",
+    status: reconciliationStatus("capitalExpenditureDelta"),
+    workbookReference: "Control tambahan website",
+    note: "Delta ini tidak otomatis mengubah DCF final; dipakai untuk audit interoperabilitas sebelum mode proyeksi aset tetap dijadikan driver valuasi.",
+    value: reconciliationValueFor("capitalExpenditureDelta"),
     kind: "subtotal",
   },
   sectionProjectionLine("acquisition-ending", "Ending"),
@@ -3435,11 +3475,33 @@ function buildDcfFixedAssetProjectionRows(projection?: FixedAssetProjectionSumma
   {
     key: "depreciation-additions-total",
     label: "Total",
-    source: "PROY FIXED ASSETS / engine DCF",
-    formula: "Projected depreciation from DCF depreciation margin",
-    status: "calculated",
+    source,
+    formula: "Sum depreciation additions by asset class",
+    status,
     workbookReference: "PROY FIXED ASSETS row 51",
+    note,
+    value: totalValueFor("depreciationAdditions"),
+    kind: "subtotal",
+  },
+  {
+    key: "depreciation-dcf-control",
+    label: "DCF depreciation control",
+    source: "Engine DCF proxy",
+    formula: "Projected depreciation from DCF depreciation margin",
+    status: (context) => (context.fixedAssetProjection?.mode === "dcf-proxy" ? "calculated" : "review"),
+    workbookReference: "DCF row 8 / STAT_DCF row 26",
     value: (row) => row.depreciation,
+    kind: "subtotal",
+  },
+  {
+    key: "depreciation-delta",
+    label: "Delta vs DCF depreciation",
+    source: "Rekonsiliasi engine",
+    formula: "PROY FIXED ASSETS depreciation additions total - DCF depreciation",
+    status: reconciliationStatus("depreciationDelta"),
+    workbookReference: "Control tambahan website",
+    note: "Delta ini menunjukkan perbedaan formula workbook dengan depresiasi DCF berbasis margin revenue.",
+    value: reconciliationValueFor("depreciationDelta"),
     kind: "subtotal",
   },
   sectionProjectionLine("depreciation-ending", "Ending"),
@@ -3478,14 +3540,61 @@ function buildDcfFixedAssetProjectionRows(projection?: FixedAssetProjectionSumma
   {
     key: "fixed-assets-ending",
     label: "Total",
-    source: "PROY FIXED ASSETS / engine DCF",
-    formula: "Beginning + capex - depreciation",
-    status: "calculated",
+    source,
+    formula: "Sum net fixed assets by asset class",
+    status,
     workbookReference: "PROY FIXED ASSETS row 69",
+    note,
+    value: totalValueFor("netValue"),
+    kind: "subtotal",
+  },
+  {
+    key: "fixed-assets-ending-dcf-control",
+    label: "DCF fixed assets ending control",
+    source: "Engine DCF proxy",
+    formula: "DCF fixed assets beginning + maintenance capex - depreciation",
+    status: (context) => (context.fixedAssetProjection?.mode === "dcf-proxy" ? "calculated" : "review"),
+    workbookReference: "DCF engine fixedAssetsEnding",
     value: (row) => row.fixedAssetsEnding,
     kind: "subtotal",
   },
+  {
+    key: "fixed-assets-ending-delta",
+    label: "Delta vs DCF fixed assets ending",
+    source: "Rekonsiliasi engine",
+    formula: "PROY FIXED ASSETS net value total - DCF fixed assets ending",
+    status: reconciliationStatus("netValueDelta"),
+    workbookReference: "Control tambahan website",
+    note: "Mode lama DCF proxy tetap tersedia sebagai fallback ketika formula workbook belum layak dijadikan driver DCF.",
+    value: reconciliationValueFor("netValueDelta"),
+    kind: "subtotal",
+  },
   ];
+}
+
+function fixedAssetProjectionStatus(projection?: FixedAssetProjectionSummary): DcfProjectionStatus {
+  if (!projection?.hasProjection) {
+    return "requiresInput";
+  }
+
+  return projection.diagnostics.some((diagnostic) => diagnostic.severity === "warning") ? "review" : "calculated";
+}
+
+function describeFixedAssetProjectionSummary(projection: FixedAssetProjectionSummary): string {
+  const modeLabel = formatFixedAssetProjectionMode(projection.mode);
+  const warningCount = projection.diagnostics.filter((diagnostic) => diagnostic.severity === "warning").length;
+
+  if (projection.mode === "workbook-formula") {
+    return warningCount > 0
+      ? `${modeLabel} aktif mengikuti PROY FIXED ASSETS workbook UPDATE; mode DCF proxy lama tetap menjadi fallback karena ada ${warningCount} warning rekonsiliasi/model.`
+      : `${modeLabel} aktif mengikuti PROY FIXED ASSETS workbook UPDATE; mode DCF proxy lama tetap tersedia sebagai pembanding.`;
+  }
+
+  return `${modeLabel} aktif sebagai baseline maintenance capex; formula workbook tersedia sebagai fallback pembanding.`;
+}
+
+function formatFixedAssetProjectionMode(mode: FixedAssetProjectionSummary["mode"]): string {
+  return mode === "workbook-formula" ? "Formula KKP UPDATE" : "DCF proxy";
 }
 
 const dcfCashFlowProjectionRows: DcfProjectionLine[] = [
@@ -3632,7 +3741,7 @@ function ProjectionStatementSection({
       ? {
           ...dcfProjectionConfigs.fixedAssets,
           summary: fixedAssetProjection?.hasProjection
-            ? dcfProjectionConfigs.fixedAssets.summary
+            ? describeFixedAssetProjectionSummary(fixedAssetProjection)
             : "Struktur mengikuti sheet PROY FIXED ASSETS; detail per kelas aset membutuhkan jadwal historis agar angka proyeksi dapat dihitung.",
           rows: buildDcfFixedAssetProjectionRows(fixedAssetProjection),
         }
@@ -3670,31 +3779,75 @@ function ProjectionStatementSection({
         </article>
       </section>
 
-      <section className="active-driver-strip" aria-label={`Driver aktif ${config.title}`}>
-        <div>
-          <span>Revenue growth</span>
-          <strong>{formatPercent(snapshot.revenueGrowth)}</strong>
-          <small>Driver pertumbuhan pendapatan aktif</small>
-        </div>
-        <div>
-          <span>Tax rate</span>
-          <strong>{formatPercent(snapshot.taxRate)}</strong>
-          <small>Statutory tax untuk NOPLAT</small>
-        </div>
-        <div>
-          <span>WACC</span>
-          <strong>{formatPercent(snapshot.wacc)}</strong>
-          <small>Discount factor dan nilai terminal</small>
-        </div>
-        <div>
-          <span>Terminal growth</span>
-          <strong>{formatPercent(snapshot.terminalGrowth)}</strong>
-          <small>Dipakai di nilai terminal DCF</small>
-        </div>
-      </section>
+      {kind === "fixedAssets" ? (
+        <FixedAssetProjectionDriverStrip forecast={forecast} fixedAssetProjection={fixedAssetProjection} />
+      ) : (
+        <section className="active-driver-strip" aria-label={`Driver aktif ${config.title}`}>
+          <div>
+            <span>Revenue growth</span>
+            <strong>{formatPercent(snapshot.revenueGrowth)}</strong>
+            <small>Driver pertumbuhan pendapatan aktif</small>
+          </div>
+          <div>
+            <span>Tax rate</span>
+            <strong>{formatPercent(snapshot.taxRate)}</strong>
+            <small>Statutory tax untuk NOPLAT</small>
+          </div>
+          <div>
+            <span>WACC</span>
+            <strong>{formatPercent(snapshot.wacc)}</strong>
+            <small>Discount factor dan nilai terminal</small>
+          </div>
+          <div>
+            <span>Terminal growth</span>
+            <strong>{formatPercent(snapshot.terminalGrowth)}</strong>
+            <small>Dipakai di nilai terminal DCF</small>
+          </div>
+        </section>
+      )}
 
       <DcfProjectionPanel config={config} forecast={forecast} snapshot={snapshot} fixedAssetProjection={fixedAssetProjection} />
     </>
+  );
+}
+
+function FixedAssetProjectionDriverStrip({
+  forecast,
+  fixedAssetProjection,
+}: {
+  forecast: DcfForecastRow[];
+  fixedAssetProjection?: FixedAssetProjectionSummary;
+}) {
+  const firstForecastYear = forecast[0]?.year;
+  const firstYearReconciliation =
+    firstForecastYear && fixedAssetProjection?.reconciliation[firstForecastYear]
+      ? fixedAssetProjection.reconciliation[firstForecastYear]
+      : null;
+  const warningCount = fixedAssetProjection?.diagnostics.filter((diagnostic) => diagnostic.severity === "warning").length ?? 0;
+
+  return (
+    <section className="active-driver-strip" aria-label="Driver aktif Proyeksi Aset Tetap">
+      <div>
+        <span>Mode aktif</span>
+        <strong>{fixedAssetProjection ? formatFixedAssetProjectionMode(fixedAssetProjection.mode) : "Perlu input"}</strong>
+        <small>{fixedAssetProjection?.source ?? "Butuh jadwal aset tetap historis"}</small>
+      </div>
+      <div>
+        <span>Fallback</span>
+        <strong>{fixedAssetProjection?.fallback ? formatFixedAssetProjectionMode(fixedAssetProjection.fallback.mode) : "DCF proxy"}</strong>
+        <small>Mode lama tetap tersedia untuk baseline maintenance capex.</small>
+      </div>
+      <div>
+        <span>Review flags</span>
+        <strong>{warningCount}</strong>
+        <small>{warningCount > 0 ? "Ada perbedaan atau risiko model yang perlu direview." : "Tidak ada warning material."}</small>
+      </div>
+      <div>
+        <span>Delta capex awal</span>
+        <strong>{firstYearReconciliation ? formatIdr(firstYearReconciliation.capitalExpenditureDelta) : "—"}</strong>
+        <small>Selisih mode aktif terhadap DCF proxy pada tahun pertama.</small>
+      </div>
+    </section>
   );
 }
 
@@ -3721,6 +3874,15 @@ function DcfProjectionPanel({
         </div>
         <span className="status-pill muted">{config.badge}</span>
       </div>
+      {config.testId === "dcf-fixed-asset-projection-table" && fixedAssetProjection?.diagnostics.length ? (
+        <div className="projection-diagnostics" role="status">
+          {fixedAssetProjection.diagnostics.map((diagnostic) => (
+            <span className={diagnostic.severity === "warning" ? "status-pill warning" : "status-pill muted"} key={diagnostic.code}>
+              {diagnostic.message}
+            </span>
+          ))}
+        </div>
+      ) : null}
       <div className="table-wrap">
         <table className="analysis-table dcf-projection-table" data-testid={config.testId}>
           <thead>
