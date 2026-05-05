@@ -521,6 +521,22 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await expect(page.getByTestId("required-return-on-nta-calculator")).not.toContainText("BORROWING CAP");
   await expect(page.getByTestId("required-return-on-nta-calculator")).not.toContainText("DISCOUNT RATE");
 
+  const revenueGrowthAppliedButton = page.getByRole("button", {
+    name: "Nilai sistem sudah dipakai untuk Override pertumbuhan pendapatan (opsional)",
+  });
+  const revenueGrowthSuggestionButton = page.getByRole("button", {
+    name: "Gunakan nilai sistem untuk Override pertumbuhan pendapatan (opsional)",
+  });
+  const revenueGrowthOverrideInput = page.locator("#assumption-override-pertumbuhan-pendapatan-opsional");
+  const revenueGrowthOverrideField = revenueGrowthOverrideInput.locator("xpath=..");
+  await expect(revenueGrowthAppliedButton).toBeDisabled();
+  await revenueGrowthOverrideInput.fill("");
+  await expect(revenueGrowthSuggestionButton).toBeEnabled();
+  await revenueGrowthSuggestionButton.click();
+  await expect(revenueGrowthOverrideInput).toHaveValue(/\d/);
+  await expect(revenueGrowthAppliedButton).toBeDisabled();
+  await expect(revenueGrowthOverrideField.locator(".auto-source-note")).toContainText("nilai eksplisit di field");
+
   await page.getByLabel("Kapasitas piutang").fill("");
   await page.getByLabel("Kapasitas persediaan").fill("");
   await page.getByLabel("Kapasitas aset tetap").fill("");

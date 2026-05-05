@@ -1589,52 +1589,82 @@ export function ValuationWorkbench() {
             <AssumptionInput
               label="Override pertumbuhan pendapatan (opsional)"
               value={assumptions.revenueGrowth}
+              suggestion={{
+                value: formatOptionalDriverSuggestionInput(snapshot.revenueGrowth, "rate"),
+                displayValue: formatPercent(snapshot.revenueGrowth),
+                kind: "rate",
+              }}
               note={buildOptionalDriverNote({
                 inputValue: assumptions.revenueGrowth,
                 effectiveLabel: formatPercent(snapshot.revenueGrowth),
                 fallbackSource: "histori pendapatan aktif",
               })}
               onChange={(value) => updateAssumption("revenueGrowth", value)}
+              onApplySuggestion={(value) => updateAssumption("revenueGrowth", value)}
             />
             <AssumptionInput
               label="Hari piutang / AR days (override opsional)"
               value={assumptions.arDays}
+              suggestion={{
+                value: formatOptionalDriverSuggestionInput(snapshot.arDays, "number"),
+                displayValue: formatDays(snapshot.arDays),
+                kind: "number",
+              }}
               note={buildOptionalDriverNote({
                 inputValue: assumptions.arDays,
                 effectiveLabel: formatDays(snapshot.arDays),
                 fallbackSource: "saldo piutang dan pendapatan historis",
               })}
               onChange={(value) => updateAssumption("arDays", value)}
+              onApplySuggestion={(value) => updateAssumption("arDays", value)}
             />
             <AssumptionInput
               label="Hari persediaan (override opsional)"
               value={assumptions.inventoryDays}
+              suggestion={{
+                value: formatOptionalDriverSuggestionInput(snapshot.inventoryDays, "number"),
+                displayValue: formatDays(snapshot.inventoryDays),
+                kind: "number",
+              }}
               note={buildOptionalDriverNote({
                 inputValue: assumptions.inventoryDays,
                 effectiveLabel: formatDays(snapshot.inventoryDays),
                 fallbackSource: "saldo persediaan dan COGS historis",
               })}
               onChange={(value) => updateAssumption("inventoryDays", value)}
+              onApplySuggestion={(value) => updateAssumption("inventoryDays", value)}
             />
             <AssumptionInput
               label="Hari utang usaha / AP days (override opsional)"
               value={assumptions.apDays}
+              suggestion={{
+                value: formatOptionalDriverSuggestionInput(snapshot.apDays, "number"),
+                displayValue: formatDays(snapshot.apDays),
+                kind: "number",
+              }}
               note={buildOptionalDriverNote({
                 inputValue: assumptions.apDays,
                 effectiveLabel: formatDays(snapshot.apDays),
                 fallbackSource: "saldo utang usaha dan COGS historis",
               })}
               onChange={(value) => updateAssumption("apDays", value)}
+              onApplySuggestion={(value) => updateAssumption("apDays", value)}
             />
             <AssumptionInput
               label="Hari utang lain-lain (override opsional)"
               value={assumptions.otherPayableDays}
+              suggestion={{
+                value: formatOptionalDriverSuggestionInput(snapshot.otherPayableDays, "number"),
+                displayValue: formatDays(snapshot.otherPayableDays),
+                kind: "number",
+              }}
               note={buildOptionalDriverNote({
                 inputValue: assumptions.otherPayableDays,
                 effectiveLabel: formatDays(snapshot.otherPayableDays),
                 fallbackSource: "saldo utang lain-lain dan beban operasional historis",
               })}
               onChange={(value) => updateAssumption("otherPayableDays", value)}
+              onApplySuggestion={(value) => updateAssumption("otherPayableDays", value)}
             />
           </div>
         </section>
@@ -5803,15 +5833,55 @@ function DriverOverrideGuidance() {
   );
 }
 
-function AssumptionInput({ label, value, note, onChange }: { label: string; value: string; note?: string; onChange: (value: string) => void }) {
+type OptionalDriverSuggestionKind = "number" | "rate";
+
+type OptionalDriverSuggestion = {
+  value: string;
+  displayValue: string;
+  kind: OptionalDriverSuggestionKind;
+};
+
+function AssumptionInput({
+  label,
+  value,
+  note,
+  suggestion,
+  onChange,
+  onApplySuggestion,
+}: {
+  label: string;
+  value: string;
+  note?: string;
+  suggestion?: OptionalDriverSuggestion;
+  onChange: (value: string) => void;
+  onApplySuggestion?: (value: string) => void;
+}) {
   const inputId = `assumption-${slugifyLabel(label)}`;
+  const hasSuggestion = Boolean(suggestion?.value.trim() && onApplySuggestion);
+  const isSuggestionApplied =
+    hasSuggestion && suggestion ? isOptionalDriverSuggestionApplied(value, suggestion.value, suggestion.kind) : false;
 
   return (
-    <label className="field" htmlFor={inputId}>
-      <span>{label}</span>
+    <div className="field assumption-input-field">
+      <div className="assumption-input-heading">
+        <label htmlFor={inputId}>{label}</label>
+        {hasSuggestion && suggestion && onApplySuggestion ? (
+          <button
+            className="suggestion-apply-button"
+            type="button"
+            onClick={() => onApplySuggestion(suggestion.value)}
+            disabled={isSuggestionApplied}
+            title={isSuggestionApplied ? `${suggestion.displayValue} sudah dipakai` : `Isi dengan ${suggestion.displayValue}`}
+            aria-label={isSuggestionApplied ? `Nilai sistem sudah dipakai untuk ${label}` : `Gunakan nilai sistem untuk ${label}`}
+          >
+            <CheckCircle2 aria-hidden="true" size={12} />
+            {isSuggestionApplied ? "Dipakai" : "Gunakan nilai sistem"}
+          </button>
+        ) : null}
+      </div>
       <input id={inputId} inputMode="decimal" placeholder="Opsional" value={value} onChange={(event) => onChange(event.target.value)} />
       {note ? <small className="auto-source-note">{note}</small> : null}
-    </label>
+    </div>
   );
 }
 
@@ -5829,6 +5899,29 @@ function buildOptionalDriverNote({
   }
 
   return `Nilai dipakai: ${effectiveLabel} - fallback sistem dari ${fallbackSource}. Biarkan kosong jika tidak ada dasar override yang lebih kuat.`;
+}
+
+function formatOptionalDriverSuggestionInput(value: number, kind: OptionalDriverSuggestionKind): string {
+  if (!Number.isFinite(value)) {
+    return "";
+  }
+
+  return formatInputNumber(kind === "rate" ? value * 100 : value);
+}
+
+function isOptionalDriverSuggestionApplied(currentValue: string, suggestionValue: string, kind: OptionalDriverSuggestionKind): boolean {
+  if (!currentValue.trim() || !suggestionValue.trim()) {
+    return false;
+  }
+
+  const currentNumber = kind === "rate" ? parseRateInput(currentValue) : parseInputNumber(currentValue);
+  const suggestionNumber = kind === "rate" ? parseRateInput(suggestionValue) : parseInputNumber(suggestionValue);
+
+  if (currentNumber === null || suggestionNumber === null) {
+    return false;
+  }
+
+  return Math.abs(currentNumber - suggestionNumber) < 1e-10;
 }
 
 function formatDays(value: number): string {
