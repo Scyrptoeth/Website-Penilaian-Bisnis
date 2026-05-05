@@ -135,6 +135,26 @@ describe("valuation calculations", () => {
     assert.ok(allMethods.sensitivities.dcfTaxPayableDebtLike);
     assert.ok(allMethods.sensitivities.dcfHistoricalDerivedProjection);
     assert.ok(allMethods.sensitivities.eemTaxPayableDebtLike);
+    assert.equal(allMethods.projectionGovernance.governedEquityValue, allMethods.dcf.equityValue);
+    assert.equal(allMethods.projectionGovernance.activeEngine, "balance-reconciled");
+    assert.equal(allMethods.projectionGovernance.sensitivityEngine, "historical-derived");
     assertAlmostEqual(allMethods.sensitivities.eemTaxPayableDebtLike.equityValue, allMethods.eem.equityValue - snapshot.taxPayable, 0.01);
+  });
+
+  it("keeps the baseline DCF as fallback when historical projection controls are unreasonable", () => {
+    const stressedSnapshot = {
+      ...snapshot,
+      cashToRevenueRatio: 2,
+      taxPayableToTaxExpenseRatio: 5,
+      dividendPayoutRatio: 1,
+      historicalProjectionYearCount: 1,
+    };
+    const results = calculateAllMethods(stressedSnapshot);
+
+    assert.equal(results.projectionGovernance.decision, "baseline-fallback");
+    assert.equal(results.projectionGovernance.level, "critical");
+    assert.equal(results.projectionGovernance.governedEquityValue, results.dcf.equityValue);
+    assert.notEqual(results.sensitivities.dcfHistoricalDerivedProjection.equityValue, results.dcf.equityValue);
+    assert.ok(results.projectionGovernance.items.some((item) => item.level === "critical"));
   });
 });

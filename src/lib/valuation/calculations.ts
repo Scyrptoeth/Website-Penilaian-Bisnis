@@ -29,6 +29,36 @@ export type DcfFixedAssetProjectionInput = {
   fixedAssetsEnding: number;
 };
 
+export type ProjectionGovernanceLevel = "ok" | "review" | "critical";
+
+export type ProjectionGovernanceDecision = "eligible-for-review" | "sensitivity-only" | "baseline-fallback";
+
+export type ProjectionGovernanceMetric = {
+  id: string;
+  label: string;
+  value: number;
+  valueFormat: "currency" | "percent" | "number";
+  level: ProjectionGovernanceLevel;
+  threshold: string;
+  note: string;
+};
+
+export type DcfProjectionGovernanceResult = {
+  level: ProjectionGovernanceLevel;
+  decision: ProjectionGovernanceDecision;
+  title: string;
+  summary: string;
+  activeEngine: "balance-reconciled";
+  sensitivityEngine: "historical-derived";
+  governedEquityValue: number;
+  baselineEquityValue: number;
+  historicalDerivedEquityValue: number;
+  absoluteVariance: number;
+  relativeVariance: number;
+  items: ProjectionGovernanceMetric[];
+  traces: FormulaTrace[];
+};
+
 export function adjustedTotalAssets(snapshot: FinancialStatementSnapshot): number {
   const componentTotal =
     snapshot.cashOnHand +
@@ -487,6 +517,7 @@ export function calculateAllMethods(snapshot: FinancialStatementSnapshot, option
   const dcfNoIncrementalWorkingCapital = calculateDcf(snapshot, { ...dcfOptions, includeWorkingCapitalChange: false });
   const dcfTaxPayableDebtLike = calculateDcf(snapshot, { ...dcfOptions, debtLikeTaxPayable: true });
   const dcfHistoricalDerivedProjection = calculateDcf(snapshot, { ...dcfOptions, projectionEngine: "historical-derived" });
+  const projectionGovernance = buildDcfProjectionGovernance(snapshot, dcf, dcfHistoricalDerivedProjection);
   const eemTaxPayableDebtLike = {
     ...calculateEem(snapshot),
     equityValue: calculateEem(snapshot).equityValue - snapshot.taxPayable,
@@ -504,12 +535,162 @@ export function calculateAllMethods(snapshot: FinancialStatementSnapshot, option
       dcfHistoricalDerivedProjection,
       eemTaxPayableDebtLike,
     },
+    projectionGovernance,
     operatingWorkingCapital: operatingWorkingCapital(snapshot),
     nonOperatingAssets: nonOperatingAssets(snapshot),
     interestBearingDebt: interestBearingDebt(snapshot),
     normalizedNoplat: normalizedNoplat(snapshot),
     adjustedTotalAssets: adjustedTotalAssets(snapshot),
     adjustedTotalLiabilities: adjustedTotalLiabilities(snapshot),
+  };
+}
+
+function buildDcfProjectionGovernance(
+  snapshot: FinancialStatementSnapshot,
+  baseline: MethodOutput & { forecast: DcfForecastRow[] },
+  historicalDerived: MethodOutput & { forecast: DcfForecastRow[] },
+): DcfProjectionGovernanceResult {
+  const absoluteVariance = historicalDerived.equityValue - baseline.equityValue;
+  const relativeVariance = safeAbsRatio(absoluteVariance, baseline.equityValue);
+  const maximumBalanceControlRatio = maxForecastRatio(historicalDerived.forecast, (row) => row.balanceControl, (row) => row.totalAssets);
+  const maximumCashFlowControlRatio = maxForecastRatio(historicalDerived.forecast, (row) => row.cashFlowControl, (row) => row.revenue);
+  const maximumFinancingPlugRatio = maxForecastRatio(historicalDerived.forecast, (row) => row.newLoan, (row) => row.revenue);
+  const maximumCashRatio = Math.max(
+    0,
+    ...historicalDerived.forecast.map((row) => safeRatio(row.cashEndingBalance, row.revenue)),
+    snapshot.cashToRevenueRatio,
+  );
+
+  const items: ProjectionGovernanceMetric[] = [
+    {
+      id: "dcf-variance",
+      label: "Selisih nilai DCF historis vs baseline",
+      value: relativeVariance,
+      valueFormat: "percent",
+      level: thresholdLevel(relativeVariance, 0.2, 0.35),
+      threshold: "Review >20%; fallback >35%",
+      note:
+        absoluteVariance === 0
+          ? "Hasil historical-derived sama dengan baseline."
+          : `Historical-derived ${absoluteVariance > 0 ? "lebih tinggi" : "lebih rendah"} dari baseline.`,
+    },
+    {
+      id: "historical-period-count",
+      label: "Jumlah periode historis pendukung",
+      value: snapshot.historicalProjectionYearCount,
+      valueFormat: "number",
+      level: snapshot.historicalProjectionYearCount >= 3 ? "ok" : snapshot.historicalProjectionYearCount >= 2 ? "review" : "critical",
+      threshold: "Minimal 3 periode untuk keyakinan awal",
+      note: "Semakin pendek histori, semakin besar risiko pola historis tidak representatif.",
+    },
+    {
+      id: "cash-policy",
+      label: "Cash / revenue maksimum",
+      value: maximumCashRatio,
+      valueFormat: "percent",
+      level: thresholdLevel(maximumCashRatio, 0.35, 0.6),
+      threshold: "Review >35%; fallback >60%",
+      note: "Mengukur apakah kebijakan kas historis membuat projected cash terlalu dominan.",
+    },
+    {
+      id: "tax-payable-schedule",
+      label: "Tax payable / tax expense",
+      value: snapshot.taxPayableToTaxExpenseRatio,
+      valueFormat: "number",
+      level: thresholdLevel(snapshot.taxPayableToTaxExpenseRatio, 2, 4),
+      threshold: "Review >2x; fallback >4x",
+      note: "Rasio tinggi dapat menandakan timing pembayaran pajak tidak cukup dijelaskan oleh histori.",
+    },
+    {
+      id: "dividend-policy",
+      label: "Dividend payout historis",
+      value: snapshot.dividendPayoutRatio,
+      valueFormat: "percent",
+      level: thresholdLevel(snapshot.dividendPayoutRatio, 0.75, 0.95),
+      threshold: "Review >75%; fallback >95%",
+      note: "Dividend payout tinggi dapat menekan retained earnings dan mengubah proyeksi ekuitas.",
+    },
+    {
+      id: "financing-plug",
+      label: "Financing plug / revenue maksimum",
+      value: maximumFinancingPlugRatio,
+      valueFormat: "percent",
+      level: thresholdLevel(maximumFinancingPlugRatio, 0.25, 0.5),
+      threshold: "Review >25%; fallback >50%",
+      note: "Mengukur seberapa besar pembiayaan implisit dibutuhkan untuk menjaga proyeksi tetap balance.",
+    },
+    {
+      id: "balance-control",
+      label: "Balance control maksimum",
+      value: maximumBalanceControlRatio,
+      valueFormat: "percent",
+      level: thresholdLevel(maximumBalanceControlRatio, 0.0001, 0.001),
+      threshold: "Review >0,01%; fallback >0,10%",
+      note: "Validasi bahwa total aset tetap sama dengan total liabilitas dan ekuitas.",
+    },
+    {
+      id: "cash-flow-control",
+      label: "Cash-flow control maksimum",
+      value: maximumCashFlowControlRatio,
+      valueFormat: "percent",
+      level: thresholdLevel(maximumCashFlowControlRatio, 0.0001, 0.001),
+      threshold: "Review >0,01%; fallback >0,10%",
+      note: "Validasi ending cash terhadap opening cash dan seluruh arus kas.",
+    },
+  ];
+
+  const level = highestGovernanceLevel(items.map((item) => item.level));
+  const decision: ProjectionGovernanceDecision =
+    level === "critical" ? "baseline-fallback" : level === "review" ? "sensitivity-only" : "eligible-for-review";
+  const title =
+    decision === "baseline-fallback"
+      ? "Fallback baseline aktif"
+      : decision === "sensitivity-only"
+      ? "Sensitivitas historis perlu review"
+      : "Sensitivitas historis dalam batas awal";
+  const summary =
+    decision === "baseline-fallback"
+      ? "Nilai DCF berbasis historis berada di luar batas kewajaran awal. Sistem mempertahankan baseline saat ini sebagai nilai utama dan memakai hasil historis hanya sebagai alarm sensitivitas."
+      : decision === "sensitivity-only"
+      ? "Nilai DCF berbasis historis tidak otomatis menggantikan baseline. Hasilnya tetap sebagai sensitivitas sampai reviewer menyetujui driver dan alasan pemakaiannya."
+      : "Nilai DCF berbasis historis lolos kontrol awal. Baseline tetap aktif, tetapi hasil ini layak dipertimbangkan setelah approval reviewer.";
+
+  const traces: FormulaTrace[] = [
+    {
+      label: "Nilai DCF baseline aktif",
+      formula: "Engine proyeksi neraca baseline",
+      value: baseline.equityValue,
+      note: "Nilai ini tetap menjadi DCF utama dan menjadi fallback ketika sensitivity historis tidak wajar.",
+    },
+    {
+      label: "Nilai DCF proyeksi historis",
+      formula: "Engine proyeksi historis-terturunkan",
+      value: historicalDerived.equityValue,
+      note: "Nilai ini berasal dari driver historis pengguna dan diperlakukan sebagai sensitivitas/governance evidence.",
+    },
+    {
+      label: "Selisih relatif governance",
+      formula: "ABS(DCF historis - DCF baseline) / ABS(DCF baseline)",
+      value: relativeVariance,
+      valueFormat: "percent",
+      note: "Selisih di atas ambang batas membuat baseline tetap menjadi solusi fallback.",
+    },
+  ];
+
+  return {
+    level,
+    decision,
+    title,
+    summary,
+    activeEngine: "balance-reconciled",
+    sensitivityEngine: "historical-derived",
+    governedEquityValue: baseline.equityValue,
+    baselineEquityValue: baseline.equityValue,
+    historicalDerivedEquityValue: historicalDerived.equityValue,
+    absoluteVariance,
+    relativeVariance,
+    items,
+    traces,
   };
 }
 
@@ -520,4 +701,37 @@ function forecastStartYear(snapshot: FinancialStatementSnapshot): number {
 
 function positiveResidual(total: number, knownComponents: number): number {
   return Math.max(0, total - knownComponents);
+}
+
+function safeRatio(numerator: number, denominator: number): number {
+  return denominator ? numerator / denominator : 0;
+}
+
+function safeAbsRatio(numerator: number, denominator: number): number {
+  const base = Math.abs(denominator);
+  return base ? Math.abs(numerator) / base : Math.abs(numerator) > 0 ? Number.POSITIVE_INFINITY : 0;
+}
+
+function maxForecastRatio(
+  forecast: DcfForecastRow[],
+  numerator: (row: DcfForecastRow) => number,
+  denominator: (row: DcfForecastRow) => number,
+): number {
+  return forecast.reduce((max, row) => Math.max(max, safeAbsRatio(numerator(row), denominator(row))), 0);
+}
+
+function thresholdLevel(value: number, reviewThreshold: number, criticalThreshold: number): ProjectionGovernanceLevel {
+  if (!Number.isFinite(value) || value >= criticalThreshold) {
+    return "critical";
+  }
+
+  return value >= reviewThreshold ? "review" : "ok";
+}
+
+function highestGovernanceLevel(levels: ProjectionGovernanceLevel[]): ProjectionGovernanceLevel {
+  if (levels.includes("critical")) {
+    return "critical";
+  }
+
+  return levels.includes("review") ? "review" : "ok";
 }

@@ -218,6 +218,8 @@ test("added analysis sections use readiness gates before sample data and render 
 
   await openWorkflowTab(page, "Penilaian EEM/DCF");
   await expect(page.getByText("DCF - proyeksi neraca berbasis historis")).toBeVisible();
+  await expect(page.getByTestId("dcf-projection-governance")).toContainText("Governance proyeksi DCF");
+  await expect(page.getByTestId("dcf-projection-governance")).toContainText("Fallback");
   const historicalRollForwardDcfValue = await page.getByTestId("dcf-base-equity-value").textContent();
 
   await openWorkflowTab(page, "Proyeksi Aset Tetap");

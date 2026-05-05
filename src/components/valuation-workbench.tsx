@@ -49,6 +49,8 @@ import {
   calculateAllMethods,
   normalizedNoplat,
   type DcfFixedAssetProjectionInput,
+  type ProjectionGovernanceDecision,
+  type ProjectionGovernanceMetric,
 } from "@/lib/valuation/calculations";
 import {
   aamAdjustmentLineIds,
@@ -216,6 +218,11 @@ const confidenceBandLabels: Record<ReturnType<typeof mapRow>["mapping"]["confide
   medium: "Sedang",
   low: "Rendah",
   none: "Tidak ada",
+};
+const projectionGovernanceDecisionLabel: Record<ProjectionGovernanceDecision, string> = {
+  "eligible-for-review": "Layak ditinjau",
+  "sensitivity-only": "Sensitivitas",
+  "baseline-fallback": "Fallback aktif",
 };
 const categoryValueSet = new Set<AccountCategory>(categoryOptions.map((option) => option.value));
 const statementValueSet = new Set<StatementType>(["balance_sheet", "income_statement", "fixed_asset"]);
@@ -1989,6 +1996,55 @@ export function ValuationWorkbench() {
             <div>
               <span>EEM utang pajak debt-like</span>
               <strong>{formatIdr(results.sensitivities.eemTaxPayableDebtLike.equityValue)}</strong>
+            </div>
+          </div>
+          <div className={`projection-governance-panel ${results.projectionGovernance.level}`} data-testid="dcf-projection-governance">
+            <div className="projection-governance-heading">
+              <div>
+                <span>Governance proyeksi DCF</span>
+                <strong>{results.projectionGovernance.title}</strong>
+                <small>{results.projectionGovernance.summary}</small>
+              </div>
+              <em className={`source-badge ${results.projectionGovernance.level === "critical" ? "warning" : results.projectionGovernance.level === "review" ? "sensitivity" : "recommended"}`}>
+                {projectionGovernanceDecisionLabel[results.projectionGovernance.decision]}
+              </em>
+            </div>
+            <div className="projection-governance-grid">
+              <div>
+                <span>Nilai aktif</span>
+                <strong>{formatIdr(results.projectionGovernance.governedEquityValue)}</strong>
+              </div>
+              <div>
+                <span>Selisih historis vs baseline</span>
+                <strong>{formatIdr(results.projectionGovernance.absoluteVariance)}</strong>
+                <small>{formatPercent(results.projectionGovernance.relativeVariance)}</small>
+              </div>
+              <div>
+                <span>Fallback</span>
+                <strong>DCF baseline</strong>
+                <small>Dipertahankan sampai approval reviewer</small>
+              </div>
+            </div>
+            <div className="projection-governance-checks">
+              {results.projectionGovernance.items.map((item) => (
+                <div className={`projection-governance-check ${item.level}`} key={item.id}>
+                  {item.level === "ok" ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+                  <div>
+                    <span>{item.label}</span>
+                    <strong>{formatProjectionGovernanceValue(item)}</strong>
+                    <small>{item.threshold} · {item.note}</small>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="projection-governance-trace" aria-label="Jejak keputusan governance proyeksi DCF">
+              {results.projectionGovernance.traces.map((trace) => (
+                <div key={trace.label}>
+                  <span>{trace.label}</span>
+                  <strong>{formatFormulaTraceValue(trace)}</strong>
+                  <small>{trace.note}</small>
+                </div>
+              ))}
             </div>
           </div>
         </section>
@@ -4383,6 +4439,22 @@ function formatProjectionValue(value: number | null, display: DcfProjectionDispl
   }
 
   return formatIdr(value);
+}
+
+function formatProjectionGovernanceValue(item: ProjectionGovernanceMetric): string {
+  if (!Number.isFinite(item.value)) {
+    return "Tidak terbatas";
+  }
+
+  if (item.valueFormat === "currency") {
+    return formatIdr(item.value);
+  }
+
+  if (item.valueFormat === "percent") {
+    return formatPercent(item.value);
+  }
+
+  return formatNumber(item.value);
 }
 
 function sectionProjectionLine(key: string, label: string): DcfProjectionLine {
