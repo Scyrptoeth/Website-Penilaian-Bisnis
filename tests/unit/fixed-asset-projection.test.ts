@@ -9,7 +9,7 @@ import type { DcfForecastRow } from "../../src/lib/valuation/types";
 import { assertAlmostEqual, basePeriods } from "./test-utils";
 
 describe("fixed asset projection", () => {
-  it("rolls forward class-level acquisition, depreciation, and net book value from active schedule", () => {
+  it("uses workbook-formula mode by default and keeps DCF proxy as fallback", () => {
     const schedule = buildFixedAssetScheduleSummary(basePeriods, [
       fixedAssetRow(fixedAssetProjectionClassLabels[2], [
         ["100", "50", "10", "5"],
@@ -30,7 +30,44 @@ describe("fixed asset projection", () => {
     const vehicle = projection.rows.find((row) => row.assetName === fixedAssetProjectionClassLabels[3]);
 
     assert.equal(projection.hasProjection, true);
+    assert.equal(projection.mode, "workbook-formula");
+    assert.equal(projection.source, "Formula KKP UPDATE.xlsx");
     assert.equal(equipment?.amounts[2022].acquisitionBeginning, 170);
+    assertAlmostEqual(equipment?.amounts[2022].acquisitionAdditions ?? 0, 8, 1e-9);
+    assertAlmostEqual(equipment?.amounts[2022].depreciationAdditions ?? 0, 12.8, 1e-9);
+    assertAlmostEqual(vehicle?.amounts[2022].acquisitionAdditions ?? 0, 0, 1e-9);
+    assertAlmostEqual(vehicle?.amounts[2022].depreciationAdditions ?? 0, 14.4, 1e-9);
+    assertAlmostEqual(projection.totals[2022].acquisitionAdditions, 8, 1e-9);
+    assertAlmostEqual(projection.totals[2022].depreciationAdditions, 27.2, 1e-9);
+    assertAlmostEqual(projection.totals[2022].netValue, 285.8, 1e-9);
+    assert.equal(projection.fallback?.mode, "dcf-proxy");
+    assertAlmostEqual(projection.fallback?.totals[2022].netValue ?? 0, 325, 1e-9);
+    assertAlmostEqual(projection.reconciliation[2022].capitalExpenditureDelta, -92, 1e-9);
+    assert.equal(projection.diagnostics.some((diagnostic) => diagnostic.code === "dcf-variance"), true);
+  });
+
+  it("can preserve the prior DCF proxy projection mode explicitly", () => {
+    const schedule = buildFixedAssetScheduleSummary(basePeriods, [
+      fixedAssetRow(fixedAssetProjectionClassLabels[2], [
+        ["100", "50", "10", "5"],
+        ["", "20", "", "8"],
+      ]),
+      fixedAssetRow(fixedAssetProjectionClassLabels[3], [
+        ["200", "0", "20", "10"],
+        ["", "0", "", "12"],
+      ]),
+    ]);
+    const forecast = [
+      forecastRow({ year: 2022, capitalExpenditure: 100, depreciation: 80, fixedAssetsBeginning: 305, fixedAssetsEnding: 325 }),
+      forecastRow({ year: 2023, capitalExpenditure: 120, depreciation: 90, fixedAssetsBeginning: 325, fixedAssetsEnding: 355 }),
+    ];
+
+    const projection = buildFixedAssetProjection(forecast, basePeriods, "p1", schedule, { preferredMode: "dcf-proxy" });
+    const equipment = projection.rows.find((row) => row.assetName === fixedAssetProjectionClassLabels[2]);
+    const vehicle = projection.rows.find((row) => row.assetName === fixedAssetProjectionClassLabels[3]);
+
+    assert.equal(projection.mode, "dcf-proxy");
+    assert.equal(projection.source, "Jadwal Aset Tetap + alokasi DCF");
     assertAlmostEqual(equipment?.amounts[2022].acquisitionAdditions ?? 0, 40, 1e-9);
     assertAlmostEqual(equipment?.amounts[2022].depreciationAdditions ?? 0, 32, 1e-9);
     assertAlmostEqual(vehicle?.amounts[2022].acquisitionAdditions ?? 0, 60, 1e-9);
@@ -39,6 +76,7 @@ describe("fixed asset projection", () => {
     assertAlmostEqual(projection.totals[2023].acquisitionAdditions, 120, 1e-9);
     assertAlmostEqual(projection.totals[2023].depreciationAdditions, 90, 1e-9);
     assertAlmostEqual(projection.totals[2023].netValue, 355, 1e-9);
+    assert.equal(projection.fallback?.mode, "workbook-formula");
   });
 
   it("keeps projection unavailable when no historical fixed asset schedule exists", () => {
@@ -46,6 +84,7 @@ describe("fixed asset projection", () => {
     const projection = buildFixedAssetProjection([forecastRow({ year: 2022, capitalExpenditure: 100, depreciation: 80 })], basePeriods, "p1", schedule);
 
     assert.equal(projection.hasProjection, false);
+    assert.equal(projection.mode, "workbook-formula");
     assert.equal(projection.source, "Perlu input");
     assert.equal(projection.rows.length, fixedAssetProjectionClassLabels.length);
     assert.deepEqual(projection.totals, {});
