@@ -1116,7 +1116,7 @@ export function ValuationWorkbench() {
       const nextOverrides = { ...current.cashFlowOverrides };
       const nextRowOverrides = { ...(nextOverrides[rowKey] ?? {}) };
 
-      if (!nextEntry.value.trim() && !nextEntry.reason.trim()) {
+      if (!nextEntry.value.trim()) {
         delete nextRowOverrides[periodId];
       } else {
         nextRowOverrides[periodId] = nextEntry;
@@ -3364,10 +3364,7 @@ function CashFlowStatementSection({
     (count, row) => count + Object.values(row.overrideStatuses).filter((status) => status === "applied").length,
     0,
   );
-  const pendingOverrideCount = analysis.cashFlowStatementRows.reduce(
-    (count, row) => count + Object.values(row.overrideStatuses).filter((status) => status === "reason_required").length,
-    0,
-  );
+  const reviewableRowCount = analysis.cashFlowStatementRows.filter((row) => row.isOverridable).length;
 
   return (
     <>
@@ -3389,12 +3386,12 @@ function CashFlowStatementSection({
               { label: "Net cash flow", value: netCashFlow },
               { label: "Cash roll-forward gap", value: cashGap },
               { label: "Override diterapkan", value: overrideCount, display: "number" },
-              { label: "Override butuh alasan", value: pendingOverrideCount, display: "number" },
+              { label: "Baris reviewable", value: reviewableRowCount, display: "number" },
             ]}
             notes={[
-              "Override hanya memengaruhi final value jika nilai dan alasan audit sama-sama diisi.",
+              "Override numerik langsung memengaruhi final value saat nilai override diisi.",
               "Subtotal memakai final value agar pengguna dapat melihat dampak override ke rekonsiliasi.",
-              "Formula dan referensi workbook ditampilkan di setiap baris agar angka tidak muncul tanpa konteks.",
+              "Formula dan sumber bisnis ditampilkan di setiap baris agar angka tidak muncul tanpa konteks.",
             ]}
           />
         </article>
@@ -3451,6 +3448,16 @@ function CashFlowStatementTable({
   return (
     <div className="table-wrap cash-flow-statement-wrap">
       <table className="analysis-table cash-flow-statement-table">
+        <colgroup>
+          <col className="cash-flow-pos-col" />
+          <col className="cash-flow-trace-col" />
+          <col className="cash-flow-status-col" />
+          {periods.flatMap((period) => [
+            <col className="cash-flow-period-col" key={`${period.id}-calculated-col`} />,
+            <col className="cash-flow-period-col" key={`${period.id}-override-col`} />,
+            <col className="cash-flow-period-col" key={`${period.id}-final-col`} />,
+          ])}
+        </colgroup>
         <thead>
           <tr>
             <th rowSpan={2}>Pos</th>
@@ -3490,7 +3497,6 @@ function CashFlowStatementTable({
                 <td>
                   <span>{row.source}</span>
                   <code>{row.formula}</code>
-                  <small>{row.workbookReference}</small>
                 </td>
                 <td>
                   <CashFlowReliabilityBadge row={row} />
@@ -3498,6 +3504,7 @@ function CashFlowStatementTable({
                 {periods.flatMap((period) => {
                   const status = row.overrideStatuses[period.id] ?? "none";
                   const validationMessage = row.validationMessages[period.id] ?? "";
+                  const statusLabel = cashFlowOverrideStatusLabel(status);
 
                   return [
                     <td className="numeric-cell period-column" key={`${row.key}-${period.id}-calculated`}>
@@ -3513,14 +3520,7 @@ function CashFlowStatementTable({
                             value={row.overrideInputs[period.id] ?? ""}
                             onChange={(event) => onUpdateOverride(row.key, period.id, { value: event.target.value })}
                           />
-                          <textarea
-                            aria-label={`Alasan override ${row.label} ${period.label || "Periode"}`}
-                            placeholder="Alasan audit"
-                            rows={2}
-                            value={row.overrideReasons[period.id] ?? ""}
-                            onChange={(event) => onUpdateOverride(row.key, period.id, { reason: event.target.value })}
-                          />
-                          <span className={`override-status ${status}`}>{cashFlowOverrideStatusLabel(status)}</span>
+                          {statusLabel ? <span className={`override-status ${status}`}>{statusLabel}</span> : null}
                           {validationMessage ? <small className="warning-text">{validationMessage}</small> : null}
                         </div>
                       ) : (
@@ -3577,15 +3577,11 @@ function cashFlowOverrideStatusLabel(status: CashFlowOverrideStatus): string {
     return "Override diterapkan";
   }
 
-  if (status === "reason_required") {
-    return "Butuh alasan";
-  }
-
   if (status === "not_allowed") {
     return "Formula locked";
   }
 
-  return "Auto";
+  return "";
 }
 
 function PayablesCashFlowSection({ analysis }: { analysis: SectionAnalysis }) {

@@ -182,11 +182,12 @@ test("added analysis sections use readiness gates before sample data and render 
   await openWorkflowTab(page, "Cash Flow Statement");
   await expect(page.getByText("Review arus kas historis")).toBeVisible();
   await expect(page.getByText("Calculated · override · final · trace")).toBeVisible();
-  await expect(page.getByText("CFS!22; BALANCE SHEET!42,43")).toBeVisible();
+  const cashFlowStatementTable = page.locator("table.cash-flow-statement-table");
+  await expect(cashFlowStatementTable).not.toContainText(/CFS!\d/);
+  await expect(cashFlowStatementTable).not.toContainText("Auto");
+  await expect(page.getByLabel("Alasan override Non-operating cash flow 2021")).toHaveCount(0);
   await page.getByRole("textbox", { name: "Override Non-operating cash flow 2021", exact: true }).fill("100000000");
-  await expect(page.getByText("Butuh alasan", { exact: true })).toBeVisible();
-  await page.getByLabel("Alasan override Non-operating cash flow 2021").fill("Management cash-flow ledger support");
-  await expect(page.getByRole("table").getByText("Override diterapkan", { exact: true })).toBeVisible();
+  await expect(cashFlowStatementTable.getByText("Override diterapkan", { exact: true })).toBeVisible();
   await expect(page.getByText("100.000.000").first()).toBeVisible();
 
   await openWorkflowTab(page, "Utang & Arus Kas");

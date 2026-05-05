@@ -38,7 +38,7 @@ export type CashFlowOverrideEntry = {
 
 export type CashFlowOverrideState = Record<string, Record<string, CashFlowOverrideEntry>>;
 
-export type CashFlowOverrideStatus = "none" | "applied" | "reason_required" | "not_allowed";
+export type CashFlowOverrideStatus = "none" | "applied" | "not_allowed";
 
 export type CashFlowStatementSection =
   | "operating"
@@ -593,17 +593,14 @@ function buildCashFlowStatementRows(
       const overrideInput = overrideEntry?.value ?? "";
       const overrideReason = overrideEntry?.reason ?? "";
       const hasOverrideInput = overrideInput.trim() !== "";
-      const hasOverrideReason = overrideReason.trim() !== "";
       const overrideValue = hasOverrideInput ? parseInputNumber(overrideInput) : null;
-      const isOverrideApplied = spec.isOverridable && hasOverrideInput && hasOverrideReason;
+      const isOverrideApplied = spec.isOverridable && hasOverrideInput;
       const finalValue = isOverrideApplied ? overrideValue : calculatedValue;
       const status: CashFlowOverrideStatus = !spec.isOverridable
         ? "not_allowed"
         : isOverrideApplied
           ? "applied"
-          : hasOverrideInput
-            ? "reason_required"
-            : "none";
+          : "none";
 
       finalValues[spec.key] = finalValue;
 
@@ -614,10 +611,7 @@ function buildCashFlowStatementRows(
       row.overrideReasons[item.period.id] = overrideReason;
       row.overrideStatuses[item.period.id] = status;
       row.overrideUpdatedAt[item.period.id] = overrideEntry?.updatedAt ?? "";
-      row.validationMessages[item.period.id] =
-        spec.isOverridable && hasOverrideInput && !hasOverrideReason
-          ? "Override belum diterapkan karena alasan audit wajib diisi."
-          : "";
+      row.validationMessages[item.period.id] = "";
       row.values[item.period.id] = finalValue;
     });
   }
