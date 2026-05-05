@@ -21,6 +21,7 @@ export type WorkbenchSectionId =
   | "eemDcfAssumptions"
   | "valuationAam"
   | "valuationEemDcf"
+  | "dcfProjection"
   | "dlom"
   | "dlocPfc"
   | "taxSimulation"
@@ -205,6 +206,18 @@ export function buildWorkbenchReadiness({
       wacc,
       terminalGrowth,
       requiredReturn,
+      mapped,
+    ]),
+    dcfProjection: status("dcfProjection", "Proyeksi DCF", [
+      period,
+      balance,
+      income,
+      taxRateForEemDcf,
+      wacc,
+      terminalGrowth,
+      workingCapitalDays,
+      operatingWorkingCapital,
+      fixedAssetOrDepreciation,
       mapped,
     ]),
     dlom: status("dlom", "DLOM", [period, hasCompanyType, hasShareOwnershipType], [balance, income]),

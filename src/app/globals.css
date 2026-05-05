@@ -2413,6 +2413,30 @@ select {
   border-radius: var(--radius);
 }
 
+.dcf-projection-panel {
+  display: grid;
+  gap: 8px;
+}
+
+.dcf-projection-table {
+  min-width: 980px;
+}
+
+.dcf-projection-table th:nth-child(1),
+.dcf-projection-table td:nth-child(1) {
+  width: 17%;
+}
+
+.dcf-projection-table th:nth-child(2),
+.dcf-projection-table td:nth-child(2) {
+  width: 17%;
+}
+
+.dcf-projection-table th:nth-child(3),
+.dcf-projection-table td:nth-child(3) {
+  width: 24%;
+}
+
 table {
   width: 100%;
   min-width: 660px;

@@ -188,6 +188,7 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
   const rows: DcfForecastRow[] = [];
   let previousRevenue = snapshot.revenue;
   let previousNwc = operatingWorkingCapital(snapshot);
+  let previousFixedAssetsNet = snapshot.fixedAssetsNet;
   const includeWorkingCapitalChange = options.includeWorkingCapitalChange ?? true;
   const wacc = options.wacc ?? snapshot.wacc;
   const startYear = forecastStartYear(snapshot);
@@ -195,18 +196,26 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
   for (let period = 1; period <= 5; period += 1) {
     const revenue = previousRevenue * (1 + snapshot.revenueGrowth);
     const cogs = revenue * snapshot.cogsMargin;
-    const ga = revenue * snapshot.gaMargin;
+    const operatingExpenses = revenue * snapshot.gaMargin;
     const depreciation = revenue * snapshot.depreciationMargin;
-    const ebit = revenue - cogs - ga - depreciation;
-    const noplat = ebit * (1 - snapshot.taxRate);
+    const grossProfit = revenue - cogs;
+    const ebit = grossProfit - operatingExpenses - depreciation;
+    const statutoryTaxOnEbit = ebit * snapshot.taxRate;
+    const noplat = ebit - statutoryTaxOnEbit;
     const ar = (revenue * snapshot.arDays) / 365;
     const inventory = (cogs * snapshot.inventoryDays) / 365;
     const ap = (cogs * snapshot.apDays) / 365;
-    const otherPayable = (ga * snapshot.otherPayableDays) / 365;
-    const operatingNwc = ar + inventory - ap - otherPayable;
+    const otherPayable = (operatingExpenses * snapshot.otherPayableDays) / 365;
+    const operatingCurrentAssets = ar + inventory;
+    const operatingCurrentLiabilities = ap + otherPayable;
+    const operatingNwc = operatingCurrentAssets - operatingCurrentLiabilities;
     const changeInNwc = includeWorkingCapitalChange ? operatingNwc - previousNwc : 0;
     const maintenanceCapex = depreciation;
-    const freeCashFlow = noplat + depreciation - maintenanceCapex - changeInNwc;
+    const fixedAssetsBeginning = previousFixedAssetsNet;
+    const fixedAssetsEnding = Math.max(0, fixedAssetsBeginning + maintenanceCapex - depreciation);
+    const grossCashFlow = noplat + depreciation;
+    const grossInvestment = maintenanceCapex + changeInNwc;
+    const freeCashFlow = grossCashFlow - grossInvestment;
     const discountBase = 1 + wacc;
     const discountFactor = discountBase > 0 ? 1 / Math.pow(discountBase, period) : 0;
     const presentValue = freeCashFlow * discountFactor;
@@ -214,10 +223,26 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
     rows.push({
       year: startYear + period,
       revenue,
+      cogs,
+      grossProfit,
+      operatingExpenses,
+      depreciation,
       ebit,
+      statutoryTaxOnEbit,
       noplat,
+      accountReceivable: ar,
+      inventory,
+      operatingCurrentAssets,
+      accountPayable: ap,
+      otherPayable,
+      operatingCurrentLiabilities,
       operatingNwc,
       changeInNwc,
+      fixedAssetsBeginning,
+      capitalExpenditure: maintenanceCapex,
+      fixedAssetsEnding,
+      grossCashFlow,
+      grossInvestment,
       freeCashFlow,
       discountFactor,
       presentValue,
@@ -225,6 +250,7 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
 
     previousRevenue = revenue;
     previousNwc = operatingNwc;
+    previousFixedAssetsNet = fixedAssetsEnding;
   }
 
   return rows;

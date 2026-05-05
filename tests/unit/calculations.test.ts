@@ -44,6 +44,12 @@ describe("valuation calculations", () => {
     forecast.forEach((row, index) => {
       assert.equal(row.year, 2022 + index);
       assertAlmostEqual(row.discountFactor, 1 / Math.pow(1 + snapshot.wacc, index + 1), 1e-12);
+      assertAlmostEqual(row.grossProfit, row.revenue - row.cogs, 0.01);
+      assertAlmostEqual(row.ebit, row.grossProfit - row.operatingExpenses - row.depreciation, 0.01);
+      assertAlmostEqual(row.noplat, row.ebit - row.statutoryTaxOnEbit, 0.01);
+      assertAlmostEqual(row.operatingNwc, row.operatingCurrentAssets - row.operatingCurrentLiabilities, 0.01);
+      assertAlmostEqual(row.freeCashFlow, row.grossCashFlow - row.grossInvestment, 0.01);
+      assertAlmostEqual(row.presentValue, row.freeCashFlow * row.discountFactor, 0.01);
       assert.ok(Number.isFinite(row.freeCashFlow));
       assert.ok(Number.isFinite(row.presentValue));
     });

@@ -157,6 +157,9 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByTestId("readiness-noplatFcf")).toContainText("Masih diperlukan");
   await page.getByTestId("readiness-noplatFcf").getByRole("link", { name: /Isi Laba Rugi/ }).first().click();
   await expect(workflowNav(page).getByRole("button", { name: "Laba Rugi" })).toHaveAttribute("aria-current", "page");
+  await openWorkflowTab(page, "Proyeksi DCF");
+  await expect(page.getByTestId("readiness-dcfProjection")).toBeVisible();
+  await expect(page.getByTestId("readiness-dcfProjection")).toContainText("Masih diperlukan");
 
   await page.getByRole("button", { name: "Muat contoh workbook" }).click();
   await openWorkflowTab(page, "Utang & Arus Kas");
@@ -169,6 +172,14 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByText("Free Cash Flow to Firm (FCFF)")).toBeVisible();
   await expect(page.getByText("Basis statutory komersial")).toBeVisible();
   await expect(page.getByText("Referensi audit sistem")).toBeVisible();
+
+  await openWorkflowTab(page, "Proyeksi DCF");
+  await expect(page.getByText("Proyeksi Laba Rugi")).toBeVisible();
+  await expect(page.getByText("Proyeksi Neraca & Aset Tetap")).toBeVisible();
+  await expect(page.getByText("Proyeksi NOPLAT")).toBeVisible();
+  await expect(page.getByText("Proyeksi Cash Flow Statement")).toBeVisible();
+  await expect(page.getByTestId("dcf-cash-flow-projection-table")).toContainText("Free Cash Flow to Firm");
+  await expect(page.getByTestId("dcf-cash-flow-projection-table")).toContainText("2026");
 
   await openWorkflowTab(page, "Rasio & Efisiensi Modal");
   await expect(page.getByText("Bridge efisiensi modal")).toBeVisible();

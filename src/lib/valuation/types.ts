@@ -169,10 +169,26 @@ export interface MethodOutput {
 export interface DcfForecastRow {
   year: number;
   revenue: number;
+  cogs: number;
+  grossProfit: number;
+  operatingExpenses: number;
+  depreciation: number;
   ebit: number;
+  statutoryTaxOnEbit: number;
   noplat: number;
+  accountReceivable: number;
+  inventory: number;
+  operatingCurrentAssets: number;
+  accountPayable: number;
+  otherPayable: number;
+  operatingCurrentLiabilities: number;
   operatingNwc: number;
   changeInNwc: number;
+  fixedAssetsBeginning: number;
+  capitalExpenditure: number;
+  fixedAssetsEnding: number;
+  grossCashFlow: number;
+  grossInvestment: number;
   freeCashFlow: number;
   discountFactor: number;
   presentValue: number;
