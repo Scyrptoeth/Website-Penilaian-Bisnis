@@ -55,7 +55,14 @@ describe("valuation calculations", () => {
       assertAlmostEqual(row.shareholdersEquity, row.paidUpCapital + row.additionalPaidInCapital + row.retainedEarningsEnding, 0.01);
       assertAlmostEqual(row.liabilitiesAndEquity, row.currentLiabilities + row.nonCurrentLiabilities + row.shareholdersEquity, 0.01);
       assertAlmostEqual(row.balanceControl, 0, 1);
+      assertAlmostEqual(row.cashEndingBalance, row.cashOnHand + row.cashOnBankDeposit, 0.01);
+      assertAlmostEqual(row.cashFlowFromOperations, row.grossCashFlow - row.changeInNwc, 0.01);
+      assertAlmostEqual(row.cashFlowFromInvestment, -row.capitalExpenditure, 0.01);
+      assertAlmostEqual(row.cashFlowBeforeFinancing, row.cashFlowFromOperations + row.nonOperatingCashFlow + row.cashFlowFromInvestment, 0.01);
+      assertAlmostEqual(row.netCashFlow, row.cashEndingBalance - row.cashBeginningBalance, 0.01);
+      assertAlmostEqual(row.cashFlowControl, 0, 1);
       assertAlmostEqual(row.freeCashFlow, row.grossCashFlow - row.grossInvestment, 0.01);
+      assertAlmostEqual(row.freeCashFlow, row.cashFlowBeforeFinancing, 0.01);
       assertAlmostEqual(row.presentValue, row.freeCashFlow * row.discountFactor, 0.01);
       assert.ok(Number.isFinite(row.freeCashFlow));
       assert.ok(Number.isFinite(row.presentValue));

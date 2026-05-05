@@ -207,6 +207,7 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
   const wacc = options.wacc ?? snapshot.wacc;
   const startYear = forecastStartYear(snapshot);
   const baseCash = snapshot.cashOnHand + snapshot.cashOnBankDeposit;
+  let previousCashEndingBalance = baseCash;
   const cashOnHandShare = baseCash > 0 ? snapshot.cashOnHand / baseCash : 0;
   const otherCurrentAssetsBase = positiveResidual(
     snapshot.currentAssets,
@@ -280,6 +281,26 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
     const grossCashFlow = noplat + depreciation;
     const grossInvestment = maintenanceCapex + changeInNwc;
     const freeCashFlow = grossCashFlow - grossInvestment;
+    const cashBeginningBalance = previousCashEndingBalance;
+    const cashFlowFromOperations = grossCashFlow - changeInNwc;
+    const nonOperatingCashFlow = 0;
+    const cashFlowFromInvestment = -maintenanceCapex;
+    const cashFlowBeforeFinancing = cashFlowFromOperations + nonOperatingCashFlow + cashFlowFromInvestment;
+    const cashEndingBalance = cashTotal;
+    const cashFlowFromFinancing = cashEndingBalance - cashBeginningBalance - cashFlowBeforeFinancing;
+    const equityInjection = 0;
+    const newLoan = Math.max(0, cashFlowFromFinancing);
+    const interestExpenseCashFlow = 0;
+    const interestIncomeCashFlow = 0;
+    const principalRepayment = Math.min(0, cashFlowFromFinancing);
+    const netCashFlow = cashEndingBalance - cashBeginningBalance;
+    const cashFlowControl =
+      cashBeginningBalance +
+      cashFlowFromOperations +
+      nonOperatingCashFlow +
+      cashFlowFromInvestment +
+      cashFlowFromFinancing -
+      cashEndingBalance;
     const discountBase = 1 + wacc;
     const discountFactor = discountBase > 0 ? 1 / Math.pow(discountBase, period) : 0;
     const presentValue = freeCashFlow * discountFactor;
@@ -329,6 +350,20 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
       shareholdersEquity,
       liabilitiesAndEquity,
       balanceControl,
+      cashBeginningBalance,
+      cashFlowFromOperations,
+      nonOperatingCashFlow,
+      cashFlowFromInvestment,
+      cashFlowBeforeFinancing,
+      equityInjection,
+      newLoan,
+      interestExpenseCashFlow,
+      interestIncomeCashFlow,
+      principalRepayment,
+      cashFlowFromFinancing,
+      netCashFlow,
+      cashEndingBalance,
+      cashFlowControl,
       grossCashFlow,
       grossInvestment,
       freeCashFlow,
@@ -342,6 +377,7 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
     previousFixedAssetGross = fixedAssetGross;
     previousAccumulatedDepreciation = accumulatedDepreciation;
     previousRetainedEarningsEnding = retainedEarningsEnding;
+    previousCashEndingBalance = cashEndingBalance;
   }
 
   return rows;
