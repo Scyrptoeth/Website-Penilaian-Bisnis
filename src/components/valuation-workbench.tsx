@@ -373,7 +373,10 @@ const workflowTabs: Array<{ id: WorkflowTabId; label: string }> = [
   { id: "eemDcfAssumptions", label: "Asumsi EEM/DCF" },
   { id: "valuationAam", label: "Penilaian AAM" },
   { id: "valuationEemDcf", label: "Penilaian EEM/DCF" },
-  { id: "dcfProjection", label: "Proyeksi DCF" },
+  { id: "projectedIncome", label: "Proyeksi Laba Rugi" },
+  { id: "projectedBalance", label: "Proyeksi Neraca" },
+  { id: "projectedFixedAssets", label: "Proyeksi Aset Tetap" },
+  { id: "projectedCashFlow", label: "Proyeksi Cash Flow Statement" },
   { id: "dlom", label: "DLOM" },
   { id: "dlocPfc", label: "DLOC/PFC" },
   { id: "taxSimulation", label: "Simulasi Potensi Pajak" },
@@ -1995,11 +1998,35 @@ export function ValuationWorkbench() {
         )
         ) : null}
 
-        {activeWorkflowTab === "dcfProjection" ? (
-          readiness.dcfProjection.isReady ? (
-            <DcfProjectionSection forecast={results.dcf.forecast} snapshot={snapshot} dcfEquityValue={results.dcf.equityValue} />
+        {activeWorkflowTab === "projectedIncome" ? (
+          readiness.projectedIncome.isReady ? (
+            <ProjectionStatementSection kind="income" forecast={results.dcf.forecast} snapshot={snapshot} />
           ) : (
-            <ReadinessPanel status={readiness.dcfProjection} onNavigate={navigateToWorkflowTab} force />
+            <ReadinessPanel status={readiness.projectedIncome} onNavigate={navigateToWorkflowTab} force />
+          )
+        ) : null}
+
+        {activeWorkflowTab === "projectedBalance" ? (
+          readiness.projectedBalance.isReady ? (
+            <ProjectionStatementSection kind="balance" forecast={results.dcf.forecast} snapshot={snapshot} />
+          ) : (
+            <ReadinessPanel status={readiness.projectedBalance} onNavigate={navigateToWorkflowTab} force />
+          )
+        ) : null}
+
+        {activeWorkflowTab === "projectedFixedAssets" ? (
+          readiness.projectedFixedAssets.isReady ? (
+            <ProjectionStatementSection kind="fixedAssets" forecast={results.dcf.forecast} snapshot={snapshot} />
+          ) : (
+            <ReadinessPanel status={readiness.projectedFixedAssets} onNavigate={navigateToWorkflowTab} force />
+          )
+        ) : null}
+
+        {activeWorkflowTab === "projectedCashFlow" ? (
+          readiness.projectedCashFlow.isReady ? (
+            <ProjectionStatementSection kind="cashFlow" forecast={results.dcf.forecast} snapshot={snapshot} />
+          ) : (
+            <ReadinessPanel status={readiness.projectedCashFlow} onNavigate={navigateToWorkflowTab} force />
           )
         ) : null}
 
@@ -2886,16 +2913,48 @@ function TaxSimulationSection({
 }
 
 type DcfProjectionDisplay = "currency" | "percent" | "multiple";
+type DcfProjectionStatus = "calculated" | "review" | "requiresInput" | "notModeled";
+type ProjectionStatementKind = "income" | "balance" | "fixedAssets" | "cashFlow";
 
 type DcfProjectionLine = {
   key: string;
   label: string;
   source: string;
   formula: string;
+  status?: DcfProjectionStatus;
+  workbookReference?: string;
   display?: DcfProjectionDisplay;
-  kind?: "subtotal";
+  kind?: "section" | "subtotal";
   note?: string;
-  value: (row: DcfForecastRow) => number;
+  value?: (row: DcfForecastRow, index: number, context: DcfProjectionContext) => number | null;
+};
+
+type DcfProjectionContext = {
+  forecast: DcfForecastRow[];
+  snapshot: FinancialStatementSnapshot;
+};
+
+type DcfProjectionConfig = {
+  eyebrow: string;
+  title: string;
+  badge: string;
+  summary: string;
+  rows: DcfProjectionLine[];
+  testId: string;
+};
+
+const projectionStatusLabels: Record<DcfProjectionStatus, string> = {
+  calculated: "Terhitung",
+  review: "Review",
+  requiresInput: "Perlu input",
+  notModeled: "Belum dimodelkan",
+};
+
+const projectionStatusClassNames: Record<DcfProjectionStatus, string> = {
+  calculated: "ok",
+  review: "warning",
+  requiresInput: "warning",
+  notModeled: "muted",
 };
 
 const dcfIncomeProjectionRows: DcfProjectionLine[] = [
@@ -2904,13 +2963,27 @@ const dcfIncomeProjectionRows: DcfProjectionLine[] = [
     label: "Revenue",
     source: "PROY LR / engine DCF",
     formula: "Revenue t-1 x (1 + revenue growth)",
+    status: "calculated",
+    workbookReference: "PROY LR row 8",
     value: (row) => row.revenue,
+  },
+  {
+    key: "revenue-growth",
+    label: "Revenue Growth",
+    source: "Driver pertumbuhan pendapatan aktif",
+    formula: "Revenue t / Revenue t-1 - 1",
+    status: "calculated",
+    workbookReference: "PROY LR row 9",
+    display: "percent",
+    value: (row, index, context) => growthValue(row.revenue, previousRevenue(index, context)),
   },
   {
     key: "cogs",
     label: "Cost of Good Sold",
     source: "Margin historis / override driver",
     formula: "Revenue x margin COGS",
+    status: "calculated",
+    workbookReference: "PROY LR row 10",
     value: (row) => row.cogs,
   },
   {
@@ -2918,286 +2991,567 @@ const dcfIncomeProjectionRows: DcfProjectionLine[] = [
     label: "Gross Profit",
     source: "Engine DCF",
     formula: "Revenue - COGS",
+    status: "calculated",
+    workbookReference: "PROY LR row 11",
     value: (row) => row.grossProfit,
     kind: "subtotal",
   },
   {
-    key: "operating-expenses",
-    label: "Operating Expenses",
+    key: "gross-profit-margin",
+    label: "Gross Profit Margin",
+    source: "Engine DCF",
+    formula: "Gross profit / revenue",
+    status: "calculated",
+    workbookReference: "PROY LR row 12",
+    display: "percent",
+    value: (row) => divideOrNull(row.grossProfit, row.revenue),
+  },
+  sectionProjectionLine("operating-expenses-section", "Operating Expenses:"),
+  {
+    key: "operating-expenses-other",
+    label: "Others",
+    source: "Perlu input",
+    formula: "Manual operating expense line; belum menjadi driver engine",
+    status: "requiresInput",
+    workbookReference: "PROY LR row 15",
+    note: "Engine saat ini memakai total G&A/opex, bukan rincian others.",
+  },
+  {
+    key: "ga-overheads",
+    label: "General & Administrative Overheads",
     source: "Margin historis / override driver",
     formula: "Revenue x margin opex",
+    status: "calculated",
+    workbookReference: "PROY LR row 16",
     value: (row) => row.operatingExpenses,
+  },
+  {
+    key: "operating-expenses",
+    label: "Operating Expenses (Exclude Depreciation)",
+    source: "Subtotal operating expenses",
+    formula: "Others + General & Administrative Overheads",
+    status: "review",
+    workbookReference: "PROY LR row 17",
+    value: (row) => row.operatingExpenses,
+    kind: "subtotal",
+    note: "Subtotal berasal dari opex engine karena rincian others belum dimodelkan.",
+  },
+  {
+    key: "ebitda",
+    label: "EBITDA",
+    source: "Engine DCF",
+    formula: "EBIT + depreciation",
+    status: "calculated",
+    workbookReference: "PROY LR row 19",
+    value: (row) => row.ebit + row.depreciation,
+    kind: "subtotal",
   },
   {
     key: "depreciation",
     label: "Depreciation",
     source: "Margin historis / fixed asset basis",
     formula: "Revenue x margin penyusutan",
+    status: "calculated",
+    workbookReference: "PROY LR row 22",
     value: (row) => row.depreciation,
+  },
+  {
+    key: "depreciation-growth",
+    label: "Depreciation Growth",
+    source: "Engine DCF",
+    formula: "Depreciation t / depreciation t-1 - 1",
+    status: "calculated",
+    workbookReference: "PROY LR row 23",
+    display: "percent",
+    value: (row, index, context) => growthValue(row.depreciation, previousDepreciation(index, context)),
   },
   {
     key: "ebit",
     label: "EBIT",
     source: "PROY LR / engine DCF",
     formula: "Gross Profit - Operating Expenses - Depreciation",
+    status: "calculated",
+    workbookReference: "PROY LR row 25",
     value: (row) => row.ebit,
     kind: "subtotal",
+  },
+  {
+    key: "ebit-margin",
+    label: "EBIT Margin",
+    source: "Engine DCF",
+    formula: "EBIT / revenue",
+    status: "calculated",
+    workbookReference: "PROY LR row 26",
+    display: "percent",
+    value: (row) => divideOrNull(row.ebit, row.revenue),
+  },
+  sectionProjectionLine("other-income-section", "Other Income/(Charge)"),
+  projectionNotModeledLine(
+    "interest-income",
+    "Interest Income",
+    "Interest income dikeluarkan dari NOPLAT/FCFF dan membutuhkan input terpisah bila ingin full income statement.",
+    "PROY LR row 29",
+  ),
+  projectionNotModeledLine("interest-income-growth", "Interest Income Growth", "Butuh proyeksi interest income.", "PROY LR row 30", "percent"),
+  projectionNotModeledLine("interest-expense", "Interest Expense", "Interest expense dikeluarkan dari NOPLAT/FCFF.", "PROY LR row 31"),
+  projectionNotModeledLine("interest-expense-growth", "Interest Expense Growth", "Butuh proyeksi interest expense.", "PROY LR row 32", "percent"),
+  projectionNotModeledLine("other-income-charge", "Other Income/(Charge)", "Butuh proyeksi other income/charge.", "PROY LR row 33"),
+  projectionNotModeledLine("non-operating-income", "Non Operating Income", "Non-operating income dikeluarkan dari operating DCF.", "PROY LR row 34"),
+  {
+    key: "profit-before-tax",
+    label: "Profit Before Tax",
+    source: "Operating DCF basis",
+    formula: "EBIT; financing and non-operating items excluded",
+    status: "review",
+    workbookReference: "PROY LR row 36",
+    value: (row) => row.ebit,
+    kind: "subtotal",
+    note: "PBT proyeksi memakai basis operasi karena interest/non-operating items belum dimodelkan di FCFF.",
+  },
+  {
+    key: "corporate-tax",
+    label: "Corporate Tax",
+    source: "Asumsi statutory tax",
+    formula: "EBIT x tax rate as deduction",
+    status: "calculated",
+    workbookReference: "PROY LR row 37",
+    value: (row) => -row.statutoryTaxOnEbit,
+  },
+  {
+    key: "net-profit-after-tax",
+    label: "Net Profit After Tax / NOPLAT",
+    source: "Commercial statutory operating basis",
+    formula: "EBIT - statutory tax on EBIT",
+    status: "calculated",
+    workbookReference: "PROY LR row 39",
+    value: (row) => row.noplat,
+    kind: "subtotal",
+  },
+  {
+    key: "net-profit-margin",
+    label: "Net Profit After Tax Margin",
+    source: "Engine DCF",
+    formula: "NPAT / revenue",
+    status: "calculated",
+    workbookReference: "PROY LR row 40",
+    display: "percent",
+    value: (row) => divideOrNull(row.noplat, row.revenue),
   },
 ];
 
 const dcfBalanceProjectionRows: DcfProjectionLine[] = [
+  sectionProjectionLine("assets-section", "ASSETS"),
+  sectionProjectionLine("current-assets-section", "Current Assets"),
+  projectionInputLine("cash-on-hands", "Cash on Hands", "Kas operasional belum diproyeksikan dari driver DCF.", "PROY BALANCE SHEET row 9"),
+  projectionInputLine("cash-on-hands-growth", "Cash on Hands Growth", "Butuh proyeksi kas di tangan per periode.", "PROY BALANCE SHEET row 10", "percent"),
+  projectionInputLine("cash-in-banks", "Cash in Banks", "Kas bank/deposito belum diproyeksikan dari driver DCF.", "PROY BALANCE SHEET row 11"),
+  projectionInputLine("cash-in-banks-growth", "Cash in Banks Growth", "Butuh proyeksi kas bank/deposito per periode.", "PROY BALANCE SHEET row 12", "percent"),
   {
     key: "account-receivable",
     label: "Account Receivable",
-    source: "PROY BALANCE SHEET",
+    source: "PROY BALANCE SHEET / DCF working capital",
     formula: "Revenue x AR days / 365",
+    status: "calculated",
+    workbookReference: "PROY BALANCE SHEET row 13",
     value: (row) => row.accountReceivable,
   },
   {
+    key: "account-receivable-growth",
+    label: "Account Receivable Growth",
+    source: "DCF working capital",
+    formula: "AR t / AR t-1 - 1",
+    status: "calculated",
+    workbookReference: "PROY BALANCE SHEET row 14",
+    display: "percent",
+    value: (row, index, context) => growthValue(row.accountReceivable, previousAccountReceivable(index, context)),
+  },
+  projectionInputLine("other-receivable", "Other Receivable", "Piutang lain-lain belum menjadi driver DCF.", "PROY BALANCE SHEET row 15"),
+  projectionInputLine("other-receivable-growth", "Other Receivable Growth", "Butuh proyeksi piutang lain-lain.", "PROY BALANCE SHEET row 16", "percent"),
+  {
     key: "inventory",
     label: "Inventory",
-    source: "PROY BALANCE SHEET",
+    source: "PROY BALANCE SHEET / DCF working capital",
     formula: "COGS x inventory days / 365",
+    status: "calculated",
+    workbookReference: "PROY BALANCE SHEET row 17",
     value: (row) => row.inventory,
   },
   {
-    key: "operating-current-assets",
-    label: "Operating Current Assets",
+    key: "inventory-growth",
+    label: "Inventory Growth",
     source: "DCF working capital",
-    formula: "AR + inventory",
+    formula: "Inventory t / inventory t-1 - 1",
+    status: "calculated",
+    workbookReference: "PROY BALANCE SHEET row 18",
+    display: "percent",
+    value: (row, index, context) => growthValue(row.inventory, previousInventory(index, context)),
+  },
+  projectionNotModeledLine("other-current-assets", "Others", "Other current assets belum menjadi driver DCF.", "PROY BALANCE SHEET row 19"),
+  projectionNotModeledLine("other-current-assets-growth", "Others Growth", "Butuh input other current assets.", "PROY BALANCE SHEET row 20", "percent"),
+  {
+    key: "operating-current-assets",
+    label: "Current Assets",
+    source: "Subtotal operating current assets",
+    formula: "AR + inventory; cash and other current assets require separate input",
+    status: "review",
+    workbookReference: "PROY BALANCE SHEET row 21",
     value: (row) => row.operatingCurrentAssets,
     kind: "subtotal",
+    note: "Subtotal bersifat parsial karena kas dan other current assets belum diproyeksikan.",
   },
+  sectionProjectionLine("non-current-assets-section", "Non Current Assets"),
+  sectionProjectionLine("fixed-asset-section", "Fixed Asset"),
+  {
+    key: "fixed-assets-beginning",
+    label: "Beginning",
+    source: "PROY FIXED ASSETS / engine DCF",
+    formula: "Prior year fixed assets net",
+    status: "calculated",
+    workbookReference: "PROY BALANCE SHEET row 25",
+    value: (row) => row.fixedAssetsBeginning,
+  },
+  projectionNotModeledLine("accumulated-depreciations", "Accumulated Depreciations", "Gross acquisition and accumulated depreciation roll-forward need asset schedule detail.", "PROY BALANCE SHEET row 26"),
+  projectionNotModeledLine("accumulated-depreciations-growth", "Accumulated Depreciations Growth", "Butuh accumulated depreciation per periode.", "PROY BALANCE SHEET row 27", "percent"),
+  {
+    key: "fixed-assets-net",
+    label: "Fixed Assets, Net",
+    source: "PROY FIXED ASSETS / engine DCF",
+    formula: "Beginning net fixed assets + capex - depreciation",
+    status: "calculated",
+    workbookReference: "PROY BALANCE SHEET row 28",
+    value: (row) => row.fixedAssetsEnding,
+    kind: "subtotal",
+  },
+  projectionNotModeledLine("other-non-current-asset", "Other Non Current Asset", "Other non-current assets belum menjadi driver DCF.", "PROY BALANCE SHEET row 29"),
+  projectionNotModeledLine("intangible-assets", "Intangible Assets", "Recognized intangible assets require separate input.", "PROY BALANCE SHEET row 30"),
+  {
+    key: "total-non-current-assets",
+    label: "Total Non Current Asset",
+    source: "Subtotal fixed asset net modeled",
+    formula: "Fixed assets net + modeled non-current assets",
+    status: "review",
+    workbookReference: "PROY BALANCE SHEET row 31",
+    value: (row) => row.fixedAssetsEnding,
+    kind: "subtotal",
+    note: "Subtotal bersifat parsial karena other non-current asset dan intangible belum diproyeksikan.",
+  },
+  {
+    key: "total-assets",
+    label: "ASSETS",
+    source: "Subtotal modeled assets",
+    formula: "Operating current assets + fixed assets net",
+    status: "review",
+    workbookReference: "PROY BALANCE SHEET row 33",
+    value: (row) => row.operatingCurrentAssets + row.fixedAssetsEnding,
+    kind: "subtotal",
+    note: "Belum full balance sheet karena kas dan sebagian aset non-operasional perlu input.",
+  },
+  sectionProjectionLine("liabilities-equity-section", "LIABILITIES & EQUITY"),
+  sectionProjectionLine("current-liabilities-section", "Current Liabilities"),
+  projectionInputLine("bank-loan-short-term", "Bank Loan-Short Term", "Pinjaman baru/pelunasan belum diproyeksikan otomatis.", "PROY BALANCE SHEET row 37"),
   {
     key: "account-payable",
-    label: "Account Payable",
-    source: "PROY BALANCE SHEET",
+    label: "Account Payables",
+    source: "PROY BALANCE SHEET / DCF working capital",
     formula: "COGS x AP days / 365",
+    status: "calculated",
+    workbookReference: "PROY BALANCE SHEET row 39",
     value: (row) => row.accountPayable,
   },
+  projectionInputLine("tax-payable", "Tax Payable", "Timing utang pajak membutuhkan asumsi pembayaran pajak.", "PROY BALANCE SHEET row 41"),
   {
     key: "other-payable",
-    label: "Other Payable",
-    source: "PROY BALANCE SHEET",
+    label: "Others",
+    source: "PROY BALANCE SHEET / DCF working capital",
     formula: "Operating expenses x other payable days / 365",
+    status: "calculated",
+    workbookReference: "PROY BALANCE SHEET row 43",
     value: (row) => row.otherPayable,
   },
   {
     key: "operating-current-liabilities",
-    label: "Operating Current Liabilities",
-    source: "DCF working capital",
+    label: "Current Liabilities",
+    source: "Subtotal operating current liabilities",
     formula: "AP + other payable",
+    status: "review",
+    workbookReference: "PROY BALANCE SHEET row 45",
     value: (row) => row.operatingCurrentLiabilities,
     kind: "subtotal",
+    note: "Subtotal bersifat parsial karena loan dan tax payable membutuhkan input tambahan.",
   },
+  sectionProjectionLine("non-current-liabilities-section", "Non Current Liabilities"),
+  projectionInputLine("bank-loan-long-term", "Bank Loan-Long Term", "Pinjaman jangka panjang membutuhkan jadwal utang.", "PROY BALANCE SHEET row 48"),
+  projectionNotModeledLine("other-non-current-liabilities", "Other Non Current Liabilites", "Other non-current liabilities belum menjadi driver DCF.", "PROY BALANCE SHEET row 50"),
+  projectionInputLine("non-current-liabilities", "Non Current Liabilities", "Butuh jadwal liabilitas jangka panjang.", "PROY BALANCE SHEET row 52"),
+  sectionProjectionLine("shareholders-equity-section", "Shareholders' Equity"),
+  projectionInputLine("paid-up-capital", "Paid Up Capital", "Butuh asumsi setoran/modal dan aksi korporasi proyeksi.", "PROY BALANCE SHEET row 55"),
+  sectionProjectionLine("retained-earnings-section", "Retained Earnings"),
+  projectionInputLine("retained-surplus", "Surplus", "Butuh saldo laba awal dan kebijakan distribusi laba.", "PROY BALANCE SHEET row 57"),
   {
-    key: "operating-nwc",
-    label: "Operating NWC",
-    source: "DCF working capital",
-    formula: "Operating current assets - operating current liabilities",
-    value: (row) => row.operatingNwc,
-    kind: "subtotal",
+    key: "retained-current-profit",
+    label: "Current Profit",
+    source: "PROY LR / engine DCF",
+    formula: "Projected NPAT / NOPLAT before distribution policy",
+    status: "review",
+    workbookReference: "PROY BALANCE SHEET row 58",
+    value: (row) => row.noplat,
+    note: "Belum menjadi retained earnings ending karena dividend/distribution policy belum dimodelkan.",
   },
-  {
-    key: "fixed-assets-beginning",
-    label: "Fixed Assets - beginning",
-    source: "PROY FIXED ASSETS",
-    formula: "Prior year fixed assets net",
-    value: (row) => row.fixedAssetsBeginning,
-  },
-  {
-    key: "capital-expenditure",
-    label: "Capital Expenditure",
-    source: "PROY FIXED ASSETS",
-    formula: "Maintenance capex = depreciation",
-    value: (row) => row.capitalExpenditure,
-  },
-  {
-    key: "fixed-assets-ending",
-    label: "Fixed Assets - ending",
-    source: "PROY FIXED ASSETS",
-    formula: "Beginning + capex - depreciation",
-    value: (row) => row.fixedAssetsEnding,
-    kind: "subtotal",
-  },
+  projectionInputLine("retained-earnings-ending", "Retained Earnings, Ending Balance", "Butuh saldo laba awal dan distribusi/dividen.", "PROY BALANCE SHEET row 59"),
+  projectionInputLine("shareholders-equity", "Shareholders' Equity", "Butuh proyeksi modal dan retained earnings lengkap.", "PROY BALANCE SHEET row 60"),
+  projectionInputLine("liabilities-equity", "LIABILITES & EQUITY", "Butuh proyeksi liabilitas dan ekuitas lengkap.", "PROY BALANCE SHEET row 62"),
+  projectionInputLine("balance-control", "Balance Control", "Full projected balance sheet belum lengkap.", "PROY BALANCE SHEET row 63"),
 ];
 
-const dcfNoplatProjectionRows: DcfProjectionLine[] = [
+const fixedAssetClassLabels = [
+  "Land (Tanah Lahan Sawit + Tanah Lahan Sawit (TA))",
+  "Building (Bangunan Mess/Barak + Bangunan Mess/Barak (TA) + Lapangan + Kantor)",
+  "Equipment, Laboratory, & Machinery (Sarana & Prasarana)",
+  "Vehicle & Heavy Equipment (Alat Berat + Kendaraan)",
+  "Office Inventory (Inventaris Tanaman Sawit + Inventaris Tanaman Sawit (TA))",
+  "Electrical",
+];
+
+const dcfFixedAssetProjectionRows: DcfProjectionLine[] = [
+  sectionProjectionLine("fixed-asset-schedules", "Fixed Asset Schedules"),
+  sectionProjectionLine("acquisition-costs", "A. Acquisition Costs"),
+  sectionProjectionLine("acquisition-beginning", "Beginning"),
+  ...fixedAssetClassLabels.map((label, index) =>
+    projectionNotModeledLine(`acquisition-beginning-${index}`, label, "Butuh proyeksi gross acquisition cost per kelas aset.", "PROY FIXED ASSETS rows 8-13"),
+  ),
+  projectionInputLine("acquisition-beginning-total", "Total", "Gross acquisition cost beginning belum tersedia dari engine DCF net asset.", "PROY FIXED ASSETS row 14"),
+  sectionProjectionLine("acquisition-additions", "Additions"),
+  ...fixedAssetClassLabels.map((label, index) =>
+    projectionInputLine(`acquisition-additions-${index}`, label, "Butuh alokasi capex per kelas aset.", "PROY FIXED ASSETS rows 17-22"),
+  ),
   {
-    key: "profit-before-tax",
-    label: "Profit Before Tax - operating basis",
-    source: "PROY NOPLAT",
-    formula: "EBIT proyeksi; financing dan non-operating items dikeluarkan",
-    value: (row) => row.ebit,
-  },
-  {
-    key: "interest-expense-excluded",
-    label: "Add: Interest Expenses",
-    source: "PROY NOPLAT",
-    formula: "0; interest expense dikeluarkan dari operating NOPLAT",
-    value: () => 0,
-  },
-  {
-    key: "interest-income-excluded",
-    label: "Less: Interest Income",
-    source: "PROY NOPLAT",
-    formula: "0; interest income dikeluarkan dari operating NOPLAT",
-    value: () => 0,
-  },
-  {
-    key: "non-operating-income-excluded",
-    label: "Non Operating Income",
-    source: "PROY NOPLAT",
-    formula: "0; non-operating income dikeluarkan dari operating NOPLAT",
-    value: () => 0,
-  },
-  {
-    key: "ebit",
-    label: "EBIT",
-    source: "Engine DCF",
-    formula: "Operating PBT + excluded financing/non-operating items",
-    value: (row) => row.ebit,
+    key: "capital-expenditure",
+    label: "Total",
+    source: "PROY FIXED ASSETS / engine DCF",
+    formula: "Maintenance capex = depreciation",
+    status: "calculated",
+    workbookReference: "PROY FIXED ASSETS row 23",
+    value: (row) => row.capitalExpenditure,
     kind: "subtotal",
   },
+  sectionProjectionLine("acquisition-ending", "Ending"),
+  ...fixedAssetClassLabels.map((label, index) =>
+    projectionNotModeledLine(`acquisition-ending-${index}`, label, "Butuh gross acquisition roll-forward per kelas aset.", "PROY FIXED ASSETS rows 26-31"),
+  ),
+  projectionInputLine("acquisition-ending-total", "Total", "Gross acquisition cost ending belum tersedia dari engine DCF net asset.", "PROY FIXED ASSETS row 32"),
+  sectionProjectionLine("depreciation-section", "B. Depreciation"),
+  sectionProjectionLine("depreciation-beginning", "Beginning"),
+  ...fixedAssetClassLabels.map((label, index) =>
+    projectionNotModeledLine(`depreciation-beginning-${index}`, label, "Butuh accumulated depreciation beginning per kelas aset.", "PROY FIXED ASSETS rows 36-41"),
+  ),
+  projectionInputLine("depreciation-beginning-total", "Total", "Accumulated depreciation beginning membutuhkan jadwal gross/akumulasi.", "PROY FIXED ASSETS row 42"),
+  sectionProjectionLine("depreciation-additions", "Additions"),
+  ...fixedAssetClassLabels.map((label, index) =>
+    projectionInputLine(`depreciation-additions-${index}`, label, "Butuh alokasi penyusutan per kelas aset.", "PROY FIXED ASSETS rows 45-50"),
+  ),
   {
-    key: "statutory-tax",
-    label: "Statutory Tax on EBIT",
-    source: "Asumsi statutory tax",
-    formula: "EBIT x tax rate",
-    value: (row) => row.statutoryTaxOnEbit,
+    key: "depreciation-additions-total",
+    label: "Total",
+    source: "PROY FIXED ASSETS / engine DCF",
+    formula: "Projected depreciation from DCF depreciation margin",
+    status: "calculated",
+    workbookReference: "PROY FIXED ASSETS row 51",
+    value: (row) => row.depreciation,
+    kind: "subtotal",
   },
+  sectionProjectionLine("depreciation-ending", "Ending"),
+  ...fixedAssetClassLabels.map((label, index) =>
+    projectionNotModeledLine(`depreciation-ending-${index}`, label, "Butuh accumulated depreciation ending per kelas aset.", "PROY FIXED ASSETS rows 54-59"),
+  ),
+  projectionInputLine("depreciation-ending-total", "Total", "Accumulated depreciation ending membutuhkan jadwal gross/akumulasi.", "PROY FIXED ASSETS row 60"),
+  sectionProjectionLine("net-value-fixed-assets", "Net Value Fixed Assets"),
+  ...fixedAssetClassLabels.map((label, index) =>
+    projectionInputLine(`net-value-${index}`, label, "Butuh net book value per kelas aset.", "PROY FIXED ASSETS rows 63-68"),
+  ),
   {
-    key: "tax-shields-excluded",
-    label: "Tax shields excluded",
-    source: "Basis valuasi terkoreksi",
-    formula: "0; tax shield financing/non-operating tidak dipakai",
-    value: () => 0,
-  },
-  {
-    key: "noplat",
-    label: "NOPLAT",
-    source: "PROY NOPLAT / engine DCF",
-    formula: "EBIT - statutory tax on EBIT",
-    value: (row) => row.noplat,
+    key: "fixed-assets-ending",
+    label: "Total",
+    source: "PROY FIXED ASSETS / engine DCF",
+    formula: "Beginning + capex - depreciation",
+    status: "calculated",
+    workbookReference: "PROY FIXED ASSETS row 69",
+    value: (row) => row.fixedAssetsEnding,
     kind: "subtotal",
   },
 ];
 
 const dcfCashFlowProjectionRows: DcfProjectionLine[] = [
   {
-    key: "noplat",
-    label: "NOPLAT",
-    source: "PROY NOPLAT",
-    formula: "EBIT x (1 - tax rate)",
-    value: (row) => row.noplat,
+    key: "ebitda",
+    label: "EBITDA",
+    source: "PROY LR / engine DCF",
+    formula: "EBIT + depreciation",
+    status: "calculated",
+    workbookReference: "PROY CASH FLOW STATEMENT row 5",
+    value: (row) => row.ebit + row.depreciation,
   },
   {
-    key: "depreciation-addback",
-    label: "Add: Depreciation",
-    source: "PROY FIXED ASSETS",
-    formula: "Revenue x margin penyusutan",
-    value: (row) => row.depreciation,
+    key: "corporate-tax",
+    label: "Corporate Tax",
+    source: "Asumsi statutory tax",
+    formula: "EBIT x tax rate as cash tax deduction",
+    status: "calculated",
+    workbookReference: "PROY CASH FLOW STATEMENT row 6",
+    value: (row) => -row.statutoryTaxOnEbit,
+  },
+  sectionProjectionLine("changes-working-capital", "Changes in Working Capital"),
+  {
+    key: "operating-current-assets-change",
+    label: "Operating Current Assets (AR + Inventory)",
+    source: "PROY BALANCE SHEET",
+    formula: "-((AR + inventory) t - (AR + inventory) t-1)",
+    status: "calculated",
+    workbookReference: "PROY CASH FLOW STATEMENT row 8",
+    value: (_row, index, context) => operatingCurrentAssetsCashEffect(index, context),
   },
   {
-    key: "gross-cash-flow",
-    label: "Gross Cash Flow",
-    source: "PROY CASH FLOW STATEMENT",
-    formula: "NOPLAT + depreciation",
-    value: (row) => row.grossCashFlow,
+    key: "operating-current-liabilities-change",
+    label: "Operating Current Liabilities (AP + Other Payable)",
+    source: "PROY BALANCE SHEET",
+    formula: "(AP + other payable) t - (AP + other payable) t-1",
+    status: "calculated",
+    workbookReference: "PROY CASH FLOW STATEMENT row 9",
+    value: (_row, index, context) => operatingCurrentLiabilitiesCashEffect(index, context),
+  },
+  {
+    key: "working-capital",
+    label: "Working Capital",
+    source: "DCF, Changes Working Capital",
+    formula: "Operating current assets cash effect + operating current liabilities cash effect",
+    status: "calculated",
+    workbookReference: "PROY CASH FLOW STATEMENT row 10",
+    value: (row) => -row.changeInNwc,
     kind: "subtotal",
   },
   {
-    key: "working-capital-effect",
-    label: "Change in Operating NWC cash effect",
-    source: "PROY CASH FLOW STATEMENT",
-    formula: "-(Operating NWC t - Operating NWC t-1)",
-    value: (row) => -row.changeInNwc,
+    key: "cash-flow-from-operations",
+    label: "Cash Flow from Operations",
+    source: "PROY CASH FLOW STATEMENT / engine DCF",
+    formula: "EBITDA - statutory tax + changes in working capital",
+    status: "calculated",
+    workbookReference: "PROY CASH FLOW STATEMENT row 11",
+    value: (row) => row.grossCashFlow - row.changeInNwc,
+    kind: "subtotal",
   },
+  projectionNotModeledLine("cash-flow-from-non-operations", "Cash Flow from Non Operations", "Non-operating cash flow belum diproyeksikan dalam FCFF operasi.", "PROY CASH FLOW STATEMENT row 13"),
   {
-    key: "capex-cash-effect",
-    label: "Capital Expenditure cash effect",
-    source: "PROY CASH FLOW STATEMENT",
+    key: "capital-expenditure",
+    label: "Cash Flow from Investment (Capital Expenditure)",
+    source: "PROY FIXED ASSETS / engine DCF",
     formula: "-capital expenditure",
+    status: "calculated",
+    workbookReference: "PROY CASH FLOW STATEMENT row 17",
     value: (row) => -row.capitalExpenditure,
   },
   {
-    key: "gross-investment",
-    label: "Gross Investment cash effect",
-    source: "PROY CASH FLOW STATEMENT",
-    formula: "-(capital expenditure + change in operating NWC)",
-    value: (row) => -row.grossInvestment,
-    kind: "subtotal",
-  },
-  {
-    key: "fcff",
-    label: "Free Cash Flow to Firm",
-    source: "DCF",
-    formula: "Gross cash flow + gross investment cash effect",
+    key: "cash-flow-before-financing",
+    label: "Cash Flow before Financing",
+    source: "FCFF bridge",
+    formula: "Cash flow from operations + non-operating cash flow - capex",
+    status: "review",
+    workbookReference: "PROY CASH FLOW STATEMENT row 19",
     value: (row) => row.freeCashFlow,
     kind: "subtotal",
+    note: "Sama dengan FCFF karena non-operating cash flow belum diproyeksikan.",
   },
-  {
-    key: "discount-factor",
-    label: "Discount Factor",
-    source: "WACC",
-    formula: "1 / (1 + WACC)^n",
-    value: (row) => row.discountFactor,
-    display: "multiple",
-  },
-  {
-    key: "pv-fcff",
-    label: "PV of Free Cash Flow",
-    source: "DCF",
-    formula: "FCFF x discount factor",
-    value: (row) => row.presentValue,
-    kind: "subtotal",
-  },
+  sectionProjectionLine("financing-section", "Financing"),
+  projectionInputLine("equity-injection", "Equity Injection", "Butuh asumsi setoran modal proyeksi.", "PROY CASH FLOW STATEMENT row 22"),
+  projectionInputLine("new-loan", "New Loan", "Butuh jadwal utang baru.", "PROY CASH FLOW STATEMENT row 23"),
+  projectionNotModeledLine("interest-expense", "Interest Expense", "Financing cash flow tidak dipakai dalam FCFF operasi.", "PROY CASH FLOW STATEMENT row 24"),
+  projectionNotModeledLine("interest-income", "Interest Income", "Financing/non-operating cash flow tidak dipakai dalam FCFF operasi.", "PROY CASH FLOW STATEMENT row 25"),
+  projectionInputLine("principal-repayment", "Principal Repayment", "Butuh jadwal pelunasan pokok pinjaman.", "PROY CASH FLOW STATEMENT row 26"),
+  projectionInputLine("cash-flow-from-financing", "Cash Flow from Financing", "Butuh seluruh jadwal pendanaan.", "PROY CASH FLOW STATEMENT row 28"),
+  projectionInputLine("net-cash-flow", "Net Cash Flow", "Butuh proyeksi financing dan cash roll-forward lengkap.", "PROY CASH FLOW STATEMENT row 30"),
+  projectionInputLine("cash-beginning-balance", "Cash-Beginning Balance", "Butuh saldo kas awal proyeksi.", "PROY CASH FLOW STATEMENT row 32"),
+  projectionInputLine("cash-ending-balance", "Cash-Ending Balance", "Butuh cash roll-forward penuh.", "PROY CASH FLOW STATEMENT row 33"),
+  projectionInputLine("cash-ending-in-bank", "Cash Ending in Bank", "Butuh alokasi kas akhir ke bank/deposito.", "PROY CASH FLOW STATEMENT row 35"),
+  projectionInputLine("cash-ending-in-cash-on-hand", "Cash Ending in Cash on Hand", "Butuh alokasi kas akhir ke kas di tangan.", "PROY CASH FLOW STATEMENT row 36"),
 ];
 
-function DcfProjectionSection({
+const dcfProjectionConfigs: Record<ProjectionStatementKind, DcfProjectionConfig> = {
+  income: {
+    eyebrow: "PROY LR",
+    title: "Proyeksi Laba Rugi",
+    badge: "Revenue, margin, EBIT",
+    summary: "Struktur mengikuti sheet PROY LR; angka dihitung ulang dari driver revenue, margin historis, dan tarif pajak aktif.",
+    rows: dcfIncomeProjectionRows,
+    testId: "dcf-income-projection-table",
+  },
+  balance: {
+    eyebrow: "PROY BALANCE SHEET",
+    title: "Proyeksi Neraca",
+    badge: "Operating WC + partial BS",
+    summary: "Struktur mengikuti sheet PROY BALANCE SHEET; baris tanpa driver sistem ditahan sebagai kebutuhan input, bukan diisi angka asumtif.",
+    rows: dcfBalanceProjectionRows,
+    testId: "dcf-balance-projection-table",
+  },
+  fixedAssets: {
+    eyebrow: "PROY FIXED ASSETS",
+    title: "Proyeksi Aset Tetap",
+    badge: "Capex, depreciation, NBV",
+    summary: "Struktur mengikuti sheet PROY FIXED ASSETS; engine DCF menghitung total capex, penyusutan, dan nilai buku neto, sementara detail per kelas aset tetap menunggu input.",
+    rows: dcfFixedAssetProjectionRows,
+    testId: "dcf-fixed-asset-projection-table",
+  },
+  cashFlow: {
+    eyebrow: "PROY CASH FLOW STATEMENT",
+    title: "Proyeksi Cash Flow Statement",
+    badge: "CFO, WC, capex",
+    summary: "Struktur mengikuti sheet PROY CASH FLOW STATEMENT; cash flow before financing terhubung ke FCFF, sedangkan financing dan cash roll-forward penuh menunggu input.",
+    rows: dcfCashFlowProjectionRows,
+    testId: "dcf-cash-flow-projection-table",
+  },
+};
+
+function ProjectionStatementSection({
+  kind,
   forecast,
   snapshot,
-  dcfEquityValue,
 }: {
+  kind: ProjectionStatementKind;
   forecast: DcfForecastRow[];
   snapshot: FinancialStatementSnapshot;
-  dcfEquityValue: number;
 }) {
-  const explicitPv = forecast.reduce((sum, row) => sum + row.presentValue, 0);
+  const config = dcfProjectionConfigs[kind];
   const firstForecast = forecast[0] ?? null;
   const finalForecast = forecast.at(-1) ?? null;
   const horizonLabel = firstForecast && finalForecast ? `${firstForecast.year}-${finalForecast.year}` : "Perlu data";
 
   return (
     <>
-      <section id="dcf-projection-summary" className="section-grid">
+      <section id={`${kind}-projection-summary`} className="section-grid">
         <article className="metric-card">
           <div className="card-title">
             <TableProperties size={20} />
+            <span>{config.eyebrow}</span>
+          </div>
+          <strong>{config.title}</strong>
+          <p>{config.summary}</p>
+        </article>
+        <article className="metric-card">
+          <div className="card-title">
+            <CalendarDays size={20} />
             <span>Horizon</span>
           </div>
           <strong>{horizonLabel}</strong>
-          <p>Proyeksi lima tahun dari engine DCF aktif, dimulai setelah tanggal penilaian.</p>
+          <p>Proyeksi lima tahun dimulai setelah tanggal penilaian aktif.</p>
         </article>
         <article className="metric-card">
           <div className="card-title">
-            <Calculator size={20} />
-            <span>PV eksplisit FCFF</span>
+            <FileSearch size={20} />
+            <span>Status audit</span>
           </div>
-          <strong>{formatIdr(explicitPv)}</strong>
-          <p>Jumlah present value arus kas bebas eksplisit sebelum nilai terminal.</p>
-        </article>
-        <article className="metric-card">
-          <div className="card-title">
-            <Banknote size={20} />
-            <span>Nilai Ekuitas DCF</span>
-          </div>
-          <strong>{formatIdr(dcfEquityValue)}</strong>
-          <p>Terhubung langsung dengan tab Penilaian EEM/DCF dan sensitivitas asumsi.</p>
+          <strong>Formula-driven</strong>
+          <p>Formula tersedia di detail audit; tabel utama hanya menampilkan sumber, status, dan angka.</p>
         </article>
       </section>
 
-      <section className="active-driver-strip" aria-label="Driver aktif proyeksi DCF">
+      <section className="active-driver-strip" aria-label={`Driver aktif ${config.title}`}>
         <div>
           <span>Revenue growth</span>
           <strong>{formatPercent(snapshot.revenueGrowth)}</strong>
@@ -3220,77 +3574,39 @@ function DcfProjectionSection({
         </div>
       </section>
 
-      <section className="split-panel">
-        <DcfProjectionPanel
-          eyebrow="PROY LR"
-          title="Proyeksi Laba Rugi"
-          badge="Revenue, margin, EBIT"
-          rows={dcfIncomeProjectionRows}
-          forecast={forecast}
-          testId="dcf-income-projection-table"
-        />
-        <DcfProjectionPanel
-          eyebrow="PROY NOPLAT"
-          title="Proyeksi NOPLAT"
-          badge="Commercial statutory basis"
-          rows={dcfNoplatProjectionRows}
-          forecast={forecast}
-          testId="dcf-noplat-projection-table"
-        />
-      </section>
-
-      <DcfProjectionPanel
-        eyebrow="PROY BALANCE SHEET + PROY FIXED ASSETS"
-        title="Proyeksi Neraca & Aset Tetap"
-        badge="Operating WC dan capex"
-        rows={dcfBalanceProjectionRows}
-        forecast={forecast}
-        testId="dcf-balance-projection-table"
-      />
-
-      <DcfProjectionPanel
-        eyebrow="PROY CASH FLOW STATEMENT"
-        title="Proyeksi Cash Flow Statement"
-        badge="FCFF, discount factor, PV"
-        rows={dcfCashFlowProjectionRows}
-        forecast={forecast}
-        testId="dcf-cash-flow-projection-table"
-      />
+      <DcfProjectionPanel config={config} forecast={forecast} snapshot={snapshot} />
     </>
   );
 }
 
 function DcfProjectionPanel({
-  eyebrow,
-  title,
-  badge,
-  rows,
+  config,
   forecast,
-  testId,
+  snapshot,
 }: {
-  eyebrow: string;
-  title: string;
-  badge: string;
-  rows: DcfProjectionLine[];
+  config: DcfProjectionConfig;
   forecast: DcfForecastRow[];
-  testId: string;
+  snapshot: FinancialStatementSnapshot;
 }) {
+  const context = { forecast, snapshot };
+  const traceRows = config.rows.filter((line) => line.kind !== "section");
+
   return (
     <article className="panel dcf-projection-panel">
       <div className="panel-heading">
         <div>
-          <p className="eyebrow">{eyebrow}</p>
-          <h3>{title}</h3>
+          <p className="eyebrow">{config.eyebrow}</p>
+          <h3>{config.title}</h3>
         </div>
-        <span className="status-pill muted">{badge}</span>
+        <span className="status-pill muted">{config.badge}</span>
       </div>
       <div className="table-wrap">
-        <table className="analysis-table dcf-projection-table" data-testid={testId}>
+        <table className="analysis-table dcf-projection-table" data-testid={config.testId}>
           <thead>
             <tr>
               <th>Pos</th>
               <th>Sumber</th>
-              <th>Formula</th>
+              <th>Status</th>
               {forecast.map((row) => (
                 <th className="period-column" key={row.year}>
                   {row.year}
@@ -3299,31 +3615,90 @@ function DcfProjectionPanel({
             </tr>
           </thead>
           <tbody>
-            {rows.map((line) => (
-              <tr className={line.kind === "subtotal" ? "analysis-total-row" : ""} key={line.key}>
-                <td>{line.label}</td>
-                <td>{line.source}</td>
-                <td>
-                  <code>{line.formula}</code>
-                  {line.note ? <span>{line.note}</span> : null}
-                </td>
-                {forecast.map((row) => (
-                  <td className="numeric-cell period-column" key={`${line.key}-${row.year}`}>
-                    {formatProjectionValue(line.value(row), line.display)}
+            {config.rows.map((line) => {
+              if (line.kind === "section") {
+                return (
+                  <tr className="analysis-section-row" key={line.key}>
+                    <td colSpan={forecast.length + 3}>{line.label}</td>
+                  </tr>
+                );
+              }
+
+              return (
+                <tr className={line.kind === "subtotal" ? "analysis-total-row" : ""} key={line.key}>
+                  <td>
+                    <strong>{line.label}</strong>
+                    {line.note ? <span>{line.note}</span> : null}
                   </td>
-                ))}
-              </tr>
-            ))}
+                  <td>{line.source}</td>
+                  <td>
+                    <ProjectionStatusBadge status={line.status ?? "calculated"} />
+                  </td>
+                  {forecast.map((row, index) => (
+                    <td className="numeric-cell period-column" key={`${line.key}-${row.year}`}>
+                      {formatProjectionValue(readProjectionValue(line, row, index, context), line.display)}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
+
+      <details className="audit-disclosure compact projection-trace-disclosure">
+        <summary>Detail formula dan referensi audit</summary>
+        <div className="table-wrap projection-trace-wrap">
+          <table className="analysis-table projection-trace-table" data-testid={`${config.testId}-trace`}>
+            <thead>
+              <tr>
+                <th>Pos</th>
+                <th>Referensi</th>
+                <th>Formula</th>
+                <th>Catatan</th>
+              </tr>
+            </thead>
+            <tbody>
+              {traceRows.map((line) => (
+                <tr key={`${line.key}-trace`}>
+                  <td>{line.label}</td>
+                  <td>{line.workbookReference ?? config.eyebrow}</td>
+                  <td>
+                    <code>{line.formula}</code>
+                  </td>
+                  <td>{line.note ?? projectionStatusLabels[line.status ?? "calculated"]}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
     </article>
   );
 }
 
-function formatProjectionValue(value: number, display: DcfProjectionDisplay = "currency"): string {
-  if (!Number.isFinite(value)) {
-    return "Perlu asumsi";
+function ProjectionStatusBadge({ status }: { status: DcfProjectionStatus }) {
+  return <span className={`status-pill ${projectionStatusClassNames[status]}`}>{projectionStatusLabels[status]}</span>;
+}
+
+function readProjectionValue(
+  line: DcfProjectionLine,
+  row: DcfForecastRow,
+  index: number,
+  context: DcfProjectionContext,
+): number | null {
+  if (!line.value) {
+    return null;
+  }
+
+  const value = line.value(row, index, context);
+
+  return Number.isFinite(value) ? value : null;
+}
+
+function formatProjectionValue(value: number | null, display: DcfProjectionDisplay = "currency"): string {
+  if (value === null || !Number.isFinite(value)) {
+    return "—";
   }
 
   if (display === "percent") {
@@ -3335,6 +3710,113 @@ function formatProjectionValue(value: number, display: DcfProjectionDisplay = "c
   }
 
   return formatIdr(value);
+}
+
+function sectionProjectionLine(key: string, label: string): DcfProjectionLine {
+  return {
+    key,
+    label,
+    source: "",
+    formula: "",
+    status: "calculated",
+    kind: "section",
+  };
+}
+
+function projectionInputLine(
+  key: string,
+  label: string,
+  note: string,
+  workbookReference: string,
+  display?: DcfProjectionDisplay,
+): DcfProjectionLine {
+  return {
+    key,
+    label,
+    source: "Perlu input",
+    formula: "Requires explicit projection input before a reliable value can be shown",
+    status: "requiresInput",
+    workbookReference,
+    display,
+    note,
+  };
+}
+
+function projectionNotModeledLine(
+  key: string,
+  label: string,
+  note: string,
+  workbookReference: string,
+  display?: DcfProjectionDisplay,
+): DcfProjectionLine {
+  return {
+    key,
+    label,
+    source: "Belum dimodelkan",
+    formula: "No current system driver; keep blank until modeled or entered",
+    status: "notModeled",
+    workbookReference,
+    display,
+    note,
+  };
+}
+
+function previousRevenue(index: number, context: DcfProjectionContext): number {
+  return index === 0 ? context.snapshot.revenue : context.forecast[index - 1]?.revenue ?? 0;
+}
+
+function previousDepreciation(index: number, context: DcfProjectionContext): number {
+  return index === 0 ? context.snapshot.depreciation : context.forecast[index - 1]?.depreciation ?? 0;
+}
+
+function previousAccountReceivable(index: number, context: DcfProjectionContext): number {
+  return index === 0 ? context.snapshot.accountReceivable : context.forecast[index - 1]?.accountReceivable ?? 0;
+}
+
+function previousInventory(index: number, context: DcfProjectionContext): number {
+  return index === 0 ? context.snapshot.inventory : context.forecast[index - 1]?.inventory ?? 0;
+}
+
+function previousOperatingCurrentAssets(index: number, context: DcfProjectionContext): number {
+  return index === 0
+    ? context.snapshot.accountReceivable + context.snapshot.inventory
+    : context.forecast[index - 1]?.operatingCurrentAssets ?? 0;
+}
+
+function previousOperatingCurrentLiabilities(index: number, context: DcfProjectionContext): number {
+  return index === 0
+    ? context.snapshot.accountPayable + context.snapshot.otherPayable
+    : context.forecast[index - 1]?.operatingCurrentLiabilities ?? 0;
+}
+
+function growthValue(current: number, previous: number): number | null {
+  if (!Number.isFinite(current) || !Number.isFinite(previous) || previous === 0) {
+    return null;
+  }
+
+  return current / previous - 1;
+}
+
+function divideOrNull(numerator: number, denominator: number): number | null {
+  if (!Number.isFinite(numerator) || !Number.isFinite(denominator) || denominator === 0) {
+    return null;
+  }
+
+  return numerator / denominator;
+}
+
+function operatingCurrentAssetsCashEffect(index: number, context: DcfProjectionContext): number {
+  const current = context.forecast[index]?.operatingCurrentAssets ?? 0;
+  const previous = previousOperatingCurrentAssets(index, context);
+
+  return -(current - previous);
+}
+
+function operatingCurrentLiabilitiesCashEffect(index: number, context: DcfProjectionContext): number {
+  const current = context.forecast[index]?.operatingCurrentLiabilities ?? 0;
+  const previous = previousOperatingCurrentLiabilities(index, context);
+
+  return current - previous;
 }
 
 const cashFlowStatementSectionLabels: Record<CashFlowStatementRow["section"], string> = {

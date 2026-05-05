@@ -21,7 +21,10 @@ export type WorkbenchSectionId =
   | "eemDcfAssumptions"
   | "valuationAam"
   | "valuationEemDcf"
-  | "dcfProjection"
+  | "projectedIncome"
+  | "projectedBalance"
+  | "projectedFixedAssets"
+  | "projectedCashFlow"
   | "dlom"
   | "dlocPfc"
   | "taxSimulation"
@@ -212,13 +215,32 @@ export function buildWorkbenchReadiness({
       requiredReturn,
       mapped,
     ]),
-    dcfProjection: status("dcfProjection", "Proyeksi DCF", [
+    projectedIncome: status("projectedIncome", "Proyeksi Laba Rugi", [
+      period,
+      income,
+      taxRateForEemDcf,
+      mapped,
+    ]),
+    projectedBalance: status("projectedBalance", "Proyeksi Neraca", [
+      period,
+      balance,
+      income,
+      workingCapitalDays,
+      operatingWorkingCapital,
+      fixedAssetOrDepreciation,
+      mapped,
+    ]),
+    projectedFixedAssets: status("projectedFixedAssets", "Proyeksi Aset Tetap", [
+      period,
+      balance,
+      fixedAssetOrDepreciation,
+      mapped,
+    ]),
+    projectedCashFlow: status("projectedCashFlow", "Proyeksi Cash Flow Statement", [
       period,
       balance,
       income,
       taxRateForEemDcf,
-      wacc,
-      terminalGrowth,
       workingCapitalDays,
       operatingWorkingCapital,
       fixedAssetOrDepreciation,

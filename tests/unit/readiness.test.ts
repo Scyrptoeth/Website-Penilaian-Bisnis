@@ -40,7 +40,10 @@ describe("workbench readiness", () => {
 
     assert.equal(readiness.valuationAam.isReady, false);
     assert.equal(readiness.valuationEemDcf.isReady, false);
-    assert.equal(readiness.dcfProjection.isReady, false);
+    assert.equal(readiness.projectedIncome.isReady, false);
+    assert.equal(readiness.projectedBalance.isReady, false);
+    assert.equal(readiness.projectedFixedAssets.isReady, false);
+    assert.equal(readiness.projectedCashFlow.isReady, false);
     assert.equal(readiness.wacc.isReady, false);
     assert.equal(readiness.dlom.isReady, false);
     assert.equal(readiness.dlocPfc.isReady, false);
@@ -51,8 +54,10 @@ describe("workbench readiness", () => {
     assert.ok(readiness.valuationAam.missing.some((item) => item.targetTab === "balance"));
     assert.ok(readiness.valuationAam.missing.every((item) => item.targetTab !== "wacc" && item.targetTab !== "eemDcfAssumptions"));
     assert.ok(readiness.valuationEemDcf.missing.some((item) => item.targetTab === "income"));
-    assert.ok(readiness.dcfProjection.missing.some((item) => item.targetTab === "income"));
-    assert.ok(readiness.dcfProjection.missing.some((item) => item.targetTab === "eemDcfAssumptions"));
+    assert.ok(readiness.projectedIncome.missing.some((item) => item.targetTab === "income"));
+    assert.ok(readiness.projectedIncome.missing.some((item) => item.targetTab === "eemDcfAssumptions"));
+    assert.ok(readiness.projectedBalance.missing.some((item) => item.targetTab === "balance"));
+    assert.ok(readiness.projectedCashFlow.missing.some((item) => item.targetTab === "eemDcfAssumptions"));
     assert.ok(readiness.dlom.missing.some((item) => item.targetTab === "periods"));
     assert.ok(readiness.noplatFcf.missing.some((item) => item.targetTab === "eemDcfAssumptions"));
     assert.ok(readiness.payablesCashFlow.fulfilled.some((item) => item.targetTab === "periods"));
@@ -88,10 +93,59 @@ describe("workbench readiness", () => {
     assert.equal(readiness.ratiosCapital.isReady, true);
     assert.equal(readiness.valuationAam.isReady, true);
     assert.equal(readiness.valuationEemDcf.isReady, true);
-    assert.equal(readiness.dcfProjection.isReady, true);
+    assert.equal(readiness.projectedIncome.isReady, true);
+    assert.equal(readiness.projectedBalance.isReady, true);
+    assert.equal(readiness.projectedFixedAssets.isReady, true);
+    assert.equal(readiness.projectedCashFlow.isReady, true);
     assert.equal(readiness.dlom.isReady, true);
     assert.equal(readiness.dlocPfc.isReady, true);
     assert.equal(readiness.taxSimulation.isReady, true);
     assert.equal(readiness.ratiosCapital.warnings.length, 0);
+  });
+
+  it("lets projected income stand alone without working-capital or fixed-asset gates", () => {
+    const activePeriodId = initialPeriods[0].id;
+    const rows: AccountRow[] = [
+      {
+        id: "income-revenue",
+        statement: "income_statement",
+        accountName: "Revenue",
+        categoryOverride: "REVENUE",
+        balanceSheetClassification: "",
+        labelOverrides: [],
+        values: { [activePeriodId]: "1000000" },
+      },
+      {
+        id: "income-ebit",
+        statement: "income_statement",
+        accountName: "EBIT",
+        categoryOverride: "EBIT",
+        balanceSheetClassification: "",
+        labelOverrides: [],
+        values: { [activePeriodId]: "250000" },
+      },
+    ];
+    const mappedRows = rows.map(mapRow);
+    const fixedAssetSchedule = buildFixedAssetScheduleSummary(initialPeriods, []);
+    const assumptions = { ...emptyAssumptions, taxRate: "22%" };
+    const snapshot = buildSnapshot(initialPeriods, activePeriodId, rows, assumptions);
+    const dlocPfc = calculateDlocPfc(createEmptyDlocPfcState(), emptyCaseProfile);
+    const readiness = buildWorkbenchReadiness({
+      periods: initialPeriods,
+      rows,
+      mappedRows,
+      assumptions,
+      snapshot,
+      fixedAssetSchedule,
+      caseProfile: emptyCaseProfile,
+      caseProfileDerived: buildCaseProfileDerived(emptyCaseProfile),
+      dlocPfc,
+      taxSimulation: createEmptyTaxSimulationState(),
+    });
+
+    assert.equal(readiness.projectedIncome.isReady, true);
+    assert.equal(readiness.projectedBalance.isReady, false);
+    assert.equal(readiness.projectedFixedAssets.isReady, false);
+    assert.equal(readiness.projectedCashFlow.isReady, false);
   });
 });

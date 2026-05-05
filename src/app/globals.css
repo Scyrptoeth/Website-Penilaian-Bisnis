@@ -2756,17 +2756,40 @@ select {
 
 .dcf-projection-table th:nth-child(1),
 .dcf-projection-table td:nth-child(1) {
-  width: 17%;
+  width: 24%;
 }
 
 .dcf-projection-table th:nth-child(2),
 .dcf-projection-table td:nth-child(2) {
-  width: 17%;
+  width: 22%;
 }
 
 .dcf-projection-table th:nth-child(3),
 .dcf-projection-table td:nth-child(3) {
-  width: 24%;
+  width: 12%;
+}
+
+.projection-trace-disclosure {
+  margin-top: 10px;
+}
+
+.projection-trace-table {
+  min-width: 880px;
+}
+
+.projection-trace-table th:nth-child(1),
+.projection-trace-table td:nth-child(1) {
+  width: 22%;
+}
+
+.projection-trace-table th:nth-child(2),
+.projection-trace-table td:nth-child(2) {
+  width: 20%;
+}
+
+.projection-trace-table th:nth-child(3),
+.projection-trace-table td:nth-child(3) {
+  width: 30%;
 }
 
 table {
