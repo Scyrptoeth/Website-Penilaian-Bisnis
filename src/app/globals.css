@@ -675,6 +675,7 @@ select {
   color: var(--muted);
   font-size: 9.2px;
   line-height: 1.35;
+  min-height: 12px;
 }
 
 .klu-field {
@@ -691,7 +692,7 @@ select {
 .klu-suggestion-list {
   position: absolute;
   z-index: 30;
-  top: calc(100% - 14px);
+  top: calc(100% + 4px);
   left: 0;
   right: 0;
   display: grid;

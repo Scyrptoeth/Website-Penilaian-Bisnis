@@ -4156,6 +4156,7 @@ function KluProfileCombobox({
   const suggestions = useMemo(() => searchKluSectorRecords(value, 8), [value]);
   const hasInvalidFullCode = value.length === 5 && !selectedRecord;
   const shouldShowSuggestions = isOpen && suggestions.length > 0 && selectedRecord?.code !== value;
+  const selectedLabel = selectedRecord ? formatKluOptionLabel(selectedRecord) : undefined;
 
   return (
     <div className={hasInvalidFullCode ? "field klu-field invalid" : "field klu-field"}>
@@ -4169,6 +4170,7 @@ function KluProfileCombobox({
         inputMode="numeric"
         placeholder="Ketik 5 digit KLU"
         role="combobox"
+        title={selectedLabel}
         value={value}
         onBlur={() => window.setTimeout(() => setIsOpen(false), 120)}
         onChange={(event) => {
@@ -4198,9 +4200,11 @@ function KluProfileCombobox({
           ))}
         </div>
       ) : null}
-      <small className="field-help">
-        {selectedRecord ? formatKluOptionLabel(selectedRecord) : hasInvalidFullCode ? "KLU tidak ditemukan dalam daftar KBLI 2020." : "Ketik kode untuk melihat saran KLU."}
-      </small>
+      {hasInvalidFullCode ? (
+        <small className="field-help" role="alert">
+          KLU tidak ditemukan dalam daftar KBLI 2020.
+        </small>
+      ) : null}
     </div>
   );
 }
@@ -4216,18 +4220,16 @@ function KluSectorField({
 }) {
   const isInvalidFullCode = rawKlu.length === 5 && !selectedRecord;
   const value = sector || (isInvalidFullCode ? "KLU tidak ditemukan" : "Menunggu KLU valid");
+  const sectorMetadata = selectedRecord
+    ? `Otomatis dari KLU ${selectedRecord.code}. Confidence: ${selectedRecord.confidence}${selectedRecord.reviewNote ? ` - ${selectedRecord.reviewNote}` : ""}`
+    : "Sektor akan terisi otomatis setelah KLU valid dipilih.";
 
   return (
     <div className={isInvalidFullCode ? "field derived-sector-field invalid" : "field derived-sector-field"}>
       <span>Sektor Perusahaan</span>
-      <output aria-label="Sektor Perusahaan" data-testid="company-sector-derived">
+      <output aria-label="Sektor Perusahaan" data-testid="company-sector-derived" title={sectorMetadata}>
         {value}
       </output>
-      <small className="field-help">
-        {selectedRecord
-          ? `Otomatis dari KLU ${selectedRecord.code}. Confidence: ${selectedRecord.confidence}${selectedRecord.reviewNote ? ` - ${selectedRecord.reviewNote}` : ""}`
-          : "Sektor akan terisi otomatis setelah KLU valid dipilih."}
-      </small>
     </div>
   );
 }

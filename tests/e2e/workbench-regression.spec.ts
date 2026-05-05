@@ -19,6 +19,8 @@ test("period workflow, scoped categories, and display-only balance sheet classif
   await expect(page.getByRole("button", { name: /Kembali checkpoint/i })).toHaveCount(0);
   await page.getByLabel("KLU sesuai Appportal").fill("07102");
   await expect(page.getByTestId("company-sector-derived")).toHaveText("Basic Materials");
+  await expect(page.getByTestId("case-profile-panel").getByText("PERTAMBANGAN BIJIH BESI")).toHaveCount(0);
+  await expect(page.getByTestId("case-profile-panel").getByText(/Otomatis dari KLU/)).toHaveCount(0);
   await page.getByLabel("Tahun Transaksi Pengalihan").fill("2022");
   await expect(page.getByText("31 Desember 2021").first()).toBeVisible();
   await expect(page.getByLabel("Tanggal penilaian")).toHaveValue("2021-12-31");
