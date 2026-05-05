@@ -11,7 +11,23 @@ export type WaccCalculation = {
   ratingBasedDefaultSpread: number;
   countryRiskAdjustment: number;
   comparableBeta?: WaccComparableBetaCalculation;
+  bankLoanRate?: WaccBankLoanRateCalculation;
   wacc: number;
+};
+
+export type WaccBankLoanRateRow = {
+  key: keyof AssumptionState;
+  label: string;
+  sourceCell: string;
+  value: number | null;
+};
+
+export type WaccBankLoanRateCalculation = {
+  basis: "workbook-five-bank" | "system-three-bank";
+  basisLabel: string;
+  rows: WaccBankLoanRateRow[];
+  rawAverageRate: number;
+  roundedRate: number;
 };
 
 export type WaccComparableBetaRow = {
@@ -88,7 +104,8 @@ export function calculateWaccAssumption(assumptions: AssumptionState): WaccCalcu
   const ratingBasedDefaultSpread = readRateInput(assumptions.waccRatingBasedDefaultSpread) ?? 0;
   const countryRiskPremium = readRateInput(assumptions.waccCountryRiskPremium) ?? -ratingBasedDefaultSpread;
   const specificRiskPremium = readRateInput(assumptions.waccSpecificRiskPremium) ?? 0;
-  const preTaxCostOfDebt = readRateInput(assumptions.waccPreTaxCostOfDebt) ?? readAverageBankInvestmentLoanRate(assumptions);
+  const bankLoanRate = calculateWaccBankLoanRateAssumption(assumptions);
+  const preTaxCostOfDebt = readRateInput(assumptions.waccPreTaxCostOfDebt) ?? bankLoanRate?.roundedRate ?? null;
   const weights = comparableBeta.capitalWeights
     ?? readCapitalWeightsFromValues(assumptions.waccDebtMarketValue, assumptions.waccEquityMarketValue)
     ?? readCapitalWeights(assumptions.waccDebtWeight, assumptions.waccEquityWeight);
@@ -118,8 +135,36 @@ export function calculateWaccAssumption(assumptions: AssumptionState): WaccCalcu
     ratingBasedDefaultSpread,
     countryRiskAdjustment: countryRiskPremium + specificRiskPremium,
     comparableBeta,
+    bankLoanRate: bankLoanRate ?? undefined,
     wacc,
   };
+}
+
+export function calculateWaccBankLoanRateAssumption(assumptions: AssumptionState): WaccBankLoanRateCalculation | null {
+  const hasWorkbookGranularInput =
+    hasAssumptionInput(assumptions, "waccBankPemdaInvestmentLoanRate") ||
+    hasAssumptionInput(assumptions, "waccBankAsingInvestmentLoanRate") ||
+    hasAssumptionInput(assumptions, "waccBankCampuranInvestmentLoanRate");
+  const rows = hasWorkbookGranularInput ? buildWorkbookBankLoanRateRows(assumptions) : buildSystemBankLoanRateRows(assumptions);
+  const validRates = rows.map((row) => row.value).filter((value): value is number => value !== null);
+
+  if (validRates.length === 0) {
+    return null;
+  }
+
+  const rawAverageRate = validRates.reduce((sum, value) => sum + value, 0) / validRates.length;
+
+  return {
+    basis: hasWorkbookGranularInput ? "workbook-five-bank" : "system-three-bank",
+    basisLabel: hasWorkbookGranularInput ? "Workbook DISCOUNT RATE L6:L10" : "Saran sistem / input bank tersedia",
+    rows,
+    rawAverageRate,
+    roundedRate: roundDiscountRateDebtRate(rawAverageRate),
+  };
+}
+
+export function roundDiscountRateDebtRate(rate: number): number {
+  return Math.round(rate * 1000) / 1000;
 }
 
 export function calculateWaccComparableBetaAssumption(assumptions: AssumptionState): WaccComparableBetaCalculation {
@@ -444,20 +489,6 @@ function readCapitalWeightsFromValues(debtValueInput: string, equityValueInput: 
   };
 }
 
-function readAverageBankInvestmentLoanRate(assumptions: AssumptionState): number | null {
-  const rates = [
-    readRateInput(assumptions.waccBankPerseroInvestmentLoanRate),
-    readRateInput(assumptions.waccBankSwastaInvestmentLoanRate),
-    readRateInput(assumptions.waccBankUmumInvestmentLoanRate),
-  ].filter((value): value is number => value !== null);
-
-  if (rates.length === 0) {
-    return null;
-  }
-
-  return rates.reduce((sum, value) => sum + value, 0) / rates.length;
-}
-
 function buildComparableBetaRow(
   index: 1 | 2 | 3,
   name: string,
@@ -482,6 +513,47 @@ function buildComparableBetaRow(
     debt,
     unleveredBeta,
   };
+}
+
+function buildWorkbookBankLoanRateRows(assumptions: AssumptionState): WaccBankLoanRateRow[] {
+  return [
+    bankLoanRateRow(assumptions, "waccBankPerseroInvestmentLoanRate", "Bank Persero", "L6"),
+    bankLoanRateRow(assumptions, "waccBankPemdaInvestmentLoanRate", "Bank Pemda", "L7"),
+    bankLoanRateRow(assumptions, "waccBankSwastaInvestmentLoanRate", "Bank Swasta Nasional", "L8"),
+    bankLoanRateRow(assumptions, "waccBankAsingInvestmentLoanRate", "Bank Asing", "L9"),
+    bankLoanRateRow(assumptions, "waccBankCampuranInvestmentLoanRate", "Bank Campuran", "L10"),
+  ];
+}
+
+function buildSystemBankLoanRateRows(assumptions: AssumptionState): WaccBankLoanRateRow[] {
+  return [
+    bankLoanRateRow(assumptions, "waccBankPerseroInvestmentLoanRate", "Bank Persero", "Sistem"),
+    bankLoanRateRow(assumptions, "waccBankSwastaInvestmentLoanRate", "Bank Swasta", "Sistem"),
+    bankLoanRateRow(assumptions, "waccBankUmumInvestmentLoanRate", "Bank Umum", "Sistem"),
+  ];
+}
+
+function bankLoanRateRow(
+  assumptions: AssumptionState,
+  key: keyof AssumptionState,
+  label: string,
+  sourceCell: string,
+): WaccBankLoanRateRow {
+  return {
+    key,
+    label,
+    sourceCell,
+    value: readRateInput(readAssumptionInput(assumptions, key)),
+  };
+}
+
+function hasAssumptionInput(assumptions: AssumptionState, key: keyof AssumptionState): boolean {
+  return readAssumptionInput(assumptions, key).trim() !== "";
+}
+
+function readAssumptionInput(assumptions: AssumptionState, key: keyof AssumptionState): string {
+  const value = assumptions[key];
+  return typeof value === "string" ? value : "";
 }
 
 function positive(value: number): number {

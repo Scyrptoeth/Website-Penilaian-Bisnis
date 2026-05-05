@@ -4,6 +4,7 @@ import {
   buildRequiredReturnOnNtaSuggestion,
   calculateRequiredReturnOnNtaAssumption,
   calculateWaccAssumption,
+  calculateWaccBankLoanRateAssumption,
   calculateWaccComparableBetaAssumption,
 } from "../../src/lib/valuation/assumption-calculators";
 import { emptyAssumptions } from "../../src/lib/valuation/case-model";
@@ -50,6 +51,39 @@ describe("assumption calculators", () => {
     assertAlmostEqual(calculation.preTaxCostOfDebt, 0.09, 1e-12);
     assertAlmostEqual(calculation.ratingBasedDefaultSpread, 0.02, 1e-12);
     assert.equal(Number.isFinite(calculation.wacc), true);
+  });
+
+  it("matches the workbook UPDATE DISCOUNT RATE WACC calculation with rounded debt rate", () => {
+    const assumptions = {
+      ...emptyAssumptions,
+      taxRate: "0,22",
+      waccRiskFreeRate: "0,064795",
+      waccBeta: "1,09",
+      waccEquityRiskPremium: "0,0738",
+      waccRatingBasedDefaultSpread: "0,0207",
+      waccCountryRiskPremium: "-0,0207",
+      waccSpecificRiskPremium: "0",
+      waccBankPerseroInvestmentLoanRate: "0,0941",
+      waccBankPemdaInvestmentLoanRate: "0,0906",
+      waccBankSwastaInvestmentLoanRate: "0,0823",
+      waccBankAsingInvestmentLoanRate: "0,0851",
+      waccBankCampuranInvestmentLoanRate: "0,0881",
+      waccDebtWeight: "0,17722560473918053",
+      waccEquityWeight: "0,8227743952608195",
+    };
+
+    const bankLoanRate = calculateWaccBankLoanRateAssumption(assumptions);
+    const calculation = calculateWaccAssumption(assumptions);
+
+    assert.ok(bankLoanRate);
+    assert.equal(bankLoanRate.basis, "workbook-five-bank");
+    assertAlmostEqual(bankLoanRate.rawAverageRate, 0.08804, 1e-12);
+    assertAlmostEqual(bankLoanRate.roundedRate, 0.088, 1e-12);
+    assert.ok(calculation);
+    assertAlmostEqual(calculation.preTaxCostOfDebt, 0.088, 1e-12);
+    assertAlmostEqual(calculation.costOfEquity, 0.124537, 1e-12);
+    assertAlmostEqual(calculation.afterTaxCostOfDebt, 0.06864, 1e-12);
+    assertAlmostEqual(calculation.wacc, 0.11463062037189403, 1e-12);
   });
 
   it("lets explicit fallback capital weights override smart comparable weights", () => {

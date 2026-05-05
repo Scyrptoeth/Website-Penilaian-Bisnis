@@ -131,7 +131,7 @@ describe("valuation Excel export", () => {
 
   it("uses the provided website workbench JSON fixture as the V2 export audit source", () => {
     const templateData = readFileSync("public/templates/kkp-saham-final-account-category-review-update.xlsx");
-    const input = buildExportInputFromWorkbenchFixture(workbenchStateFixture as WorkbenchFixtureState);
+    const input = buildExportInputFromWorkbenchFixture(workbenchStateFixture as unknown as WorkbenchFixtureState);
     const { workbook, sourceOriginEntries } = buildValuationTemplateWorkbook(input, templateData);
     const { data } = writeValuationTemplateWorkbook(input, templateData);
 

@@ -100,7 +100,10 @@ export function buildWorkbenchReadiness({
         assumptions.waccComparable1Debt.trim() !== "")) &&
     (assumptions.waccPreTaxCostOfDebt.trim() !== "" ||
       assumptions.waccBankPerseroInvestmentLoanRate.trim() !== "" ||
+      assumptions.waccBankPemdaInvestmentLoanRate.trim() !== "" ||
       assumptions.waccBankSwastaInvestmentLoanRate.trim() !== "" ||
+      assumptions.waccBankAsingInvestmentLoanRate.trim() !== "" ||
+      assumptions.waccBankCampuranInvestmentLoanRate.trim() !== "" ||
       assumptions.waccBankUmumInvestmentLoanRate.trim() !== "");
   const hasTerminalGrowth = assumptions.terminalGrowth.trim() !== "";
   const hasRequiredReturn =

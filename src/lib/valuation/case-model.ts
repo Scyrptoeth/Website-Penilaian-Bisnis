@@ -115,7 +115,10 @@ export type AssumptionState = {
   waccSpecificRiskPremium: string;
   waccPreTaxCostOfDebt: string;
   waccBankPerseroInvestmentLoanRate: string;
+  waccBankPemdaInvestmentLoanRate: string;
   waccBankSwastaInvestmentLoanRate: string;
+  waccBankAsingInvestmentLoanRate: string;
+  waccBankCampuranInvestmentLoanRate: string;
   waccBankUmumInvestmentLoanRate: string;
   waccDebtWeight: string;
   waccEquityWeight: string;
@@ -227,7 +230,10 @@ export const emptyAssumptions: AssumptionState = {
   waccSpecificRiskPremium: "",
   waccPreTaxCostOfDebt: "",
   waccBankPerseroInvestmentLoanRate: "",
+  waccBankPemdaInvestmentLoanRate: "",
   waccBankSwastaInvestmentLoanRate: "",
+  waccBankAsingInvestmentLoanRate: "",
+  waccBankCampuranInvestmentLoanRate: "",
   waccBankUmumInvestmentLoanRate: "",
   waccDebtWeight: "",
   waccEquityWeight: "",
@@ -551,8 +557,8 @@ export function buildSampleAssumptions(): AssumptionState {
     terminalGrowthDownside: formatInputNumber(-0.06200163015727912),
     terminalGrowthUpside: formatInputNumber(0.03),
     revenueGrowth: formatInputNumber(sampleCase.revenueGrowth),
-    wacc: formatInputNumber(sampleCase.wacc),
-    waccSource: "computed-wacc",
+    wacc: "",
+    waccSource: "sample-workbook-discount-rate",
     waccOverrideReason: "",
     waccRiskFreeRate: formatInputNumber(0.064795),
     waccBeta: formatInputNumber(1.09),
@@ -560,9 +566,12 @@ export function buildSampleAssumptions(): AssumptionState {
     waccRatingBasedDefaultSpread: formatInputNumber(0.0207),
     waccCountryRiskPremium: formatInputNumber(-0.0207),
     waccSpecificRiskPremium: formatInputNumber(0),
-    waccPreTaxCostOfDebt: formatInputNumber(0.088),
-    waccBankPerseroInvestmentLoanRate: "",
-    waccBankSwastaInvestmentLoanRate: "",
+    waccPreTaxCostOfDebt: "",
+    waccBankPerseroInvestmentLoanRate: formatInputNumber(0.0941),
+    waccBankPemdaInvestmentLoanRate: formatInputNumber(0.0906),
+    waccBankSwastaInvestmentLoanRate: formatInputNumber(0.0823),
+    waccBankAsingInvestmentLoanRate: formatInputNumber(0.0851),
+    waccBankCampuranInvestmentLoanRate: formatInputNumber(0.0881),
     waccBankUmumInvestmentLoanRate: "",
     waccDebtWeight: formatInputNumber(0.17722560473918053),
     waccEquityWeight: formatInputNumber(0.8227743952608195),

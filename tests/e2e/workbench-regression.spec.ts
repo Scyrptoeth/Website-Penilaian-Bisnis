@@ -503,10 +503,11 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await expect(page.getByTestId("wacc-suggestion-card")).toContainText("Equity Risk Premium");
   await expect(page.getByTestId("wacc-suggestion-card")).not.toContainText("Input pasar tahunan");
   await page.getByRole("button", { name: /Isi input pasar 2023/ }).click();
-  await expect(page.getByTestId("wacc-calculator")).toContainText("Default spread berbasis rating");
+  await expect(page.getByTestId("wacc-calculator")).toContainText("Rating-based default spread (RBDS)");
   await expect(page.getByTestId("wacc-calculator")).toContainText("isi dengan beta manual yang memiliki sumber dan justifikasi penilai");
   await expect(page.getByTestId("wacc-calculator")).not.toContainText("DCF discount rate dan EEM capitalization rate");
-  await expect(page.getByTestId("wacc-calculator")).not.toContainText("DISCOUNT RATE");
+  await expect(page.getByTestId("discount-rate-analysis")).toContainText("Discount Rate Analysis (CAPM)");
+  await expect(page.getByTestId("discount-rate-analysis")).toContainText("DISCOUNT RATE");
   await expect(page.getByTestId("wacc-comparable-table")).toContainText("Perusahaan Pembanding");
   await expect(page.getByTestId("wacc-capital-structure-table")).toContainText("Struktur Kapital");
   await page.getByTestId("wacc-comparable-table").getByRole("button", { name: "Terapkan Saran" }).click();
@@ -533,6 +534,9 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await openWorkflowTab(page, "WACC");
   await expect(page.getByTestId("wacc-calculator")).toContainText("Kalkulator WACC");
   await expect(page.getByTestId("wacc-calculator")).toContainText("Risk-free rate");
+  await expect(page.getByTestId("discount-rate-analysis")).toContainText("Raw average");
+  await expect(page.getByTestId("discount-rate-analysis")).toContainText("8,804%");
+  await expect(page.getByTestId("discount-rate-analysis")).toContainText("8,8%");
   await openWorkflowTab(page, "Asumsi EEM/DCF");
   await expect(page.getByTestId("terminal-growth-calculator")).toContainText("Tata kelola terminal growth");
   await expect(page.getByTestId("required-return-on-nta-calculator")).toContainText("Kapasitas piutang");

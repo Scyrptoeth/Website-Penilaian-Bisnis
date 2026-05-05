@@ -6,6 +6,7 @@ import {
 import { calculateAllMethods } from "../../src/lib/valuation/calculations";
 import {
   buildCaseProfileDerived,
+  emptyAssumptions,
   buildFixedAssetScheduleSummary,
   buildSnapshot,
   mapRow,
@@ -47,11 +48,12 @@ export function buildExportInputFromWorkbenchFixture(
   state: WorkbenchFixtureState,
   exportedAt = new Date("2026-05-03T00:00:00.000Z"),
 ): ValuationExcelExportInput {
+  const assumptions = { ...emptyAssumptions, ...state.assumptions };
   const mappedRows = state.rows.map(mapRow);
   const caseProfileDerived = buildCaseProfileDerived(state.caseProfile);
   const fixedAssetSchedule = buildFixedAssetScheduleSummary(state.periods, state.fixedAssetScheduleRows);
-  const accountingSnapshot = buildSnapshot(state.periods, state.activePeriodId, state.rows, state.assumptions, state.fixedAssetScheduleRows);
-  const waccResolvedAssumptions = resolveAutoWaccCapitalValues(state.assumptions, {
+  const accountingSnapshot = buildSnapshot(state.periods, state.activePeriodId, state.rows, assumptions, state.fixedAssetScheduleRows);
+  const waccResolvedAssumptions = resolveAutoWaccCapitalValues(assumptions, {
     debtMarketValue: accountingSnapshot.currentLiabilities + accountingSnapshot.nonCurrentLiabilities || accountingSnapshot.totalLiabilities,
     equityMarketValue: accountingSnapshot.bookEquity,
   });
@@ -84,7 +86,7 @@ export function buildExportInputFromWorkbenchFixture(
     caseProfileDerived,
     snapshot,
   });
-  const sectionAnalysis = buildSectionAnalysis(state.periods, state.rows, state.assumptions, state.fixedAssetScheduleRows);
+  const sectionAnalysis = buildSectionAnalysis(state.periods, state.rows, assumptions, state.fixedAssetScheduleRows);
   const equityBookComponents =
     snapshot.paidUpCapital +
     snapshot.additionalPaidInCapital +
@@ -94,7 +96,7 @@ export function buildExportInputFromWorkbenchFixture(
   const validationChecks = buildValidationChecks(
     state.rows,
     mappedRows,
-    state.assumptions,
+    assumptions,
     snapshot,
     balanceSheetGap,
     fixedAssetSchedule,
@@ -119,7 +121,7 @@ export function buildExportInputFromWorkbenchFixture(
     mappedRows,
     fixedAssetScheduleRows: state.fixedAssetScheduleRows,
     fixedAssetSchedule,
-    assumptions: state.assumptions,
+    assumptions,
     resolvedAssumptions,
     caseProfile: state.caseProfile,
     caseProfileDerived,
