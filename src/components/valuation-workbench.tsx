@@ -60,6 +60,7 @@ import {
   buildSamplePeriods,
   buildSampleRows,
   buildSnapshot,
+  companySectorOptions,
   companyTypeOptions,
   createFixedAssetScheduleRow,
   createHistoricalPeriod,
@@ -819,8 +820,14 @@ export function ValuationWorkbench() {
       let nextCaseProfile = { ...current.caseProfile, [key]: formatCaseProfileValue(key, value) };
 
       if (key === "objectBusinessKlu") {
+        const previousKluRecord = getKluSectorRecord(current.caseProfile.objectBusinessKlu);
         const kluRecord = getKluSectorRecord(nextCaseProfile.objectBusinessKlu);
-        nextCaseProfile = { ...nextCaseProfile, companySector: kluRecord?.sector ?? "" };
+        const shouldFollowKluSector =
+          current.caseProfile.companySector === "" || current.caseProfile.companySector === previousKluRecord?.sector;
+
+        if (shouldFollowKluSector) {
+          nextCaseProfile = { ...nextCaseProfile, companySector: kluRecord?.sector ?? "" };
+        }
       }
 
       const derived = buildCaseProfileDerived(nextCaseProfile);
@@ -3350,8 +3357,13 @@ function sanitizeCaseProfile(value: unknown): CaseProfile {
     caseProfileKeys.map((key) => [key, typeof source[key] === "string" ? source[key] : ""]),
   ) as CaseProfile;
   const kluRecord = getKluSectorRecord(profile.objectBusinessKlu);
+  const validCompanySector = companySectorOptions.includes(profile.companySector) ? profile.companySector : "";
 
-  return kluRecord ? { ...profile, companySector: kluRecord.sector } : profile;
+  if (!validCompanySector && kluRecord) {
+    return { ...profile, companySector: kluRecord.sector };
+  }
+
+  return { ...profile, companySector: validCompanySector };
 }
 
 function sanitizeDlomState(value: unknown): DlomState {
@@ -4048,7 +4060,12 @@ function CaseProfilePanel({
         <div className="input-grid">
           <CaseProfileInput label="Nama Objek Pajak" value={profile.objectTaxpayerName} onChange={(value) => onChange("objectTaxpayerName", value)} />
           <KluProfileCombobox value={profile.objectBusinessKlu} selectedRecord={kluRecord} onChange={(value) => onChange("objectBusinessKlu", value)} />
-          <KluSectorField sector={profile.companySector} selectedRecord={kluRecord} rawKlu={profile.objectBusinessKlu} />
+          <KluSectorField
+            sector={profile.companySector}
+            selectedRecord={kluRecord}
+            rawKlu={profile.objectBusinessKlu}
+            onChange={(value) => onChange("companySector", value)}
+          />
           <CaseProfileSelect label="Jenis Perusahaan" value={profile.companyType} options={companyTypeOptions} onChange={(value) => onChange("companyType", value)} />
         </div>
       </article>
@@ -4213,24 +4230,49 @@ function KluSectorField({
   sector,
   selectedRecord,
   rawKlu,
+  onChange,
 }: {
   sector: string;
   selectedRecord: KluSectorRecord | null;
   rawKlu: string;
+  onChange: (value: string) => void;
 }) {
+  const inputId = "case-profile-company-sector";
   const isInvalidFullCode = rawKlu.length === 5 && !selectedRecord;
-  const value = sector || (isInvalidFullCode ? "KLU tidak ditemukan" : "Menunggu KLU valid");
+  const suggestedSector = selectedRecord?.sector ?? "";
+  const isManualOverride = Boolean(selectedRecord && sector && sector !== suggestedSector);
   const sectorMetadata = selectedRecord
-    ? `Otomatis dari KLU ${selectedRecord.code}. Confidence: ${selectedRecord.confidence}${selectedRecord.reviewNote ? ` - ${selectedRecord.reviewNote}` : ""}`
-    : "Sektor akan terisi otomatis setelah KLU valid dipilih.";
+    ? isManualOverride
+      ? `Override manual. Saran KLU ${selectedRecord.code}: ${suggestedSector}. Confidence: ${selectedRecord.confidence}${
+          selectedRecord.reviewNote ? ` - ${selectedRecord.reviewNote}` : ""
+        }`
+      : `Mengikuti saran KLU ${selectedRecord.code}. Confidence: ${selectedRecord.confidence}${selectedRecord.reviewNote ? ` - ${selectedRecord.reviewNote}` : ""}`
+    : "Pilih sektor manual, atau isi KLU valid agar saran sektor terisi otomatis.";
 
   return (
-    <div className={isInvalidFullCode ? "field derived-sector-field invalid" : "field derived-sector-field"}>
+    <label className={isInvalidFullCode ? "field derived-sector-field invalid" : "field derived-sector-field"} htmlFor={inputId}>
       <span>Sektor Perusahaan</span>
-      <output aria-label="Sektor Perusahaan" data-testid="company-sector-derived" title={sectorMetadata}>
-        {value}
-      </output>
-    </div>
+      <select
+        aria-invalid={isInvalidFullCode}
+        data-testid="company-sector-derived"
+        id={inputId}
+        title={sectorMetadata}
+        value={sector}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        <option value="">{isInvalidFullCode ? "KLU tidak ditemukan" : "Pilih sektor"}</option>
+        {companySectorOptions.map((option) => (
+          <option value={option} key={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+      {isInvalidFullCode ? (
+        <small className="field-help" role="alert">
+          KLU tidak ditemukan dalam daftar KBLI 2020.
+        </small>
+      ) : null}
+    </label>
   );
 }
 

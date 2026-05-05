@@ -18,7 +18,7 @@ test("period workflow, scoped categories, and display-only balance sheet classif
   await expect(page.getByRole("button", { name: /Buat checkpoint/i })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Kembali checkpoint/i })).toHaveCount(0);
   await page.getByLabel("KLU sesuai Appportal").fill("07102");
-  await expect(page.getByTestId("company-sector-derived")).toHaveText("Basic Materials");
+  await expect(page.getByTestId("company-sector-derived")).toHaveValue("Basic Materials");
   await expect(page.getByTestId("case-profile-panel").getByText("PERTAMBANGAN BIJIH BESI")).toHaveCount(0);
   await expect(page.getByTestId("case-profile-panel").getByText(/Otomatis dari KLU/)).toHaveCount(0);
   await page.getByLabel("Tahun Transaksi Pengalihan").fill("2022");
@@ -440,9 +440,22 @@ test("exports the active workbench state to a print-ready PDF report view", asyn
   await reportPage.close();
 });
 
+test("company sector can be manually overridden after KLU suggestion", async ({ page }) => {
+  await page.getByLabel("KLU sesuai Appportal").fill("07102");
+  await expect(page.getByLabel("Sektor Perusahaan")).toHaveValue("Basic Materials");
+
+  await page.getByLabel("Sektor Perusahaan").selectOption("Energy");
+  await expect(page.getByLabel("Sektor Perusahaan")).toHaveValue("Energy");
+  await expect(page.getByTestId("company-sector-derived")).toHaveAttribute("title", /Override manual/);
+
+  await page.getByLabel("KLU sesuai Appportal").fill("45101");
+  await expect(page.getByLabel("Sektor Perusahaan")).toHaveValue("Energy");
+  await expect(page.getByTestId("company-sector-derived")).toHaveAttribute("title", /Saran KLU 45101: Consumer Cyclicals/);
+});
+
 test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators, and active valuation sources", async ({ page }) => {
   await page.getByLabel("KLU sesuai Appportal").fill("45101");
-  await expect(page.getByTestId("company-sector-derived")).toHaveText("Consumer Cyclicals");
+  await expect(page.getByTestId("company-sector-derived")).toHaveValue("Consumer Cyclicals");
   await page.getByLabel("Tanggal penilaian").fill("2023-12-31");
   await openWorkflowTab(page, "Asumsi EEM/DCF");
 

@@ -317,6 +317,12 @@ function buildSummarySheet(input: ValuationExcelExportInput, methodRefs: MethodR
 
 function buildCaseProfileSheet(input: ValuationExcelExportInput, exportedAt: Date) {
   const kluRecord = getKluSectorRecord(input.caseProfile.objectBusinessKlu);
+  const sectorFollowsKlu = Boolean(kluRecord && input.caseProfile.companySector === kluRecord.sector);
+  const sectorSource = kluRecord
+    ? sectorFollowsKlu
+      ? "Accepted KLU sector suggestion"
+      : `Manual sector override from KLU suggestion: ${kluRecord.sector}`
+    : "User input";
   const rows: SheetRow[] = [
     ["Field", "Input Value", "Derived / Status", "Source"],
     ["Exported at", exportedAt.toISOString(), "", "System"],
@@ -325,8 +331,12 @@ function buildCaseProfileSheet(input: ValuationExcelExportInput, exportedAt: Dat
       .map(([key, value]): SheetRow => [
         caseProfileLabels[key],
         value,
-        key === "objectBusinessKlu" && kluRecord ? `${kluRecord.title} | ${kluRecord.confidence}` : "",
-        key === "companySector" ? "Derived from selected KLU" : "User input",
+        key === "objectBusinessKlu" && kluRecord
+          ? `${kluRecord.title} | ${kluRecord.confidence}`
+          : key === "companySector" && kluRecord
+            ? `KLU suggestion: ${kluRecord.sector} | ${kluRecord.confidence}`
+            : "",
+        key === "companySector" ? sectorSource : "User input",
       ]),
     ["Cut-off date", "", input.caseProfileDerived.cutOffDate || "-", "Derived from transaction year"],
     ["First projection end date", "", input.caseProfileDerived.firstProjectionEndDate || "-", "Derived from transaction year"],

@@ -683,7 +683,7 @@ select {
 }
 
 .klu-field.invalid input,
-.derived-sector-field.invalid output {
+.derived-sector-field.invalid select {
   border-color: rgba(180, 35, 24, 0.42);
   background: var(--danger-soft);
   color: var(--danger);
@@ -757,6 +757,10 @@ select {
   border-radius: var(--radius);
   background: var(--surface);
   color: var(--ink);
+  font-weight: 700;
+}
+
+.derived-sector-field select {
   font-weight: 700;
 }
 
