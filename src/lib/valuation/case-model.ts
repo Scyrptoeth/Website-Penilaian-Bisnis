@@ -26,6 +26,7 @@ export type Period = {
 
 export type CaseProfile = {
   objectTaxpayerName: string;
+  objectBusinessKlu: string;
   objectTaxpayerNpwp: string;
   companySector: string;
   companyType: string;
@@ -183,6 +184,7 @@ export const valuationObjectOptions = ["Saham", "Bisnis"];
 
 export const emptyCaseProfile: CaseProfile = {
   objectTaxpayerName: "",
+  objectBusinessKlu: "",
   objectTaxpayerNpwp: "",
   companySector: "",
   companyType: "",
@@ -522,8 +524,9 @@ export function buildSamplePeriods(): Period[] {
 export function buildSampleCaseProfile(): CaseProfile {
   return {
     objectTaxpayerName: "Makmur Jaya Sejati Raya",
+    objectBusinessKlu: "01262",
     objectTaxpayerNpwp: "211437892119000",
-    companySector: "Consumer Cyclicals",
+    companySector: "Consumer Non-Cyclicals",
     companyType: "Tertutup",
     subjectTaxpayerName: "Helga",
     subjectTaxpayerNpwp: "211437892119000",

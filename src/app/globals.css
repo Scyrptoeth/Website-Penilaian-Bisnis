@@ -600,7 +600,8 @@ select:focus-visible,
 }
 
 .period-card span,
-.field span {
+.field span,
+.field > label {
   color: var(--ink-soft);
   font-size: 9.2px;
   font-weight: 700;
@@ -668,6 +669,94 @@ select {
 .account-entry-table input::placeholder,
 .account-textarea::placeholder {
   color: #8b9690;
+}
+
+.field-help {
+  color: var(--muted);
+  font-size: 9.2px;
+  line-height: 1.35;
+}
+
+.klu-field {
+  position: relative;
+}
+
+.klu-field.invalid input,
+.derived-sector-field.invalid output {
+  border-color: rgba(180, 35, 24, 0.42);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.klu-suggestion-list {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% - 14px);
+  left: 0;
+  right: 0;
+  display: grid;
+  max-height: 276px;
+  overflow: auto;
+  padding: 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: #ffffff;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.12);
+}
+
+.klu-suggestion-list button {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 2px 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px;
+  border: 0;
+  border-radius: calc(var(--radius) - 2px);
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.klu-suggestion-list button:hover,
+.klu-suggestion-list button:focus-visible,
+.klu-suggestion-list button[aria-selected="true"] {
+  background: var(--accent-soft);
+  outline: none;
+}
+
+.klu-suggestion-list strong {
+  color: var(--accent);
+  font-family: var(--font-mono), monospace;
+  font-size: 10.6px;
+}
+
+.klu-suggestion-list span {
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.klu-suggestion-list small {
+  grid-column: 2;
+  color: var(--muted);
+  font-size: 9.2px;
+  line-height: 1.25;
+}
+
+.derived-sector-field output {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 700;
 }
 
 .account-textarea {

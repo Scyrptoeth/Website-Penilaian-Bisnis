@@ -69,6 +69,9 @@ describe("valuation Excel export", () => {
     assert.ok(workbook.SheetNames.includes("SIMULASI POTENSI PAJAK"));
     assert.equal(workbook.SheetNames.at(-1), "PVB_EXPORT_V2_AUDIT");
     assert.equal(workbook.Sheets.HOME.B4.v, "Makmur Jaya Sejati Raya");
+    assert.equal(workbook.Sheets.HOME.A5.v, "KLU sesuai Appportal");
+    assert.equal(workbook.Sheets.HOME.B5.v, "01262 - PERKEBUNAN BUAH KELAPA SAWIT");
+    assert.equal(workbook.Sheets.HOME.B6.v, "Consumer Non-Cyclicals");
     assert.equal(workbook.Sheets.HOME.B19.v, 2022);
     assert.equal(workbook.Sheets["BALANCE SHEET"].E8.v, 717848795);
     assert.equal(workbook.Sheets["INCOME STATEMENT"].E6.v, 16663916100);
@@ -133,11 +136,13 @@ describe("valuation Excel export", () => {
     const { data } = writeValuationTemplateWorkbook(input, templateData);
 
     assert.equal(input.caseProfile.companySector, "Basic Materials");
+    assert.equal(input.caseProfile.objectBusinessKlu, "07102");
     assert.equal(input.caseProfile.subjectTaxpayerName, "Erick Kurniawan");
     assert.equal(input.resolvedAssumptions.terminalGrowth, "0,005");
     assert.equal(input.snapshot.terminalGrowth, 0);
     assert.equal(input.dlomCalculation.interestBasis, "Mayoritas");
     assert.equal(workbook.Sheets.HOME.B4.v, "Makmur Jaya Sejati Raya");
+    assert.equal(workbook.Sheets.HOME.B5.v, "07102 - PERTAMBANGAN BIJIH BESI");
     assert.equal(workbook.Sheets.HOME.B9.v, "Erick Kurniawan");
     assert.equal(workbook.Sheets.HOME.B16.v, 1610000000);
     assert.equal(workbook.Sheets["FIXED ASSET"].B8.v, "Land (Tanah Lahan Sawit + Tanah Lahan Sawit (TA))");

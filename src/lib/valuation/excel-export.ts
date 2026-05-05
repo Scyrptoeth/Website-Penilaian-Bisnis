@@ -4,6 +4,7 @@ import { calculateWaccAssumption, type WaccCalculation } from "./assumption-calc
 import { categoryLabelMap } from "./category-options";
 import { getPeriodYearOffset, parseInputNumber, statementLabels, type AccountRow, type AssumptionState, type CaseProfile, type CaseProfileDerived, type FixedAssetScheduleRow, type FixedAssetScheduleSummary, type MappedRow, type Period } from "./case-model";
 import { valuationDriverGovernancePolicy } from "./valuation-driver-governance-policy";
+import { formatKluOptionLabel, getKluSectorRecord } from "./klu-sector";
 import { applyBlueFontToXlsxCells, prepareXlsxForExcelRecalculation, type XlsxCellRef } from "./xlsx-style-patcher";
 import type { AamAdjustmentLine, AamAdjustmentModel } from "./aam-adjustments";
 import type { DlocPfcCalculation } from "./dloc-pfc";
@@ -87,6 +88,7 @@ const templateWorkbookUrl = "/templates/kkp-saham-final-account-category-review-
 
 const caseProfileLabels: Record<keyof CaseProfile, string> = {
   objectTaxpayerName: "Nama Wajib Pajak Objek",
+  objectBusinessKlu: "KLU sesuai Appportal",
   objectTaxpayerNpwp: "NPWP Wajib Pajak Objek",
   companySector: "Sektor Perusahaan",
   companyType: "Jenis Perusahaan",
@@ -314,10 +316,18 @@ function buildSummarySheet(input: ValuationExcelExportInput, methodRefs: MethodR
 }
 
 function buildCaseProfileSheet(input: ValuationExcelExportInput, exportedAt: Date) {
+  const kluRecord = getKluSectorRecord(input.caseProfile.objectBusinessKlu);
   const rows: SheetRow[] = [
     ["Field", "Input Value", "Derived / Status", "Source"],
     ["Exported at", exportedAt.toISOString(), "", "System"],
-    ...typedEntries(input.caseProfile).map(([key, value]): SheetRow => [caseProfileLabels[key], value, "", "User input"]),
+    ...typedEntries(input.caseProfile)
+      .filter(([key]) => key !== "objectTaxpayerNpwp")
+      .map(([key, value]): SheetRow => [
+        caseProfileLabels[key],
+        value,
+        key === "objectBusinessKlu" && kluRecord ? `${kluRecord.title} | ${kluRecord.confidence}` : "",
+        key === "companySector" ? "Derived from selected KLU" : "User input",
+      ]),
     ["Cut-off date", "", input.caseProfileDerived.cutOffDate || "-", "Derived from transaction year"],
     ["First projection end date", "", input.caseProfileDerived.firstProjectionEndDate || "-", "Derived from transaction year"],
     ["Capital proportion label", "", input.caseProfileDerived.capitalProportionLabel, "Derived"],
@@ -796,9 +806,12 @@ function buildAuditTraceSheet(input: ValuationExcelExportInput) {
 
 function patchHomeSheet(workbook: XLSX.WorkBook, input: ValuationExcelExportInput, patches: TemplatePatch[]) {
   const profile = input.caseProfile;
+  const kluRecord = getKluSectorRecord(profile.objectBusinessKlu);
+  const kluLabel = kluRecord ? formatKluOptionLabel(kluRecord) : profile.objectBusinessKlu;
 
   writeTemplateCell(workbook, patches, "HOME", "B4", profile.objectTaxpayerName, "Nama Objek Pajak", "Case profile");
-  writeTemplateCell(workbook, patches, "HOME", "B5", profile.objectTaxpayerNpwp, "NPWP Objek Pajak", "Case profile");
+  writeTemplateCell(workbook, patches, "HOME", "A5", "KLU sesuai Appportal", "KLU label", "Case profile");
+  writeTemplateCell(workbook, patches, "HOME", "B5", kluLabel, "KLU sesuai Appportal", "Case profile");
   writeTemplateCell(workbook, patches, "HOME", "B6", profile.companySector, "Sektor Perusahaan", "Case profile");
   writeTemplateCell(workbook, patches, "HOME", "B7", profile.companyType, "Jenis Perusahaan", "Case profile");
   writeTemplateCell(workbook, patches, "HOME", "B9", profile.subjectTaxpayerName, "Nama Subjek Pajak", "Case profile");

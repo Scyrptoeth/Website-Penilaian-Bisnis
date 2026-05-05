@@ -17,7 +17,8 @@ test("period workflow, scoped categories, and display-only balance sheet classif
   await expect(page.getByTestId("case-profile-panel")).toBeVisible();
   await expect(page.getByRole("button", { name: /Buat checkpoint/i })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Kembali checkpoint/i })).toHaveCount(0);
-  await page.getByLabel("Sektor Perusahaan").selectOption("Basic Materials");
+  await page.getByLabel("KLU sesuai Appportal").fill("07102");
+  await expect(page.getByTestId("company-sector-derived")).toHaveText("Basic Materials");
   await page.getByLabel("Tahun Transaksi Pengalihan").fill("2022");
   await expect(page.getByText("31 Desember 2021").first()).toBeVisible();
   await expect(page.getByLabel("Tanggal penilaian")).toHaveValue("2021-12-31");
@@ -336,7 +337,7 @@ test("legacy workbook-like DLOM drafts migrate to workbook UPDATE basis without 
   await expect(page.getByTestId("dlom-basis-grid")).not.toContainText("Workbook UPDATE DLOM!C31");
   await expect(page.getByTestId("dlom-basis-grid")).not.toContainText("Formula");
   await expect(page.getByTestId("dlom-summary")).toContainText("25%");
-  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(10);
+  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(11);
 });
 
 test("exports the active workbench state through the primary template-clone XLSX workflow", async ({ page }) => {
@@ -438,7 +439,8 @@ test("exports the active workbench state to a print-ready PDF report view", asyn
 });
 
 test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators, and active valuation sources", async ({ page }) => {
-  await page.getByLabel("Sektor Perusahaan").selectOption("Consumer Cyclicals");
+  await page.getByLabel("KLU sesuai Appportal").fill("45101");
+  await expect(page.getByTestId("company-sector-derived")).toHaveText("Consumer Cyclicals");
   await page.getByLabel("Tanggal penilaian").fill("2023-12-31");
   await openWorkflowTab(page, "Asumsi EEM/DCF");
 
@@ -555,7 +557,7 @@ test("legacy positive income-statement expense drafts migrate once and remain us
   await amountInput.press("Home");
   await amountInput.press("Delete");
   await expect(amountInput).toHaveValue("100");
-  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(10);
+  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(11);
 
   await page.reload();
   await openWorkflowTab(page, "Laba Rugi");

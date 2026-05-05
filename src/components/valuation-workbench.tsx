@@ -60,7 +60,6 @@ import {
   buildSamplePeriods,
   buildSampleRows,
   buildSnapshot,
-  companySectorOptions,
   companyTypeOptions,
   createFixedAssetScheduleRow,
   createHistoricalPeriod,
@@ -98,6 +97,13 @@ import {
 } from "@/lib/valuation/case-model";
 import { categoryLabelMap, categoryOptions, categoryOptionsByStatement } from "@/lib/valuation/category-options";
 import { formatDisplayDate, formatEditableNumber, formatIdr, formatInputNumber, formatPercent, formatScore } from "@/lib/valuation/format";
+import {
+  formatKluOptionLabel,
+  getKluSectorRecord,
+  normalizeKluCode,
+  searchKluSectorRecords,
+  type KluSectorRecord,
+} from "@/lib/valuation/klu-sector";
 import { buildWorkbenchReadiness, type SectionReadiness, type WorkbenchReadiness, type WorkbenchSectionId } from "@/lib/valuation/readiness";
 import { buildSectionAnalysis, type AnalysisRow, type AnalysisValue, type PeriodAnalysis, type RatioRow, type SectionAnalysis } from "@/lib/valuation/section-analysis";
 import { buildValidationChecks } from "@/lib/valuation/validation-checks";
@@ -243,6 +249,7 @@ const assumptionKeys: Array<keyof AssumptionState> = [
 
 const caseProfileKeys: Array<keyof CaseProfile> = [
   "objectTaxpayerName",
+  "objectBusinessKlu",
   "objectTaxpayerNpwp",
   "companySector",
   "companyType",
@@ -310,7 +317,7 @@ const requiredReturnSuggestionOrder: RequiredReturnOnNtaSuggestionKey[] = [
 const WORKBENCH_STORAGE_KEY = "penilaian-valuasi-bisnis.workbench.v1";
 const WORKBENCH_SCROLL_STORAGE_KEY = "penilaian-valuasi-bisnis.scroll.v1";
 const WORKBENCH_SIDEBAR_STORAGE_KEY = "penilaian-valuasi-bisnis.sidebar.v1";
-const WORKBENCH_STORAGE_VERSION = 10;
+const WORKBENCH_STORAGE_VERSION = 11;
 
 type PersistedWorkbenchState = {
   version: typeof WORKBENCH_STORAGE_VERSION;
@@ -809,7 +816,13 @@ export function ValuationWorkbench() {
 
   function updateCaseProfile(key: keyof CaseProfile, value: string) {
     commitCoreState((current) => {
-      const nextCaseProfile = { ...current.caseProfile, [key]: formatCaseProfileValue(key, value) };
+      let nextCaseProfile = { ...current.caseProfile, [key]: formatCaseProfileValue(key, value) };
+
+      if (key === "objectBusinessKlu") {
+        const kluRecord = getKluSectorRecord(nextCaseProfile.objectBusinessKlu);
+        nextCaseProfile = { ...nextCaseProfile, companySector: kluRecord?.sector ?? "" };
+      }
+
       const derived = buildCaseProfileDerived(nextCaseProfile);
       const nextPeriods =
         key === "transactionYear" && derived.cutOffDate
@@ -817,8 +830,10 @@ export function ValuationWorkbench() {
               getPeriodYearOffset(period) === 0 ? { ...period, valuationDate: derived.cutOffDate } : period,
             )
           : current.periods;
+      const shouldRefreshSectorSuggestions =
+        (key === "companySector" || key === "objectBusinessKlu") && nextCaseProfile.companySector !== current.caseProfile.companySector;
       const nextAssumptions =
-        key === "companySector"
+        shouldRefreshSectorSuggestions
           ? applyIdxComparableSuggestions(current.assumptions, nextCaseProfile.companySector, "empty-only")
           : current.assumptions;
 
@@ -3331,9 +3346,12 @@ function sanitizeAssumptions(value: unknown): AssumptionState {
 
 function sanitizeCaseProfile(value: unknown): CaseProfile {
   const source = isRecord(value) ? value : {};
-  return Object.fromEntries(
+  const profile = Object.fromEntries(
     caseProfileKeys.map((key) => [key, typeof source[key] === "string" ? source[key] : ""]),
   ) as CaseProfile;
+  const kluRecord = getKluSectorRecord(profile.objectBusinessKlu);
+
+  return kluRecord ? { ...profile, companySector: kluRecord.sector } : profile;
 }
 
 function sanitizeDlomState(value: unknown): DlomState {
@@ -4018,6 +4036,8 @@ function CaseProfilePanel({
   derived: CaseProfileDerived;
   onChange: (key: keyof CaseProfile, value: string) => void;
 }) {
+  const kluRecord = getKluSectorRecord(profile.objectBusinessKlu);
+
   return (
     <div className="data-awal-grid" data-testid="case-profile-panel">
       <article className="data-awal-card">
@@ -4027,8 +4047,8 @@ function CaseProfilePanel({
         </div>
         <div className="input-grid">
           <CaseProfileInput label="Nama Objek Pajak" value={profile.objectTaxpayerName} onChange={(value) => onChange("objectTaxpayerName", value)} />
-          <CaseProfileInput label="NPWP Objek Pajak" value={profile.objectTaxpayerNpwp} onChange={(value) => onChange("objectTaxpayerNpwp", value)} />
-          <CaseProfileSelect label="Sektor Perusahaan" value={profile.companySector} options={companySectorOptions} onChange={(value) => onChange("companySector", value)} />
+          <KluProfileCombobox value={profile.objectBusinessKlu} selectedRecord={kluRecord} onChange={(value) => onChange("objectBusinessKlu", value)} />
+          <KluSectorField sector={profile.companySector} selectedRecord={kluRecord} rawKlu={profile.objectBusinessKlu} />
           <CaseProfileSelect label="Jenis Perusahaan" value={profile.companyType} options={companyTypeOptions} onChange={(value) => onChange("companyType", value)} />
         </div>
       </article>
@@ -4118,6 +4138,97 @@ function CaseProfileInput({
       <span>{label}</span>
       <input id={inputId} inputMode={inputMode} value={value} onChange={(event) => onChange(event.target.value)} />
     </label>
+  );
+}
+
+function KluProfileCombobox({
+  value,
+  selectedRecord,
+  onChange,
+}: {
+  value: string;
+  selectedRecord: KluSectorRecord | null;
+  onChange: (value: string) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const inputId = "case-profile-klu-sesuai-appportal";
+  const listboxId = "case-profile-klu-suggestions";
+  const suggestions = useMemo(() => searchKluSectorRecords(value, 8), [value]);
+  const hasInvalidFullCode = value.length === 5 && !selectedRecord;
+  const shouldShowSuggestions = isOpen && suggestions.length > 0 && selectedRecord?.code !== value;
+
+  return (
+    <div className={hasInvalidFullCode ? "field klu-field invalid" : "field klu-field"}>
+      <label htmlFor={inputId}>KLU sesuai Appportal</label>
+      <input
+        aria-autocomplete="list"
+        aria-controls={listboxId}
+        aria-expanded={shouldShowSuggestions}
+        aria-invalid={hasInvalidFullCode}
+        id={inputId}
+        inputMode="numeric"
+        placeholder="Ketik 5 digit KLU"
+        role="combobox"
+        value={value}
+        onBlur={() => window.setTimeout(() => setIsOpen(false), 120)}
+        onChange={(event) => {
+          onChange(normalizeKluCode(event.target.value));
+          setIsOpen(true);
+        }}
+        onFocus={() => setIsOpen(true)}
+      />
+      {shouldShowSuggestions ? (
+        <div className="klu-suggestion-list" id={listboxId} role="listbox">
+          {suggestions.map((record) => (
+            <button
+              aria-selected={record.code === selectedRecord?.code}
+              key={record.code}
+              role="option"
+              type="button"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                onChange(record.code);
+                setIsOpen(false);
+              }}
+            >
+              <strong>{record.code}</strong>
+              <span>{record.title}</span>
+              <small>{record.sector}</small>
+            </button>
+          ))}
+        </div>
+      ) : null}
+      <small className="field-help">
+        {selectedRecord ? formatKluOptionLabel(selectedRecord) : hasInvalidFullCode ? "KLU tidak ditemukan dalam daftar KBLI 2020." : "Ketik kode untuk melihat saran KLU."}
+      </small>
+    </div>
+  );
+}
+
+function KluSectorField({
+  sector,
+  selectedRecord,
+  rawKlu,
+}: {
+  sector: string;
+  selectedRecord: KluSectorRecord | null;
+  rawKlu: string;
+}) {
+  const isInvalidFullCode = rawKlu.length === 5 && !selectedRecord;
+  const value = sector || (isInvalidFullCode ? "KLU tidak ditemukan" : "Menunggu KLU valid");
+
+  return (
+    <div className={isInvalidFullCode ? "field derived-sector-field invalid" : "field derived-sector-field"}>
+      <span>Sektor Perusahaan</span>
+      <output aria-label="Sektor Perusahaan" data-testid="company-sector-derived">
+        {value}
+      </output>
+      <small className="field-help">
+        {selectedRecord
+          ? `Otomatis dari KLU ${selectedRecord.code}. Confidence: ${selectedRecord.confidence}${selectedRecord.reviewNote ? ` - ${selectedRecord.reviewNote}` : ""}`
+          : "Sektor akan terisi otomatis setelah KLU valid dipilih."}
+      </small>
+    </div>
   );
 }
 
@@ -4392,7 +4503,7 @@ function WaccComparableTable({
           <span>
             {companySector
               ? `${companySector} · ${comparableOptions.length} emiten tersedia · ${comparableSuggestions.length} prioritas ideal/moderat`
-              : "Pilih Sektor Perusahaan di Data Awal"}
+              : "Isi KLU sesuai Appportal di Data Awal"}
           </span>
         </div>
         <button className="button ghost compact-button" type="button" onClick={onApplyComparableSuggestions} disabled={comparableSuggestions.length === 0}>
@@ -5220,6 +5331,10 @@ function formatDays(value: number): string {
 }
 
 function formatCaseProfileValue(key: keyof CaseProfile, value: string): string {
+  if (key === "objectBusinessKlu") {
+    return normalizeKluCode(value);
+  }
+
   if (key === "capitalBaseFull" || key === "capitalBaseValued") {
     return formatEditableNumber(value);
   }

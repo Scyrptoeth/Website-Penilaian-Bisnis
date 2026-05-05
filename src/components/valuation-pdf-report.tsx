@@ -6,6 +6,7 @@ import { buildBalanceSheetView, groupBalanceSheetLines, type BalanceSheetLine } 
 import { categoryLabelMap } from "@/lib/valuation/category-options";
 import { parseInputNumber, type CaseProfileDerived, type MappedRow, type Period } from "@/lib/valuation/case-model";
 import { formatDisplayDate, formatIdr, formatPercent } from "@/lib/valuation/format";
+import { formatKluOptionLabel, getKluSectorRecord } from "@/lib/valuation/klu-sector";
 import { readValuationPdfExportPayload, type ValuationPdfExportPayload } from "@/lib/valuation/pdf-export";
 import type { TaxSimulationMethodRow } from "@/lib/valuation/tax-simulation";
 import type { FormulaTrace, MethodOutput, ValuationMethod } from "@/lib/valuation/types";
@@ -258,9 +259,10 @@ function ReportSection({ title, children, className = "" }: { title: string; chi
 
 function CaseProfileSummary({ payload }: { payload: ValuationPdfExportPayload }) {
   const { caseProfile, caseProfileDerived } = payload.input;
+  const kluRecord = getKluSectorRecord(caseProfile.objectBusinessKlu);
   const objectFields: ReportField[] = [
     { label: "Nama Objek Pajak", value: caseProfile.objectTaxpayerName || "-" },
-    { label: "NPWP Objek Pajak", value: caseProfile.objectTaxpayerNpwp || "-" },
+    { label: "KLU sesuai Appportal", value: kluRecord ? formatKluOptionLabel(kluRecord) : caseProfile.objectBusinessKlu || "-" },
     { label: "Sektor Perusahaan", value: caseProfile.companySector || "-" },
     { label: "Jenis Perusahaan", value: caseProfile.companyType || "-" },
   ];
