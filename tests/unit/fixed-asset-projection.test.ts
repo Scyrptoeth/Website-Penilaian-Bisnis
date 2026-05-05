@@ -43,7 +43,6 @@ describe("fixed asset projection", () => {
     assert.equal(projection.fallback?.mode, "dcf-proxy");
     assertAlmostEqual(projection.fallback?.totals[2022].netValue ?? 0, 325, 1e-9);
     assertAlmostEqual(projection.reconciliation[2022].capitalExpenditureDelta, -92, 1e-9);
-    assert.equal(projection.diagnostics.some((diagnostic) => diagnostic.code === "dcf-variance"), true);
   });
 
   it("can preserve the prior DCF proxy projection mode explicitly", () => {

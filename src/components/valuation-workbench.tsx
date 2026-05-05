@@ -44,7 +44,12 @@ import {
   sanitizeAccountLabels,
   type AccountLabelId,
 } from "@/lib/valuation/account-labels";
-import { calculateAllMethods, normalizedNoplat } from "@/lib/valuation/calculations";
+import {
+  buildDcfForecast,
+  calculateAllMethods,
+  normalizedNoplat,
+  type DcfFixedAssetProjectionInput,
+} from "@/lib/valuation/calculations";
 import {
   aamAdjustmentLineIds,
   buildAamAdjustmentModel,
@@ -124,6 +129,7 @@ import { saveValuationPdfExportPayload } from "@/lib/valuation/pdf-export";
 import {
   buildFixedAssetProjection,
   fixedAssetProjectionClassLabels,
+  type FixedAssetProjectionMode,
   type FixedAssetProjectionSummary,
 } from "@/lib/valuation/fixed-asset-projection";
 import {
@@ -340,7 +346,8 @@ const requiredReturnSuggestionOrder: RequiredReturnOnNtaSuggestionKey[] = [
 const WORKBENCH_STORAGE_KEY = "penilaian-valuasi-bisnis.workbench.v1";
 const WORKBENCH_SCROLL_STORAGE_KEY = "penilaian-valuasi-bisnis.scroll.v1";
 const WORKBENCH_SIDEBAR_STORAGE_KEY = "penilaian-valuasi-bisnis.sidebar.v1";
-const WORKBENCH_STORAGE_VERSION = 12;
+const WORKBENCH_STORAGE_VERSION = 13;
+const defaultFixedAssetProjectionMode: FixedAssetProjectionMode = "workbook-formula";
 
 type PersistedWorkbenchState = {
   version: typeof WORKBENCH_STORAGE_VERSION;
@@ -350,6 +357,7 @@ type PersistedWorkbenchState = {
   rows: AccountRow[];
   isFixedAssetScheduleEnabled: boolean;
   fixedAssetScheduleRows: FixedAssetScheduleRow[];
+  fixedAssetProjectionMode: FixedAssetProjectionMode;
   aamAdjustments: AamAdjustmentState;
   assumptions: AssumptionState;
   caseProfile: CaseProfile;
@@ -401,6 +409,7 @@ export function ValuationWorkbench() {
   const [rows, setRows] = useState<AccountRow[]>([]);
   const [isFixedAssetScheduleEnabled, setIsFixedAssetScheduleEnabled] = useState(false);
   const [fixedAssetScheduleRows, setFixedAssetScheduleRows] = useState<FixedAssetScheduleRow[]>([]);
+  const [fixedAssetProjectionMode, setFixedAssetProjectionMode] = useState<FixedAssetProjectionMode>(defaultFixedAssetProjectionMode);
   const [aamAdjustments, setAamAdjustments] = useState<AamAdjustmentState>({});
   const [assumptions, setAssumptions] = useState<AssumptionState>(emptyAssumptions);
   const [caseProfile, setCaseProfile] = useState<CaseProfile>(emptyCaseProfile);
@@ -475,6 +484,15 @@ export function ValuationWorkbench() {
     [periods, activePeriodId, rows, resolvedAssumptions, fixedAssetScheduleRows],
   );
   const aamAdjustmentModel = useMemo(() => buildAamAdjustmentModel(snapshot, aamAdjustments), [aamAdjustments, snapshot]);
+  const baseDcfForecast = useMemo(() => buildDcfForecast(snapshot), [snapshot]);
+  const fixedAssetProjection = useMemo(
+    () => buildFixedAssetProjection(baseDcfForecast, periods, activePeriodId, fixedAssetSchedule, { preferredMode: fixedAssetProjectionMode }),
+    [activePeriodId, baseDcfForecast, fixedAssetProjectionMode, fixedAssetSchedule, periods],
+  );
+  const dcfFixedAssetProjection = useMemo(
+    () => buildDcfFixedAssetProjectionInput(fixedAssetProjection),
+    [fixedAssetProjection],
+  );
   const results = useMemo(
     () =>
       calculateAllMethods(snapshot, {
@@ -483,17 +501,21 @@ export function ValuationWorkbench() {
           liabilityAdjustment: aamAdjustmentModel.liabilityAdjustmentTotal,
           missingAdjustmentNotes: aamAdjustmentModel.missingNoteCount,
         },
+        dcf: dcfFixedAssetProjection
+          ? {
+              fixedAssetProjection: dcfFixedAssetProjection,
+              fixedAssetProjectionSource: fixedAssetProjection.source,
+            }
+          : undefined,
       }),
     [
       aamAdjustmentModel.assetAdjustmentTotal,
       aamAdjustmentModel.liabilityAdjustmentTotal,
       aamAdjustmentModel.missingNoteCount,
+      dcfFixedAssetProjection,
+      fixedAssetProjection.source,
       snapshot,
     ],
-  );
-  const fixedAssetProjection = useMemo(
-    () => buildFixedAssetProjection(results.dcf.forecast, periods, activePeriodId, fixedAssetSchedule),
-    [activePeriodId, fixedAssetSchedule, periods, results.dcf.forecast],
   );
   const dlomCalculation = useMemo(() => calculateDlom(dlom, snapshot, caseProfile), [caseProfile, dlom, snapshot]);
   const dlocPfcCalculation = useMemo(() => calculateDlocPfc(dlocPfc, caseProfile), [caseProfile, dlocPfc]);
@@ -645,6 +667,7 @@ export function ValuationWorkbench() {
       rows,
       isFixedAssetScheduleEnabled,
       fixedAssetScheduleRows,
+      fixedAssetProjectionMode,
       aamAdjustments,
       assumptions,
       caseProfile,
@@ -661,6 +684,7 @@ export function ValuationWorkbench() {
     setRows(state.rows);
     setIsFixedAssetScheduleEnabled(state.isFixedAssetScheduleEnabled);
     setFixedAssetScheduleRows(state.fixedAssetScheduleRows);
+    setFixedAssetProjectionMode(state.fixedAssetProjectionMode);
     setAamAdjustments(state.aamAdjustments);
     setAssumptions(state.assumptions);
     setCaseProfile(state.caseProfile);
@@ -734,6 +758,7 @@ export function ValuationWorkbench() {
       setRows(storedState.rows);
       setIsFixedAssetScheduleEnabled(storedState.isFixedAssetScheduleEnabled || storedState.fixedAssetScheduleRows.length > 0);
       setFixedAssetScheduleRows(storedState.fixedAssetScheduleRows);
+      setFixedAssetProjectionMode(storedState.fixedAssetProjectionMode);
       setAamAdjustments(storedState.aamAdjustments);
       setAssumptions(storedState.assumptions);
       setCaseProfile(storedState.caseProfile);
@@ -762,6 +787,7 @@ export function ValuationWorkbench() {
       rows,
       isFixedAssetScheduleEnabled,
       fixedAssetScheduleRows,
+      fixedAssetProjectionMode,
       aamAdjustments,
       assumptions,
       caseProfile,
@@ -779,6 +805,7 @@ export function ValuationWorkbench() {
     dlocPfc,
     dlom,
     fixedAssetScheduleRows,
+    fixedAssetProjectionMode,
     isDraftRestored,
     isFixedAssetScheduleEnabled,
     periods,
@@ -1233,6 +1260,7 @@ export function ValuationWorkbench() {
       rows: buildSampleRows().filter((row) => row.id !== "sample-fixed-net"),
       isFixedAssetScheduleEnabled: true,
       fixedAssetScheduleRows: sampleFixedAssetScheduleRows,
+      fixedAssetProjectionMode: defaultFixedAssetProjectionMode,
       aamAdjustments: {},
       assumptions: buildSampleAssumptions(),
       caseProfile: buildSampleCaseProfile(),
@@ -1315,6 +1343,7 @@ export function ValuationWorkbench() {
       rows: [],
       isFixedAssetScheduleEnabled: false,
       fixedAssetScheduleRows: [],
+      fixedAssetProjectionMode: defaultFixedAssetProjectionMode,
       aamAdjustments: {},
       assumptions: emptyAssumptions,
       caseProfile: emptyCaseProfile,
@@ -1935,7 +1964,7 @@ export function ValuationWorkbench() {
           <div className="sensitivity-grid">
             <div>
               <span>DCF - skenario dasar</span>
-              <strong>{formatIdr(results.dcf.equityValue)}</strong>
+              <strong data-testid="dcf-base-equity-value">{formatIdr(results.dcf.equityValue)}</strong>
             </div>
             <div>
               <span>DCF - terminal downside</span>
@@ -2032,6 +2061,13 @@ export function ValuationWorkbench() {
               forecast={results.dcf.forecast}
               snapshot={snapshot}
               fixedAssetProjection={fixedAssetProjection}
+              fixedAssetProjectionMode={fixedAssetProjectionMode}
+              onFixedAssetProjectionModeChange={(mode) =>
+                commitCoreState((current) => ({
+                  ...current,
+                  fixedAssetProjectionMode: mode,
+                }))
+              }
             />
           ) : (
             <ReadinessPanel status={readiness.projectedFixedAssets} onNavigate={navigateToWorkflowTab} force />
@@ -3333,20 +3369,6 @@ function buildDcfFixedAssetProjectionRows(projection?: FixedAssetProjectionSumma
     (key: keyof FixedAssetPeriodAmounts) =>
     (row: DcfForecastRow, _index: number, context: DcfProjectionContext) =>
       context.fixedAssetProjection?.totals[row.year]?.[key] ?? null;
-  const reconciliationValueFor =
-    (key: "capitalExpenditureDelta" | "depreciationDelta" | "netValueDelta" | "dcfCapitalExpenditure" | "dcfDepreciation" | "dcfNetValue") =>
-    (row: DcfForecastRow, _index: number, context: DcfProjectionContext) =>
-      context.fixedAssetProjection?.reconciliation[row.year]?.[key] ?? null;
-  const reconciliationStatus =
-    (key: "capitalExpenditureDelta" | "depreciationDelta" | "netValueDelta") =>
-    (context: DcfProjectionContext) => {
-      if (!context.fixedAssetProjection?.hasProjection) {
-        return "requiresInput";
-      }
-
-      const hasVariance = context.forecast.some((row) => Math.abs(context.fixedAssetProjection?.reconciliation[row.year]?.[key] ?? 0) > 1);
-      return hasVariance ? "review" : "calculated";
-    };
 
   return [
   sectionProjectionLine("fixed-asset-schedules", "Fixed Asset Schedules"),
@@ -3393,27 +3415,6 @@ function buildDcfFixedAssetProjectionRows(projection?: FixedAssetProjectionSumma
     workbookReference: "PROY FIXED ASSETS row 23",
     note,
     value: totalValueFor("acquisitionAdditions"),
-    kind: "subtotal",
-  },
-  {
-    key: "capital-expenditure-dcf-control",
-    label: "DCF maintenance capex control",
-    source: "Engine DCF proxy",
-    formula: "DCF maintenance capex = projected depreciation",
-    status: (context) => (context.fixedAssetProjection?.mode === "dcf-proxy" ? "calculated" : "review"),
-    workbookReference: "DCF row 16 / STAT_DCF row 27",
-    value: (row) => row.capitalExpenditure,
-    kind: "subtotal",
-  },
-  {
-    key: "capital-expenditure-delta",
-    label: "Delta vs DCF capex",
-    source: "Rekonsiliasi engine",
-    formula: "PROY FIXED ASSETS additions total - DCF maintenance capex",
-    status: reconciliationStatus("capitalExpenditureDelta"),
-    workbookReference: "Control tambahan website",
-    note: "Delta ini tidak otomatis mengubah DCF final; dipakai untuk audit interoperabilitas sebelum mode proyeksi aset tetap dijadikan driver valuasi.",
-    value: reconciliationValueFor("capitalExpenditureDelta"),
     kind: "subtotal",
   },
   sectionProjectionLine("acquisition-ending", "Ending"),
@@ -3483,27 +3484,6 @@ function buildDcfFixedAssetProjectionRows(projection?: FixedAssetProjectionSumma
     value: totalValueFor("depreciationAdditions"),
     kind: "subtotal",
   },
-  {
-    key: "depreciation-dcf-control",
-    label: "DCF depreciation control",
-    source: "Engine DCF proxy",
-    formula: "Projected depreciation from DCF depreciation margin",
-    status: (context) => (context.fixedAssetProjection?.mode === "dcf-proxy" ? "calculated" : "review"),
-    workbookReference: "DCF row 8 / STAT_DCF row 26",
-    value: (row) => row.depreciation,
-    kind: "subtotal",
-  },
-  {
-    key: "depreciation-delta",
-    label: "Delta vs DCF depreciation",
-    source: "Rekonsiliasi engine",
-    formula: "PROY FIXED ASSETS depreciation additions total - DCF depreciation",
-    status: reconciliationStatus("depreciationDelta"),
-    workbookReference: "Control tambahan website",
-    note: "Delta ini menunjukkan perbedaan formula workbook dengan depresiasi DCF berbasis margin revenue.",
-    value: reconciliationValueFor("depreciationDelta"),
-    kind: "subtotal",
-  },
   sectionProjectionLine("depreciation-ending", "Ending"),
   ...classLabels.map((label, index) => ({
     key: `depreciation-ending-${index}`,
@@ -3548,27 +3528,6 @@ function buildDcfFixedAssetProjectionRows(projection?: FixedAssetProjectionSumma
     value: totalValueFor("netValue"),
     kind: "subtotal",
   },
-  {
-    key: "fixed-assets-ending-dcf-control",
-    label: "DCF fixed assets ending control",
-    source: "Engine DCF proxy",
-    formula: "DCF fixed assets beginning + maintenance capex - depreciation",
-    status: (context) => (context.fixedAssetProjection?.mode === "dcf-proxy" ? "calculated" : "review"),
-    workbookReference: "DCF engine fixedAssetsEnding",
-    value: (row) => row.fixedAssetsEnding,
-    kind: "subtotal",
-  },
-  {
-    key: "fixed-assets-ending-delta",
-    label: "Delta vs DCF fixed assets ending",
-    source: "Rekonsiliasi engine",
-    formula: "PROY FIXED ASSETS net value total - DCF fixed assets ending",
-    status: reconciliationStatus("netValueDelta"),
-    workbookReference: "Control tambahan website",
-    note: "Mode lama DCF proxy tetap tersedia sebagai fallback ketika formula workbook belum layak dijadikan driver DCF.",
-    value: reconciliationValueFor("netValueDelta"),
-    kind: "subtotal",
-  },
   ];
 }
 
@@ -3586,15 +3545,34 @@ function describeFixedAssetProjectionSummary(projection: FixedAssetProjectionSum
 
   if (projection.mode === "workbook-formula") {
     return warningCount > 0
-      ? `${modeLabel} aktif mengikuti PROY FIXED ASSETS workbook UPDATE; mode DCF proxy lama tetap menjadi fallback karena ada ${warningCount} warning rekonsiliasi/model.`
-      : `${modeLabel} aktif mengikuti PROY FIXED ASSETS workbook UPDATE; mode DCF proxy lama tetap tersedia sebagai pembanding.`;
+      ? `${modeLabel} aktif mengikuti PROY FIXED ASSETS workbook UPDATE dan menjadi driver DCF; ada ${warningCount} warning model yang perlu direview.`
+      : `${modeLabel} aktif mengikuti PROY FIXED ASSETS workbook UPDATE dan menjadi driver DCF.`;
   }
 
-  return `${modeLabel} aktif sebagai baseline maintenance capex; formula workbook tersedia sebagai fallback pembanding.`;
+  return `${modeLabel} aktif sebagai baseline maintenance capex dan menjadi driver DCF.`;
 }
 
 function formatFixedAssetProjectionMode(mode: FixedAssetProjectionSummary["mode"]): string {
   return mode === "workbook-formula" ? "Formula KKP UPDATE" : "DCF proxy";
+}
+
+function buildDcfFixedAssetProjectionInput(
+  projection: FixedAssetProjectionSummary,
+): Record<number, DcfFixedAssetProjectionInput> | undefined {
+  if (!projection.hasProjection) {
+    return undefined;
+  }
+
+  return Object.fromEntries(
+    Object.entries(projection.totals).map(([year, amounts]) => [
+      Number(year),
+      {
+        depreciation: amounts.depreciationAdditions,
+        capitalExpenditure: amounts.acquisitionAdditions,
+        fixedAssetsEnding: amounts.netValue,
+      },
+    ]),
+  );
 }
 
 const dcfCashFlowProjectionRows: DcfProjectionLine[] = [
@@ -3730,11 +3708,15 @@ function ProjectionStatementSection({
   forecast,
   snapshot,
   fixedAssetProjection,
+  fixedAssetProjectionMode = defaultFixedAssetProjectionMode,
+  onFixedAssetProjectionModeChange,
 }: {
   kind: ProjectionStatementKind;
   forecast: DcfForecastRow[];
   snapshot: FinancialStatementSnapshot;
   fixedAssetProjection?: FixedAssetProjectionSummary;
+  fixedAssetProjectionMode?: FixedAssetProjectionMode;
+  onFixedAssetProjectionModeChange?: (mode: FixedAssetProjectionMode) => void;
 }) {
   const config =
     kind === "fixedAssets"
@@ -3780,7 +3762,14 @@ function ProjectionStatementSection({
       </section>
 
       {kind === "fixedAssets" ? (
-        <FixedAssetProjectionDriverStrip forecast={forecast} fixedAssetProjection={fixedAssetProjection} />
+        <>
+          <FixedAssetProjectionModeSelector
+            mode={fixedAssetProjectionMode}
+            onChange={onFixedAssetProjectionModeChange}
+            disabled={!fixedAssetProjection?.hasProjection}
+          />
+          <FixedAssetProjectionDriverStrip forecast={forecast} fixedAssetProjection={fixedAssetProjection} />
+        </>
       ) : (
         <section className="active-driver-strip" aria-label={`Driver aktif ${config.title}`}>
           <div>
@@ -3811,6 +3800,54 @@ function ProjectionStatementSection({
   );
 }
 
+function FixedAssetProjectionModeSelector({
+  mode,
+  onChange,
+  disabled = false,
+}: {
+  mode: FixedAssetProjectionMode;
+  onChange?: (mode: FixedAssetProjectionMode) => void;
+  disabled?: boolean;
+}) {
+  const options: Array<{ mode: FixedAssetProjectionMode; label: string; description: string }> = [
+    {
+      mode: "workbook-formula",
+      label: "Formula KKP UPDATE",
+      description: "Additions dan depresiasi mengikuti roll-forward historis PROY FIXED ASSETS.",
+    },
+    {
+      mode: "dcf-proxy",
+      label: "DCF proxy",
+      description: "Capex mengikuti maintenance capex DCF dan depresiasi berbasis margin revenue.",
+    },
+  ];
+
+  return (
+    <section className="projection-mode-panel" aria-label="Sistematika Proyeksi Aset Tetap">
+      <div>
+        <p className="eyebrow">Sistematika aktif</p>
+        <strong>{formatFixedAssetProjectionMode(mode)}</strong>
+      </div>
+      <div className="projection-mode-toggle" role="radiogroup" aria-label="Pilih sistematika Proyeksi Aset Tetap">
+        {options.map((option) => (
+          <button
+            aria-checked={mode === option.mode}
+            className={mode === option.mode ? "selected" : ""}
+            disabled={disabled}
+            key={option.mode}
+            onClick={() => onChange?.(option.mode)}
+            role="radio"
+            type="button"
+          >
+            <span>{option.label}</span>
+            <small>{option.description}</small>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function FixedAssetProjectionDriverStrip({
   forecast,
   fixedAssetProjection,
@@ -3819,10 +3856,6 @@ function FixedAssetProjectionDriverStrip({
   fixedAssetProjection?: FixedAssetProjectionSummary;
 }) {
   const firstForecastYear = forecast[0]?.year;
-  const firstYearReconciliation =
-    firstForecastYear && fixedAssetProjection?.reconciliation[firstForecastYear]
-      ? fixedAssetProjection.reconciliation[firstForecastYear]
-      : null;
   const warningCount = fixedAssetProjection?.diagnostics.filter((diagnostic) => diagnostic.severity === "warning").length ?? 0;
 
   return (
@@ -3833,19 +3866,19 @@ function FixedAssetProjectionDriverStrip({
         <small>{fixedAssetProjection?.source ?? "Butuh jadwal aset tetap historis"}</small>
       </div>
       <div>
-        <span>Fallback</span>
-        <strong>{fixedAssetProjection?.fallback ? formatFixedAssetProjectionMode(fixedAssetProjection.fallback.mode) : "DCF proxy"}</strong>
-        <small>Mode lama tetap tersedia untuk baseline maintenance capex.</small>
+        <span>Dampak ke DCF</span>
+        <strong>{fixedAssetProjection?.hasProjection ? "Aktif" : "Belum aktif"}</strong>
+        <small>Mode terpilih menjadi driver depresiasi, capex, fixed assets ending, dan FCFF.</small>
+      </div>
+      <div>
+        <span>Capex awal</span>
+        <strong>{firstForecastYear && fixedAssetProjection?.totals[firstForecastYear] ? formatIdr(fixedAssetProjection.totals[firstForecastYear].acquisitionAdditions) : "—"}</strong>
+        <small>Capital expenditure tahun proyeksi pertama yang masuk DCF.</small>
       </div>
       <div>
         <span>Review flags</span>
         <strong>{warningCount}</strong>
-        <small>{warningCount > 0 ? "Ada perbedaan atau risiko model yang perlu direview." : "Tidak ada warning material."}</small>
-      </div>
-      <div>
-        <span>Delta capex awal</span>
-        <strong>{firstYearReconciliation ? formatIdr(firstYearReconciliation.capitalExpenditureDelta) : "—"}</strong>
-        <small>Selisih mode aktif terhadap DCF proxy pada tahun pertama.</small>
+        <small>{warningCount > 0 ? "Ada risiko model yang perlu direview." : "Tidak ada warning material."}</small>
       </div>
     </section>
   );
@@ -4750,6 +4783,7 @@ function readPersistedWorkbenchState(): PersistedWorkbenchState | null {
     const taxSimulation = sanitizeTaxSimulationState(parsed.taxSimulation);
     const cashFlowOverrides = sanitizeCashFlowOverrides(parsed.cashFlowOverrides);
     const activePeriodId = typeof parsed.activePeriodId === "string" ? parsed.activePeriodId : "";
+    const fixedAssetProjectionMode = sanitizeFixedAssetProjectionMode(parsed.fixedAssetProjectionMode);
     const isFixedAssetScheduleEnabled =
       typeof parsed.isFixedAssetScheduleEnabled === "boolean" ? parsed.isFixedAssetScheduleEnabled : fixedAssetScheduleRows.length > 0;
 
@@ -4761,6 +4795,7 @@ function readPersistedWorkbenchState(): PersistedWorkbenchState | null {
       rows,
       isFixedAssetScheduleEnabled,
       fixedAssetScheduleRows,
+      fixedAssetProjectionMode,
       aamAdjustments,
       assumptions,
       caseProfile,
@@ -4902,6 +4937,10 @@ function sanitizeRows(value: unknown): AccountRow[] {
 
 function cloneCoreState(state: WorkbenchCoreState): WorkbenchCoreState {
   return JSON.parse(JSON.stringify(state)) as WorkbenchCoreState;
+}
+
+function sanitizeFixedAssetProjectionMode(value: unknown): FixedAssetProjectionMode {
+  return value === "dcf-proxy" || value === "workbook-formula" ? value : defaultFixedAssetProjectionMode;
 }
 
 function sanitizeFixedAssetScheduleRows(value: unknown): FixedAssetScheduleRow[] {

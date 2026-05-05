@@ -19,7 +19,7 @@ export const fixedAssetProjectionClassLabels = [
 export type FixedAssetProjectionMode = "workbook-formula" | "dcf-proxy";
 
 export type FixedAssetProjectionDiagnostic = {
-  code: "negative-net-value" | "zero-additions" | "dcf-variance";
+  code: "negative-net-value" | "zero-additions";
   severity: "info" | "warning";
   message: string;
 };
@@ -122,14 +122,10 @@ export function buildFixedAssetProjection(
   const primary = options.preferredMode === "dcf-proxy" ? dcfProxy : workbookFormula;
   const fallback = primary.mode === "workbook-formula" ? dcfProxy : workbookFormula;
   const reconciliation = buildProjectionReconciliation(forecast, primary, dcfProxy);
-  const diagnostics = [
-    ...primary.diagnostics,
-    ...buildReconciliationDiagnostics(forecast, primary, dcfProxy),
-  ];
 
   return {
     ...primary,
-    diagnostics,
+    diagnostics: primary.diagnostics,
     reconciliation,
     fallback,
   };
@@ -433,31 +429,6 @@ function buildWorkbookFormulaDiagnostics(
   }
 
   return diagnostics;
-}
-
-function buildReconciliationDiagnostics(
-  forecast: DcfForecastRow[],
-  primary: FixedAssetProjectionScenario,
-  dcfProxy: FixedAssetProjectionScenario,
-): FixedAssetProjectionDiagnostic[] {
-  const hasMaterialDcfVariance = forecast.some((forecastRow) => {
-    const primaryTotal = primary.totals[forecastRow.year] ?? emptyAmounts;
-    const dcfTotal = dcfProxy.totals[forecastRow.year] ?? emptyAmounts;
-    const capexVariance = Math.abs(primaryTotal.acquisitionAdditions - dcfTotal.acquisitionAdditions);
-    const depreciationVariance = Math.abs(primaryTotal.depreciationAdditions - dcfTotal.depreciationAdditions);
-
-    return capexVariance > 1 || depreciationVariance > 1;
-  });
-
-  return hasMaterialDcfVariance
-    ? [
-        {
-          code: "dcf-variance",
-          severity: "warning",
-          message: "Mode Formula KKP UPDATE berbeda dari DCF proxy; gunakan baris rekonsiliasi sebelum menjadikan hasilnya driver valuasi final.",
-        },
-      ]
-    : [];
 }
 
 function equalWeights(length: number): number[] {

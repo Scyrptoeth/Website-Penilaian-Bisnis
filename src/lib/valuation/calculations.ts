@@ -5,6 +5,8 @@ type DcfOptions = {
   wacc?: number;
   includeWorkingCapitalChange?: boolean;
   debtLikeTaxPayable?: boolean;
+  fixedAssetProjection?: Record<number, DcfFixedAssetProjectionInput>;
+  fixedAssetProjectionSource?: string;
 };
 
 type AamOptions = {
@@ -15,6 +17,13 @@ type AamOptions = {
 
 type CalculationOptions = {
   aam?: AamOptions;
+  dcf?: DcfOptions;
+};
+
+export type DcfFixedAssetProjectionInput = {
+  depreciation: number;
+  capitalExpenditure: number;
+  fixedAssetsEnding: number;
 };
 
 export function adjustedTotalAssets(snapshot: FinancialStatementSnapshot): number {
@@ -194,10 +203,12 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
   const startYear = forecastStartYear(snapshot);
 
   for (let period = 1; period <= 5; period += 1) {
+    const year = startYear + period;
+    const fixedAssetProjection = options.fixedAssetProjection?.[year];
     const revenue = previousRevenue * (1 + snapshot.revenueGrowth);
     const cogs = revenue * snapshot.cogsMargin;
     const operatingExpenses = revenue * snapshot.gaMargin;
-    const depreciation = revenue * snapshot.depreciationMargin;
+    const depreciation = fixedAssetProjection?.depreciation ?? revenue * snapshot.depreciationMargin;
     const grossProfit = revenue - cogs;
     const ebit = grossProfit - operatingExpenses - depreciation;
     const statutoryTaxOnEbit = ebit * snapshot.taxRate;
@@ -210,9 +221,9 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
     const operatingCurrentLiabilities = ap + otherPayable;
     const operatingNwc = operatingCurrentAssets - operatingCurrentLiabilities;
     const changeInNwc = includeWorkingCapitalChange ? operatingNwc - previousNwc : 0;
-    const maintenanceCapex = depreciation;
+    const maintenanceCapex = fixedAssetProjection?.capitalExpenditure ?? depreciation;
     const fixedAssetsBeginning = previousFixedAssetsNet;
-    const fixedAssetsEnding = Math.max(0, fixedAssetsBeginning + maintenanceCapex - depreciation);
+    const fixedAssetsEnding = fixedAssetProjection?.fixedAssetsEnding ?? Math.max(0, fixedAssetsBeginning + maintenanceCapex - depreciation);
     const grossCashFlow = noplat + depreciation;
     const grossInvestment = maintenanceCapex + changeInNwc;
     const freeCashFlow = grossCashFlow - grossInvestment;
@@ -221,7 +232,7 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
     const presentValue = freeCashFlow * discountFactor;
 
     rows.push({
-      year: startYear + period,
+      year,
       revenue,
       cogs,
       grossProfit,
@@ -277,7 +288,9 @@ export function calculateDcf(
       label: "PV eksplisit FCFF",
       formula: "Jumlah FCFF tahunan / (1 + WACC)^n",
       value: explicitPv,
-      note: "Proyeksi eksplisit lima tahun berbasis margin historis dan operating WC days.",
+      note: options.fixedAssetProjectionSource
+        ? `Proyeksi eksplisit lima tahun memakai ${options.fixedAssetProjectionSource} untuk depresiasi, capex, dan aset tetap neto.`
+        : "Proyeksi eksplisit lima tahun berbasis margin historis dan operating WC days.",
     },
     {
       label: "PV nilai terminal",
@@ -303,11 +316,18 @@ export function calculateDcf(
 }
 
 export function calculateAllMethods(snapshot: FinancialStatementSnapshot, options: CalculationOptions = {}) {
-  const dcf = calculateDcf(snapshot);
-  const dcfTerminalDownside = calculateDcf(snapshot, { terminalGrowth: snapshot.terminalGrowthDownside ?? snapshot.terminalGrowth });
-  const dcfTerminalUpside = calculateDcf(snapshot, { terminalGrowth: snapshot.terminalGrowthUpside ?? snapshot.terminalGrowth });
-  const dcfNoIncrementalWorkingCapital = calculateDcf(snapshot, { includeWorkingCapitalChange: false });
-  const dcfTaxPayableDebtLike = calculateDcf(snapshot, { debtLikeTaxPayable: true });
+  const dcfOptions = options.dcf ?? {};
+  const dcf = calculateDcf(snapshot, dcfOptions);
+  const dcfTerminalDownside = calculateDcf(snapshot, {
+    ...dcfOptions,
+    terminalGrowth: snapshot.terminalGrowthDownside ?? snapshot.terminalGrowth,
+  });
+  const dcfTerminalUpside = calculateDcf(snapshot, {
+    ...dcfOptions,
+    terminalGrowth: snapshot.terminalGrowthUpside ?? snapshot.terminalGrowth,
+  });
+  const dcfNoIncrementalWorkingCapital = calculateDcf(snapshot, { ...dcfOptions, includeWorkingCapitalChange: false });
+  const dcfTaxPayableDebtLike = calculateDcf(snapshot, { ...dcfOptions, debtLikeTaxPayable: true });
   const eemTaxPayableDebtLike = {
     ...calculateEem(snapshot),
     equityValue: calculateEem(snapshot).equityValue - snapshot.taxPayable,

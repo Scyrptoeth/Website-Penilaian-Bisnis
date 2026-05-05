@@ -214,14 +214,23 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByTestId("dcf-balance-projection-table")).toContainText("Current Assets");
   await expect(page.getByTestId("dcf-balance-projection-table")).toContainText("Perlu input");
 
+  await openWorkflowTab(page, "Penilaian EEM/DCF");
+  const workbookFormulaDcfValue = await page.getByTestId("dcf-base-equity-value").textContent();
+
   await openWorkflowTab(page, "Proyeksi Aset Tetap");
   await expect(page.getByRole("heading", { name: "Proyeksi Aset Tetap" })).toBeVisible();
   await expect(page.getByTestId("dcf-fixed-asset-projection-table")).toContainText("A. Acquisition Costs");
   await expect(page.getByTestId("dcf-fixed-asset-projection-table")).toContainText("Net Value Fixed Assets");
   await expect(page.getByTestId("dcf-fixed-asset-projection-table")).toContainText("Formula KKP UPDATE.xlsx");
-  await expect(page.getByTestId("dcf-fixed-asset-projection-table")).toContainText("Delta vs DCF capex");
+  await expect(page.getByRole("radio", { name: /Formula KKP UPDATE/ })).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByTestId("dcf-fixed-asset-projection-table")).not.toContainText("Delta vs DCF capex");
   await expect(page.getByTestId("dcf-fixed-asset-projection-table")).not.toContainText("Belum dimodelkan");
   await expect(page.getByTestId("dcf-fixed-asset-projection-table")).not.toContainText("Perlu input");
+  await page.getByRole("radio", { name: /DCF proxy/ }).click();
+  await expect(page.getByRole("radio", { name: /DCF proxy/ })).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByTestId("dcf-fixed-asset-projection-table")).toContainText("Jadwal Aset Tetap + alokasi DCF");
+  await openWorkflowTab(page, "Penilaian EEM/DCF");
+  await expect.poll(() => page.getByTestId("dcf-base-equity-value").textContent()).not.toBe(workbookFormulaDcfValue);
 
   await openWorkflowTab(page, "Proyeksi Cash Flow Statement");
   await expect(page.getByRole("heading", { name: "Proyeksi Cash Flow Statement" })).toBeVisible();
@@ -397,7 +406,7 @@ test("legacy workbook-like DLOM drafts migrate to workbook UPDATE basis without 
   await expect(page.getByTestId("dlom-basis-grid")).not.toContainText("Workbook UPDATE DLOM!C31");
   await expect(page.getByTestId("dlom-basis-grid")).not.toContainText("Formula");
   await expect(page.getByTestId("dlom-summary")).toContainText("25%");
-  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(12);
+  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(13);
 });
 
 test("exports the active workbench state through the primary template-clone XLSX workflow", async ({ page }) => {
@@ -669,7 +678,7 @@ test("legacy positive income-statement expense drafts migrate once and remain us
   await amountInput.press("Home");
   await amountInput.press("Delete");
   await expect(amountInput).toHaveValue("100");
-  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(12);
+  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(13);
 
   await page.reload();
   await openWorkflowTab(page, "Laba Rugi");

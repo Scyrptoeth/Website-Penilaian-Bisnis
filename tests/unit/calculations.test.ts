@@ -68,6 +68,30 @@ describe("valuation calculations", () => {
     });
   });
 
+  it("uses fixed asset projection inputs as DCF drivers when provided", () => {
+    const base = calculateDcf(snapshot);
+    const fixedAssetProjection = Object.fromEntries(
+      base.forecast.map((row, index) => [
+        row.year,
+        {
+          depreciation: row.depreciation * 0.5,
+          capitalExpenditure: row.capitalExpenditure * 0.25,
+          fixedAssetsEnding: snapshot.fixedAssetsNet - (index + 1) * 100_000_000,
+        },
+      ]),
+    );
+    const projected = calculateDcf(snapshot, {
+      fixedAssetProjection,
+      fixedAssetProjectionSource: "Formula KKP UPDATE.xlsx",
+    });
+
+    assertAlmostEqual(projected.forecast[0].depreciation, base.forecast[0].depreciation * 0.5, 0.01);
+    assertAlmostEqual(projected.forecast[0].capitalExpenditure, base.forecast[0].capitalExpenditure * 0.25, 0.01);
+    assertAlmostEqual(projected.forecast[0].fixedAssetsEnding, snapshot.fixedAssetsNet - 100_000_000, 0.01);
+    assert.notEqual(projected.equityValue, base.equityValue);
+    assert.equal(projected.traces[0].note.includes("Formula KKP UPDATE.xlsx"), true);
+  });
+
   it("keeps DCF and EEM sensitivities explicit and formula-derived", () => {
     const baseDcf = calculateDcf(snapshot);
     const taxPayableDebtLikeDcf = calculateDcf(snapshot, { debtLikeTaxPayable: true });
