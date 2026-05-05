@@ -172,13 +172,13 @@ function buildPayablesRows(periodAnalyses: PeriodAnalysis[]): AnalysisRow[] {
     valueRow(periodAnalyses, "short-beginning", "Saldo awal", "Saldo akhir pinjaman jangka pendek periode sebelumnya", "Saldo akhir periode sebelumnya", (item) => item.loanMovement.shortTermBeginning),
     valueRow(periodAnalyses, "short-addition", "Penambahan", "Mutasi positif pinjaman bank jangka pendek", "max(Saldo akhir - saldo awal, 0)", (item) => item.loanMovement.shortTermAddition),
     valueRow(periodAnalyses, "short-repayment", "Pembayaran kembali", "Mutasi negatif pinjaman bank jangka pendek", "min(Saldo akhir - saldo awal, 0)", (item) => item.loanMovement.shortTermRepayment),
-    valueRow(periodAnalyses, "short-ending", "Saldo akhir", "Terpetakan BANK_LOAN_SHORT_TERM", "Saldo awal + penambahan + pembayaran kembali", (item) => item.loanMovement.shortTermEnding, "subtotal"),
+    valueRow(periodAnalyses, "short-ending", "Saldo akhir", "Terpetakan pinjaman bank jangka pendek", "Saldo awal + penambahan + pembayaran kembali", (item) => item.loanMovement.shortTermEnding, "subtotal"),
     sectionRow("bank-loan-long-section", "Pinjaman bank jangka panjang"),
     valueRow(periodAnalyses, "long-beginning", "Saldo awal", "Saldo akhir pinjaman jangka panjang periode sebelumnya", "Saldo akhir periode sebelumnya", (item) => item.loanMovement.longTermBeginning),
     valueRow(periodAnalyses, "long-addition", "Penambahan", "Mutasi positif pinjaman bank jangka panjang", "max(Saldo akhir - saldo awal, 0)", (item) => item.loanMovement.longTermAddition),
     valueRow(periodAnalyses, "long-repayment", "Pembayaran kembali", "Mutasi negatif pinjaman bank jangka panjang", "min(Saldo akhir - saldo awal, 0)", (item) => item.loanMovement.longTermRepayment),
-    valueRow(periodAnalyses, "long-ending", "Saldo akhir", "Terpetakan BANK_LOAN_LONG_TERM / INTEREST_BEARING_DEBT", "Saldo awal + penambahan + pembayaran kembali", (item) => item.loanMovement.longTermEnding, "subtotal"),
-    valueRow(periodAnalyses, "interest-payable", "Utang bunga", "Terpetakan INTEREST_PAYABLE", "Saldo input", (item) => item.snapshot.interestPayable),
+    valueRow(periodAnalyses, "long-ending", "Saldo akhir", "Terpetakan pinjaman bank jangka panjang / utang berbunga", "Saldo awal + penambahan + pembayaran kembali", (item) => item.loanMovement.longTermEnding, "subtotal"),
+    valueRow(periodAnalyses, "interest-payable", "Utang bunga", "Terpetakan utang bunga", "Saldo input", (item) => item.snapshot.interestPayable),
     valueRow(periodAnalyses, "interest-bearing-debt", "Utang berbunga", "Debt bridge", "Pinjaman bank jangka pendek + pinjaman bank jangka panjang", (item) => interestBearingDebt(item.snapshot), "subtotal"),
   ];
 }
@@ -202,7 +202,7 @@ function buildCashFlowRows(periodAnalyses: PeriodAnalysis[]): AnalysisRow[] {
       item.previousSnapshot ? item.cashFlowFromOperations : null,
       "subtotal",
     ),
-    valueRow(periodAnalyses, "non-operating-income", "Arus kas non-operasional", "Terpetakan NON_OPERATING_INCOME", "Pendapatan / beban non-operasional", (item) => item.snapshot.nonOperatingIncome),
+    valueRow(periodAnalyses, "non-operating-income", "Arus kas non-operasional", "Terpetakan pendapatan / beban non-operasional", "Pendapatan / beban non-operasional", (item) => item.snapshot.nonOperatingIncome),
     valueRow(periodAnalyses, "capex", "Arus kas investasi / capex", "Jadwal aset tetap atau mutasi terinferensi", "-capital expenditure", (item) =>
       item.previousSnapshot ? -item.capitalExpenditure : null,
     ),
@@ -219,8 +219,8 @@ function buildCashFlowRows(periodAnalyses: PeriodAnalysis[]): AnalysisRow[] {
     valueRow(periodAnalyses, "new-loan", "Pinjaman baru", "Jadwal utang", "Mutasi utang positif", (item) =>
       item.previousSnapshot ? item.loanMovement.shortTermAddition + item.loanMovement.longTermAddition : null,
     ),
-    valueRow(periodAnalyses, "interest-payment", "Pembayaran bunga", "Terpetakan INTEREST_EXPENSE", "Line arus kas beban bunga", (item) => item.snapshot.interestExpense),
-    valueRow(periodAnalyses, "interest-income", "Pendapatan bunga", "Terpetakan INTEREST_INCOME", "Line arus kas pendapatan bunga", (item) => item.snapshot.interestIncome),
+    valueRow(periodAnalyses, "interest-payment", "Pembayaran bunga", "Terpetakan beban bunga", "Line arus kas beban bunga", (item) => item.snapshot.interestExpense),
+    valueRow(periodAnalyses, "interest-income", "Pendapatan bunga", "Terpetakan pendapatan bunga", "Line arus kas pendapatan bunga", (item) => item.snapshot.interestIncome),
     valueRow(periodAnalyses, "principal-repayment", "Pembayaran pokok pinjaman", "Jadwal utang", "Mutasi utang negatif", (item) =>
       item.previousSnapshot ? item.loanMovement.shortTermRepayment + item.loanMovement.longTermRepayment : null,
     ),
@@ -252,9 +252,9 @@ function buildNoplatRows(periodAnalyses: PeriodAnalysis[]): AnalysisRow[] {
     valueRow(periodAnalyses, "pbt", "Laba sebelum pajak", "Bridge operasional terkoreksi", "EBIT + pendapatan bunga + beban bunga + pendapatan non-operasional", (item) =>
       item.snapshot.ebit + item.snapshot.interestIncome + item.snapshot.interestExpense + item.snapshot.nonOperatingIncome,
     ),
-    valueRow(periodAnalyses, "add-interest", "Tambah: beban bunga", "Terpetakan INTEREST_EXPENSE", "-beban bunga", (item) => -item.snapshot.interestExpense),
-    valueRow(periodAnalyses, "less-interest-income", "Kurang: pendapatan bunga", "Terpetakan INTEREST_INCOME", "-pendapatan bunga", (item) => -item.snapshot.interestIncome),
-    valueRow(periodAnalyses, "less-non-operating", "Kurang: pendapatan non-operasional", "Terpetakan NON_OPERATING_INCOME", "-pendapatan / beban non-operasional", (item) => -item.snapshot.nonOperatingIncome),
+    valueRow(periodAnalyses, "add-interest", "Tambah: beban bunga", "Terpetakan beban bunga", "-beban bunga", (item) => -item.snapshot.interestExpense),
+    valueRow(periodAnalyses, "less-interest-income", "Kurang: pendapatan bunga", "Terpetakan pendapatan bunga", "-pendapatan bunga", (item) => -item.snapshot.interestIncome),
+    valueRow(periodAnalyses, "less-non-operating", "Kurang: pendapatan non-operasional", "Terpetakan pendapatan / beban non-operasional", "-pendapatan / beban non-operasional", (item) => -item.snapshot.nonOperatingIncome),
     valueRow(periodAnalyses, "ebit", "EBIT komersial", "Model terkoreksi", "EBIT operasional setelah mengecualikan item pendanaan/non-operasional", (item) => item.snapshot.ebit, "subtotal"),
     valueRow(periodAnalyses, "tax-on-ebit", "Pajak statutory atas EBIT", "Asumsi", "EBIT komersial x tarif pajak statutory", (item) => item.normalizedTaxOnEbit),
     valueRow(periodAnalyses, "tax-shields-excluded", "Tax shield / efek pajak non-operasional dikeluarkan", "Basis valuasi terkoreksi", "0", () => 0),

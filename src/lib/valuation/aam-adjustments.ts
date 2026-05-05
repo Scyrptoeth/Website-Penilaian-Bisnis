@@ -63,7 +63,7 @@ const assetDefinitions: LineDefinition[] = [
     role: "asset",
     section: "Aset lancar",
     label: "Kas di tangan",
-    source: "Neraca: CASH_ON_HAND",
+    source: "Neraca: Kas di tangan",
     value: (snapshot) => snapshot.cashOnHand,
   },
   {
@@ -71,7 +71,7 @@ const assetDefinitions: LineDefinition[] = [
     role: "asset",
     section: "Aset lancar",
     label: "Kas di bank / deposito",
-    source: "Neraca: CASH_ON_BANK",
+    source: "Neraca: Kas di bank / deposito",
     value: (snapshot) => snapshot.cashOnBankDeposit,
   },
   {
@@ -79,7 +79,7 @@ const assetDefinitions: LineDefinition[] = [
     role: "asset",
     section: "Aset lancar",
     label: "Piutang usaha",
-    source: "Neraca: ACCOUNT_RECEIVABLE",
+    source: "Neraca: Piutang usaha",
     value: (snapshot) => snapshot.accountReceivable,
   },
   {
@@ -87,7 +87,7 @@ const assetDefinitions: LineDefinition[] = [
     role: "asset",
     section: "Aset lancar",
     label: "Piutang karyawan / piutang lain-lain",
-    source: "Neraca: EMPLOYEE_RECEIVABLE",
+    source: "Neraca: Piutang karyawan / piutang lain-lain",
     value: (snapshot) => snapshot.employeeReceivable,
   },
   {
@@ -95,7 +95,7 @@ const assetDefinitions: LineDefinition[] = [
     role: "asset",
     section: "Aset lancar",
     label: "Persediaan",
-    source: "Neraca: INVENTORY",
+    source: "Neraca: Persediaan",
     value: (snapshot) => snapshot.inventory,
   },
   {
@@ -103,7 +103,7 @@ const assetDefinitions: LineDefinition[] = [
     role: "asset",
     section: "Aset lancar",
     label: "Surat berharga",
-    source: "Neraca: MARKETABLE_SECURITIES",
+    source: "Neraca: Surat berharga",
     value: (snapshot) => snapshot.marketableSecurities,
   },
   {
@@ -111,7 +111,7 @@ const assetDefinitions: LineDefinition[] = [
     role: "asset",
     section: "Aset lancar",
     label: "Kas berlebih",
-    source: "Neraca: EXCESS_CASH",
+    source: "Neraca: Kas berlebih",
     value: (snapshot) => snapshot.excessCash,
   },
   {
@@ -119,7 +119,7 @@ const assetDefinitions: LineDefinition[] = [
     role: "asset",
     section: "Aset lancar",
     label: "Kas / aset surplus",
-    source: "Neraca: SURPLUS_ASSET_CASH",
+    source: "Neraca: Kas / aset surplus",
     value: (snapshot) => snapshot.surplusAssetCash,
   },
   {
@@ -127,7 +127,7 @@ const assetDefinitions: LineDefinition[] = [
     role: "asset",
     section: "Aset lancar",
     label: "Aset lancar lain-lain",
-    source: "Neraca: CURRENT_ASSET yang belum terinci",
+    source: "Neraca: Aset lancar yang belum terinci",
     value: (snapshot) =>
       residual(
         snapshot.currentAssets,
@@ -146,7 +146,7 @@ const assetDefinitions: LineDefinition[] = [
     role: "asset",
     section: "Aset tidak lancar",
     label: "Aset tetap neto",
-    source: "Neraca / jadwal aset tetap: FIXED_ASSET",
+    source: "Neraca / jadwal aset tetap: Aset tetap neto",
     value: (snapshot) => snapshot.fixedAssetsNet,
   },
   {
@@ -154,7 +154,7 @@ const assetDefinitions: LineDefinition[] = [
     role: "asset",
     section: "Aset tidak lancar",
     label: "Aset tetap non-operasional",
-    source: "Neraca: NON_OPERATING_FIXED_ASSETS",
+    source: "Neraca: Aset tetap non-operasional",
     value: (snapshot) => snapshot.nonOperatingFixedAssets,
   },
   {
@@ -162,7 +162,7 @@ const assetDefinitions: LineDefinition[] = [
     role: "asset",
     section: "Aset tidak lancar",
     label: "Aset takberwujud",
-    source: "Neraca: INTANGIBLE_ASSETS",
+    source: "Neraca: Aset takberwujud",
     value: (snapshot) => snapshot.intangibleAssets,
   },
   {
@@ -170,7 +170,7 @@ const assetDefinitions: LineDefinition[] = [
     role: "asset",
     section: "Aset tidak lancar",
     label: "Aset tidak lancar lain-lain",
-    source: "Neraca: NON_CURRENT_ASSET yang belum terinci",
+    source: "Neraca: Aset tidak lancar yang belum terinci",
     value: (snapshot) =>
       residual(snapshot.nonCurrentAssets, snapshot.fixedAssetsNet + snapshot.nonOperatingFixedAssets + snapshot.intangibleAssets),
   },
@@ -182,7 +182,7 @@ const liabilityDefinitions: LineDefinition[] = [
     role: "liability",
     section: "Liabilitas lancar",
     label: "Pinjaman bank jangka pendek",
-    source: "Neraca: BANK_LOAN_SHORT_TERM",
+    source: "Neraca: Pinjaman bank jangka pendek",
     value: (snapshot) => snapshot.bankLoanShortTerm,
   },
   {
@@ -190,7 +190,7 @@ const liabilityDefinitions: LineDefinition[] = [
     role: "liability",
     section: "Liabilitas lancar",
     label: "Utang usaha",
-    source: "Neraca: ACCOUNT_PAYABLE",
+    source: "Neraca: Utang usaha",
     value: (snapshot) => snapshot.accountPayable,
   },
   {
@@ -198,7 +198,7 @@ const liabilityDefinitions: LineDefinition[] = [
     role: "liability",
     section: "Liabilitas lancar",
     label: "Utang pajak",
-    source: "Neraca: TAX_PAYABLE",
+    source: "Neraca: Utang pajak",
     value: (snapshot) => snapshot.taxPayable,
   },
   {
@@ -206,7 +206,7 @@ const liabilityDefinitions: LineDefinition[] = [
     role: "liability",
     section: "Liabilitas lancar",
     label: "Utang lain-lain",
-    source: "Neraca: OTHER_PAYABLE",
+    source: "Neraca: Utang lain-lain",
     value: (snapshot) => snapshot.otherPayable,
   },
   {
@@ -214,7 +214,7 @@ const liabilityDefinitions: LineDefinition[] = [
     role: "liability",
     section: "Liabilitas lancar",
     label: "Utang bunga",
-    source: "Neraca: INTEREST_PAYABLE",
+    source: "Neraca: Utang bunga",
     value: (snapshot) => snapshot.interestPayable,
   },
   {
@@ -222,7 +222,7 @@ const liabilityDefinitions: LineDefinition[] = [
     role: "liability",
     section: "Liabilitas lancar",
     label: "Liabilitas lancar lain-lain",
-    source: "Neraca: CURRENT_LIABILITIES yang belum terinci",
+    source: "Neraca: Liabilitas lancar yang belum terinci",
     value: (snapshot) =>
       residual(
         snapshot.currentLiabilities,
@@ -234,7 +234,7 @@ const liabilityDefinitions: LineDefinition[] = [
     role: "liability",
     section: "Liabilitas tidak lancar",
     label: "Pinjaman bank jangka panjang",
-    source: "Neraca: BANK_LOAN_LONG_TERM / INTEREST_BEARING_DEBT",
+    source: "Neraca: Pinjaman bank jangka panjang / utang berbunga",
     value: (snapshot) => snapshot.bankLoanLongTerm,
   },
   {
@@ -242,7 +242,7 @@ const liabilityDefinitions: LineDefinition[] = [
     role: "liability",
     section: "Liabilitas tidak lancar",
     label: "Liabilitas tidak lancar lain-lain",
-    source: "Neraca: NON_CURRENT_LIABILITIES yang belum terinci",
+    source: "Neraca: Liabilitas tidak lancar yang belum terinci",
     value: (snapshot) => residual(snapshot.nonCurrentLiabilities, snapshot.bankLoanLongTerm),
   },
 ];

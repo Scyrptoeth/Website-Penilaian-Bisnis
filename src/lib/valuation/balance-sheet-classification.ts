@@ -152,7 +152,8 @@ export function getBalanceSheetClassificationOptions(category: AccountCategory):
       option.value === "current_asset" ||
       option.value === "non_current_asset" ||
       option.value === "current_liability" ||
-      option.value === "non_current_liability",
+      option.value === "non_current_liability" ||
+      option.value === "equity",
   );
 }
 

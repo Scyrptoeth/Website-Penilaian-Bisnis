@@ -27,6 +27,7 @@ export type BalanceSheetView = {
   totalAssets: Record<string, number>;
   totalLiabilities: Record<string, number>;
   totalEquity: Record<string, number>;
+  totalLiabilitiesAndEquity: Record<string, number>;
   balanceGap: Record<string, number>;
   hasRows: boolean;
   hasFixedAssetScheduleLines: boolean;
@@ -149,8 +150,11 @@ export function buildBalanceSheetView(periods: Period[], mappedRows: MappedRow[]
   const totalAssets = totalWithOverride(periods, assetLines, "TOTAL_ASSETS");
   const totalLiabilities = totalWithOverride(periods, liabilityLines, "TOTAL_LIABILITIES");
   const totalEquity = sumLineValues(periods, equityLines);
+  const totalLiabilitiesAndEquity = Object.fromEntries(
+    periods.map((period) => [period.id, (totalLiabilities[period.id] ?? 0) + (totalEquity[period.id] ?? 0)]),
+  );
   const balanceGap = Object.fromEntries(
-    periods.map((period) => [period.id, (totalAssets[period.id] ?? 0) - (totalLiabilities[period.id] ?? 0) - (totalEquity[period.id] ?? 0)]),
+    periods.map((period) => [period.id, (totalAssets[period.id] ?? 0) - (totalLiabilitiesAndEquity[period.id] ?? 0)]),
   );
 
   return {
@@ -162,6 +166,7 @@ export function buildBalanceSheetView(periods: Period[], mappedRows: MappedRow[]
     totalAssets,
     totalLiabilities,
     totalEquity,
+    totalLiabilitiesAndEquity,
     balanceGap,
     hasRows: assetLines.length > 0 || liabilityLines.length > 0 || equityLines.length > 0,
     hasFixedAssetScheduleLines: fixedAssetSchedule.hasInput,

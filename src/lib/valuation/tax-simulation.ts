@@ -222,7 +222,7 @@ export function resolveDlocPfcRate(
   if (dlocPfc.isComplete) {
     return {
       rate: dlocPfc.signedRate,
-      sourceLabel: `Rate otomatis dari tab DLOC/PFC (${dlocPfc.adjustmentType})`,
+      sourceLabel: `DLOC/PFC otomatis dari tab DLOC/PFC (${dlocPfc.adjustmentType})`,
       usesOverride: false,
       hasValidOverride: true,
     };
@@ -380,7 +380,7 @@ function buildTraces({
     },
     {
       label: "PKP simulasi pajak",
-      formula: "Round down to thousands(Max(0, selisih nilai wajar vs dilaporkan))",
+      formula: "PKP positif dibulatkan ke bawah sampai ribuan",
       value: taxComputation.taxableIncomeRounded,
       note: taxComputation.label,
     },
@@ -392,10 +392,10 @@ function buildBaselineBasis(dlom: DlomCalculation, dlocPfc: DlocPfcCalculation):
     id: "baseline",
     label: "Baseline otomatis",
     dlomRate: dlom.isComplete ? dlom.dlomRate : 0,
-    dlomSource: dlom.isComplete ? "Rate otomatis dari tab DLOM." : "DLOM belum lengkap; baseline otomatis memakai 0% sementara.",
+    dlomSource: dlom.isComplete ? "DLOM otomatis dari tab DLOM." : "DLOM belum lengkap; baseline otomatis memakai 0% sementara.",
     dlocPfcRate: dlocPfc.isComplete ? dlocPfc.signedRate : 0,
     dlocPfcSource: dlocPfc.isComplete
-      ? `Rate otomatis dari tab DLOC/PFC (${dlocPfc.adjustmentType}).`
+      ? `DLOC/PFC otomatis dari tab DLOC/PFC (${dlocPfc.adjustmentType}).`
       : "DLOC/PFC belum lengkap; baseline otomatis memakai 0% sementara.",
     isManual: false,
   };

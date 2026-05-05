@@ -29,7 +29,7 @@ export function buildValidationChecks(
       ok: fixedAssetSchedule.hasInput || mappedRows.some((item) => item.effectiveCategory !== "UNMAPPED"),
     },
     { label: "Neraca terisi", ok: snapshot.totalAssets !== 0 || snapshot.totalLiabilities !== 0 },
-    { label: "Pemeriksaan keseimbangan neraca", ok: !hasEquityComponents || Math.abs(balanceSheetGap) <= balanceTolerance },
+    { label: "Cek kesesuaian neraca", ok: !hasEquityComponents || Math.abs(balanceSheetGap) <= balanceTolerance },
     { label: "Laba rugi terisi", ok: snapshot.revenue !== 0 || snapshot.ebit !== 0 },
     { label: "Tarif pajak", ok: assumptions.taxRate.trim() !== "" },
     { label: "WACC", ok: assumptions.wacc.trim() !== "" || calculateWaccAssumption(assumptions) !== null },

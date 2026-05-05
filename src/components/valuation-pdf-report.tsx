@@ -393,10 +393,20 @@ function BalanceSheetReportTable({
             </tr>,
           ];
         })}
+        <tr className="subtotal-row">
+          <td>Liabilitas + Ekuitas</td>
+          <td>Total</td>
+          <td>Total Liabilitas + Ekuitas</td>
+          {periods.map((period) => (
+            <td className="numeric-cell" key={period.id}>
+              {formatIdr(view.totalLiabilitiesAndEquity[period.id] ?? 0)}
+            </td>
+          ))}
+        </tr>
         <tr className="balance-check-row">
-          <td>Pemeriksaan</td>
+          <td>Cek Kesesuaian</td>
           <td>Model</td>
-          <td>Aset - Liabilitas - Ekuitas</td>
+          <td>Aset - (Liabilitas + Ekuitas)</td>
           {periods.map((period) => (
             <td className="numeric-cell" key={period.id}>
               {formatIdr(view.balanceGap[period.id] ?? 0)}

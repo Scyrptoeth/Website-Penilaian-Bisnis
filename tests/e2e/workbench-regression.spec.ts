@@ -49,6 +49,7 @@ test("period workflow, scoped categories, and display-only balance sheet classif
   await openWorkflowTab(page, "Neraca & Aset Tetap");
   await page.getByRole("button", { name: "Tambah akun neraca" }).first().click();
   const balanceRow = page.getByTestId("balance-account-table-row").last();
+  await expect(balanceRow.getByLabel("Klasifikasi neraca").locator("option", { hasText: "Ekuitas" })).toHaveCount(1);
   await balanceRow.getByLabel("Nama akun").fill("Kas");
   await balanceRow.getByLabel("Tahun Y amount").fill("1000");
   await expect(balanceRow).toContainText("Saran: Kas di tangan");
@@ -57,6 +58,8 @@ test("period workflow, scoped categories, and display-only balance sheet classif
   const totalBefore = await getTotalAssetsText(page);
   await balanceRow.getByLabel("Klasifikasi neraca").selectOption("non_current_asset");
   await expect(page.getByTestId("balance-sheet-position-table")).toContainText("Aset tidak lancar");
+  await expect(page.getByTestId("balance-sheet-position-table")).toContainText("Total Liabilitas + Ekuitas");
+  await expect(page.getByTestId("balance-sheet-position-table")).toContainText("Cek Kesesuaian");
   await expect.poll(() => getTotalAssetsText(page)).toBe(totalBefore);
 
   await openWorkflowTab(page, "Laba Rugi");
@@ -249,12 +252,14 @@ test("DLOM and tax simulation render workbook-derived scenario layer after loadi
   await expect(page.getByTestId("tax-simulation-table")).toContainText("EEM");
   await expect(page.getByTestId("tax-simulation-table")).toContainText("DCF");
   await expect(page.getByTestId("tax-simulation-table")).toContainText("Primary");
-  await expect(page.getByTestId("tax-simulation-table")).toContainText("Rate otomatis dari tab DLOC/PFC");
+  await expect(page.getByTestId("tax-simulation-table")).not.toContainText("Rate otomatis dari tab DLOC/PFC");
+  await expect(page.getByTestId("tax-simulation-table")).not.toContainText("Dibulatkan:");
   await expect(page.getByText("AAM primary method")).toBeVisible();
   await expect(page.getByLabel("Catatan skenario manual")).not.toBeVisible();
   await expect(page.getByText("Jejak audit basis perhitungan")).toBeVisible();
   await expect(page.getByText("Hubungan ke base valuation")).toHaveCount(0);
   await expect(page.getByText("Detail sumber tarif dan dasar hukum")).toBeVisible();
+  await expect(page.getByTestId("tax-bracket-table")).toContainText("Total potensi pajak");
   await expect(page.getByText("Effective rate")).not.toBeVisible();
 
   await page.getByLabel("Basis final").selectOption("manualScenario");

@@ -2624,13 +2624,11 @@ function TaxSimulationSection({
                   <td className="numeric-cell">
                     {formatPercent(row.dlomRate)}
                     <span>{formatIdr(row.dlomAdjustment)}</span>
-                    <span>{row.dlomSource}</span>
                   </td>
                   <td className="numeric-cell">{formatIdr(row.valueAfterDlom)}</td>
                   <td className="numeric-cell">
                     {formatPercent(row.dlocPfcRate)}
                     <span>{formatIdr(row.dlocPfcAdjustment)}</span>
-                    <span>{row.dlocPfcSource}</span>
                   </td>
                   <td className="numeric-cell">{formatIdr(row.marketValueOfEquity100)}</td>
                   <td className="numeric-cell">{formatPercent(row.sharePercentage)}</td>
@@ -2639,7 +2637,6 @@ function TaxSimulationSection({
                   <td className="numeric-cell">{formatIdr(row.transferValueDifference)}</td>
                   <td className="numeric-cell">
                     {formatIdr(row.potentialTaxableDifference)}
-                    <span>Dibulatkan: {formatIdr(row.taxableIncomeRounded)}</span>
                   </td>
                   <td className="numeric-cell">
                     <strong>{formatIdr(row.potentialTax)}</strong>
@@ -2688,7 +2685,7 @@ function TaxSimulationSection({
             ) : null}
           </div>
           <div className="table-wrap tax-bracket-table-wrap">
-            <table className="tax-bracket-table">
+            <table className="tax-bracket-table" data-testid="tax-bracket-table">
               <thead>
                 <tr>
                   <th>Layer</th>
@@ -2707,6 +2704,14 @@ function TaxSimulationSection({
                   </tr>
                 ))}
               </tbody>
+              <tfoot>
+                <tr className="total-row tax-total-row">
+                  <td>Total potensi pajak</td>
+                  <td className="numeric-cell">{formatIdr(primaryRow.taxableIncomeRounded)}</td>
+                  <td className="numeric-cell">-</td>
+                  <td className="numeric-cell">{formatIdr(primaryRow.potentialTax)}</td>
+                </tr>
+              </tfoot>
             </table>
           </div>
           <details className="audit-disclosure compact">
@@ -3603,10 +3608,22 @@ function BalanceSheetPositionTable({ periods, view }: { periods: Period[]; view:
                 </tr>
               </Fragment>
             ))}
-            <tr className="balance-check-row">
-              <td>Pemeriksaan</td>
+            <tr className="total-row balance-liabilities-equity-row">
+              <td>Liabilitas + Ekuitas</td>
+              <td>Total</td>
+              <td>Total Liabilitas + Ekuitas</td>
               <td>Model</td>
-              <td>Aset - Liabilitas - Ekuitas</td>
+              {periods.map((period) => (
+                <td className="numeric-cell period-column" key={period.id}>
+                  {formatInputNumber(view.totalLiabilitiesAndEquity[period.id] ?? 0)}
+                </td>
+              ))}
+              <td />
+            </tr>
+            <tr className="balance-check-row">
+              <td>Cek Kesesuaian</td>
+              <td>Model</td>
+              <td>Aset - (Liabilitas + Ekuitas)</td>
               <td>Model</td>
               {periods.map((period) => {
                 const value = view.balanceGap[period.id] ?? 0;

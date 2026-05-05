@@ -28,7 +28,7 @@ describe("balance sheet classification and view", () => {
 
     assert.deepEqual(
       getBalanceSheetClassificationOptions("REVENUE").map((option) => option.value),
-      ["current_asset", "non_current_asset", "current_liability", "non_current_liability"],
+      ["current_asset", "non_current_asset", "current_liability", "non_current_liability", "equity"],
     );
   });
 
