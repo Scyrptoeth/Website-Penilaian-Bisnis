@@ -5422,27 +5422,35 @@ function RequiredReturnOnNtaPanel({
       <div className="calculator-input-grid">
         <AssumptionInput
           label="Kapasitas piutang"
-          value={assumptions.requiredReturnReceivablesCapacity || suggestedValue("requiredReturnReceivablesCapacity")}
+          value={assumptions.requiredReturnReceivablesCapacity}
+          suggestion={buildRequiredReturnInputSuggestion(suggestion.fields.requiredReturnReceivablesCapacity, "rate")}
           note={buildSuggestionInputNote(assumptions.requiredReturnReceivablesCapacity, suggestion.fields.requiredReturnReceivablesCapacity)}
           onChange={(value) => onChange("requiredReturnReceivablesCapacity", value)}
+          onApplySuggestion={(value) => onChange("requiredReturnReceivablesCapacity", value)}
         />
         <AssumptionInput
           label="Kapasitas persediaan"
-          value={assumptions.requiredReturnInventoryCapacity || suggestedValue("requiredReturnInventoryCapacity")}
+          value={assumptions.requiredReturnInventoryCapacity}
+          suggestion={buildRequiredReturnInputSuggestion(suggestion.fields.requiredReturnInventoryCapacity, "rate")}
           note={buildSuggestionInputNote(assumptions.requiredReturnInventoryCapacity, suggestion.fields.requiredReturnInventoryCapacity)}
           onChange={(value) => onChange("requiredReturnInventoryCapacity", value)}
+          onApplySuggestion={(value) => onChange("requiredReturnInventoryCapacity", value)}
         />
         <AssumptionInput
           label="Kapasitas aset tetap"
-          value={assumptions.requiredReturnFixedAssetCapacity || suggestedValue("requiredReturnFixedAssetCapacity")}
+          value={assumptions.requiredReturnFixedAssetCapacity}
+          suggestion={buildRequiredReturnInputSuggestion(suggestion.fields.requiredReturnFixedAssetCapacity, "rate")}
           note={buildSuggestionInputNote(assumptions.requiredReturnFixedAssetCapacity, suggestion.fields.requiredReturnFixedAssetCapacity)}
           onChange={(value) => onChange("requiredReturnFixedAssetCapacity", value)}
+          onApplySuggestion={(value) => onChange("requiredReturnFixedAssetCapacity", value)}
         />
         <AssumptionInput
           label="Jumlah kapasitas tambahan"
-          value={assumptions.requiredReturnAdditionalCapacity || suggestedValue("requiredReturnAdditionalCapacity")}
+          value={assumptions.requiredReturnAdditionalCapacity}
+          suggestion={buildRequiredReturnInputSuggestion(suggestion.fields.requiredReturnAdditionalCapacity, "number")}
           note={buildSuggestionInputNote(assumptions.requiredReturnAdditionalCapacity, suggestion.fields.requiredReturnAdditionalCapacity)}
           onChange={(value) => onChange("requiredReturnAdditionalCapacity", value)}
+          onApplySuggestion={(value) => onChange("requiredReturnAdditionalCapacity", value)}
         />
         <AssumptionInput
           label="After-tax debt cost"
@@ -5491,7 +5499,7 @@ function RequiredReturnOnNtaSuggestionBlock({ suggestion }: { suggestion: Requir
           <strong>Basis required return on NTA</strong>
         </div>
         <em className={`source-badge ${suggestion.waitingFor.length === 0 ? "manual" : "sensitivity"}`}>
-          {suggestion.waitingFor.length === 0 ? "input-first" : "butuh input"}
+          {suggestion.waitingFor.length === 0 ? "saran sistem" : "butuh input"}
         </em>
       </div>
       <p className="assumption-empty-note">{suggestion.summary}</p>
@@ -6023,6 +6031,21 @@ function formatRequiredReturnSuggestionInput(field: RequiredReturnOnNtaSuggestio
   return field?.canAutoApply && field.value !== null ? formatInputNumber(field.value) : "";
 }
 
+function buildRequiredReturnInputSuggestion(
+  field: RequiredReturnOnNtaSuggestionField | undefined,
+  kind: OptionalDriverSuggestionKind,
+): OptionalDriverSuggestion | undefined {
+  if (!field || field.value === null) {
+    return undefined;
+  }
+
+  return {
+    value: formatOptionalDriverSuggestionInput(field.value, kind),
+    displayValue: formatRequiredReturnSuggestionDisplay(field),
+    kind,
+  };
+}
+
 function formatRequiredReturnSuggestionDisplay(field: RequiredReturnOnNtaSuggestionField): string {
   if (field.value === null) {
     return "Perlu input";
@@ -6040,7 +6063,8 @@ function buildSuggestionInputNote(currentValue: string, field: RequiredReturnOnN
     return undefined;
   }
 
-  return `${field.canAutoApply ? "Auto" : "Input"}: ${field.basis}. ${field.note}`;
+  const prefix = field.value !== null ? (field.canAutoApply ? "Auto aktif" : "Saran sistem") : "Input";
+  return `${prefix}: ${field.basis}. ${field.note}`;
 }
 
 function applyIdxComparableSuggestions(

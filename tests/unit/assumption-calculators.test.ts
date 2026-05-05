@@ -81,7 +81,7 @@ describe("assumption calculators", () => {
     assertAlmostEqual(calculation.equityWeight, 0.75, 1e-12);
   });
 
-  it("keeps required return on NTA capacity inputs user-evidence driven while deriving Kd and Ke from WACC", () => {
+  it("suggests required return on NTA capacity inputs without silently auto-applying them", () => {
     const balances = {
       accountReceivable: 191_055_111,
       employeeReceivable: 21_000_000,
@@ -96,11 +96,14 @@ describe("assumption calculators", () => {
       },
     });
 
-    assert.equal(suggestion.fields.requiredReturnReceivablesCapacity?.value, null);
+    assert.equal(suggestion.fields.requiredReturnReceivablesCapacity?.value, 1);
     assert.equal(suggestion.fields.requiredReturnReceivablesCapacity?.canAutoApply, false);
-    assert.equal(suggestion.fields.requiredReturnInventoryCapacity?.value, null);
-    assert.equal(suggestion.fields.requiredReturnFixedAssetCapacity?.value, null);
-    assert.equal(suggestion.fields.requiredReturnAdditionalCapacity?.value, null);
+    assert.equal(suggestion.fields.requiredReturnInventoryCapacity?.value, 0);
+    assert.equal(suggestion.fields.requiredReturnInventoryCapacity?.canAutoApply, false);
+    assert.equal(suggestion.fields.requiredReturnFixedAssetCapacity?.value, 0.7);
+    assert.equal(suggestion.fields.requiredReturnFixedAssetCapacity?.canAutoApply, false);
+    assert.equal(suggestion.fields.requiredReturnAdditionalCapacity?.value, 21_000_000);
+    assert.equal(suggestion.fields.requiredReturnAdditionalCapacity?.canAutoApply, false);
     assert.equal(suggestion.fields.requiredReturnAfterTaxDebtCost?.value, 0.06864);
     assert.equal(suggestion.fields.requiredReturnAfterTaxDebtCost?.canAutoApply, true);
     assert.equal(suggestion.fields.requiredReturnEquityCost?.value, 0.124537);

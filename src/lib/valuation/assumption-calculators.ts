@@ -1,4 +1,5 @@
 import type { AssumptionState } from "./case-model";
+import { valuationDriverGovernancePolicy } from "./valuation-driver-governance-policy";
 
 export type WaccCalculation = {
   costOfEquity: number;
@@ -248,53 +249,62 @@ export function buildRequiredReturnOnNtaSuggestion({
   fixedAssetsNet,
   waccCalculation,
 }: RequiredReturnOnNtaSuggestionInputs): RequiredReturnOnNtaSuggestion {
+  const policy = valuationDriverGovernancePolicy.requiredReturnOnNta;
+  const receivables = positive(accountReceivable);
+  const additionalReceivables = positive(employeeReceivable);
+  const inventoryBase = positive(inventory);
+  const fixedAssetBase = positive(fixedAssetsNet);
   const fields: RequiredReturnOnNtaSuggestion["fields"] = {
     requiredReturnReceivablesCapacity: {
       key: "requiredReturnReceivablesCapacity",
       label: "Kapasitas piutang",
-      value: null,
-      source: "Bukti pengguna",
-      basis: "Borrowing base piutang usaha atau advance rate agunan",
+      value: receivables > 0 ? policy.receivablesCapacityProxy : null,
+      source: "Dihitung dari Neraca aktif dan kebijakan kapasitas sistem",
+      basis: "Borrowing base piutang usaha; piutang karyawan/other receivable diroute sebagai kapasitas tambahan agar rasio AR tidak melebihi 100%.",
       formula: "Piutang usaha eligible x kapasitas piutang",
-      note: "Isi dari kebijakan kreditur, borrowing-base certificate, aging piutang tertagih, atau judgment penilai atas kualitas piutang dagang.",
-      status: "user_input",
+      note: "Saran mengikuti struktur borrowing capacity workbook: trade AR menjadi basis utama, sementara saldo piutang tambahan dipisahkan agar tidak double-count. Review aging dan ketertertagihan sebelum dipakai final.",
+      status: receivables > 0 ? "auto" : "waiting",
       canAutoApply: false,
     },
     requiredReturnInventoryCapacity: {
       key: "requiredReturnInventoryCapacity",
       label: "Kapasitas persediaan",
-      value: null,
-      source: "Bukti pengguna",
-      basis: "Borrowing base persediaan atau tingkat kelayakan agunan",
+      value: inventoryBase > 0 ? policy.inventoryCapacityProxy : 0,
+      source: "Dihitung dari Neraca aktif dan kebijakan kapasitas sistem",
+      basis: inventoryBase > 0
+        ? "Proxy konservatif persediaan mengikuti kebijakan sistem sampai ada lender haircut atau bukti inventory eligible."
+        : "Inventory aktif nol; formula workbook memakai 0 bila denominator inventory tidak tersedia.",
       formula: "Persediaan eligible x kapasitas persediaan",
-      note: positive(inventory) > 0
-        ? "Isi dari lender haircut, aging persediaan, tingkat usang/rusak, perputaran stok, dan bukti apakah inventory dapat dijaminkan."
-        : "Inventory aktif masih nol. Isi 0% bila memang tidak ada inventory eligible, atau lengkapi Neraca bila inventory seharusnya ada.",
-      status: "user_input",
+      note: inventoryBase > 0
+        ? "Gunakan 0% sebagai saran konservatif bila belum ada bukti inventory pledgeable; override bila ada lender haircut, aging, atau bukti kelayakan agunan."
+        : "Inventory aktif masih nol, sehingga saran sistem adalah 0% dan tidak menambah kapasitas utang.",
+      status: "auto",
       canAutoApply: false,
     },
     requiredReturnFixedAssetCapacity: {
       key: "requiredReturnFixedAssetCapacity",
       label: "Kapasitas aset tetap",
-      value: null,
-      source: "Bukti pengguna",
-      basis: "Haircut agunan aset tetap atau capacity rate berbasis appraisal",
+      value: fixedAssetBase > 0 ? policy.fixedAssetCapacityProxy : null,
+      source: "Dihitung dari Neraca aktif dan kebijakan kapasitas sistem",
+      basis: "Haircut agunan aset tetap mengikuti struktur borrowing capacity workbook.",
       formula: "Aset tetap neto x kapasitas aset tetap",
-      note: "Isi dari appraisal aset, kebijakan loan-to-value, covenant kreditur, umur/manfaat aset, dan apakah aset tersebut benar-benar operating/pledgeable.",
-      status: "user_input",
+      note: "Saran sistem memakai 70% atas aset tetap neto sebagai proxy. Override bila appraisal, covenant, umur/manfaat aset, atau pledgeability menunjukkan haircut berbeda.",
+      status: fixedAssetBase > 0 ? "auto" : "waiting",
       canAutoApply: false,
     },
     requiredReturnAdditionalCapacity: {
       key: "requiredReturnAdditionalCapacity",
       label: "Jumlah kapasitas tambahan",
-      value: null,
-      source: "Bukti pengguna",
-      basis: "Kapasitas berwujud eligible lain yang belum tercakup dalam AR, persediaan, atau aset tetap",
+      value: additionalReceivables,
+      source: "Dihitung dari Neraca aktif dan kebijakan kapasitas sistem",
+      basis: additionalReceivables > 0
+        ? "Saldo piutang karyawan/other receivable aktif diperlakukan sebagai kapasitas tambahan, terpisah dari trade AR."
+        : "Tidak ada saldo piutang tambahan aktif; saran sistem tidak menambah kapasitas utang.",
       formula: "Jumlah eligible manual ditambahkan ke kapasitas utang",
-      note: positive(employeeReceivable) > 0
-        ? "Terdapat other/employee receivable pada Neraca aktif. Masukkan hanya jika penilai menyimpulkan saldo tersebut eligible sebagai kapasitas tambahan."
-        : "Gunakan hanya untuk kapasitas berwujud tambahan yang didukung bukti, agar tidak double-count dengan AR, inventory, atau fixed assets.",
-      status: "user_input",
+      note: additionalReceivables > 0
+        ? "Terdapat other/employee receivable pada Neraca aktif. Gunakan saran hanya bila penilai menyimpulkan saldo tersebut eligible sebagai kapasitas tambahan."
+        : "Gunakan 0 bila tidak ada kapasitas berwujud tambahan yang didukung bukti, agar tidak double-count dengan AR, inventory, atau fixed assets.",
+      status: "auto",
       canAutoApply: false,
     },
   };

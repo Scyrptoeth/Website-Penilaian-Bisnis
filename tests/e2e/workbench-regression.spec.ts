@@ -517,9 +517,14 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await expect(page.getByTestId("wacc-comparable-table")).toContainText("25% utang / 75% ekuitas");
 
   await openWorkflowTab(page, "Asumsi EEM/DCF");
+  const receivablesCapacityInput = page.locator("#assumption-kapasitas-piutang");
+  const inventoryCapacityInput = page.locator("#assumption-kapasitas-persediaan");
+  const fixedAssetCapacityInput = page.locator("#assumption-kapasitas-aset-tetap");
+  const additionalCapacityInput = page.locator("#assumption-jumlah-kapasitas-tambahan");
   await expect(page.getByTestId("required-return-suggestion-card")).toContainText("Basis required return on NTA");
   await expect(page.getByTestId("required-return-suggestion-card")).toContainText("Perlu input");
-  await expect(page.getByLabel("Kapasitas aset tetap")).toHaveValue("");
+  await expect(fixedAssetCapacityInput).toHaveValue("");
+  await expect(page.getByRole("button", { name: "Gunakan nilai sistem untuk Kapasitas aset tetap" })).toHaveCount(0);
   await expect(page.getByLabel("After-tax debt cost")).toHaveValue("0,0702");
   await expect(page.getByTestId("required-return-on-nta-calculator")).not.toContainText("BORROWING CAP");
   await expect(page.getByTestId("required-return-on-nta-calculator")).not.toContainText("DISCOUNT RATE");
@@ -532,11 +537,25 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await expect(page.getByTestId("terminal-growth-calculator")).toContainText("Tata kelola terminal growth");
   await expect(page.getByTestId("required-return-on-nta-calculator")).toContainText("Kapasitas piutang");
   await expect(page.getByTestId("required-return-suggestion-card")).toContainText("Basis required return on NTA");
-  await expect(page.getByTestId("required-return-suggestion-card")).toContainText("Perlu input");
-  await expect(page.getByLabel("Kapasitas aset tetap")).toHaveValue("0,7");
+  await expect(page.getByTestId("required-return-suggestion-card")).toContainText("100%");
+  await expect(page.getByTestId("required-return-suggestion-card")).toContainText("70%");
+  await expect(fixedAssetCapacityInput).toHaveValue("0,7");
   await expect(page.getByLabel("After-tax debt cost")).toHaveValue("0,06864");
   await expect(page.getByTestId("required-return-on-nta-calculator")).not.toContainText("BORROWING CAP");
   await expect(page.getByTestId("required-return-on-nta-calculator")).not.toContainText("DISCOUNT RATE");
+
+  const receivablesCapacityAppliedButton = page.getByRole("button", {
+    name: "Nilai sistem sudah dipakai untuk Kapasitas piutang",
+  });
+  const receivablesCapacitySuggestionButton = page.getByRole("button", {
+    name: "Gunakan nilai sistem untuk Kapasitas piutang",
+  });
+  await expect(receivablesCapacityAppliedButton).toBeDisabled();
+  await receivablesCapacityInput.fill("");
+  await expect(receivablesCapacitySuggestionButton).toBeEnabled();
+  await receivablesCapacitySuggestionButton.click();
+  await expect(receivablesCapacityInput).toHaveValue("100");
+  await expect(receivablesCapacityAppliedButton).toBeDisabled();
 
   const revenueGrowthAppliedButton = page.getByRole("button", {
     name: "Nilai sistem sudah dipakai untuk Override pertumbuhan pendapatan (opsional)",
@@ -554,10 +573,10 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await expect(revenueGrowthAppliedButton).toBeDisabled();
   await expect(revenueGrowthOverrideField.locator(".auto-source-note")).toContainText("nilai eksplisit di field");
 
-  await page.getByLabel("Kapasitas piutang").fill("");
-  await page.getByLabel("Kapasitas persediaan").fill("");
-  await page.getByLabel("Kapasitas aset tetap").fill("");
-  await page.getByLabel("Jumlah kapasitas tambahan").fill("");
+  await receivablesCapacityInput.fill("");
+  await inventoryCapacityInput.fill("");
+  await fixedAssetCapacityInput.fill("");
+  await additionalCapacityInput.fill("");
   await expect(page.getByTestId("required-return-on-nta-calculator")).toContainText("Fallback struktur kapital WACC");
   await expect(page.getByTestId("required-return-on-nta-calculator")).toContainText("Bobot utang WACC x Kd");
   await expect(page.locator("body")).not.toContainText("STAT_ASSUMPTIONS");
