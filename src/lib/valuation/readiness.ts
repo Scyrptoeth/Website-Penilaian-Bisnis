@@ -15,6 +15,7 @@ import type { AccountCategory, FinancialStatementSnapshot } from "./types";
 export type WorkbenchSectionId =
   | "periods"
   | "balance"
+  | "fixedAssets"
   | "income"
   | "mapping"
   | "wacc"
@@ -136,7 +137,7 @@ export function buildWorkbenchReadiness({
 
   const period = criterion(hasPeriod, "Periode aktif tersedia", "periods", "Isi Data Awal");
   const comparativePeriod = criterion(hasComparativePeriod, "Minimal dua periode untuk movement dan cash-flow bridge", "periods", "Tambah Periode");
-  const balance = criterion(hasBalanceInput, "Data neraca / fixed asset tersedia", "balance", "Isi Neraca");
+  const balance = criterion(hasBalanceInput, "Data neraca atau aset tetap tersedia", "balance", "Isi Neraca");
   const income = criterion(hasIncomeInput, "Data laba rugi tersedia", "income", "Isi Laba Rugi");
   const mapped = criterion(
     hasMappedAccount,
@@ -161,7 +162,7 @@ export function buildWorkbenchReadiness({
   const fixedAssetOrDepreciation = criterion(
     hasFixedAssetOrDepreciationBasis,
     "Basis penyusutan/capex tersedia dari fixed asset atau beban penyusutan",
-    "balance",
+    "fixedAssets",
     "Isi Aset Tetap",
   );
   const hasCompanyType = criterion(caseProfile.companyType.trim() !== "", "Jenis Perusahaan tersedia untuk basis DLOM dan rentang DLOC/PFC", "periods", "Isi Data Awal");
@@ -194,7 +195,8 @@ export function buildWorkbenchReadiness({
 
   return {
     periods: status("periods", "Data Awal", [period]),
-    balance: status("balance", "Neraca & Aset Tetap", [period]),
+    balance: status("balance", "Neraca", [period]),
+    fixedAssets: status("fixedAssets", "Aset Tetap", [period]),
     income: status("income", "Laba Rugi", [period, income]),
     mapping: status("mapping", "Kategorisasi Akun", [anyAccount, mapped]),
     wacc: status("wacc", "WACC", [period, taxRateForWacc, waccMarketInputs, wacc]),

@@ -170,7 +170,7 @@ export function calculateAam(snapshot: FinancialStatementSnapshot, options: AamO
       label: "Aset historis basis AAM",
       formula: "Input total aset atau jumlah komponen aset bila total aset kosong",
       value: historicalAssets,
-      note: "Basis historis berasal dari Neraca & Aset Tetap pada periode aktif.",
+      note: "Basis historis berasal dari tab Neraca dan Aset Tetap pada periode aktif.",
     },
     {
       label: "Penyesuaian aset AAM",

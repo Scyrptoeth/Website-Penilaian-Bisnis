@@ -30,6 +30,9 @@ test("period workflow, scoped categories, and display-only balance sheet classif
   await expect(page.getByRole("button", { name: "Kosongkan" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Reset" })).toBeDisabled();
   await expect(workflowNav(page).getByRole("button", { name: "Data Awal" })).toHaveAttribute("aria-current", "page");
+  await expect(workflowNav(page).getByRole("button", { name: "Neraca", exact: true })).toBeVisible();
+  await expect(workflowNav(page).getByRole("button", { name: "Aset Tetap", exact: true })).toBeVisible();
+  await expect(workflowNav(page).getByRole("button", { name: "Neraca & Aset Tetap", exact: true })).toHaveCount(0);
   await expect(workflowNav(page).getByRole("button", { name: "Pemetaan & Label" })).toHaveCount(0);
   await expect(page.getByTestId("case-profile-panel")).toBeVisible();
   await expect(page.getByRole("button", { name: /Buat checkpoint/i })).toHaveCount(0);
@@ -66,7 +69,7 @@ test("period workflow, scoped categories, and display-only balance sheet classif
   await expect(page.getByLabel("BL 1")).toHaveValue("0,261");
   await expect(page.getByLabel("Market Cap 1")).toHaveValue("117.849.604.096");
 
-  await openWorkflowTab(page, "Neraca & Aset Tetap");
+  await openWorkflowTab(page, "Neraca");
   await page.getByRole("button", { name: "Tambah akun neraca" }).first().click();
   const balanceRow = page.getByTestId("balance-account-table-row").last();
   await expect(balanceRow.getByLabel("Klasifikasi neraca").locator("option", { hasText: "Ekuitas" })).toHaveCount(1);
@@ -99,7 +102,7 @@ test("period workflow, scoped categories, and display-only balance sheet classif
 
 test("fixed asset schedule remains empty until user adds a class and then rolls forward values", async ({ page }) => {
   await page.getByRole("button", { name: /Tambah Y-1/ }).click();
-  await openWorkflowTab(page, "Neraca & Aset Tetap");
+  await openWorkflowTab(page, "Aset Tetap");
   await expect(page.getByRole("button", { name: "Jadwal Aset Tetap" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "A. Biaya Perolehan · B. Penyusutan · Nilai Buku Neto" })).toHaveCount(0);
   await expect(page.getByTestId("fixed-asset-empty")).toBeVisible();
@@ -130,13 +133,14 @@ test("fixed asset schedule remains empty until user adds a class and then rolls 
     Array.from(table.querySelectorAll("thead th:not(.fixed-asset-asset-column)")).map((cell) => Math.round(cell.getBoundingClientRect().width)),
   );
   expect(Math.max(...netValuePeriodWidths) - Math.min(...netValuePeriodWidths)).toBeLessThanOrEqual(2);
+  await openWorkflowTab(page, "Neraca");
   await expect(page.getByTestId("balance-sheet-position-table")).toContainText("Nilai buku bersih aset tetap");
   expect(await hasNoRootHorizontalOverflow(page)).toBe(true);
 });
 
 test("AAM valuation remains available without WACC or EEM/DCF driver inputs", async ({ page }) => {
   await page.getByLabel("Tanggal penilaian").fill("2021-12-31");
-  await openWorkflowTab(page, "Neraca & Aset Tetap");
+  await openWorkflowTab(page, "Neraca");
   await page.getByRole("button", { name: "Tambah akun neraca" }).first().click();
   let balanceRow = page.getByTestId("balance-account-table-row").last();
   await balanceRow.getByLabel("Nama akun").fill("Kas");
@@ -779,7 +783,7 @@ test("legacy positive income-statement expense drafts migrate once and remain us
 });
 
 test("localStorage persistence, fixed header, and root overflow checks remain stable", async ({ page }) => {
-  await openWorkflowTab(page, "Neraca & Aset Tetap");
+  await openWorkflowTab(page, "Neraca");
   await page.getByTitle("Sembunyikan sidebar").click();
   await expect.poll(() => page.evaluate(() => window.localStorage.getItem("penilaian-valuasi-bisnis.sidebar.v1"))).toBe("collapsed");
   await page.getByRole("button", { name: "Tambah akun neraca" }).first().click();
@@ -788,7 +792,7 @@ test("localStorage persistence, fixed header, and root overflow checks remain st
 
   await expect(page.getByTestId("sidebar-rail")).toBeVisible();
   await page.getByRole("button", { name: "Tampilkan sidebar" }).click();
-  await openWorkflowTab(page, "Neraca & Aset Tetap");
+  await openWorkflowTab(page, "Neraca");
   await expect(page.getByTestId("balance-account-table-row").last().getByLabel("Nama akun")).toHaveValue("Piutang usaha");
 
   for (let index = 0; index < 12; index += 1) {

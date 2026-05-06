@@ -39,6 +39,7 @@ describe("workbench readiness", () => {
     });
 
     assert.equal(readiness.valuationAam.isReady, false);
+    assert.equal(readiness.fixedAssets.isReady, true);
     assert.equal(readiness.valuationEemDcf.isReady, false);
     assert.equal(readiness.projectedIncome.isReady, false);
     assert.equal(readiness.projectedBalance.isReady, false);
@@ -59,6 +60,7 @@ describe("workbench readiness", () => {
     assert.ok(readiness.projectedIncome.missing.some((item) => item.targetTab === "income"));
     assert.ok(readiness.projectedIncome.missing.some((item) => item.targetTab === "eemDcfAssumptions"));
     assert.ok(readiness.projectedBalance.missing.some((item) => item.targetTab === "balance"));
+    assert.ok(readiness.projectedFixedAssets.missing.some((item) => item.targetTab === "fixedAssets"));
     assert.ok(readiness.projectedCashFlow.missing.some((item) => item.targetTab === "eemDcfAssumptions"));
     assert.ok(readiness.dlom.missing.some((item) => item.targetTab === "periods"));
     assert.ok(readiness.noplatFcf.missing.some((item) => item.targetTab === "eemDcfAssumptions"));
@@ -95,6 +97,7 @@ describe("workbench readiness", () => {
     assert.equal(readiness.financialRatio.isReady, true);
     assert.equal(readiness.roic.isReady, true);
     assert.equal(readiness.valuationAam.isReady, true);
+    assert.equal(readiness.fixedAssets.isReady, true);
     assert.equal(readiness.valuationEemDcf.isReady, true);
     assert.equal(readiness.projectedIncome.isReady, true);
     assert.equal(readiness.projectedBalance.isReady, true);

@@ -465,7 +465,8 @@ declare global {
 
 const workflowTabs: Array<{ id: WorkflowTabId; label: string }> = [
   { id: "periods", label: "Data Awal" },
-  { id: "balance", label: "Neraca & Aset Tetap" },
+  { id: "balance", label: "Neraca" },
+  { id: "fixedAssets", label: "Aset Tetap" },
   { id: "income", label: "Laba Rugi" },
   { id: "wacc", label: "WACC" },
   { id: "eemDcfAssumptions", label: "Asumsi EEM/DCF" },
@@ -1924,23 +1925,14 @@ export function ValuationWorkbench() {
         ) : null}
 
         {activeWorkflowTab === "balance" ? (
-        <section id="accounts" className="panel">
+        <section id="balance" className="panel">
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">Langkah 2</p>
-              <h3>Neraca dan aset tetap</h3>
+              <p className="eyebrow">Langkah 2A</p>
+              <h3>Neraca</h3>
             </div>
           </div>
           <ReadinessPanel status={readiness.balance} onNavigate={navigateToWorkflowTab} />
-
-          <FixedAssetScheduleEditor
-            periods={periods}
-            schedule={fixedAssetSchedule}
-            onAddRow={addFixedAssetScheduleRow}
-            onRemoveRow={removeFixedAssetScheduleRow}
-            onUpdateRow={updateFixedAssetScheduleRow}
-            onUpdateValue={updateFixedAssetScheduleValue}
-          />
 
           <div className="subpanel-heading account-input-heading">
             <div>
@@ -1975,11 +1967,32 @@ export function ValuationWorkbench() {
         </section>
         ) : null}
 
+        {activeWorkflowTab === "fixedAssets" ? (
+        <section id="fixedAssets" className="panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Langkah 2B</p>
+              <h3>Aset Tetap</h3>
+            </div>
+          </div>
+          <ReadinessPanel status={readiness.fixedAssets} onNavigate={navigateToWorkflowTab} />
+
+          <FixedAssetScheduleEditor
+            periods={periods}
+            schedule={fixedAssetSchedule}
+            onAddRow={addFixedAssetScheduleRow}
+            onRemoveRow={removeFixedAssetScheduleRow}
+            onUpdateRow={updateFixedAssetScheduleRow}
+            onUpdateValue={updateFixedAssetScheduleValue}
+          />
+        </section>
+        ) : null}
+
         {activeWorkflowTab === "income" ? (
         <section id="income" className="panel">
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">Langkah 2B</p>
+              <p className="eyebrow">Langkah 2C</p>
               <h3>Laba rugi dan driver operasi</h3>
             </div>
             <button className="button secondary" type="button" onClick={() => addRow("income_statement")}>
