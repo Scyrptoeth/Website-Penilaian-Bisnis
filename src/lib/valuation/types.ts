@@ -194,6 +194,15 @@ export interface DcfForecastRow {
   interestExpense: number;
   otherIncomeCharge: number;
   nonOperatingIncome: number;
+  accountingProfitBeforeTax: number;
+  accountingTaxOnPbt: number;
+  accountingNetProfitAfterTax: number;
+  noplatBridgeInterestExpenseAddBack: number;
+  noplatBridgeInterestIncomeDeduction: number;
+  noplatBridgeNonOperatingIncomeDeduction: number;
+  noplatBridgeOperatingEbit: number;
+  noplatBridgeTaxOnEbit: number;
+  noplatBridgeNoplat: number;
   cashOnHand: number;
   cashOnBankDeposit: number;
   accountReceivable: number;

@@ -349,6 +349,19 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
     const interestExpense = projectInterestExpense(bankLoanShortTerm + bankLoanLongTerm, revenue, interestExpenseDebtRate, interestExpenseRevenueMargin);
     const otherIncomeCharge = interestIncome + interestExpense;
     const nonOperatingIncome = revenue * nonOperatingIncomeRevenueMargin;
+    const accountingProfitBeforeTax = ebit + otherIncomeCharge + nonOperatingIncome;
+    const accountingTaxOnPbt = accountingProfitBeforeTax * snapshot.taxRate;
+    const accountingNetProfitAfterTax = accountingProfitBeforeTax - accountingTaxOnPbt;
+    const noplatBridgeInterestExpenseAddBack = -interestExpense;
+    const noplatBridgeInterestIncomeDeduction = -interestIncome;
+    const noplatBridgeNonOperatingIncomeDeduction = -nonOperatingIncome;
+    const noplatBridgeOperatingEbit =
+      accountingProfitBeforeTax +
+      noplatBridgeInterestExpenseAddBack +
+      noplatBridgeInterestIncomeDeduction +
+      noplatBridgeNonOperatingIncomeDeduction;
+    const noplatBridgeTaxOnEbit = statutoryTaxOnEbit;
+    const noplatBridgeNoplat = noplatBridgeOperatingEbit - noplatBridgeTaxOnEbit;
     const currentAssets = cashTotal + ar + employeeReceivable + inventory + otherCurrentAssets;
     const nonCurrentAssets = fixedAssetsEnding + otherNonCurrentAssets + intangibleAssets;
     const totalAssets = currentAssets + nonCurrentAssets;
@@ -398,6 +411,15 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
       interestExpense,
       otherIncomeCharge,
       nonOperatingIncome,
+      accountingProfitBeforeTax,
+      accountingTaxOnPbt,
+      accountingNetProfitAfterTax,
+      noplatBridgeInterestExpenseAddBack,
+      noplatBridgeInterestIncomeDeduction,
+      noplatBridgeNonOperatingIncomeDeduction,
+      noplatBridgeOperatingEbit,
+      noplatBridgeTaxOnEbit,
+      noplatBridgeNoplat,
       cashOnHand,
       cashOnBankDeposit,
       accountReceivable: ar,

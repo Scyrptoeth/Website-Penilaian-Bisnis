@@ -51,6 +51,14 @@ describe("valuation calculations", () => {
       assertAlmostEqual(row.projectedNetIncome, row.noplat, 0.01);
       assertAlmostEqual(row.otherIncomeCharge, row.interestIncome + row.interestExpense, 0.01);
       assertAlmostEqual(row.nonOperatingIncome, row.revenue * snapshot.nonOperatingIncomeRevenueMargin, 0.01);
+      assertAlmostEqual(row.accountingProfitBeforeTax, row.ebit + row.otherIncomeCharge + row.nonOperatingIncome, 0.01);
+      assertAlmostEqual(row.accountingNetProfitAfterTax, row.accountingProfitBeforeTax - row.accountingTaxOnPbt, 0.01);
+      assertAlmostEqual(row.noplatBridgeInterestExpenseAddBack, -row.interestExpense, 0.01);
+      assertAlmostEqual(row.noplatBridgeInterestIncomeDeduction, -row.interestIncome, 0.01);
+      assertAlmostEqual(row.noplatBridgeNonOperatingIncomeDeduction, -row.nonOperatingIncome, 0.01);
+      assertAlmostEqual(row.noplatBridgeOperatingEbit, row.ebit, 0.01);
+      assertAlmostEqual(row.noplatBridgeTaxOnEbit, row.statutoryTaxOnEbit, 0.01);
+      assertAlmostEqual(row.noplatBridgeNoplat, row.noplat, 0.01);
       assertAlmostEqual(row.dividendDistribution, 0, 0.01);
       assertAlmostEqual(row.operatingNwc, row.operatingCurrentAssets - row.operatingCurrentLiabilities, 0.01);
       assertAlmostEqual(row.currentAssets, row.cashOnHand + row.cashOnBankDeposit + row.accountReceivable + row.employeeReceivable + row.inventory + row.otherCurrentAssets, 0.01);
@@ -91,10 +99,14 @@ describe("valuation calculations", () => {
     assert.notEqual(presentationAdjusted.forecast[0].interestIncome, base.forecast[0].interestIncome);
     assert.notEqual(presentationAdjusted.forecast[0].interestExpense, base.forecast[0].interestExpense);
     assert.notEqual(presentationAdjusted.forecast[0].nonOperatingIncome, base.forecast[0].nonOperatingIncome);
+    assert.notEqual(presentationAdjusted.forecast[0].accountingProfitBeforeTax, base.forecast[0].accountingProfitBeforeTax);
+    assert.notEqual(presentationAdjusted.forecast[0].accountingNetProfitAfterTax, base.forecast[0].accountingNetProfitAfterTax);
     assertAlmostEqual(presentationAdjusted.equityValue, base.equityValue, 0.01);
 
     presentationAdjusted.forecast.forEach((row, index) => {
       assertAlmostEqual(row.noplat, base.forecast[index].noplat, 0.01);
+      assertAlmostEqual(row.noplatBridgeOperatingEbit, base.forecast[index].ebit, 0.01);
+      assertAlmostEqual(row.noplatBridgeNoplat, base.forecast[index].noplat, 0.01);
       assertAlmostEqual(row.freeCashFlow, base.forecast[index].freeCashFlow, 0.01);
       assertAlmostEqual(row.presentValue, base.forecast[index].presentValue, 0.01);
     });
