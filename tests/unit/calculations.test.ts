@@ -70,12 +70,20 @@ describe("valuation calculations", () => {
       assertAlmostEqual(row.balanceControl, 0, 1);
       assertAlmostEqual(row.cashEndingBalance, row.cashOnHand + row.cashOnBankDeposit, 0.01);
       assertAlmostEqual(row.cashFlowFromOperations, row.grossCashFlow - row.changeInNwc, 0.01);
+      assertAlmostEqual(row.nonOperatingCashFlow, row.nonOperatingIncome, 0.01);
       assertAlmostEqual(row.cashFlowFromInvestment, -row.capitalExpenditure, 0.01);
       assertAlmostEqual(row.cashFlowBeforeFinancing, row.cashFlowFromOperations + row.nonOperatingCashFlow + row.cashFlowFromInvestment, 0.01);
+      assertAlmostEqual(row.interestExpenseCashFlow, row.interestExpense, 0.01);
+      assertAlmostEqual(row.interestIncomeCashFlow, row.interestIncome, 0.01);
+      assertAlmostEqual(
+        row.cashFlowFromFinancing,
+        row.equityInjection + row.newLoan + row.interestExpenseCashFlow + row.interestIncomeCashFlow + row.principalRepayment,
+        0.01,
+      );
       assertAlmostEqual(row.netCashFlow, row.cashEndingBalance - row.cashBeginningBalance, 0.01);
       assertAlmostEqual(row.cashFlowControl, 0, 1);
       assertAlmostEqual(row.freeCashFlow, row.grossCashFlow - row.grossInvestment, 0.01);
-      assertAlmostEqual(row.freeCashFlow, row.cashFlowBeforeFinancing, 0.01);
+      assertAlmostEqual(row.freeCashFlow, row.cashFlowFromOperations + row.cashFlowFromInvestment, 0.01);
       assertAlmostEqual(row.presentValue, row.freeCashFlow * row.discountFactor, 0.01);
       assert.ok(Number.isFinite(row.freeCashFlow));
       assert.ok(Number.isFinite(row.presentValue));
@@ -101,6 +109,7 @@ describe("valuation calculations", () => {
     assert.notEqual(presentationAdjusted.forecast[0].nonOperatingIncome, base.forecast[0].nonOperatingIncome);
     assert.notEqual(presentationAdjusted.forecast[0].accountingProfitBeforeTax, base.forecast[0].accountingProfitBeforeTax);
     assert.notEqual(presentationAdjusted.forecast[0].accountingNetProfitAfterTax, base.forecast[0].accountingNetProfitAfterTax);
+    assert.notEqual(presentationAdjusted.forecast[0].cashFlowFromFinancing, base.forecast[0].cashFlowFromFinancing);
     assertAlmostEqual(presentationAdjusted.equityValue, base.equityValue, 0.01);
 
     presentationAdjusted.forecast.forEach((row, index) => {
@@ -109,6 +118,9 @@ describe("valuation calculations", () => {
       assertAlmostEqual(row.noplatBridgeNoplat, base.forecast[index].noplat, 0.01);
       assertAlmostEqual(row.freeCashFlow, base.forecast[index].freeCashFlow, 0.01);
       assertAlmostEqual(row.presentValue, base.forecast[index].presentValue, 0.01);
+      assertAlmostEqual(row.nonOperatingCashFlow, row.nonOperatingIncome, 0.01);
+      assertAlmostEqual(row.interestExpenseCashFlow, row.interestExpense, 0.01);
+      assertAlmostEqual(row.interestIncomeCashFlow, row.interestIncome, 0.01);
     });
   });
 

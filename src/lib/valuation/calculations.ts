@@ -253,6 +253,7 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
   let previousAccumulatedDepreciation = snapshot.accumulatedDepreciation;
   let previousRetainedEarningsEnding = snapshot.retainedEarningsSurplus + snapshot.retainedEarningsCurrentProfit;
   let previousTaxPayableEnding = snapshot.taxPayable;
+  let previousCapitalBalance = snapshot.paidUpCapital + snapshot.additionalPaidInCapital;
   const includeWorkingCapitalChange = options.includeWorkingCapitalChange ?? true;
   const useHistoricalDerivedProjection = options.projectionEngine === "historical-derived";
   const wacc = options.wacc ?? snapshot.wacc;
@@ -367,6 +368,7 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
     const interestExpense = projectInterestExpense(bankLoanShortTerm + bankLoanLongTerm, revenue, interestExpenseDebtRate, interestExpenseRevenueMargin);
     const otherIncomeCharge = interestIncome + interestExpense;
     const nonOperatingIncome = revenue * nonOperatingIncomeRevenueMargin;
+    const nonOperatingCashFlow = nonOperatingIncome;
     const accountingProfitBeforeTax = ebit + otherIncomeCharge + nonOperatingIncome;
     const accountingTaxOnPbt = accountingProfitBeforeTax * snapshot.taxRate;
     const accountingNetProfitAfterTax = accountingProfitBeforeTax - accountingTaxOnPbt;
@@ -391,16 +393,17 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
     const freeCashFlow = grossCashFlow - grossInvestment;
     const cashBeginningBalance = previousCashEndingBalance;
     const cashFlowFromOperations = grossCashFlow - changeInNwc;
-    const nonOperatingCashFlow = 0;
     const cashFlowFromInvestment = -maintenanceCapex;
     const cashFlowBeforeFinancing = cashFlowFromOperations + nonOperatingCashFlow + cashFlowFromInvestment;
     const cashEndingBalance = cashTotal;
     const cashFlowFromFinancing = cashEndingBalance - cashBeginningBalance - cashFlowBeforeFinancing;
-    const equityInjection = 0;
-    const newLoan = Math.max(0, cashFlowFromFinancing);
-    const interestExpenseCashFlow = 0;
-    const interestIncomeCashFlow = 0;
-    const principalRepayment = Math.min(0, cashFlowFromFinancing);
+    const capitalBalance = paidUpCapital + additionalPaidInCapital;
+    const equityInjection = capitalBalance - previousCapitalBalance;
+    const interestExpenseCashFlow = interestExpense;
+    const interestIncomeCashFlow = interestIncome;
+    const residualFinancingCashFlow = cashFlowFromFinancing - equityInjection - interestExpenseCashFlow - interestIncomeCashFlow;
+    const newLoan = Math.max(0, residualFinancingCashFlow);
+    const principalRepayment = Math.min(0, residualFinancingCashFlow);
     const netCashFlow = cashEndingBalance - cashBeginningBalance;
     const cashFlowControl =
       cashBeginningBalance +
@@ -503,6 +506,7 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
     previousRetainedEarningsEnding = retainedEarningsEnding;
     previousCashEndingBalance = cashEndingBalance;
     previousTaxPayableEnding = taxPayable;
+    previousCapitalBalance = capitalBalance;
   }
 
   return rows;

@@ -255,6 +255,7 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByTestId("dcf-cash-flow-projection-table")).toContainText("Cash Flow Control");
   await expect(page.getByTestId("dcf-cash-flow-projection-table")).toContainText("2026");
   await expect(page.getByTestId("dcf-cash-flow-projection-table")).not.toContainText("Perlu input");
+  await expect(page.getByTestId("dcf-cash-flow-projection-table")).not.toContainText("Review");
   await expect(page.getByTestId("dcf-cash-flow-projection-table")).not.toContainText(/belum dimodelkan/i);
 
   await openWorkflowTab(page, "Rasio & Efisiensi Modal");
