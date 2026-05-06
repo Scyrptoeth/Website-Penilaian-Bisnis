@@ -3147,7 +3147,7 @@ const dcfIncomeProjectionRows: DcfProjectionLine[] = [
     workbookReference: "IS-OPEX-03",
     value: (row) => row.operatingExpenses,
     kind: "subtotal",
-    note: "Subtotal berasal dari opex engine karena rincian others belum dimodelkan.",
+    note: "Subtotal berasal dari opex engine karena rincian others belum tersedia sebagai driver terpisah.",
   },
   {
     key: "ebitda",
@@ -3199,17 +3199,68 @@ const dcfIncomeProjectionRows: DcfProjectionLine[] = [
     value: (row) => divideOrNull(row.ebit, row.revenue),
   },
   sectionProjectionLine("other-income-section", "Other Income/(Charge)"),
-  projectionNotModeledLine(
-    "interest-income",
-    "Interest Income",
-    "Interest income dikeluarkan dari NOPLAT/FCFF dan membutuhkan input terpisah bila ingin full income statement.",
-    "IS-NOI-01",
-  ),
-  projectionNotModeledLine("interest-income-growth", "Interest Income Growth", "Butuh proyeksi interest income.", "IS-NOI-02", "percent"),
-  projectionNotModeledLine("interest-expense", "Interest Expense", "Interest expense dikeluarkan dari NOPLAT/FCFF.", "IS-NOI-03"),
-  projectionNotModeledLine("interest-expense-growth", "Interest Expense Growth", "Butuh proyeksi interest expense.", "IS-NOI-04", "percent"),
-  projectionNotModeledLine("other-income-charge", "Other Income/(Charge)", "Butuh proyeksi other income/charge.", "IS-NOI-05"),
-  projectionNotModeledLine("non-operating-income", "Non Operating Income", "Non-operating income dikeluarkan dari operating DCF.", "IS-NOI-06"),
+  {
+    key: "interest-income",
+    label: "Interest Income",
+    source: "Yield kas/deposito atau margin pendapatan historis",
+    formula: "Projected cash balance x historical cash yield; fallback revenue x historical margin",
+    status: "review",
+    workbookReference: "IS-NOI-01",
+    value: (row) => row.interestIncome,
+    note: "Presentation-only untuk laporan laba rugi penuh; dikecualikan dari NOPLAT, FCFF, dan nilai DCF utama.",
+  },
+  {
+    key: "interest-income-growth",
+    label: "Interest Income Growth",
+    source: "Presentation-only projection",
+    formula: "Interest income t / interest income t-1 - 1",
+    status: "review",
+    workbookReference: "IS-NOI-02",
+    display: "percent",
+    value: (row, index, context) => growthValue(row.interestIncome, previousInterestIncome(index, context)),
+    note: "Indikator tren saja; bukan driver valuasi operasi.",
+  },
+  {
+    key: "interest-expense",
+    label: "Interest Expense",
+    source: "Debt rate atau margin biaya historis",
+    formula: "Interest-bearing debt x cost of debt; fallback revenue x historical finance-charge margin",
+    status: "review",
+    workbookReference: "IS-NOI-03",
+    value: (row) => row.interestExpense,
+    note: "Presentation-only untuk laporan laba rugi penuh; dikecualikan dari FCFF karena DCF utama memakai WACC.",
+  },
+  {
+    key: "interest-expense-growth",
+    label: "Interest Expense Growth",
+    source: "Presentation-only projection",
+    formula: "Interest expense t / interest expense t-1 - 1",
+    status: "review",
+    workbookReference: "IS-NOI-04",
+    display: "percent",
+    value: (row, index, context) => growthValue(row.interestExpense, previousInterestExpense(index, context)),
+    note: "Indikator tren saja; bukan driver valuasi operasi.",
+  },
+  {
+    key: "other-income-charge",
+    label: "Other Income/(Charge)",
+    source: "Presentation-only subtotal",
+    formula: "Interest income + interest expense",
+    status: "review",
+    workbookReference: "IS-NOI-05",
+    value: (row) => row.otherIncomeCharge,
+    note: "Subtotal tampilan; tidak mengubah operating PBT/NOPLAT untuk DCF.",
+  },
+  {
+    key: "non-operating-income",
+    label: "Non Operating Income",
+    source: "Conservative non-operating projection",
+    formula: "0 unless recurring historical margin is supportable",
+    status: "review",
+    workbookReference: "IS-NOI-06",
+    value: (row) => row.nonOperatingIncome,
+    note: "Default konservatif; aset/pendapatan non-operasional dinilai terpisah bila material.",
+  },
   {
     key: "profit-before-tax",
     label: "Profit Before Tax",
@@ -3219,7 +3270,7 @@ const dcfIncomeProjectionRows: DcfProjectionLine[] = [
     workbookReference: "IS-PBT-01",
     value: (row) => row.ebit,
     kind: "subtotal",
-    note: "PBT proyeksi memakai basis operasi karena interest/non-operating items belum dimodelkan di FCFF.",
+    note: "PBT operasi untuk NOPLAT; interest dan non-operating rows di atas hanya presentation-only.",
   },
   {
     key: "corporate-tax",
@@ -4468,31 +4519,20 @@ function sectionProjectionLine(key: string, label: string): DcfProjectionLine {
   };
 }
 
-function projectionNotModeledLine(
-  key: string,
-  label: string,
-  note: string,
-  workbookReference: string,
-  display?: DcfProjectionDisplay,
-): DcfProjectionLine {
-  return {
-    key,
-    label,
-    source: "Belum dimodelkan",
-    formula: "No current system driver; keep blank until modeled or entered",
-    status: "notModeled",
-    workbookReference,
-    display,
-    note,
-  };
-}
-
 function previousRevenue(index: number, context: DcfProjectionContext): number {
   return index === 0 ? context.snapshot.revenue : context.forecast[index - 1]?.revenue ?? 0;
 }
 
 function previousDepreciation(index: number, context: DcfProjectionContext): number {
   return index === 0 ? context.snapshot.depreciation : context.forecast[index - 1]?.depreciation ?? 0;
+}
+
+function previousInterestIncome(index: number, context: DcfProjectionContext): number {
+  return index === 0 ? context.snapshot.interestIncome : context.forecast[index - 1]?.interestIncome ?? 0;
+}
+
+function previousInterestExpense(index: number, context: DcfProjectionContext): number {
+  return index === 0 ? context.snapshot.interestExpense : context.forecast[index - 1]?.interestExpense ?? 0;
 }
 
 function previousAccountReceivable(index: number, context: DcfProjectionContext): number {

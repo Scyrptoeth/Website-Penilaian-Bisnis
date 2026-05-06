@@ -206,15 +206,19 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByTestId("dcf-income-projection-table")).toContainText("Revenue");
   await expect(page.getByTestId("dcf-income-projection-table")).toContainText("2026");
   await expect(page.getByTestId("dcf-income-projection-table")).not.toContainText("Revenue t-1");
+  await expect(page.getByTestId("dcf-income-projection-table")).not.toContainText(/belum dimodelkan/i);
+  await expect(page.getByTestId("dcf-income-projection-table")).toContainText("Presentation-only");
+  await expect(page.getByTestId("dcf-income-projection-table")).not.toContainText(/KKP|Excel|Workbook/i);
   await page.getByText("Detail formula dan referensi audit").click();
   await expect(page.getByTestId("dcf-income-projection-table-trace")).toContainText("Revenue t-1");
+  await expect(page.getByTestId("dcf-income-projection-table-trace")).not.toContainText(/KKP|Excel|Workbook/i);
 
   await openWorkflowTab(page, "Proyeksi Neraca");
   await expect(page.getByRole("heading", { name: "Proyeksi Neraca" })).toBeVisible();
   await expect(page.getByTestId("dcf-balance-projection-table")).toContainText("Current Assets");
   await expect(page.getByTestId("dcf-balance-projection-table")).toContainText("Balance Control");
   await expect(page.getByTestId("dcf-balance-projection-table")).not.toContainText("Perlu input");
-  await expect(page.getByTestId("dcf-balance-projection-table")).not.toContainText("Belum dimodelkan");
+  await expect(page.getByTestId("dcf-balance-projection-table")).not.toContainText(/belum dimodelkan/i);
 
   await openWorkflowTab(page, "Penilaian EEM/DCF");
   await expect(page.getByText("DCF - proyeksi neraca berbasis historis")).toBeVisible();
@@ -229,7 +233,7 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByTestId("dcf-fixed-asset-projection-table")).toContainText("Roll-forward aset tetap historis");
   await expect(page.getByRole("radio", { name: /Roll-forward Historis/ })).toHaveAttribute("aria-checked", "true");
   await expect(page.getByTestId("dcf-fixed-asset-projection-table")).not.toContainText("Delta vs DCF capex");
-  await expect(page.getByTestId("dcf-fixed-asset-projection-table")).not.toContainText("Belum dimodelkan");
+  await expect(page.getByTestId("dcf-fixed-asset-projection-table")).not.toContainText(/belum dimodelkan/i);
   await expect(page.getByTestId("dcf-fixed-asset-projection-table")).not.toContainText("Perlu input");
   await page.getByRole("radio", { name: /Proksi DCF/ }).click();
   await expect(page.getByRole("radio", { name: /Proksi DCF/ })).toHaveAttribute("aria-checked", "true");
@@ -243,7 +247,7 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByTestId("dcf-cash-flow-projection-table")).toContainText("Cash Flow Control");
   await expect(page.getByTestId("dcf-cash-flow-projection-table")).toContainText("2026");
   await expect(page.getByTestId("dcf-cash-flow-projection-table")).not.toContainText("Perlu input");
-  await expect(page.getByTestId("dcf-cash-flow-projection-table")).not.toContainText("Belum dimodelkan");
+  await expect(page.getByTestId("dcf-cash-flow-projection-table")).not.toContainText(/belum dimodelkan/i);
 
   await openWorkflowTab(page, "Rasio & Efisiensi Modal");
   await expect(page.getByText("Bridge efisiensi modal")).toBeVisible();

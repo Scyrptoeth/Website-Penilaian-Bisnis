@@ -240,6 +240,13 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
   const wacc = options.wacc ?? snapshot.wacc;
   const startYear = forecastStartYear(snapshot);
   const baseCash = snapshot.cashOnHand + snapshot.cashOnBankDeposit;
+  const interestIncomeCashYield = snapshot.interestIncomeCashYield || safeRatio(snapshot.interestIncome, baseCash);
+  const interestIncomeRevenueMargin = snapshot.interestIncomeRevenueMargin || safeRatio(snapshot.interestIncome, snapshot.revenue);
+  const baseInterestBearingDebt = interestBearingDebt(snapshot);
+  const interestExpenseDebtRate =
+    snapshot.interestExpenseDebtRate || (baseInterestBearingDebt > 0 ? safeAbsRatio(snapshot.interestExpense, baseInterestBearingDebt) : 0);
+  const interestExpenseRevenueMargin = snapshot.interestExpenseRevenueMargin || safeRatio(snapshot.interestExpense, snapshot.revenue);
+  const nonOperatingIncomeRevenueMargin = snapshot.nonOperatingIncomeRevenueMargin || 0;
   let previousCashEndingBalance = baseCash;
   const cashOnHandShare = baseCash > 0 ? snapshot.cashOnHand / baseCash : 0;
   const otherCurrentAssetsBase = positiveResidual(
@@ -338,6 +345,10 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
     const cashOnHand = cashTotal * cashOnHandShare;
     const cashOnBankDeposit = cashTotal - cashOnHand;
     const bankLoanShortTerm = snapshot.bankLoanShortTerm + financingPlug;
+    const interestIncome = projectInterestIncome(cashTotal, revenue, interestIncomeCashYield, interestIncomeRevenueMargin);
+    const interestExpense = projectInterestExpense(bankLoanShortTerm + bankLoanLongTerm, revenue, interestExpenseDebtRate, interestExpenseRevenueMargin);
+    const otherIncomeCharge = interestIncome + interestExpense;
+    const nonOperatingIncome = revenue * nonOperatingIncomeRevenueMargin;
     const currentAssets = cashTotal + ar + employeeReceivable + inventory + otherCurrentAssets;
     const nonCurrentAssets = fixedAssetsEnding + otherNonCurrentAssets + intangibleAssets;
     const totalAssets = currentAssets + nonCurrentAssets;
@@ -383,6 +394,10 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
       cashTaxPaid,
       noplat,
       projectedNetIncome,
+      interestIncome,
+      interestExpense,
+      otherIncomeCharge,
+      nonOperatingIncome,
       cashOnHand,
       cashOnBankDeposit,
       accountReceivable: ar,
@@ -710,6 +725,22 @@ function safeRatio(numerator: number, denominator: number): number {
 function safeAbsRatio(numerator: number, denominator: number): number {
   const base = Math.abs(denominator);
   return base ? Math.abs(numerator) / base : Math.abs(numerator) > 0 ? Number.POSITIVE_INFINITY : 0;
+}
+
+function projectInterestIncome(cashBalance: number, revenue: number, cashYield: number, revenueMargin: number): number {
+  if (cashBalance > 0 && cashYield !== 0) {
+    return cashBalance * cashYield;
+  }
+
+  return revenue * revenueMargin;
+}
+
+function projectInterestExpense(interestBearingDebtBalance: number, revenue: number, debtRate: number, revenueMargin: number): number {
+  if (interestBearingDebtBalance > 0 && debtRate > 0) {
+    return -interestBearingDebtBalance * debtRate;
+  }
+
+  return revenue * revenueMargin;
 }
 
 function maxForecastRatio(

@@ -116,6 +116,11 @@ export interface FinancialStatementSnapshot {
   commercialNpatMargin: number;
   dividendPayoutRatio: number;
   historicalProjectionYearCount: number;
+  interestIncomeCashYield: number;
+  interestIncomeRevenueMargin: number;
+  interestExpenseDebtRate: number;
+  interestExpenseRevenueMargin: number;
+  nonOperatingIncomeRevenueMargin: number;
   cashOnHand: number;
   cashOnBankDeposit: number;
   accountReceivable: number;
@@ -185,6 +190,10 @@ export interface DcfForecastRow {
   cashTaxPaid: number;
   noplat: number;
   projectedNetIncome: number;
+  interestIncome: number;
+  interestExpense: number;
+  otherIncomeCharge: number;
+  nonOperatingIncome: number;
   cashOnHand: number;
   cashOnBankDeposit: number;
   accountReceivable: number;

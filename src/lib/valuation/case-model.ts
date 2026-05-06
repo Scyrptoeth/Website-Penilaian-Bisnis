@@ -905,6 +905,15 @@ export function buildSnapshot(
     commercialNpatMargin: historicalDrivers.commercialNpatMargin || (revenue ? retainedEarningsCurrentProfit / revenue : 0),
     dividendPayoutRatio: historicalDrivers.dividendPayoutRatio,
     historicalProjectionYearCount: historicalDrivers.historicalProjectionYearCount,
+    interestIncomeCashYield:
+      historicalDrivers.interestIncomeCashYield || (cashOnHand + cashOnBankDeposit ? activeAggregate("INTEREST_INCOME") / (cashOnHand + cashOnBankDeposit) : 0),
+    interestIncomeRevenueMargin:
+      historicalDrivers.interestIncomeRevenueMargin || (revenue ? activeAggregate("INTEREST_INCOME") / revenue : 0),
+    interestExpenseDebtRate:
+      historicalDrivers.interestExpenseDebtRate || (bankLoanShortTerm + bankLoanLongTerm ? amount(activeAggregate("INTEREST_EXPENSE")) / (bankLoanShortTerm + bankLoanLongTerm) : 0),
+    interestExpenseRevenueMargin:
+      historicalDrivers.interestExpenseRevenueMargin || (revenue ? activeAggregate("INTEREST_EXPENSE") / revenue : 0),
+    nonOperatingIncomeRevenueMargin: historicalDrivers.nonOperatingIncomeRevenueMargin,
     cashOnHand,
     cashOnBankDeposit,
     accountReceivable,
@@ -1009,6 +1018,11 @@ export function deriveHistoricalDrivers(periods: Period[], mappedRows: MappedRow
     const taxPayable = amount(aggregate("TAX_PAYABLE"));
     const corporateTax = amount(aggregate("CORPORATE_TAX"));
     const commercialNpat = amount(aggregate("COMMERCIAL_NPAT"));
+    const bankLoanShortTerm = amount(aggregate("BANK_LOAN_SHORT_TERM"));
+    const bankLoanLongTerm = amount(aggregate("BANK_LOAN_LONG_TERM", "INTEREST_BEARING_DEBT"));
+    const interestIncome = aggregate("INTEREST_INCOME");
+    const interestExpense = aggregate("INTEREST_EXPENSE");
+    const nonOperatingIncome = aggregate("NON_OPERATING_INCOME");
     const retainedEarningsSurplus = amount(aggregate("RETAINED_EARNINGS_SURPLUS"));
     const retainedEarningsCurrentProfit = amount(aggregate("RETAINED_EARNINGS_CURRENT_PROFIT"));
 
@@ -1026,6 +1040,10 @@ export function deriveHistoricalDrivers(periods: Period[], mappedRows: MappedRow
       taxPayable,
       corporateTax,
       commercialNpat,
+      interestBearingDebt: bankLoanShortTerm + bankLoanLongTerm,
+      interestIncome,
+      interestExpense,
+      nonOperatingIncome,
       retainedEarningsEnding: retainedEarningsSurplus + retainedEarningsCurrentProfit,
     };
   });
@@ -1069,6 +1087,15 @@ export function deriveHistoricalDrivers(periods: Period[], mappedRows: MappedRow
       ? clamp(dividendPayoutRates.reduce((sum, value) => sum + value, 0) / dividendPayoutRates.length, 0, 1)
       : 0,
     historicalProjectionYearCount: periodMetrics.filter((metric) => metric.revenue > 0).length,
+    interestIncomeCashYield: medianRatio(periodMetrics, (metric) => metric.interestIncome, (metric) => metric.cash),
+    interestIncomeRevenueMargin: medianRatio(periodMetrics, (metric) => metric.interestIncome, (metric) => metric.revenue),
+    interestExpenseDebtRate: medianRatio(periodMetrics, (metric) => amount(metric.interestExpense), (metric) => metric.interestBearingDebt),
+    interestExpenseRevenueMargin: medianRatio(periodMetrics, (metric) => metric.interestExpense, (metric) => metric.revenue),
+    nonOperatingIncomeRevenueMargin: recurringSignedRatio(
+      periodMetrics,
+      (metric) => metric.nonOperatingIncome,
+      (metric) => metric.revenue,
+    ),
   };
 }
 
@@ -1287,4 +1314,52 @@ function averageRatio<T>(items: T[], numerator: (item: T) => number, denominator
     .filter((value): value is number => value !== null && Number.isFinite(value));
 
   return ratios.length ? ratios.reduce((sum, value) => sum + value, 0) / ratios.length : 0;
+}
+
+function medianRatio<T>(items: T[], numerator: (item: T) => number, denominator: (item: T) => number): number {
+  const ratios = items
+    .map((item) => {
+      const base = denominator(item);
+      return base ? numerator(item) / base : null;
+    })
+    .filter((value): value is number => value !== null && Number.isFinite(value))
+    .sort((a, b) => a - b);
+
+  if (!ratios.length) {
+    return 0;
+  }
+
+  const middle = Math.floor(ratios.length / 2);
+
+  return ratios.length % 2 ? ratios[middle] : (ratios[middle - 1] + ratios[middle]) / 2;
+}
+
+function recurringSignedRatio<T>(items: T[], numerator: (item: T) => number, denominator: (item: T) => number): number {
+  const ratios = items
+    .map((item) => {
+      const base = denominator(item);
+      const value = numerator(item);
+      return base && value ? value / base : null;
+    })
+    .filter((value): value is number => value !== null && Number.isFinite(value));
+
+  if (ratios.length < 2) {
+    return 0;
+  }
+
+  const firstSign = Math.sign(ratios[0]);
+
+  if (firstSign === 0 || ratios.some((value) => Math.sign(value) !== firstSign)) {
+    return 0;
+  }
+
+  const absoluteRatios = ratios.map((value) => Math.abs(value));
+  const minimum = Math.min(...absoluteRatios);
+  const maximum = Math.max(...absoluteRatios);
+
+  if (minimum === 0 || maximum / minimum > 5) {
+    return 0;
+  }
+
+  return ratios.reduce((sum, value) => sum + value, 0) / ratios.length;
 }

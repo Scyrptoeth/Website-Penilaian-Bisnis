@@ -49,6 +49,8 @@ describe("valuation calculations", () => {
       assertAlmostEqual(row.noplat, row.ebit - row.statutoryTaxOnEbit, 0.01);
       assertAlmostEqual(row.cashTaxPaid, row.statutoryTaxOnEbit, 0.01);
       assertAlmostEqual(row.projectedNetIncome, row.noplat, 0.01);
+      assertAlmostEqual(row.otherIncomeCharge, row.interestIncome + row.interestExpense, 0.01);
+      assertAlmostEqual(row.nonOperatingIncome, row.revenue * snapshot.nonOperatingIncomeRevenueMargin, 0.01);
       assertAlmostEqual(row.dividendDistribution, 0, 0.01);
       assertAlmostEqual(row.operatingNwc, row.operatingCurrentAssets - row.operatingCurrentLiabilities, 0.01);
       assertAlmostEqual(row.currentAssets, row.cashOnHand + row.cashOnBankDeposit + row.accountReceivable + row.employeeReceivable + row.inventory + row.otherCurrentAssets, 0.01);
@@ -69,6 +71,32 @@ describe("valuation calculations", () => {
       assertAlmostEqual(row.presentValue, row.freeCashFlow * row.discountFactor, 0.01);
       assert.ok(Number.isFinite(row.freeCashFlow));
       assert.ok(Number.isFinite(row.presentValue));
+      assert.ok(Number.isFinite(row.interestIncome));
+      assert.ok(Number.isFinite(row.interestExpense));
+      assert.ok(Number.isFinite(row.nonOperatingIncome));
+    });
+  });
+
+  it("keeps interest and non-operating projection lines presentation-only for DCF value", () => {
+    const base = calculateDcf(snapshot);
+    const presentationAdjusted = calculateDcf({
+      ...snapshot,
+      interestIncomeCashYield: snapshot.interestIncomeCashYield + 0.25,
+      interestIncomeRevenueMargin: snapshot.interestIncomeRevenueMargin + 0.1,
+      interestExpenseDebtRate: 0,
+      interestExpenseRevenueMargin: snapshot.interestExpenseRevenueMargin - 0.05,
+      nonOperatingIncomeRevenueMargin: 0.03,
+    });
+
+    assert.notEqual(presentationAdjusted.forecast[0].interestIncome, base.forecast[0].interestIncome);
+    assert.notEqual(presentationAdjusted.forecast[0].interestExpense, base.forecast[0].interestExpense);
+    assert.notEqual(presentationAdjusted.forecast[0].nonOperatingIncome, base.forecast[0].nonOperatingIncome);
+    assertAlmostEqual(presentationAdjusted.equityValue, base.equityValue, 0.01);
+
+    presentationAdjusted.forecast.forEach((row, index) => {
+      assertAlmostEqual(row.noplat, base.forecast[index].noplat, 0.01);
+      assertAlmostEqual(row.freeCashFlow, base.forecast[index].freeCashFlow, 0.01);
+      assertAlmostEqual(row.presentValue, base.forecast[index].presentValue, 0.01);
     });
   });
 
