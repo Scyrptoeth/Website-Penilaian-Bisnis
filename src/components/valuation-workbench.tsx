@@ -47,10 +47,15 @@ import {
 import {
   buildDcfForecast,
   calculateAllMethods,
+  calculateDcf,
   normalizedNoplat,
+  type DcfOptions,
   type DcfFixedAssetProjectionInput,
+  type IncomeProjectionPresentationAssumptionsInput,
   type IncomeProjectionRelianceDecision,
   type IncomeProjectionRelianceGovernanceResult,
+  type IncomeProjectionYearOverrideInput,
+  type NonOperatingIncomeProjectionPolicy,
   type ProjectionGovernanceDecision,
   type ProjectionGovernanceMetric,
 } from "@/lib/valuation/calculations";
@@ -360,8 +365,72 @@ const requiredReturnSuggestionOrder: RequiredReturnOnNtaSuggestionKey[] = [
 const WORKBENCH_STORAGE_KEY = "penilaian-valuasi-bisnis.workbench.v1";
 const WORKBENCH_SCROLL_STORAGE_KEY = "penilaian-valuasi-bisnis.scroll.v1";
 const WORKBENCH_SIDEBAR_STORAGE_KEY = "penilaian-valuasi-bisnis.sidebar.v1";
-const WORKBENCH_STORAGE_VERSION = 13;
+const WORKBENCH_STORAGE_VERSION = 14;
 const defaultFixedAssetProjectionMode: FixedAssetProjectionMode = "workbook-formula";
+
+type IncomeProjectionOverrideField = "revenueGrowth" | "grossProfitMargin" | "operatingExpenseMargin" | "depreciationMargin";
+
+type IncomeProjectionYearOverrideState = Record<IncomeProjectionOverrideField, string> & {
+  reason: string;
+  updatedAt: string;
+};
+
+type IncomeProjectionReviewerDecision = "pending" | "approved" | "rejected";
+
+type IncomeProjectionReviewerDecisionState = {
+  decision: IncomeProjectionReviewerDecision;
+  reason: string;
+  updatedAt: string;
+};
+
+type IncomeProjectionNonOperatingPolicyState = {
+  policy: NonOperatingIncomeProjectionPolicy;
+  reason: string;
+  updatedAt: string;
+};
+
+type IncomeProjectionPresentationAssumptionKey =
+  | "cashYield"
+  | "debtRate"
+  | "interestIncomeRevenueMargin"
+  | "interestExpenseRevenueMargin";
+
+type IncomeProjectionPresentationAssumptionState = Record<IncomeProjectionPresentationAssumptionKey, string> & {
+  reason: string;
+  updatedAt: string;
+};
+
+type IncomeProjectionAuditEvent = {
+  id: string;
+  createdAt: string;
+  actor: "system" | "reviewer";
+  action: string;
+  field: string;
+  priorValue: string;
+  newValue: string;
+  reason: string;
+  impact: string;
+};
+
+type IncomeProjectionControlState = {
+  yearlyOverrides: Record<string, IncomeProjectionYearOverrideState>;
+  reviewerDecision: IncomeProjectionReviewerDecisionState;
+  nonOperatingPolicy: IncomeProjectionNonOperatingPolicyState;
+  presentationAssumptions: IncomeProjectionPresentationAssumptionState;
+  auditEvents: IncomeProjectionAuditEvent[];
+};
+
+type IncomeProjectionScenarioResult = {
+  dcf: ReturnType<typeof calculateDcf>;
+  options: DcfOptions;
+  hasScenarioInput: boolean;
+  activeEquityValue: number;
+  absoluteVariance: number;
+  relativeVariance: number;
+  level: "ok" | "review" | "critical";
+  activeBasis: "baseline-dcf" | "reviewer-approved-scenario";
+  summary: string;
+};
 
 type PersistedWorkbenchState = {
   version: typeof WORKBENCH_STORAGE_VERSION;
@@ -379,6 +448,7 @@ type PersistedWorkbenchState = {
   dlocPfc: DlocPfcState;
   taxSimulation: TaxSimulationState;
   cashFlowOverrides: CashFlowOverrideState;
+  incomeProjectionControls: IncomeProjectionControlState;
 };
 
 type WorkbenchCoreState = Omit<PersistedWorkbenchState, "version" | "savedAt">;
@@ -415,6 +485,51 @@ const workflowTabs: Array<{ id: WorkflowTabId; label: string }> = [
   { id: "audit", label: "Audit" },
 ];
 
+const incomeProjectionOverrideFields: Array<{
+  key: IncomeProjectionOverrideField;
+  label: string;
+  basis: "rate";
+}> = [
+  { key: "revenueGrowth", label: "Revenue growth", basis: "rate" },
+  { key: "grossProfitMargin", label: "Gross margin", basis: "rate" },
+  { key: "operatingExpenseMargin", label: "Opex margin", basis: "rate" },
+  { key: "depreciationMargin", label: "Depreciation", basis: "rate" },
+];
+
+const incomeProjectionPresentationAssumptionFields: Array<{
+  key: IncomeProjectionPresentationAssumptionKey;
+  label: string;
+}> = [
+  { key: "cashYield", label: "Cash/deposit yield" },
+  { key: "debtRate", label: "Debt cost rate" },
+  { key: "interestIncomeRevenueMargin", label: "Interest income / revenue" },
+  { key: "interestExpenseRevenueMargin", label: "Interest expense / revenue" },
+];
+
+const nonOperatingPolicyOptions: Array<{ value: NonOperatingIncomeProjectionPolicy; label: string; description: string }> = [
+  {
+    value: "auto",
+    label: "Auto historical recurrence",
+    description: "Sistem memakai recurring signed ratio yang sudah disaring dari histori.",
+  },
+  {
+    value: "recurring",
+    label: "Reviewer recurring",
+    description: "Reviewer menetapkan pos non-operating sebagai recurring dan supportable.",
+  },
+  {
+    value: "non-recurring",
+    label: "Non-recurring",
+    description: "Pos non-operating dikunci nol dalam proyeksi presentasi.",
+  },
+];
+
+const reviewerDecisionOptions: Array<{ value: IncomeProjectionReviewerDecision; label: string }> = [
+  { value: "pending", label: "Pending review" },
+  { value: "approved", label: "Approved" },
+  { value: "rejected", label: "Rejected" },
+];
+
 const MAX_HISTORY_STEPS = 80;
 
 export function ValuationWorkbench() {
@@ -431,6 +546,9 @@ export function ValuationWorkbench() {
   const [dlocPfc, setDlocPfc] = useState<DlocPfcState>(createEmptyDlocPfcState);
   const [taxSimulation, setTaxSimulation] = useState<TaxSimulationState>(createEmptyTaxSimulationState);
   const [cashFlowOverrides, setCashFlowOverrides] = useState<CashFlowOverrideState>({});
+  const [incomeProjectionControls, setIncomeProjectionControls] = useState<IncomeProjectionControlState>(
+    createEmptyIncomeProjectionControls,
+  );
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isDraftRestored, setIsDraftRestored] = useState(false);
   const [activeWorkflowTab, setActiveWorkflowTab] = useState<WorkflowTabId>("periods");
@@ -528,6 +646,23 @@ export function ValuationWorkbench() {
       aamAdjustmentModel.missingNoteCount,
       dcfFixedAssetProjection,
       fixedAssetProjection.source,
+      snapshot,
+    ],
+  );
+  const incomeProjectionScenario = useMemo(
+    () =>
+      buildIncomeProjectionScenario({
+        snapshot,
+        baselineEquityValue: results.dcf.equityValue,
+        controls: incomeProjectionControls,
+        fixedAssetProjection: dcfFixedAssetProjection,
+        fixedAssetProjectionSource: dcfFixedAssetProjection ? fixedAssetProjection.source : undefined,
+      }),
+    [
+      dcfFixedAssetProjection,
+      fixedAssetProjection.source,
+      incomeProjectionControls,
+      results.dcf.equityValue,
       snapshot,
     ],
   );
@@ -653,6 +788,7 @@ export function ValuationWorkbench() {
     Object.values(caseProfile).some((value) => value.trim() !== "") ||
     Object.values(assumptions).some((value) => value.trim() !== "") ||
     hasCashFlowOverrideInput(cashFlowOverrides) ||
+    hasIncomeProjectionControlInput(incomeProjectionControls) ||
     hasDlomInput(dlom) ||
     hasDlocPfcInput(dlocPfc) ||
     hasTaxSimulationInput(taxSimulation);
@@ -689,6 +825,7 @@ export function ValuationWorkbench() {
       dlocPfc,
       taxSimulation,
       cashFlowOverrides,
+      incomeProjectionControls,
     };
   }
 
@@ -706,6 +843,7 @@ export function ValuationWorkbench() {
     setDlocPfc(state.dlocPfc);
     setTaxSimulation(state.taxSimulation);
     setCashFlowOverrides(state.cashFlowOverrides);
+    setIncomeProjectionControls(state.incomeProjectionControls);
   }
 
   function commitCoreState(update: (current: WorkbenchCoreState) => WorkbenchCoreState) {
@@ -780,6 +918,7 @@ export function ValuationWorkbench() {
       setDlocPfc(storedState.dlocPfc);
       setTaxSimulation(storedState.taxSimulation);
       setCashFlowOverrides(storedState.cashFlowOverrides);
+      setIncomeProjectionControls(storedState.incomeProjectionControls);
       setUndoStack([]);
       setRedoStack([]);
     }
@@ -809,6 +948,7 @@ export function ValuationWorkbench() {
       dlocPfc,
       taxSimulation,
       cashFlowOverrides,
+      incomeProjectionControls,
     });
   }, [
     aamAdjustments,
@@ -820,6 +960,7 @@ export function ValuationWorkbench() {
     dlom,
     fixedAssetScheduleRows,
     fixedAssetProjectionMode,
+    incomeProjectionControls,
     isDraftRestored,
     isFixedAssetScheduleEnabled,
     periods,
@@ -1189,6 +1330,192 @@ export function ValuationWorkbench() {
     });
   }
 
+  function updateIncomeProjectionYearOverride(year: number, key: IncomeProjectionOverrideField, value: string) {
+    commitCoreState((current) => {
+      const yearKey = String(year);
+      const now = new Date().toISOString();
+      const currentEntry = current.incomeProjectionControls.yearlyOverrides[yearKey] ?? createEmptyIncomeProjectionYearOverride();
+      const nextValue = formatEditableNumber(value);
+      const nextEntry: IncomeProjectionYearOverrideState = {
+        ...currentEntry,
+        [key]: nextValue,
+        updatedAt: now,
+      };
+      const yearlyOverrides = writeIncomeProjectionYearOverride(
+        current.incomeProjectionControls.yearlyOverrides,
+        yearKey,
+        nextEntry,
+      );
+      const auditEvents =
+        nextValue === currentEntry[key]
+          ? current.incomeProjectionControls.auditEvents
+          : [
+              ...current.incomeProjectionControls.auditEvents,
+              createIncomeProjectionAuditEvent({
+                action: "yearly_override_updated",
+                field: `${year}.${key}`,
+                priorValue: currentEntry[key],
+                newValue: nextValue,
+                reason: currentEntry.reason,
+                impact: "Reviewer-owned yearly override scenario; baseline DCF remains protected until governance approval.",
+              }),
+            ];
+
+      return {
+        ...current,
+        incomeProjectionControls: {
+          ...current.incomeProjectionControls,
+          yearlyOverrides,
+          auditEvents,
+        },
+      };
+    });
+  }
+
+  function updateIncomeProjectionYearOverrideReason(year: number, reason: string) {
+    commitCoreState((current) => {
+      const yearKey = String(year);
+      const currentEntry = current.incomeProjectionControls.yearlyOverrides[yearKey] ?? createEmptyIncomeProjectionYearOverride();
+      const nextEntry: IncomeProjectionYearOverrideState = {
+        ...currentEntry,
+        reason,
+        updatedAt: new Date().toISOString(),
+      };
+
+      return {
+        ...current,
+        incomeProjectionControls: {
+          ...current.incomeProjectionControls,
+          yearlyOverrides: writeIncomeProjectionYearOverride(
+            current.incomeProjectionControls.yearlyOverrides,
+            yearKey,
+            nextEntry,
+          ),
+        },
+      };
+    });
+  }
+
+  function updateIncomeProjectionReviewerDecision(patch: Partial<IncomeProjectionReviewerDecisionState>) {
+    commitCoreState((current) => {
+      const now = new Date().toISOString();
+      const currentDecision = current.incomeProjectionControls.reviewerDecision;
+      const nextDecision: IncomeProjectionReviewerDecisionState = {
+        ...currentDecision,
+        ...patch,
+        updatedAt: now,
+      };
+      const auditEvents =
+        patch.decision && patch.decision !== currentDecision.decision
+          ? [
+              ...current.incomeProjectionControls.auditEvents,
+              createIncomeProjectionAuditEvent({
+                action: "reviewer_decision_updated",
+                field: "reviewerDecision.decision",
+                priorValue: currentDecision.decision,
+                newValue: patch.decision,
+                reason: currentDecision.reason,
+                impact: "Reviewer decision controls whether scenario can be relied upon; critical variance still falls back to current DCF.",
+              }),
+            ]
+          : current.incomeProjectionControls.auditEvents;
+
+      return {
+        ...current,
+        incomeProjectionControls: {
+          ...current.incomeProjectionControls,
+          reviewerDecision: nextDecision,
+          auditEvents,
+        },
+      };
+    });
+  }
+
+  function updateIncomeProjectionNonOperatingPolicy(patch: Partial<IncomeProjectionNonOperatingPolicyState>) {
+    commitCoreState((current) => {
+      const now = new Date().toISOString();
+      const currentPolicy = current.incomeProjectionControls.nonOperatingPolicy;
+      const nextPolicy: IncomeProjectionNonOperatingPolicyState = {
+        ...currentPolicy,
+        ...patch,
+        updatedAt: now,
+      };
+      const auditEvents =
+        patch.policy && patch.policy !== currentPolicy.policy
+          ? [
+              ...current.incomeProjectionControls.auditEvents,
+              createIncomeProjectionAuditEvent({
+                action: "non_operating_policy_updated",
+                field: "nonOperatingPolicy.policy",
+                priorValue: currentPolicy.policy,
+                newValue: patch.policy,
+                reason: currentPolicy.reason,
+                impact: "Controls recurring vs non-recurring non-operating income in presentation scenario.",
+              }),
+            ]
+          : current.incomeProjectionControls.auditEvents;
+
+      return {
+        ...current,
+        incomeProjectionControls: {
+          ...current.incomeProjectionControls,
+          nonOperatingPolicy: nextPolicy,
+          auditEvents,
+        },
+      };
+    });
+  }
+
+  function updateIncomeProjectionPresentationAssumption(key: IncomeProjectionPresentationAssumptionKey, value: string) {
+    commitCoreState((current) => {
+      const now = new Date().toISOString();
+      const currentAssumptions = current.incomeProjectionControls.presentationAssumptions;
+      const nextValue = formatEditableNumber(value);
+      const nextAssumptions: IncomeProjectionPresentationAssumptionState = {
+        ...currentAssumptions,
+        [key]: nextValue,
+        updatedAt: now,
+      };
+      const auditEvents =
+        nextValue === currentAssumptions[key]
+          ? current.incomeProjectionControls.auditEvents
+          : [
+              ...current.incomeProjectionControls.auditEvents,
+              createIncomeProjectionAuditEvent({
+                action: "presentation_assumption_updated",
+                field: `presentationAssumptions.${key}`,
+                priorValue: currentAssumptions[key],
+                newValue: nextValue,
+                reason: currentAssumptions.reason,
+                impact: "Reviewer-owned cash/debt/yield presentation scenario; operating FCFF bridge remains formula-driven.",
+              }),
+            ];
+
+      return {
+        ...current,
+        incomeProjectionControls: {
+          ...current.incomeProjectionControls,
+          presentationAssumptions: nextAssumptions,
+          auditEvents,
+        },
+      };
+    });
+  }
+
+  function updateIncomeProjectionPresentationAssumptionReason(reason: string) {
+    commitCoreState((current) => ({
+      ...current,
+      incomeProjectionControls: {
+        ...current.incomeProjectionControls,
+        presentationAssumptions: {
+          ...current.incomeProjectionControls.presentationAssumptions,
+          reason,
+          updatedAt: new Date().toISOString(),
+        },
+      },
+    }));
+  }
+
   function updateWaccComparableName(slot: WaccComparableSlot, value: string) {
     commitCoreState((current) => {
       const selectedComparable = findIdxComparableByLabel(current.caseProfile.companySector, value);
@@ -1282,6 +1609,7 @@ export function ValuationWorkbench() {
       dlocPfc: buildSampleDlocPfcState(),
       taxSimulation: buildSampleTaxSimulationState(),
       cashFlowOverrides: {},
+      incomeProjectionControls: createEmptyIncomeProjectionControls(),
     }));
   }
 
@@ -1365,6 +1693,7 @@ export function ValuationWorkbench() {
       dlocPfc: createEmptyDlocPfcState(),
       taxSimulation: createEmptyTaxSimulationState(),
       cashFlowOverrides: {},
+      incomeProjectionControls: createEmptyIncomeProjectionControls(),
     }));
 
     if (typeof window !== "undefined") {
@@ -2112,6 +2441,14 @@ export function ValuationWorkbench() {
               forecast={results.dcf.forecast}
               snapshot={snapshot}
               incomeProjectionRelianceGovernance={results.incomeProjectionRelianceGovernance}
+              incomeProjectionControls={incomeProjectionControls}
+              incomeProjectionScenario={incomeProjectionScenario}
+              onIncomeProjectionYearOverrideChange={updateIncomeProjectionYearOverride}
+              onIncomeProjectionYearOverrideReasonChange={updateIncomeProjectionYearOverrideReason}
+              onIncomeProjectionReviewerDecisionChange={updateIncomeProjectionReviewerDecision}
+              onIncomeProjectionNonOperatingPolicyChange={updateIncomeProjectionNonOperatingPolicy}
+              onIncomeProjectionPresentationAssumptionChange={updateIncomeProjectionPresentationAssumption}
+              onIncomeProjectionPresentationAssumptionReasonChange={updateIncomeProjectionPresentationAssumptionReason}
             />
           ) : (
             <ReadinessPanel status={readiness.projectedIncome} onNavigate={navigateToWorkflowTab} force />
@@ -4461,6 +4798,14 @@ function ProjectionStatementSection({
   fixedAssetProjectionMode = defaultFixedAssetProjectionMode,
   onFixedAssetProjectionModeChange,
   incomeProjectionRelianceGovernance,
+  incomeProjectionControls,
+  incomeProjectionScenario,
+  onIncomeProjectionYearOverrideChange,
+  onIncomeProjectionYearOverrideReasonChange,
+  onIncomeProjectionReviewerDecisionChange,
+  onIncomeProjectionNonOperatingPolicyChange,
+  onIncomeProjectionPresentationAssumptionChange,
+  onIncomeProjectionPresentationAssumptionReasonChange,
 }: {
   kind: ProjectionStatementKind;
   forecast: DcfForecastRow[];
@@ -4469,6 +4814,14 @@ function ProjectionStatementSection({
   fixedAssetProjectionMode?: FixedAssetProjectionMode;
   onFixedAssetProjectionModeChange?: (mode: FixedAssetProjectionMode) => void;
   incomeProjectionRelianceGovernance?: IncomeProjectionRelianceGovernanceResult;
+  incomeProjectionControls?: IncomeProjectionControlState;
+  incomeProjectionScenario?: IncomeProjectionScenarioResult;
+  onIncomeProjectionYearOverrideChange?: (year: number, key: IncomeProjectionOverrideField, value: string) => void;
+  onIncomeProjectionYearOverrideReasonChange?: (year: number, reason: string) => void;
+  onIncomeProjectionReviewerDecisionChange?: (patch: Partial<IncomeProjectionReviewerDecisionState>) => void;
+  onIncomeProjectionNonOperatingPolicyChange?: (patch: Partial<IncomeProjectionNonOperatingPolicyState>) => void;
+  onIncomeProjectionPresentationAssumptionChange?: (key: IncomeProjectionPresentationAssumptionKey, value: string) => void;
+  onIncomeProjectionPresentationAssumptionReasonChange?: (reason: string) => void;
 }) {
   const config =
     kind === "fixedAssets"
@@ -4551,6 +4904,21 @@ function ProjectionStatementSection({
         <IncomeProjectionReliancePanel governance={incomeProjectionRelianceGovernance} />
       ) : null}
 
+      {kind === "income" && incomeProjectionControls && incomeProjectionScenario ? (
+        <IncomeProjectionControlsPanel
+          controls={incomeProjectionControls}
+          forecast={forecast}
+          scenario={incomeProjectionScenario}
+          snapshot={snapshot}
+          onYearOverrideChange={onIncomeProjectionYearOverrideChange}
+          onYearOverrideReasonChange={onIncomeProjectionYearOverrideReasonChange}
+          onReviewerDecisionChange={onIncomeProjectionReviewerDecisionChange}
+          onNonOperatingPolicyChange={onIncomeProjectionNonOperatingPolicyChange}
+          onPresentationAssumptionChange={onIncomeProjectionPresentationAssumptionChange}
+          onPresentationAssumptionReasonChange={onIncomeProjectionPresentationAssumptionReasonChange}
+        />
+      ) : null}
+
       <DcfProjectionPanel config={config} forecast={forecast} snapshot={snapshot} fixedAssetProjection={fixedAssetProjection} />
     </>
   );
@@ -4608,6 +4976,242 @@ function IncomeProjectionReliancePanel({ governance }: { governance: IncomeProje
         ))}
       </div>
     </div>
+  );
+}
+
+function IncomeProjectionControlsPanel({
+  controls,
+  forecast,
+  scenario,
+  snapshot,
+  onYearOverrideChange,
+  onYearOverrideReasonChange,
+  onReviewerDecisionChange,
+  onNonOperatingPolicyChange,
+  onPresentationAssumptionChange,
+  onPresentationAssumptionReasonChange,
+}: {
+  controls: IncomeProjectionControlState;
+  forecast: DcfForecastRow[];
+  scenario: IncomeProjectionScenarioResult;
+  snapshot: FinancialStatementSnapshot;
+  onYearOverrideChange?: (year: number, key: IncomeProjectionOverrideField, value: string) => void;
+  onYearOverrideReasonChange?: (year: number, reason: string) => void;
+  onReviewerDecisionChange?: (patch: Partial<IncomeProjectionReviewerDecisionState>) => void;
+  onNonOperatingPolicyChange?: (patch: Partial<IncomeProjectionNonOperatingPolicyState>) => void;
+  onPresentationAssumptionChange?: (key: IncomeProjectionPresentationAssumptionKey, value: string) => void;
+  onPresentationAssumptionReasonChange?: (reason: string) => void;
+}) {
+  const latestAuditEvents = controls.auditEvents.slice().reverse().slice(0, 12);
+
+  return (
+    <article className="panel income-projection-controls-panel" data-testid="income-projection-controls">
+      <div className="panel-heading">
+        <div>
+          <p className="eyebrow">System development governance</p>
+          <h3>Income projection reviewer controls</h3>
+        </div>
+        <span className={`status-pill ${scenario.level === "critical" ? "warning" : "muted"}`}>
+          {scenario.activeBasis === "reviewer-approved-scenario" ? "Approved scenario" : "Baseline protected"}
+        </span>
+      </div>
+
+      <div className="projection-governance-grid">
+        <div>
+          <span>Scenario DCF</span>
+          <strong>{formatIdr(scenario.dcf.equityValue)}</strong>
+          <small>{scenario.hasScenarioInput ? "Reviewer-owned scenario" : "Belum ada override reviewer"}</small>
+        </div>
+        <div>
+          <span>Variance vs baseline</span>
+          <strong>{formatIdr(scenario.absoluteVariance)}</strong>
+          <small>{formatPercent(scenario.relativeVariance)}</small>
+        </div>
+        <div>
+          <span>Reviewer decision</span>
+          <strong>{formatReviewerDecision(controls.reviewerDecision.decision)}</strong>
+          <small>{scenario.summary}</small>
+        </div>
+      </div>
+
+      <div className="table-wrap">
+        <table className="analysis-table compact-input-table" data-testid="income-projection-yearly-overrides">
+          <thead>
+            <tr>
+              <th>Yearly override</th>
+              {incomeProjectionOverrideFields.map((field) => (
+                <th key={field.key}>{field.label}</th>
+              ))}
+              <th>Reason</th>
+            </tr>
+          </thead>
+          <tbody>
+            {forecast.map((row, index) => {
+              const yearKey = String(row.year);
+              const entry = controls.yearlyOverrides[yearKey] ?? createEmptyIncomeProjectionYearOverride();
+
+              return (
+                <tr key={row.year}>
+                  <td>
+                    <strong>{row.year}</strong>
+                    <span>{formatIncomeProjectionYearDefaultSummary(row, index, forecast, snapshot)}</span>
+                  </td>
+                  {incomeProjectionOverrideFields.map((field) => (
+                    <td key={field.key}>
+                      <input
+                        aria-label={`${field.label} override ${row.year}`}
+                        inputMode="decimal"
+                        onChange={(event) => onYearOverrideChange?.(row.year, field.key, event.target.value)}
+                        placeholder={formatInputNumber(readIncomeProjectionDefaultRate(field.key, row, index, forecast, snapshot))}
+                        type="text"
+                        value={entry[field.key]}
+                      />
+                    </td>
+                  ))}
+                  <td>
+                    <input
+                      aria-label={`Reason override ${row.year}`}
+                      onChange={(event) => onYearOverrideReasonChange?.(row.year, event.target.value)}
+                      placeholder="Basis reviewer"
+                      type="text"
+                      value={entry.reason}
+                    />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <section className="section-grid income-projection-control-grid">
+        <div className="input-panel">
+          <div className="panel-heading compact">
+            <div>
+              <p className="eyebrow">Recurring policy</p>
+              <h4>Recurring vs non-recurring non-operating income</h4>
+            </div>
+          </div>
+          <label>
+            <span>Policy</span>
+            <select
+              onChange={(event) =>
+                onNonOperatingPolicyChange?.({ policy: event.target.value as NonOperatingIncomeProjectionPolicy })
+              }
+              value={controls.nonOperatingPolicy.policy}
+            >
+              {nonOperatingPolicyOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p>{nonOperatingPolicyOptions.find((option) => option.value === controls.nonOperatingPolicy.policy)?.description}</p>
+          <label>
+            <span>Reason</span>
+            <textarea
+              onChange={(event) => onNonOperatingPolicyChange?.({ reason: event.target.value })}
+              rows={3}
+              value={controls.nonOperatingPolicy.reason}
+            />
+          </label>
+        </div>
+
+        <div className="input-panel">
+          <div className="panel-heading compact">
+            <div>
+              <p className="eyebrow">Debt/cash/yield</p>
+              <h4>Reviewer-owned presentation assumptions</h4>
+            </div>
+          </div>
+          {incomeProjectionPresentationAssumptionFields.map((field) => (
+            <label key={field.key}>
+              <span>{field.label}</span>
+              <input
+                inputMode="decimal"
+                onChange={(event) => onPresentationAssumptionChange?.(field.key, event.target.value)}
+                placeholder={formatInputNumber(readIncomeProjectionPresentationDefault(field.key, snapshot))}
+                type="text"
+                value={controls.presentationAssumptions[field.key]}
+              />
+            </label>
+          ))}
+          <label>
+            <span>Reason</span>
+            <textarea
+              onChange={(event) => onPresentationAssumptionReasonChange?.(event.target.value)}
+              rows={3}
+              value={controls.presentationAssumptions.reason}
+            />
+          </label>
+        </div>
+
+        <div className="input-panel">
+          <div className="panel-heading compact">
+            <div>
+              <p className="eyebrow">Reviewer approval/rejection</p>
+              <h4>Income projection reliance decision</h4>
+            </div>
+          </div>
+          <label>
+            <span>Decision</span>
+            <select
+              onChange={(event) =>
+                onReviewerDecisionChange?.({ decision: event.target.value as IncomeProjectionReviewerDecision })
+              }
+              value={controls.reviewerDecision.decision}
+            >
+              {reviewerDecisionOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Reason</span>
+            <textarea
+              onChange={(event) => onReviewerDecisionChange?.({ reason: event.target.value })}
+              rows={6}
+              value={controls.reviewerDecision.reason}
+            />
+          </label>
+        </div>
+      </section>
+
+      <details className="audit-disclosure compact" data-testid="income-projection-audit-events" open={latestAuditEvents.length > 0}>
+        <summary>Immutable audit events</summary>
+        {latestAuditEvents.length ? (
+          <div className="table-wrap">
+            <table className="analysis-table projection-trace-table">
+              <thead>
+                <tr>
+                  <th>Waktu</th>
+                  <th>Field</th>
+                  <th>Perubahan</th>
+                  <th>Impact</th>
+                </tr>
+              </thead>
+              <tbody>
+                {latestAuditEvents.map((event) => (
+                  <tr key={event.id}>
+                    <td>{formatDisplayDateTime(event.createdAt)}</td>
+                    <td>{event.field}</td>
+                    <td>
+                      <code>{event.priorValue || "blank"}</code> → <code>{event.newValue || "blank"}</code>
+                    </td>
+                    <td>{event.impact}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p>Belum ada perubahan asumsi reviewer.</p>
+        )}
+      </details>
+    </article>
   );
 }
 
@@ -4822,6 +5426,183 @@ function resolveProjectionLineStatus(line: DcfProjectionLine, context: DcfProjec
 
 function resolveProjectionLineNote(line: DcfProjectionLine, context: DcfProjectionContext): string | undefined {
   return typeof line.note === "function" ? line.note(context) : line.note;
+}
+
+function buildIncomeProjectionScenario({
+  snapshot,
+  baselineEquityValue,
+  controls,
+  fixedAssetProjection,
+  fixedAssetProjectionSource,
+}: {
+  snapshot: FinancialStatementSnapshot;
+  baselineEquityValue: number;
+  controls: IncomeProjectionControlState;
+  fixedAssetProjection?: Record<number, DcfFixedAssetProjectionInput>;
+  fixedAssetProjectionSource?: string;
+}): IncomeProjectionScenarioResult {
+  const controlOptions = buildIncomeProjectionControlDcfOptions(controls);
+  const options: DcfOptions = {
+    ...(fixedAssetProjection
+      ? {
+          fixedAssetProjection,
+          fixedAssetProjectionSource,
+        }
+      : {}),
+    ...controlOptions,
+  };
+  const dcf = calculateDcf(snapshot, options);
+  const hasScenarioInput = hasIncomeProjectionControlInput(controls);
+  const absoluteVariance = dcf.equityValue - baselineEquityValue;
+  const relativeVariance = safeAbsoluteRatio(absoluteVariance, baselineEquityValue);
+  const level = relativeVariance > 0.15 ? "critical" : relativeVariance > 0.05 ? "review" : "ok";
+  const approvedScenario = hasScenarioInput && controls.reviewerDecision.decision === "approved" && level !== "critical";
+  const activeBasis = approvedScenario ? "reviewer-approved-scenario" : "baseline-dcf";
+  const summary = !hasScenarioInput
+    ? "Baseline DCF dipertahankan; belum ada scenario input reviewer."
+    : controls.reviewerDecision.decision === "rejected"
+    ? "Reviewer menolak reliance scenario; current DCF tetap fallback."
+    : level === "critical"
+    ? "Variance scenario melewati batas kritis; current DCF tetap fallback."
+    : approvedScenario
+    ? "Reviewer approval tersimpan; scenario tersedia sebagai basis reliance reviewer."
+    : "Scenario masih pending review; current DCF tetap fallback.";
+
+  return {
+    dcf,
+    options,
+    hasScenarioInput,
+    activeEquityValue: approvedScenario ? dcf.equityValue : baselineEquityValue,
+    absoluteVariance,
+    relativeVariance,
+    level,
+    activeBasis,
+    summary,
+  };
+}
+
+function buildIncomeProjectionControlDcfOptions(controls: IncomeProjectionControlState): Pick<
+  DcfOptions,
+  "incomeProjectionOverrides" | "incomeProjectionPresentation"
+> {
+  const yearlyOverrides = Object.fromEntries(
+    Object.entries(controls.yearlyOverrides).flatMap(([yearKey, entry]) => {
+      const year = Number(yearKey);
+
+      if (!Number.isFinite(year)) {
+        return [];
+      }
+
+      const override: IncomeProjectionYearOverrideInput = {};
+
+      incomeProjectionOverrideFields.forEach((field) => {
+        const value = readRateInput(entry[field.key]);
+
+        if (value !== null) {
+          override[field.key] = value;
+        }
+      });
+
+      return Object.keys(override).length ? [[year, override]] : [];
+    }),
+  ) as Record<number, IncomeProjectionYearOverrideInput>;
+
+  const presentation: IncomeProjectionPresentationAssumptionsInput = {
+    nonOperatingPolicy: controls.nonOperatingPolicy.policy,
+  };
+
+  incomeProjectionPresentationAssumptionFields.forEach((field) => {
+    const value = readRateInput(controls.presentationAssumptions[field.key]);
+
+    if (value !== null) {
+      presentation[field.key] = value;
+    }
+  });
+
+  return {
+    incomeProjectionOverrides: Object.keys(yearlyOverrides).length ? yearlyOverrides : undefined,
+    incomeProjectionPresentation: hasIncomeProjectionPresentationInput(controls) ? presentation : undefined,
+  };
+}
+
+function readIncomeProjectionDefaultRate(
+  field: IncomeProjectionOverrideField,
+  row: DcfForecastRow,
+  index: number,
+  forecast: DcfForecastRow[],
+  snapshot: FinancialStatementSnapshot,
+): number {
+  if (field === "revenueGrowth") {
+    const previousRevenue = index === 0 ? snapshot.revenue : forecast[index - 1]?.revenue ?? 0;
+    return previousRevenue ? row.revenue / previousRevenue - 1 : snapshot.revenueGrowth;
+  }
+
+  if (field === "grossProfitMargin") {
+    return safeRatioForDisplay(row.grossProfit, row.revenue);
+  }
+
+  if (field === "operatingExpenseMargin") {
+    return safeRatioForDisplay(row.operatingExpenses, row.revenue);
+  }
+
+  return safeRatioForDisplay(row.depreciation, row.revenue);
+}
+
+function readIncomeProjectionPresentationDefault(
+  key: IncomeProjectionPresentationAssumptionKey,
+  snapshot: FinancialStatementSnapshot,
+): number {
+  if (key === "cashYield") {
+    return snapshot.interestIncomeCashYield;
+  }
+
+  if (key === "debtRate") {
+    return snapshot.interestExpenseDebtRate;
+  }
+
+  if (key === "interestIncomeRevenueMargin") {
+    return snapshot.interestIncomeRevenueMargin;
+  }
+
+  return snapshot.interestExpenseRevenueMargin;
+}
+
+function formatIncomeProjectionYearDefaultSummary(
+  row: DcfForecastRow,
+  index: number,
+  forecast: DcfForecastRow[],
+  snapshot: FinancialStatementSnapshot,
+): string {
+  const growth = readIncomeProjectionDefaultRate("revenueGrowth", row, index, forecast, snapshot);
+  const grossMargin = readIncomeProjectionDefaultRate("grossProfitMargin", row, index, forecast, snapshot);
+
+  return `Base growth ${formatPercent(growth)} · gross margin ${formatPercent(grossMargin)}`;
+}
+
+function formatReviewerDecision(value: IncomeProjectionReviewerDecision): string {
+  return reviewerDecisionOptions.find((option) => option.value === value)?.label ?? "Pending review";
+}
+
+function formatDisplayDateTime(value: string): string {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("id-ID", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
+function safeAbsoluteRatio(numerator: number, denominator: number): number {
+  const base = Math.abs(denominator);
+  return base ? Math.abs(numerator) / base : Math.abs(numerator) > 0 ? Number.POSITIVE_INFINITY : 0;
+}
+
+function safeRatioForDisplay(numerator: number, denominator: number): number {
+  return denominator ? numerator / denominator : 0;
 }
 
 function ProjectionStatusBadge({ status }: { status: DcfProjectionStatus }) {
@@ -5594,6 +6375,7 @@ function readPersistedWorkbenchState(): PersistedWorkbenchState | null {
     const dlocPfc = sanitizeDlocPfcState(parsed.dlocPfc);
     const taxSimulation = sanitizeTaxSimulationState(parsed.taxSimulation);
     const cashFlowOverrides = sanitizeCashFlowOverrides(parsed.cashFlowOverrides);
+    const incomeProjectionControls = sanitizeIncomeProjectionControls(parsed.incomeProjectionControls);
     const activePeriodId = typeof parsed.activePeriodId === "string" ? parsed.activePeriodId : "";
     const fixedAssetProjectionMode = sanitizeFixedAssetProjectionMode(parsed.fixedAssetProjectionMode);
     const isFixedAssetScheduleEnabled =
@@ -5615,6 +6397,7 @@ function readPersistedWorkbenchState(): PersistedWorkbenchState | null {
       dlocPfc,
       taxSimulation,
       cashFlowOverrides,
+      incomeProjectionControls,
     };
   } catch {
     return null;
@@ -6042,6 +6825,208 @@ function hasCashFlowOverrideInput(value: CashFlowOverrideState): boolean {
   return Object.values(value).some((row) =>
     Object.values(row).some((entry) => entry.value.trim() !== "" || entry.reason.trim() !== ""),
   );
+}
+
+function createEmptyIncomeProjectionYearOverride(): IncomeProjectionYearOverrideState {
+  return {
+    revenueGrowth: "",
+    grossProfitMargin: "",
+    operatingExpenseMargin: "",
+    depreciationMargin: "",
+    reason: "",
+    updatedAt: "",
+  };
+}
+
+function createEmptyIncomeProjectionPresentationAssumptions(): IncomeProjectionPresentationAssumptionState {
+  return {
+    cashYield: "",
+    debtRate: "",
+    interestIncomeRevenueMargin: "",
+    interestExpenseRevenueMargin: "",
+    reason: "",
+    updatedAt: "",
+  };
+}
+
+function createEmptyIncomeProjectionControls(): IncomeProjectionControlState {
+  return {
+    yearlyOverrides: {},
+    reviewerDecision: {
+      decision: "pending",
+      reason: "",
+      updatedAt: "",
+    },
+    nonOperatingPolicy: {
+      policy: "auto",
+      reason: "",
+      updatedAt: "",
+    },
+    presentationAssumptions: createEmptyIncomeProjectionPresentationAssumptions(),
+    auditEvents: [],
+  };
+}
+
+function hasIncomeProjectionControlInput(value: IncomeProjectionControlState): boolean {
+  return (
+    Object.values(value.yearlyOverrides).some(hasIncomeProjectionYearOverrideInput) ||
+    value.reviewerDecision.decision !== "pending" ||
+    value.reviewerDecision.reason.trim() !== "" ||
+    value.nonOperatingPolicy.policy !== "auto" ||
+    value.nonOperatingPolicy.reason.trim() !== "" ||
+    hasIncomeProjectionPresentationInput(value) ||
+    value.auditEvents.length > 0
+  );
+}
+
+function hasIncomeProjectionPresentationInput(value: IncomeProjectionControlState): boolean {
+  return (
+    value.presentationAssumptions.cashYield.trim() !== "" ||
+    value.presentationAssumptions.debtRate.trim() !== "" ||
+    value.presentationAssumptions.interestIncomeRevenueMargin.trim() !== "" ||
+    value.presentationAssumptions.interestExpenseRevenueMargin.trim() !== "" ||
+    value.presentationAssumptions.reason.trim() !== "" ||
+    value.nonOperatingPolicy.policy !== "auto" ||
+    value.nonOperatingPolicy.reason.trim() !== ""
+  );
+}
+
+function hasIncomeProjectionYearOverrideInput(value: IncomeProjectionYearOverrideState): boolean {
+  return (
+    value.revenueGrowth.trim() !== "" ||
+    value.grossProfitMargin.trim() !== "" ||
+    value.operatingExpenseMargin.trim() !== "" ||
+    value.depreciationMargin.trim() !== "" ||
+    value.reason.trim() !== ""
+  );
+}
+
+function writeIncomeProjectionYearOverride(
+  current: Record<string, IncomeProjectionYearOverrideState>,
+  yearKey: string,
+  entry: IncomeProjectionYearOverrideState,
+): Record<string, IncomeProjectionYearOverrideState> {
+  const next = { ...current };
+
+  if (hasIncomeProjectionYearOverrideInput(entry)) {
+    next[yearKey] = entry;
+  } else {
+    delete next[yearKey];
+  }
+
+  return next;
+}
+
+function createIncomeProjectionAuditEvent({
+  action,
+  field,
+  priorValue,
+  newValue,
+  reason,
+  impact,
+}: Omit<IncomeProjectionAuditEvent, "id" | "createdAt" | "actor">): IncomeProjectionAuditEvent {
+  const createdAt = new Date().toISOString();
+
+  return {
+    id: `income-projection-audit-${createdAt}-${Math.random().toString(36).slice(2, 10)}`,
+    createdAt,
+    actor: "reviewer",
+    action,
+    field,
+    priorValue,
+    newValue,
+    reason,
+    impact,
+  };
+}
+
+function sanitizeIncomeProjectionControls(value: unknown): IncomeProjectionControlState {
+  if (!isRecord(value)) {
+    return createEmptyIncomeProjectionControls();
+  }
+
+  const yearlyOverrides = isRecord(value.yearlyOverrides)
+    ? Object.fromEntries(
+        Object.entries(value.yearlyOverrides).flatMap(([yearKey, entry]) => {
+          if (!Number.isFinite(Number(yearKey)) || !isRecord(entry)) {
+            return [];
+          }
+
+          const sanitizedEntry: IncomeProjectionYearOverrideState = {
+            revenueGrowth: typeof entry.revenueGrowth === "string" ? formatEditableNumber(entry.revenueGrowth) : "",
+            grossProfitMargin: typeof entry.grossProfitMargin === "string" ? formatEditableNumber(entry.grossProfitMargin) : "",
+            operatingExpenseMargin:
+              typeof entry.operatingExpenseMargin === "string" ? formatEditableNumber(entry.operatingExpenseMargin) : "",
+            depreciationMargin: typeof entry.depreciationMargin === "string" ? formatEditableNumber(entry.depreciationMargin) : "",
+            reason: typeof entry.reason === "string" ? entry.reason : "",
+            updatedAt: typeof entry.updatedAt === "string" ? entry.updatedAt : "",
+          };
+
+          return hasIncomeProjectionYearOverrideInput(sanitizedEntry) ? [[yearKey, sanitizedEntry]] : [];
+        }),
+      )
+    : {};
+  const reviewerDecisionInput = isRecord(value.reviewerDecision) ? value.reviewerDecision : {};
+  const reviewerDecision =
+    reviewerDecisionInput.decision === "approved" || reviewerDecisionInput.decision === "rejected"
+      ? reviewerDecisionInput.decision
+      : "pending";
+  const nonOperatingPolicyInput = isRecord(value.nonOperatingPolicy) ? value.nonOperatingPolicy : {};
+  const nonOperatingPolicy =
+    nonOperatingPolicyInput.policy === "recurring" || nonOperatingPolicyInput.policy === "non-recurring"
+      ? nonOperatingPolicyInput.policy
+      : "auto";
+  const presentationInput = isRecord(value.presentationAssumptions) ? value.presentationAssumptions : {};
+  const auditEvents = Array.isArray(value.auditEvents)
+    ? value.auditEvents.flatMap((event, index): IncomeProjectionAuditEvent[] => {
+        if (!isRecord(event)) {
+          return [];
+        }
+
+        return [
+          {
+            id: typeof event.id === "string" && event.id.trim() ? event.id : `income-projection-audit-import-${index}`,
+            createdAt: typeof event.createdAt === "string" ? event.createdAt : "",
+            actor: event.actor === "system" ? "system" : "reviewer",
+            action: typeof event.action === "string" ? event.action : "",
+            field: typeof event.field === "string" ? event.field : "",
+            priorValue: typeof event.priorValue === "string" ? event.priorValue : "",
+            newValue: typeof event.newValue === "string" ? event.newValue : "",
+            reason: typeof event.reason === "string" ? event.reason : "",
+            impact: typeof event.impact === "string" ? event.impact : "",
+          },
+        ];
+      })
+    : [];
+
+  return {
+    yearlyOverrides,
+    reviewerDecision: {
+      decision: reviewerDecision,
+      reason: typeof reviewerDecisionInput.reason === "string" ? reviewerDecisionInput.reason : "",
+      updatedAt: typeof reviewerDecisionInput.updatedAt === "string" ? reviewerDecisionInput.updatedAt : "",
+    },
+    nonOperatingPolicy: {
+      policy: nonOperatingPolicy,
+      reason: typeof nonOperatingPolicyInput.reason === "string" ? nonOperatingPolicyInput.reason : "",
+      updatedAt: typeof nonOperatingPolicyInput.updatedAt === "string" ? nonOperatingPolicyInput.updatedAt : "",
+    },
+    presentationAssumptions: {
+      cashYield: typeof presentationInput.cashYield === "string" ? formatEditableNumber(presentationInput.cashYield) : "",
+      debtRate: typeof presentationInput.debtRate === "string" ? formatEditableNumber(presentationInput.debtRate) : "",
+      interestIncomeRevenueMargin:
+        typeof presentationInput.interestIncomeRevenueMargin === "string"
+          ? formatEditableNumber(presentationInput.interestIncomeRevenueMargin)
+          : "",
+      interestExpenseRevenueMargin:
+        typeof presentationInput.interestExpenseRevenueMargin === "string"
+          ? formatEditableNumber(presentationInput.interestExpenseRevenueMargin)
+          : "",
+      reason: typeof presentationInput.reason === "string" ? presentationInput.reason : "",
+      updatedAt: typeof presentationInput.updatedAt === "string" ? presentationInput.updatedAt : "",
+    },
+    auditEvents,
+  };
 }
 
 function removeCashFlowOverridePeriod(value: CashFlowOverrideState, periodId: string): CashFlowOverrideState {

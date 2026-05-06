@@ -1,6 +1,23 @@
 import type { DcfForecastRow, FinancialStatementSnapshot, FormulaTrace, MethodOutput } from "./types";
 
-type DcfOptions = {
+export type IncomeProjectionYearOverrideInput = {
+  revenueGrowth?: number;
+  grossProfitMargin?: number;
+  operatingExpenseMargin?: number;
+  depreciationMargin?: number;
+};
+
+export type NonOperatingIncomeProjectionPolicy = "auto" | "recurring" | "non-recurring";
+
+export type IncomeProjectionPresentationAssumptionsInput = {
+  cashYield?: number;
+  debtRate?: number;
+  interestIncomeRevenueMargin?: number;
+  interestExpenseRevenueMargin?: number;
+  nonOperatingPolicy?: NonOperatingIncomeProjectionPolicy;
+};
+
+export type DcfOptions = {
   terminalGrowth?: number;
   wacc?: number;
   includeWorkingCapitalChange?: boolean;
@@ -8,6 +25,8 @@ type DcfOptions = {
   fixedAssetProjection?: Record<number, DcfFixedAssetProjectionInput>;
   fixedAssetProjectionSource?: string;
   projectionEngine?: "balance-reconciled" | "historical-derived";
+  incomeProjectionOverrides?: Record<number, IncomeProjectionYearOverrideInput>;
+  incomeProjectionPresentation?: IncomeProjectionPresentationAssumptionsInput;
 };
 
 type AamOptions = {
@@ -262,13 +281,24 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
   const wacc = options.wacc ?? snapshot.wacc;
   const startYear = forecastStartYear(snapshot);
   const baseCash = snapshot.cashOnHand + snapshot.cashOnBankDeposit;
-  const interestIncomeCashYield = snapshot.interestIncomeCashYield || safeRatio(snapshot.interestIncome, baseCash);
-  const interestIncomeRevenueMargin = snapshot.interestIncomeRevenueMargin || safeRatio(snapshot.interestIncome, snapshot.revenue);
+  const interestIncomeCashYield =
+    finiteOption(options.incomeProjectionPresentation?.cashYield) ??
+    (snapshot.interestIncomeCashYield || safeRatio(snapshot.interestIncome, baseCash));
+  const interestIncomeRevenueMargin =
+    finiteOption(options.incomeProjectionPresentation?.interestIncomeRevenueMargin) ??
+    (snapshot.interestIncomeRevenueMargin || safeRatio(snapshot.interestIncome, snapshot.revenue));
   const baseInterestBearingDebt = interestBearingDebt(snapshot);
   const interestExpenseDebtRate =
-    snapshot.interestExpenseDebtRate || (baseInterestBearingDebt > 0 ? safeAbsRatio(snapshot.interestExpense, baseInterestBearingDebt) : 0);
-  const interestExpenseRevenueMargin = snapshot.interestExpenseRevenueMargin || safeRatio(snapshot.interestExpense, snapshot.revenue);
-  const nonOperatingIncomeRevenueMargin = snapshot.nonOperatingIncomeRevenueMargin || 0;
+    finiteOption(options.incomeProjectionPresentation?.debtRate) ??
+    (snapshot.interestExpenseDebtRate ||
+      (baseInterestBearingDebt > 0 ? safeAbsRatio(snapshot.interestExpense, baseInterestBearingDebt) : 0));
+  const interestExpenseRevenueMargin =
+    finiteOption(options.incomeProjectionPresentation?.interestExpenseRevenueMargin) ??
+    (snapshot.interestExpenseRevenueMargin || safeRatio(snapshot.interestExpense, snapshot.revenue));
+  const nonOperatingIncomeRevenueMargin = resolveNonOperatingIncomeRevenueMargin(
+    snapshot,
+    options.incomeProjectionPresentation?.nonOperatingPolicy,
+  );
   let previousCashEndingBalance = baseCash;
   const cashOnHandShare = baseCash > 0 ? snapshot.cashOnHand / baseCash : 0;
   const otherCurrentAssetsBase = positiveResidual(
@@ -288,10 +318,17 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
   for (let period = 1; period <= 5; period += 1) {
     const year = startYear + period;
     const fixedAssetProjection = options.fixedAssetProjection?.[year];
-    const revenue = previousRevenue * (1 + snapshot.revenueGrowth);
-    const cogs = revenue * snapshot.cogsMargin;
-    const operatingExpenses = revenue * snapshot.gaMargin;
-    const depreciation = fixedAssetProjection?.depreciation ?? revenue * snapshot.depreciationMargin;
+    const incomeProjectionOverride = options.incomeProjectionOverrides?.[year];
+    const revenueGrowth = finiteOption(incomeProjectionOverride?.revenueGrowth) ?? snapshot.revenueGrowth;
+    const grossProfitMargin = finiteOption(incomeProjectionOverride?.grossProfitMargin);
+    const operatingExpenseMargin = finiteOption(incomeProjectionOverride?.operatingExpenseMargin);
+    const depreciationMargin = finiteOption(incomeProjectionOverride?.depreciationMargin);
+    const revenue = previousRevenue * (1 + revenueGrowth);
+    const cogs = grossProfitMargin === undefined ? revenue * snapshot.cogsMargin : revenue * (1 - grossProfitMargin);
+    const operatingExpenses = revenue * (operatingExpenseMargin ?? snapshot.gaMargin);
+    const depreciation = depreciationMargin === undefined
+      ? fixedAssetProjection?.depreciation ?? revenue * snapshot.depreciationMargin
+      : revenue * depreciationMargin;
     const grossProfit = revenue - cogs;
     const ebit = grossProfit - operatingExpenses - depreciation;
     const statutoryTaxOnEbit = ebit * snapshot.taxRate;
@@ -1006,6 +1043,25 @@ function forecastStartYear(snapshot: FinancialStatementSnapshot): number {
 
 function positiveResidual(total: number, knownComponents: number): number {
   return Math.max(0, total - knownComponents);
+}
+
+function finiteOption(value: number | undefined): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function resolveNonOperatingIncomeRevenueMargin(
+  snapshot: FinancialStatementSnapshot,
+  policy: NonOperatingIncomeProjectionPolicy | undefined,
+): number {
+  if (policy === "non-recurring") {
+    return 0;
+  }
+
+  if (policy === "recurring") {
+    return snapshot.nonOperatingIncomeRevenueMargin || safeRatio(snapshot.nonOperatingIncome, snapshot.revenue);
+  }
+
+  return snapshot.nonOperatingIncomeRevenueMargin || 0;
 }
 
 function safeRatio(numerator: number, denominator: number): number {

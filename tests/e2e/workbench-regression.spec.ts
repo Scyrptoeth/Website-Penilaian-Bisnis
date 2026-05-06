@@ -213,6 +213,16 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByTestId("income-projection-reliance-governance")).toContainText("Governance final report reliance");
   await expect(page.getByTestId("income-projection-reliance-governance")).toContainText("Current FCFF/WACC tetap menjadi fallback");
   await expect(page.getByTestId("income-projection-reliance-governance")).toContainText("Stress accounting presentation");
+  await expect(page.getByTestId("income-projection-controls")).toContainText("Income projection reviewer controls");
+  await expect(page.getByTestId("income-projection-controls")).toContainText("Yearly override");
+  await expect(page.getByTestId("income-projection-controls")).toContainText("Recurring vs non-recurring non-operating income");
+  await expect(page.getByTestId("income-projection-controls")).toContainText("Debt/cash/yield");
+  await expect(page.getByTestId("income-projection-controls")).toContainText("Reviewer approval/rejection");
+  await expect(page.getByTestId("income-projection-audit-events")).toContainText("Belum ada perubahan asumsi reviewer.");
+  await page.getByLabel("Revenue growth override 2022").fill("0,25");
+  await expect(page.getByTestId("income-projection-audit-events")).toContainText("2022.revenueGrowth");
+  await page.getByTestId("income-projection-controls").getByLabel("Decision").selectOption("approved");
+  await expect(page.getByTestId("income-projection-audit-events")).toContainText("reviewerDecision.decision");
   await expect(page.getByTestId("dcf-income-projection-table")).not.toContainText("Revenue t-1");
   await expect(page.getByTestId("dcf-income-projection-table")).not.toContainText(/belum dimodelkan/i);
   await expect(page.getByTestId("dcf-income-projection-table")).toContainText("Presentation-only");
@@ -433,7 +443,7 @@ test("legacy workbook-like DLOM drafts migrate to workbook UPDATE basis without 
   await expect(page.getByTestId("dlom-basis-grid")).not.toContainText("Workbook UPDATE DLOM!C31");
   await expect(page.getByTestId("dlom-basis-grid")).not.toContainText("Formula");
   await expect(page.getByTestId("dlom-summary")).toContainText("25%");
-  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(13);
+  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(14);
 });
 
 test("exports the active workbench state through the primary template-clone XLSX workflow", async ({ page }) => {
@@ -705,7 +715,7 @@ test("legacy positive income-statement expense drafts migrate once and remain us
   await amountInput.press("Home");
   await amountInput.press("Delete");
   await expect(amountInput).toHaveValue("100");
-  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(13);
+  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(14);
 
   await page.reload();
   await openWorkflowTab(page, "Laba Rugi");

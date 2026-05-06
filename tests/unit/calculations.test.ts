@@ -259,4 +259,47 @@ describe("valuation calculations", () => {
     assert.notEqual(results.incomeProjectionRelianceGovernance.presentationStressEquityValue, results.dcf.equityValue);
     assert.ok(results.incomeProjectionRelianceGovernance.items.some((item) => item.level === "critical"));
   });
+
+  it("keeps reviewer income projection scenarios explicit and baseline DCF protected", () => {
+    const base = calculateDcf(snapshot);
+    const firstYear = base.forecast[0].year;
+    const scenario = calculateDcf(snapshot, {
+      incomeProjectionOverrides: {
+        [firstYear]: {
+          revenueGrowth: snapshot.revenueGrowth + 0.03,
+          grossProfitMargin: 0.45,
+          operatingExpenseMargin: 0.12,
+          depreciationMargin: 0.03,
+        },
+      },
+      incomeProjectionPresentation: {
+        cashYield: 0.04,
+        debtRate: 0.09,
+        interestIncomeRevenueMargin: 0.01,
+        interestExpenseRevenueMargin: -0.02,
+        nonOperatingPolicy: "recurring",
+      },
+    });
+    const scenarioFirstYear = scenario.forecast[0];
+
+    assert.notEqual(scenarioFirstYear.revenue, base.forecast[0].revenue);
+    assertAlmostEqual(scenarioFirstYear.grossProfit, scenarioFirstYear.revenue * 0.45, 0.01);
+    assertAlmostEqual(scenarioFirstYear.operatingExpenses, scenarioFirstYear.revenue * 0.12, 0.01);
+    assertAlmostEqual(scenarioFirstYear.depreciation, scenarioFirstYear.revenue * 0.03, 0.01);
+    assertAlmostEqual(calculateAllMethods(snapshot).dcf.equityValue, base.equityValue, 0.01);
+
+    const presentationOnlyScenario = calculateDcf(snapshot, {
+      incomeProjectionPresentation: {
+        cashYield: 0.04,
+        debtRate: 0.09,
+        interestIncomeRevenueMargin: 0.01,
+        interestExpenseRevenueMargin: -0.02,
+        nonOperatingPolicy: "recurring",
+      },
+    });
+
+    assertAlmostEqual(presentationOnlyScenario.equityValue, base.equityValue, 0.01);
+    assertAlmostEqual(presentationOnlyScenario.forecast[0].freeCashFlow, base.forecast[0].freeCashFlow, 0.01);
+    assert.notEqual(presentationOnlyScenario.forecast[0].interestIncome, base.forecast[0].interestIncome);
+  });
 });
