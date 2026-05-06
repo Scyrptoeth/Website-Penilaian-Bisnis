@@ -2562,6 +2562,15 @@ select {
   gap: 10px;
 }
 
+.panel-heading-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+}
+
 .compact-input-table input,
 .input-panel input,
 .input-panel textarea,

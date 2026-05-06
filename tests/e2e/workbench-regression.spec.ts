@@ -219,6 +219,14 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByTestId("income-projection-controls")).toContainText("Debt/cash/yield");
   await expect(page.getByTestId("income-projection-controls")).toContainText("Reviewer approval/rejection");
   await expect(page.getByTestId("income-projection-audit-events")).toContainText("Belum ada perubahan asumsi reviewer.");
+  await page.getByRole("button", { name: /Terapkan semua smart suggestion/ }).click();
+  await expect(page.getByLabel("Revenue growth override 2022")).toHaveValue(/.+/);
+  await expect(page.getByLabel("Gross margin override 2022")).toHaveValue(/.+/);
+  await expect(page.getByLabel("Opex margin override 2022")).toHaveValue(/.+/);
+  await expect(page.getByLabel("Depreciation override 2022")).toHaveValue(/.+/);
+  await expect(page.getByLabel("Cash/deposit yield")).toHaveValue(/.+/);
+  await expect(page.getByLabel("Interest expense / revenue")).toHaveValue(/.+/);
+  await expect(page.getByTestId("income-projection-audit-events")).toContainText("incomeProjectionControls.autoSmartSuggestions");
   await page.getByLabel("Revenue growth override 2022").fill("0,25");
   await expect(page.getByTestId("income-projection-audit-events")).toContainText("2022.revenueGrowth");
   await page.getByTestId("income-projection-controls").getByLabel("Decision").selectOption("approved");

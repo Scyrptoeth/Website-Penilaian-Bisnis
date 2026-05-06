@@ -1516,6 +1516,62 @@ export function ValuationWorkbench() {
     }));
   }
 
+  function applyIncomeProjectionSmartSuggestions() {
+    const forecast = results.dcf.forecast;
+    const now = new Date().toISOString();
+    const suggestedReason = "Auto smart suggestion dari baseline forecast, snapshot, dan input interoperabel.";
+
+    commitCoreState((current) => {
+      const yearlyOverrides = Object.fromEntries(
+        forecast.map((row, index) => {
+          const yearKey = String(row.year);
+          const currentEntry = current.incomeProjectionControls.yearlyOverrides[yearKey] ?? createEmptyIncomeProjectionYearOverride();
+          const nextEntry: IncomeProjectionYearOverrideState = {
+            ...currentEntry,
+            revenueGrowth: formatInputNumber(readIncomeProjectionDefaultRate("revenueGrowth", row, index, forecast, snapshot)),
+            grossProfitMargin: formatInputNumber(readIncomeProjectionDefaultRate("grossProfitMargin", row, index, forecast, snapshot)),
+            operatingExpenseMargin: formatInputNumber(readIncomeProjectionDefaultRate("operatingExpenseMargin", row, index, forecast, snapshot)),
+            depreciationMargin: formatInputNumber(readIncomeProjectionDefaultRate("depreciationMargin", row, index, forecast, snapshot)),
+            reason: currentEntry.reason.trim() || suggestedReason,
+            updatedAt: now,
+          };
+
+          return [yearKey, nextEntry];
+        }),
+      ) as Record<string, IncomeProjectionYearOverrideState>;
+      const currentPresentation = current.incomeProjectionControls.presentationAssumptions;
+      const presentationAssumptions: IncomeProjectionPresentationAssumptionState = {
+        ...currentPresentation,
+        cashYield: formatInputNumber(readIncomeProjectionPresentationDefault("cashYield", snapshot)),
+        debtRate: formatInputNumber(readIncomeProjectionPresentationDefault("debtRate", snapshot)),
+        interestIncomeRevenueMargin: formatInputNumber(readIncomeProjectionPresentationDefault("interestIncomeRevenueMargin", snapshot)),
+        interestExpenseRevenueMargin: formatInputNumber(readIncomeProjectionPresentationDefault("interestExpenseRevenueMargin", snapshot)),
+        reason: currentPresentation.reason.trim() || suggestedReason,
+        updatedAt: now,
+      };
+
+      return {
+        ...current,
+        incomeProjectionControls: {
+          ...current.incomeProjectionControls,
+          yearlyOverrides,
+          presentationAssumptions,
+          auditEvents: [
+            ...current.incomeProjectionControls.auditEvents,
+            createIncomeProjectionAuditEvent({
+              action: "smart_suggestions_applied",
+              field: "incomeProjectionControls.autoSmartSuggestions",
+              priorValue: summarizeIncomeProjectionAppliedState(current.incomeProjectionControls),
+              newValue: `${forecast.length} yearly override rows + ${incomeProjectionPresentationAssumptionFields.length} presentation assumptions`,
+              reason: "Pengguna menerapkan semua auto smart suggestion.",
+              impact: "Menyalin suggestion interoperabel ke scenario reviewer; baseline DCF tetap protected sampai approval dan variance check valid.",
+            }),
+          ],
+        },
+      };
+    });
+  }
+
   function updateWaccComparableName(slot: WaccComparableSlot, value: string) {
     commitCoreState((current) => {
       const selectedComparable = findIdxComparableByLabel(current.caseProfile.companySector, value);
@@ -2449,6 +2505,7 @@ export function ValuationWorkbench() {
               onIncomeProjectionNonOperatingPolicyChange={updateIncomeProjectionNonOperatingPolicy}
               onIncomeProjectionPresentationAssumptionChange={updateIncomeProjectionPresentationAssumption}
               onIncomeProjectionPresentationAssumptionReasonChange={updateIncomeProjectionPresentationAssumptionReason}
+              onApplyIncomeProjectionSmartSuggestions={applyIncomeProjectionSmartSuggestions}
             />
           ) : (
             <ReadinessPanel status={readiness.projectedIncome} onNavigate={navigateToWorkflowTab} force />
@@ -4806,6 +4863,7 @@ function ProjectionStatementSection({
   onIncomeProjectionNonOperatingPolicyChange,
   onIncomeProjectionPresentationAssumptionChange,
   onIncomeProjectionPresentationAssumptionReasonChange,
+  onApplyIncomeProjectionSmartSuggestions,
 }: {
   kind: ProjectionStatementKind;
   forecast: DcfForecastRow[];
@@ -4822,6 +4880,7 @@ function ProjectionStatementSection({
   onIncomeProjectionNonOperatingPolicyChange?: (patch: Partial<IncomeProjectionNonOperatingPolicyState>) => void;
   onIncomeProjectionPresentationAssumptionChange?: (key: IncomeProjectionPresentationAssumptionKey, value: string) => void;
   onIncomeProjectionPresentationAssumptionReasonChange?: (reason: string) => void;
+  onApplyIncomeProjectionSmartSuggestions?: () => void;
 }) {
   const config =
     kind === "fixedAssets"
@@ -4916,6 +4975,7 @@ function ProjectionStatementSection({
           onNonOperatingPolicyChange={onIncomeProjectionNonOperatingPolicyChange}
           onPresentationAssumptionChange={onIncomeProjectionPresentationAssumptionChange}
           onPresentationAssumptionReasonChange={onIncomeProjectionPresentationAssumptionReasonChange}
+          onApplySmartSuggestions={onApplyIncomeProjectionSmartSuggestions}
         />
       ) : null}
 
@@ -4990,6 +5050,7 @@ function IncomeProjectionControlsPanel({
   onNonOperatingPolicyChange,
   onPresentationAssumptionChange,
   onPresentationAssumptionReasonChange,
+  onApplySmartSuggestions,
 }: {
   controls: IncomeProjectionControlState;
   forecast: DcfForecastRow[];
@@ -5001,6 +5062,7 @@ function IncomeProjectionControlsPanel({
   onNonOperatingPolicyChange?: (patch: Partial<IncomeProjectionNonOperatingPolicyState>) => void;
   onPresentationAssumptionChange?: (key: IncomeProjectionPresentationAssumptionKey, value: string) => void;
   onPresentationAssumptionReasonChange?: (reason: string) => void;
+  onApplySmartSuggestions?: () => void;
 }) {
   const latestAuditEvents = controls.auditEvents.slice().reverse().slice(0, 12);
 
@@ -5011,9 +5073,15 @@ function IncomeProjectionControlsPanel({
           <p className="eyebrow">System development governance</p>
           <h3>Income projection reviewer controls</h3>
         </div>
-        <span className={`status-pill ${scenario.level === "critical" ? "warning" : "muted"}`}>
-          {scenario.activeBasis === "reviewer-approved-scenario" ? "Approved scenario" : "Baseline protected"}
-        </span>
+        <div className="panel-heading-actions">
+          <button className="button ghost compact-button" onClick={onApplySmartSuggestions} type="button">
+            <CheckCircle2 size={14} />
+            Terapkan semua smart suggestion
+          </button>
+          <span className={`status-pill ${scenario.level === "critical" ? "warning" : "muted"}`}>
+            {scenario.activeBasis === "reviewer-approved-scenario" ? "Approved scenario" : "Baseline protected"}
+          </span>
+        </div>
       </div>
 
       <div className="projection-governance-grid">
@@ -6938,6 +7006,15 @@ function createIncomeProjectionAuditEvent({
     reason,
     impact,
   };
+}
+
+function summarizeIncomeProjectionAppliedState(value: IncomeProjectionControlState): string {
+  const yearlyOverrideCount = Object.values(value.yearlyOverrides).filter(hasIncomeProjectionYearOverrideInput).length;
+  const presentationCount = incomeProjectionPresentationAssumptionFields.filter(
+    (field) => value.presentationAssumptions[field.key].trim() !== "",
+  ).length;
+
+  return `${yearlyOverrideCount} yearly override rows + ${presentationCount} presentation assumptions`;
 }
 
 function sanitizeIncomeProjectionControls(value: unknown): IncomeProjectionControlState {
