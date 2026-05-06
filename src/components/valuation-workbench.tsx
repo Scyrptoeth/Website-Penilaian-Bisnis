@@ -6208,8 +6208,8 @@ function RoicSection({
     <>
       <ReadinessPanel status={readiness} onNavigate={onNavigate} />
 
-      <section className="split-panel">
-        <article className="panel">
+      <section className="roic-section-stack">
+        <article className="panel roic-table-panel">
           <div className="panel-heading">
             <div>
               <p className="eyebrow">ROIC</p>
@@ -6220,7 +6220,7 @@ function RoicSection({
           <AnalysisTable rows={analysis.roicRows} periods={analysis.periods} percentRowKeys={new Set(["roic"])} />
         </article>
 
-        <article className="panel">
+        <article className="panel roic-audit-panel">
           <div className="panel-heading">
             <div>
               <p className="eyebrow">Referensi audit sistem</p>

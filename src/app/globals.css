@@ -3173,6 +3173,35 @@ td span {
   min-width: 0;
 }
 
+.roic-section-stack {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  min-width: 0;
+}
+
+.roic-table-panel .analysis-table {
+  min-width: 1120px;
+}
+
+.roic-table-panel .analysis-table th.period-column,
+.roic-table-panel .analysis-table td.period-column {
+  width: 168px;
+}
+
+.roic-audit-panel .audit-reference {
+  gap: 8px;
+}
+
+.roic-audit-panel .audit-reference-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.roic-audit-panel .audit-reference ul {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: 18px;
+}
+
 .formula-list {
   display: grid;
   gap: 6px;
@@ -3641,6 +3670,14 @@ td span {
   .tax-control-grid,
   .period-grid,
   .input-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .roic-audit-panel .audit-reference ul {
+    grid-template-columns: 1fr;
+  }
+
+  .roic-audit-panel .audit-reference-grid {
     grid-template-columns: 1fr;
   }
 

@@ -297,6 +297,43 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByText("Bridge efisiensi modal")).toBeVisible();
   await expect(page.getByText("Basis NOPLAT terkoreksi")).toBeVisible();
   await expect(page.getByText("Referensi audit sistem")).toBeVisible();
+  await expect(page.locator(".roic-table-panel")).toBeVisible();
+  await expect(page.locator(".roic-audit-panel")).toBeVisible();
+  const roicLayout = await page.evaluate(() => {
+    const tablePanel = document.querySelector(".roic-table-panel");
+    const auditPanel = document.querySelector(".roic-audit-panel");
+    const tableWrap = document.querySelector(".roic-table-panel .table-wrap");
+    const workspace = document.querySelector(".workspace");
+
+    if (!(tablePanel instanceof HTMLElement) || !(auditPanel instanceof HTMLElement) || !(tableWrap instanceof HTMLElement) || !(workspace instanceof HTMLElement)) {
+      return null;
+    }
+
+    const tablePanelBox = tablePanel.getBoundingClientRect();
+    const auditPanelBox = auditPanel.getBoundingClientRect();
+    const tableWrapBox = tableWrap.getBoundingClientRect();
+    const workspaceBox = workspace.getBoundingClientRect();
+
+    return {
+      auditTop: auditPanelBox.top,
+      tablePanelBottom: tablePanelBox.bottom,
+      tableWrapWidth: tableWrapBox.width,
+      workspaceWidth: workspaceBox.width,
+    };
+  });
+  expect(roicLayout).not.toBeNull();
+  expect(roicLayout?.auditTop ?? 0).toBeGreaterThanOrEqual((roicLayout?.tablePanelBottom ?? 0) - 1);
+  expect(roicLayout?.tableWrapWidth ?? 0).toBeGreaterThan((roicLayout?.workspaceWidth ?? 0) * 0.7);
+  expect(await hasNoRootHorizontalOverflow(page)).toBe(true);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.locator(".mobile-workflow-tabs")).toBeVisible();
+  await expect(page.locator(".roic-audit-panel")).toBeVisible();
+  const roicAuditMetricColumns = await page.locator(".roic-audit-panel .audit-reference-grid").evaluate((grid) =>
+    getComputedStyle(grid).gridTemplateColumns.split(" ").length,
+  );
+  expect(roicAuditMetricColumns).toBe(1);
+  expect(await hasNoRootHorizontalOverflow(page)).toBe(true);
 });
 
 test("DLOM and tax simulation render workbook-derived scenario layer after loading sample", async ({ page }) => {
