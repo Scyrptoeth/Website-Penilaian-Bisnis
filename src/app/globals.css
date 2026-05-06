@@ -204,10 +204,37 @@ svg {
 .nav-list {
   display: grid;
   align-content: start;
-  gap: 2px;
+  gap: 8px;
   min-height: 0;
   overflow-y: auto;
   padding-right: 2px;
+}
+
+.nav-group {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.nav-group + .nav-group {
+  padding-top: 7px;
+  border-top: 1px solid var(--line);
+}
+
+.nav-group-label {
+  margin: 0 6px 1px;
+  color: var(--muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 7.2px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.nav-group-items {
+  display: grid;
+  gap: 2px;
 }
 
 .nav-list button {

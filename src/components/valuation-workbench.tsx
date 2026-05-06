@@ -462,6 +462,10 @@ type WorkflowTab = {
   label: string;
   methods: ValuationMethod[];
 };
+type WorkflowTabGroup = {
+  label: string;
+  tabs: WorkflowTab[];
+};
 
 declare global {
   interface Window {
@@ -477,31 +481,74 @@ const dcfOnlyMethods: ValuationMethod[] = ["DCF"];
 const eemDcfMethods: ValuationMethod[] = ["EEM", "DCF"];
 const allValuationMethods: ValuationMethod[] = ["AAM", "EEM", "DCF"];
 
-const workflowTabs: WorkflowTab[] = [
-  { id: "periods", label: "Data Awal", methods: allValuationMethods },
-  { id: "balance", label: "Neraca", methods: allValuationMethods },
-  { id: "fixedAssets", label: "Aset Tetap", methods: allValuationMethods },
-  { id: "income", label: "Laba Rugi", methods: eemDcfMethods },
-  { id: "mapping", label: "Kategorisasi Akun", methods: allValuationMethods },
-  { id: "wacc", label: "WACC", methods: eemDcfMethods },
-  { id: "eemDcfAssumptions", label: "Asumsi EEM/DCF", methods: eemDcfMethods },
-  { id: "valuationAam", label: "Penilaian AAM", methods: aamOnlyMethods },
-  { id: "valuationEem", label: "Penilaian EEM", methods: eemOnlyMethods },
-  { id: "valuationDcf", label: "Penilaian DCF", methods: dcfOnlyMethods },
-  { id: "projectedIncome", label: "Proyeksi Laba Rugi", methods: dcfOnlyMethods },
-  { id: "projectedBalance", label: "Proyeksi Neraca", methods: dcfOnlyMethods },
-  { id: "projectedFixedAssets", label: "Proyeksi Aset Tetap", methods: dcfOnlyMethods },
-  { id: "projectedCashFlow", label: "Proyeksi Cash Flow Statement", methods: dcfOnlyMethods },
-  { id: "dlom", label: "DLOM", methods: allValuationMethods },
-  { id: "dlocPfc", label: "DLOC/PFC", methods: allValuationMethods },
-  { id: "taxSimulation", label: "Simulasi Potensi Pajak", methods: allValuationMethods },
-  { id: "cashFlowStatement", label: "Cash Flow Statement", methods: eemDcfMethods },
-  { id: "payablesCashFlow", label: "Jadwal Utang", methods: eemDcfMethods },
-  { id: "noplatFcf", label: "NOPLAT & FCF", methods: eemDcfMethods },
-  { id: "financialRatio", label: "Financial Ratio", methods: eemDcfMethods },
-  { id: "roic", label: "ROIC", methods: eemDcfMethods },
-  { id: "audit", label: "Audit", methods: allValuationMethods },
+const workflowTabRegistry = {
+  periods: { id: "periods", label: "Data Awal", methods: allValuationMethods },
+  balance: { id: "balance", label: "Neraca", methods: allValuationMethods },
+  fixedAssets: { id: "fixedAssets", label: "Aset Tetap", methods: allValuationMethods },
+  income: { id: "income", label: "Laba Rugi", methods: eemDcfMethods },
+  mapping: { id: "mapping", label: "Kategorisasi Akun", methods: allValuationMethods },
+  wacc: { id: "wacc", label: "WACC", methods: eemDcfMethods },
+  eemDcfAssumptions: { id: "eemDcfAssumptions", label: "Asumsi EEM/DCF", methods: eemDcfMethods },
+  valuationAam: { id: "valuationAam", label: "Penilaian AAM", methods: aamOnlyMethods },
+  valuationEem: { id: "valuationEem", label: "Penilaian EEM", methods: eemOnlyMethods },
+  valuationDcf: { id: "valuationDcf", label: "Penilaian DCF", methods: dcfOnlyMethods },
+  projectedIncome: { id: "projectedIncome", label: "Proyeksi Laba Rugi", methods: dcfOnlyMethods },
+  projectedBalance: { id: "projectedBalance", label: "Proyeksi Neraca", methods: dcfOnlyMethods },
+  projectedFixedAssets: { id: "projectedFixedAssets", label: "Proyeksi Aset Tetap", methods: dcfOnlyMethods },
+  projectedCashFlow: { id: "projectedCashFlow", label: "Proyeksi Cash Flow Statement", methods: dcfOnlyMethods },
+  dlom: { id: "dlom", label: "DLOM", methods: allValuationMethods },
+  dlocPfc: { id: "dlocPfc", label: "DLOC/PFC", methods: allValuationMethods },
+  taxSimulation: { id: "taxSimulation", label: "Simulasi Potensi Pajak", methods: allValuationMethods },
+  cashFlowStatement: { id: "cashFlowStatement", label: "Cash Flow Statement", methods: eemDcfMethods },
+  payablesCashFlow: { id: "payablesCashFlow", label: "Jadwal Utang", methods: eemDcfMethods },
+  noplatFcf: { id: "noplatFcf", label: "NOPLAT & FCF", methods: eemDcfMethods },
+  financialRatio: { id: "financialRatio", label: "Financial Ratio", methods: eemDcfMethods },
+  roic: { id: "roic", label: "ROIC", methods: eemDcfMethods },
+  audit: { id: "audit", label: "Audit", methods: allValuationMethods },
+} satisfies Record<WorkflowTabId, WorkflowTab>;
+
+const workflowNavigationGroups: WorkflowTabGroup[] = [
+  {
+    label: "Input Data",
+    tabs: [workflowTabRegistry.periods, workflowTabRegistry.balance, workflowTabRegistry.fixedAssets, workflowTabRegistry.income],
+  },
+  {
+    label: "Asumsi",
+    tabs: [workflowTabRegistry.wacc, workflowTabRegistry.eemDcfAssumptions],
+  },
+  {
+    label: "Valuasi Inti",
+    tabs: [workflowTabRegistry.valuationAam, workflowTabRegistry.valuationEem, workflowTabRegistry.valuationDcf],
+  },
+  {
+    label: "Proyeksi DCF",
+    tabs: [
+      workflowTabRegistry.projectedIncome,
+      workflowTabRegistry.projectedBalance,
+      workflowTabRegistry.projectedFixedAssets,
+      workflowTabRegistry.projectedCashFlow,
+    ],
+  },
+  {
+    label: "Analisis EEM/DCF",
+    tabs: [
+      workflowTabRegistry.cashFlowStatement,
+      workflowTabRegistry.payablesCashFlow,
+      workflowTabRegistry.noplatFcf,
+      workflowTabRegistry.financialRatio,
+      workflowTabRegistry.roic,
+    ],
+  },
+  {
+    label: "Diskon & Pajak",
+    tabs: [workflowTabRegistry.dlom, workflowTabRegistry.dlocPfc, workflowTabRegistry.taxSimulation],
+  },
+  {
+    label: "Review",
+    tabs: [workflowTabRegistry.audit],
+  },
 ];
+const workflowNavigationTabs = workflowNavigationGroups.flatMap((group) => group.tabs);
 
 const incomeProjectionOverrideFields: Array<{
   key: IncomeProjectionOverrideField;
@@ -574,7 +621,7 @@ export function ValuationWorkbench() {
   const [redoStack, setRedoStack] = useState<WorkbenchCoreState[]>([]);
   const [isTemplateExporting, setIsTemplateExporting] = useState(false);
 
-  const activeWorkflowTabItem = workflowTabs.find((tab) => tab.id === activeWorkflowTab) ?? workflowTabs[0];
+  const activeWorkflowTabItem = workflowTabRegistry[activeWorkflowTab] ?? workflowTabRegistry.periods;
   const mappedRows = useMemo(() => rows.map((row) => mapRow(row)), [rows]);
   const caseProfileDerived = useMemo(() => buildCaseProfileDerived(caseProfile), [caseProfile]);
   const activePeriod = periods.find((period) => period.id === activePeriodId) ?? getDefaultActivePeriod(periods);
@@ -1822,19 +1869,26 @@ export function ValuationWorkbench() {
             </button>
           </div>
           <nav className="nav-list" aria-label="Bagian model">
-            {workflowTabs.map((item) => (
-              <button
-                className={activeWorkflowTab === item.id ? "active" : ""}
-                type="button"
-                onClick={() => setActiveWorkflowTab(item.id)}
-                aria-current={activeWorkflowTab === item.id ? "page" : undefined}
-                aria-label={item.label}
-                title={`${item.label}: ${formatMethodList(item.methods)}`}
-                key={item.id}
-              >
-                <span className="workflow-tab-label">{item.label}</span>
-                <WorkflowMethodBadges methods={item.methods} />
-              </button>
+            {workflowNavigationGroups.map((group) => (
+              <div className="nav-group" role="group" aria-label={group.label} key={group.label}>
+                <p className="nav-group-label">{group.label}</p>
+                <div className="nav-group-items">
+                  {group.tabs.map((item) => (
+                    <button
+                      className={activeWorkflowTab === item.id ? "active" : ""}
+                      type="button"
+                      onClick={() => navigateToWorkflowTab(item.id)}
+                      aria-current={activeWorkflowTab === item.id ? "page" : undefined}
+                      aria-label={item.label}
+                      title={`${item.label}: ${formatMethodList(item.methods)}`}
+                      key={item.id}
+                    >
+                      <span className="workflow-tab-label">{item.label}</span>
+                      <WorkflowMethodBadges methods={item.methods} />
+                    </button>
+                  ))}
+                </div>
+              </div>
             ))}
           </nav>
         </aside>
@@ -1870,7 +1924,7 @@ export function ValuationWorkbench() {
           </header>
 
           <div className="workflow-tabs mobile-workflow-tabs" role="tablist" aria-label="Workflow penilaian">
-            {workflowTabs.map((tab) => (
+            {workflowNavigationTabs.map((tab) => (
               <button
                 className={activeWorkflowTab === tab.id ? "active" : ""}
                 type="button"
@@ -1878,7 +1932,7 @@ export function ValuationWorkbench() {
                 aria-selected={activeWorkflowTab === tab.id}
                 aria-label={tab.label}
                 title={`${tab.label}: ${formatMethodList(tab.methods)}`}
-                onClick={() => setActiveWorkflowTab(tab.id)}
+                onClick={() => navigateToWorkflowTab(tab.id)}
                 key={tab.id}
               >
                 <span className="workflow-tab-label">{tab.label}</span>
@@ -2968,7 +3022,7 @@ function ReadinessPanel({
 function ReadinessOverview({ readiness, onNavigate }: { readiness: WorkbenchReadiness; onNavigate: (tabId: WorkflowTabId) => void }) {
   return (
     <section className="readiness-overview" data-testid="readiness-overview">
-      {workflowTabs.map((tab) => {
+      {workflowNavigationTabs.map((tab) => {
         const status = readiness[tab.id];
         const unresolvedCount = status.missing.length + status.warnings.length;
 

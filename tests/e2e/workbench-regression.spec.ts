@@ -32,9 +32,41 @@ test("period workflow, scoped categories, and display-only balance sheet classif
   await expect(workflowNav(page).getByRole("button", { name: "Data Awal" })).toHaveAttribute("aria-current", "page");
   await expect(workflowNav(page).getByRole("button", { name: "Neraca", exact: true })).toBeVisible();
   await expect(workflowNav(page).getByRole("button", { name: "Aset Tetap", exact: true })).toBeVisible();
+  await expect(workflowNav(page).getByText("Input Data", { exact: true })).toBeVisible();
+  await expect(workflowNav(page).getByText("Valuasi Inti", { exact: true })).toBeVisible();
+  await expect(workflowNav(page).getByText("Proyeksi DCF", { exact: true })).toBeVisible();
+  await expect(workflowNav(page).getByText("Analisis EEM/DCF", { exact: true })).toBeVisible();
+  await expect(workflowNav(page).getByText("Diskon & Pajak", { exact: true })).toBeVisible();
+  const sidebarTabLabels = await workflowNav(page)
+    .getByRole("button")
+    .evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label")));
+  expect(sidebarTabLabels).toEqual([
+    "Data Awal",
+    "Neraca",
+    "Aset Tetap",
+    "Laba Rugi",
+    "WACC",
+    "Asumsi EEM/DCF",
+    "Penilaian AAM",
+    "Penilaian EEM",
+    "Penilaian DCF",
+    "Proyeksi Laba Rugi",
+    "Proyeksi Neraca",
+    "Proyeksi Aset Tetap",
+    "Proyeksi Cash Flow Statement",
+    "Cash Flow Statement",
+    "Jadwal Utang",
+    "NOPLAT & FCF",
+    "Financial Ratio",
+    "ROIC",
+    "DLOM",
+    "DLOC/PFC",
+    "Simulasi Potensi Pajak",
+    "Audit",
+  ]);
   await expect(workflowNav(page).getByRole("button", { name: "Neraca", exact: true }).locator(".method-badge")).toHaveText(["AAM", "EEM", "DCF"]);
   await expect(workflowNav(page).getByRole("button", { name: "Laba Rugi", exact: true }).locator(".method-badge")).toHaveText(["EEM", "DCF"]);
-  await expect(workflowNav(page).getByRole("button", { name: "Kategorisasi Akun", exact: true }).locator(".method-badge")).toHaveText(["AAM", "EEM", "DCF"]);
+  await expect(workflowNav(page).getByRole("button", { name: "Kategorisasi Akun", exact: true })).toHaveCount(0);
   await expect(workflowNav(page).getByRole("button", { name: "Penilaian AAM", exact: true }).locator(".method-badge")).toHaveText(["AAM"]);
   await expect(workflowNav(page).getByRole("button", { name: "Neraca & Aset Tetap", exact: true })).toHaveCount(0);
   await expect(workflowNav(page).getByRole("button", { name: "Pemetaan & Label" })).toHaveCount(0);
@@ -826,6 +858,7 @@ test("localStorage persistence, fixed header, and root overflow checks remain st
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByTestId("workspace-header")).toBeVisible();
   await expect(page.locator(".mobile-workflow-tabs")).toBeVisible();
+  await expect(page.locator(".mobile-workflow-tabs").getByRole("tab", { name: "Kategorisasi Akun", exact: true })).toHaveCount(0);
   expect(await hasNoRootHorizontalOverflow(page)).toBe(true);
 });
 
