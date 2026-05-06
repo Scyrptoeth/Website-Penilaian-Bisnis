@@ -2465,6 +2465,10 @@ select {
   background: var(--line);
 }
 
+.sensitivity-grid.two-column {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .sensitivity-grid div {
   display: grid;
   gap: 5px;
@@ -3674,6 +3678,10 @@ td span {
   .tax-control-grid,
   .period-grid,
   .input-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sensitivity-grid.two-column {
     grid-template-columns: 1fr;
   }
 

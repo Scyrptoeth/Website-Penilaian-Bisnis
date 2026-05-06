@@ -4,7 +4,7 @@ import { valuationDriverGovernancePolicy } from "./valuation-driver-governance-p
 
 export type AssumptionGovernanceLevel = "ok" | "review" | "critical";
 
-export type AssumptionGovernanceTarget = "wacc" | "eemDcfAssumptions" | "valuationEemDcf";
+export type AssumptionGovernanceTarget = "wacc" | "eemDcfAssumptions" | "valuationEem" | "valuationDcf";
 
 export type AssumptionGovernanceItem = {
   id: string;
@@ -124,7 +124,7 @@ export function buildAssumptionGovernance({
       level: "critical",
       message: "DCF terlalu bergantung pada terminal value. Ini biasanya menandakan WACC/growth/terminal growth perlu governance ketat.",
       action: "Review WACC, revenue growth, terminal growth, dan bandingkan no-incremental-WC/downside scenario.",
-      target: "valuationEemDcf",
+      target: "valuationDcf",
     });
   }
 
@@ -148,7 +148,7 @@ export function buildAssumptionGovernance({
       level: "ok",
       message: "Saran otomatis dan driver aktif melewati threshold tata kelola awal.",
       action: "Tetap dokumentasikan bukti final dalam laporan.",
-      target: "valuationEemDcf",
+      target: "eemDcfAssumptions",
     });
   }
 

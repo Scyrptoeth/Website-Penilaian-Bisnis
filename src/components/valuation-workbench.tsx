@@ -48,7 +48,10 @@ import {
   buildDcfForecast,
   calculateAllMethods,
   calculateDcf,
+  interestBearingDebt,
+  nonOperatingAssets,
   normalizedNoplat,
+  operatingWorkingCapital,
   type DcfOptions,
   type DcfFixedAssetProjectionInput,
   type IncomeProjectionPresentationAssumptionsInput,
@@ -471,7 +474,8 @@ const workflowTabs: Array<{ id: WorkflowTabId; label: string }> = [
   { id: "wacc", label: "WACC" },
   { id: "eemDcfAssumptions", label: "Asumsi EEM/DCF" },
   { id: "valuationAam", label: "Penilaian AAM" },
-  { id: "valuationEemDcf", label: "Penilaian EEM/DCF" },
+  { id: "valuationEem", label: "Penilaian EEM" },
+  { id: "valuationDcf", label: "Penilaian DCF" },
   { id: "projectedIncome", label: "Proyeksi Laba Rugi" },
   { id: "projectedBalance", label: "Proyeksi Neraca" },
   { id: "projectedFixedAssets", label: "Proyeksi Aset Tetap" },
@@ -695,7 +699,17 @@ export function ValuationWorkbench() {
     () => buildIncomeStatementView(periods, incomeStatementRows, fixedAssetSchedule),
     [fixedAssetSchedule, incomeStatementRows, periods],
   );
-  const eemDcfMethodCards = [results.eem, results.dcf];
+  const eemOperatingWorkingCapital = operatingWorkingCapital(snapshot);
+  const eemNetOperatingTangibleAssets = snapshot.fixedAssetsNet + eemOperatingWorkingCapital;
+  const eemNoplat = normalizedNoplat(snapshot);
+  const eemRequiredReturnAmount = eemNetOperatingTangibleAssets * snapshot.requiredReturnOnNta;
+  const eemExcessEarnings = eemNoplat - eemRequiredReturnAmount;
+  const eemCapitalizationRate = snapshot.wacc - snapshot.terminalGrowth;
+  const eemCapitalizedExcess = eemCapitalizationRate > 0 ? eemExcessEarnings / eemCapitalizationRate : 0;
+  const eemEnterpriseValue = eemNetOperatingTangibleAssets + eemCapitalizedExcess;
+  const dcfExplicitPv = findTraceValue(results.dcf.traces, "PV eksplisit FCFF");
+  const dcfTerminalPv = findTraceValue(results.dcf.traces, "PV nilai terminal");
+  const dcfEnterpriseValue = dcfExplicitPv + dcfTerminalPv;
   const taxRateCandidates = useMemo(() => buildTaxRateCandidates(effectiveValuationDate), [effectiveValuationDate]);
   const marketSuggestion = useMemo(
     () => getMarketAssumptionSuggestion(effectiveValuationDate),
@@ -720,6 +734,10 @@ export function ValuationWorkbench() {
         hasRevenueGrowthOverride: assumptions.revenueGrowth.trim() !== "",
       }),
     [assumptions.revenueGrowth, requiredReturnCalculation, results.dcf.traces, snapshot, waccCalculation],
+  );
+  const eemAssumptionGovernance = useMemo(
+    () => scopeAssumptionGovernance(assumptionGovernance, (item) => item.target !== "valuationDcf", "EEM"),
+    [assumptionGovernance],
   );
   const terminalGrowthSuggestion = useMemo(
     () =>
@@ -2308,20 +2326,34 @@ export function ValuationWorkbench() {
         )
         ) : null}
 
-        {activeWorkflowTab === "valuationEemDcf" ? (
-        readiness.valuationEemDcf.isReady ? (
+        {activeWorkflowTab === "valuationEem" ? (
+        readiness.valuationEem.isReady ? (
         <>
-        <section id="eem-dcf-summary" className="section-grid">
-          {eemDcfMethodCards.map((method) => (
-            <article className="metric-card" key={method.method}>
-              <div className="card-title">
-                <Calculator size={20} />
-                <span>{method.method}</span>
-              </div>
-              <strong>{formatIdr(method.equityValue)}</strong>
-              <p>{activePeriod?.label || "Periode aktif"} · Nilai Ekuitas 100%</p>
-            </article>
-          ))}
+        <section id="eem-summary" className="section-grid">
+          <article className="metric-card">
+            <div className="card-title">
+              <Calculator size={20} />
+              <span>EEM</span>
+            </div>
+            <strong>{formatIdr(results.eem.equityValue)}</strong>
+            <p>{activePeriod?.label || "Periode aktif"} · Nilai Ekuitas 100%</p>
+          </article>
+          <article className="metric-card">
+            <div className="card-title">
+              <TableProperties size={20} />
+              <span>NTA operasional</span>
+            </div>
+            <strong>{formatIdr(eemNetOperatingTangibleAssets)}</strong>
+            <p>Aset tetap neto + operating working capital; mengikuti anchor Nett Tangible Asset Value pada sheet EEM.</p>
+          </article>
+          <article className="metric-card">
+            <div className="card-title">
+              <FileSearch size={20} />
+              <span>Excess earning</span>
+            </div>
+            <strong>{formatIdr(eemExcessEarnings)}</strong>
+            <p>NOPLAT dikurangi required return atas NTA; basis goodwill ekonomi EEM.</p>
+          </article>
         </section>
 
         <section className="active-driver-strip" aria-label="Driver aktif penilaian">
@@ -2334,28 +2366,16 @@ export function ValuationWorkbench() {
           ))}
         </section>
 
-        <section className={`assumption-audit-panel ${assumptionGovernance.level}`} aria-label="Audit asumsi material EEM dan DCF">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Mesin tata kelola asumsi</p>
-              <h3>{assumptionGovernance.title}</h3>
-              <small>{assumptionGovernance.summary}</small>
-            </div>
-            <em className={`source-badge ${assumptionGovernance.level === "critical" ? "warning" : assumptionGovernance.level === "review" ? "sensitivity" : "recommended"}`}>
-              {assumptionGovernance.criticalCount} kritis · {assumptionGovernance.reviewCount} tinjauan
-            </em>
-          </div>
-          <div className="assumption-audit-grid">
-            {assumptionGovernance.items.map((item) => (
-              <AssumptionGovernanceCard item={item} key={item.id} onNavigate={navigateToGovernanceTarget} />
-            ))}
-          </div>
-        </section>
+        <AssumptionGovernancePanel
+          ariaLabel="Audit asumsi material EEM"
+          governance={eemAssumptionGovernance}
+          onNavigate={navigateToGovernanceTarget}
+        />
 
         <section className="review-band compact-review">
           <div>
             <p className="eyebrow">Pemeriksaan model</p>
-            <h3>Kesiapan</h3>
+            <h3>Kesiapan EEM</h3>
           </div>
           <div className="risk-grid">
             {checks.map((check) => (
@@ -2370,7 +2390,127 @@ export function ValuationWorkbench() {
         <section className="panel">
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">Sensitivitas</p>
+              <p className="eyebrow">Sensitivitas EEM</p>
+              <h3>Debt-like tax payable scenario</h3>
+            </div>
+          </div>
+          <div className="sensitivity-grid two-column">
+            <div>
+              <span>EEM - skenario dasar</span>
+              <strong data-testid="eem-base-equity-value">{formatIdr(results.eem.equityValue)}</strong>
+            </div>
+            <div>
+              <span>EEM utang pajak debt-like</span>
+              <strong>{formatIdr(results.sensitivities.eemTaxPayableDebtLike.equityValue)}</strong>
+            </div>
+          </div>
+        </section>
+
+        <section id="eem" className="split-panel">
+          <article className="panel">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">Jejak EEM</p>
+                <h3>Excess Earnings Method (EEM)</h3>
+              </div>
+              <FileSearch size={22} />
+            </div>
+            <FormulaList traces={results.eem.traces} />
+          </article>
+          <article className="panel">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">Anchor workbook EEM</p>
+                <h3>Dari NTA ke equity value</h3>
+              </div>
+              <TableProperties size={22} />
+            </div>
+            <MetricTraceGrid
+              metrics={[
+                ["Operating working capital", formatIdr(eemOperatingWorkingCapital)],
+                ["Nett Tangible Asset Value", formatIdr(eemNetOperatingTangibleAssets)],
+                ["Return on Tangible Asset", formatPercent(snapshot.requiredReturnOnNta)],
+                ["Earning return on NTA", formatIdr(eemRequiredReturnAmount)],
+                ["Capitalization rate", formatPercent(eemCapitalizationRate)],
+                ["Capitalized excess earning", formatIdr(eemCapitalizedExcess)],
+                ["Enterprise value", formatIdr(eemEnterpriseValue)],
+                ["Aset non-operasional", formatIdr(nonOperatingAssets(snapshot))],
+                ["Utang berbunga", formatIdr(interestBearingDebt(snapshot))],
+              ]}
+            />
+          </article>
+        </section>
+        </>
+        ) : (
+          <ReadinessPanel status={readiness.valuationEem} onNavigate={navigateToWorkflowTab} force />
+        )
+        ) : null}
+
+        {activeWorkflowTab === "valuationDcf" ? (
+        readiness.valuationDcf.isReady ? (
+        <>
+        <section id="dcf-summary" className="section-grid">
+          <article className="metric-card">
+            <div className="card-title">
+              <Calculator size={20} />
+              <span>DCF</span>
+            </div>
+            <strong>{formatIdr(results.dcf.equityValue)}</strong>
+            <p>{activePeriod?.label || "Periode aktif"} · Nilai Ekuitas 100%</p>
+          </article>
+          <article className="metric-card">
+            <div className="card-title">
+              <TableProperties size={20} />
+              <span>PV FCFF eksplisit</span>
+            </div>
+            <strong>{formatIdr(dcfExplicitPv)}</strong>
+            <p>Jumlah present value FCFF eksplisit, sejalan dengan row Total PV FCF pada sheet DCF.</p>
+          </article>
+          <article className="metric-card">
+            <div className="card-title">
+              <FileSearch size={20} />
+              <span>PV terminal value</span>
+            </div>
+            <strong>{formatIdr(dcfTerminalPv)}</strong>
+            <p>Nilai terminal terdiskonto; driver utama untuk governance proyeksi DCF.</p>
+          </article>
+        </section>
+
+        <section className="active-driver-strip" aria-label="Driver aktif penilaian">
+          {assumptionDriverSummaries.map((driver) => (
+            <div key={driver.label}>
+              <span>{driver.label}</span>
+              <strong>{driver.valueLabel}</strong>
+              <small>{driver.sourceLabel}</small>
+            </div>
+          ))}
+        </section>
+
+        <AssumptionGovernancePanel
+          ariaLabel="Audit asumsi material DCF"
+          governance={assumptionGovernance}
+          onNavigate={navigateToGovernanceTarget}
+        />
+
+        <section className="review-band compact-review">
+          <div>
+            <p className="eyebrow">Pemeriksaan model</p>
+            <h3>Kesiapan DCF</h3>
+          </div>
+          <div className="risk-grid">
+            {checks.map((check) => (
+              <div className={check.ok ? "risk-item ok-item" : "risk-item"} key={check.label}>
+                {check.ok ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
+                <span>{check.label}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Sensitivitas DCF</p>
               <h3>Cakupan skenario pengguna</h3>
             </div>
           </div>
@@ -2398,10 +2538,6 @@ export function ValuationWorkbench() {
             <div>
               <span>DCF - proyeksi neraca berbasis historis</span>
               <strong>{formatIdr(results.sensitivities.dcfHistoricalDerivedProjection.equityValue)}</strong>
-            </div>
-            <div>
-              <span>EEM utang pajak debt-like</span>
-              <strong>{formatIdr(results.sensitivities.eemTaxPayableDebtLike.equityValue)}</strong>
             </div>
           </div>
           <div className={`projection-governance-panel ${results.projectionGovernance.level}`} data-testid="dcf-projection-governance">
@@ -2455,18 +2591,7 @@ export function ValuationWorkbench() {
           </div>
         </section>
 
-        <section id="eem" className="split-panel">
-          <article className="panel">
-            <div className="panel-heading">
-              <div>
-                <p className="eyebrow">Jejak EEM</p>
-                <h3>Excess Earnings Method (EEM)</h3>
-              </div>
-              <FileSearch size={22} />
-            </div>
-            <FormulaList traces={results.eem.traces} />
-          </article>
-
+        <section id="dcf" className="split-panel">
           <article className="panel">
             <div className="panel-heading">
               <div>
@@ -2477,9 +2602,6 @@ export function ValuationWorkbench() {
             </div>
             <FormulaList traces={results.dcf.traces} />
           </article>
-        </section>
-
-        <section id="dcf" className="split-panel">
           <article className="panel">
             <div className="panel-heading">
               <div>
@@ -2496,11 +2618,19 @@ export function ValuationWorkbench() {
                 </div>
               ))}
             </div>
+            <MetricTraceGrid
+              metrics={[
+                ["Enterprise value", formatIdr(dcfEnterpriseValue)],
+                ["Aset non-operasional", formatIdr(nonOperatingAssets(snapshot))],
+                ["Utang berbunga", formatIdr(interestBearingDebt(snapshot))],
+                ["Formula equity", "EV + aset non-operasional - utang berbunga"],
+              ]}
+            />
           </article>
         </section>
         </>
         ) : (
-          <ReadinessPanel status={readiness.valuationEemDcf} onNavigate={navigateToWorkflowTab} force />
+          <ReadinessPanel status={readiness.valuationDcf} onNavigate={navigateToWorkflowTab} force />
         )
         ) : null}
 
@@ -9110,6 +9240,36 @@ function InlineGovernanceList({ title, items }: { title: string; items: Assumpti
   );
 }
 
+function AssumptionGovernancePanel({
+  ariaLabel,
+  governance,
+  onNavigate,
+}: {
+  ariaLabel: string;
+  governance: AssumptionGovernanceResult;
+  onNavigate: (target: AssumptionGovernanceTarget) => void;
+}) {
+  return (
+    <section className={`assumption-audit-panel ${governance.level}`} aria-label={ariaLabel}>
+      <div className="panel-heading">
+        <div>
+          <p className="eyebrow">Mesin tata kelola asumsi</p>
+          <h3>{governance.title}</h3>
+          <small>{governance.summary}</small>
+        </div>
+        <em className={`source-badge ${governance.level === "critical" ? "warning" : governance.level === "review" ? "sensitivity" : "recommended"}`}>
+          {governance.criticalCount} kritis · {governance.reviewCount} tinjauan
+        </em>
+      </div>
+      <div className="assumption-audit-grid">
+        {governance.items.map((item) => (
+          <AssumptionGovernanceCard item={item} key={item.id} onNavigate={onNavigate} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function AssumptionGovernanceCard({
   item,
   onNavigate,
@@ -9907,4 +10067,53 @@ function formatFormulaTraceValue(trace: FormulaTrace): string {
   }
 
   return formatIdr(trace.value);
+}
+
+function findTraceValue(traces: FormulaTrace[], label: string): number {
+  return traces.find((trace) => trace.label === label)?.value ?? 0;
+}
+
+function scopeAssumptionGovernance(
+  governance: AssumptionGovernanceResult,
+  includeItem: (item: AssumptionGovernanceItem) => boolean,
+  methodLabel: string,
+): AssumptionGovernanceResult {
+  const matchingItems = governance.items.filter(includeItem);
+  const items: AssumptionGovernanceItem[] =
+    matchingItems.length > 0
+      ? matchingItems
+      : [
+          {
+            id: `governance-clear-${methodLabel.toLowerCase()}`,
+            label: `Tata kelola asumsi ${methodLabel}`,
+            valueLabel: "Tidak ada isu material",
+            level: "ok",
+            message: `Driver shared EEM/DCF tidak memiliki isu material khusus ${methodLabel}.`,
+            action: "Tetap dokumentasikan bukti final dalam laporan.",
+            target: "eemDcfAssumptions",
+          },
+        ];
+  const criticalCount = items.filter((item) => item.level === "critical").length;
+  const reviewCount = items.filter((item) => item.level === "review").length;
+  const level: AssumptionGovernanceResult["level"] = criticalCount > 0 ? "critical" : reviewCount > 0 ? "review" : "ok";
+
+  return {
+    ...governance,
+    items,
+    criticalCount,
+    reviewCount,
+    level,
+    title:
+      level === "critical"
+        ? `Asumsi ${methodLabel} berisiko tinggi`
+        : level === "review"
+          ? `Asumsi ${methodLabel} perlu ditinjau`
+          : `Tata kelola asumsi ${methodLabel} memadai`,
+    summary:
+      level === "critical"
+        ? `Driver aktif ${methodLabel} dapat dihitung, tetapi belum layak menjadi base case final tanpa perbaikan atau tinjauan asumsi.`
+        : level === "review"
+          ? `Driver aktif ${methodLabel} membutuhkan dokumentasi peninjau sebelum final.`
+          : `Driver aktif ${methodLabel} melewati threshold awal dan tetap perlu bukti pendukung final.`,
+  };
 }

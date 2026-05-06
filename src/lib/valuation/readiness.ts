@@ -21,7 +21,8 @@ export type WorkbenchSectionId =
   | "wacc"
   | "eemDcfAssumptions"
   | "valuationAam"
-  | "valuationEemDcf"
+  | "valuationEem"
+  | "valuationDcf"
   | "projectedIncome"
   | "projectedBalance"
   | "projectedFixedAssets"
@@ -208,7 +209,17 @@ export function buildWorkbenchReadiness({
       workingCapitalDays,
     ]),
     valuationAam: status("valuationAam", "Penilaian AAM", [period, balance, mapped]),
-    valuationEemDcf: status("valuationEemDcf", "Penilaian EEM/DCF", [
+    valuationEem: status("valuationEem", "Penilaian EEM", [
+      period,
+      balance,
+      income,
+      taxRateForEemDcf,
+      wacc,
+      terminalGrowth,
+      requiredReturn,
+      mapped,
+    ]),
+    valuationDcf: status("valuationDcf", "Penilaian DCF", [
       period,
       balance,
       income,

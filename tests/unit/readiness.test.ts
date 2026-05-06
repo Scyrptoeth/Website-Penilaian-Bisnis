@@ -40,7 +40,8 @@ describe("workbench readiness", () => {
 
     assert.equal(readiness.valuationAam.isReady, false);
     assert.equal(readiness.fixedAssets.isReady, true);
-    assert.equal(readiness.valuationEemDcf.isReady, false);
+    assert.equal(readiness.valuationEem.isReady, false);
+    assert.equal(readiness.valuationDcf.isReady, false);
     assert.equal(readiness.projectedIncome.isReady, false);
     assert.equal(readiness.projectedBalance.isReady, false);
     assert.equal(readiness.projectedFixedAssets.isReady, false);
@@ -56,7 +57,8 @@ describe("workbench readiness", () => {
     assert.equal(readiness.roic.isReady, false);
     assert.ok(readiness.valuationAam.missing.some((item) => item.targetTab === "balance"));
     assert.ok(readiness.valuationAam.missing.every((item) => item.targetTab !== "wacc" && item.targetTab !== "eemDcfAssumptions"));
-    assert.ok(readiness.valuationEemDcf.missing.some((item) => item.targetTab === "income"));
+    assert.ok(readiness.valuationEem.missing.some((item) => item.targetTab === "income"));
+    assert.ok(readiness.valuationDcf.missing.some((item) => item.targetTab === "income"));
     assert.ok(readiness.projectedIncome.missing.some((item) => item.targetTab === "income"));
     assert.ok(readiness.projectedIncome.missing.some((item) => item.targetTab === "eemDcfAssumptions"));
     assert.ok(readiness.projectedBalance.missing.some((item) => item.targetTab === "balance"));
@@ -66,7 +68,8 @@ describe("workbench readiness", () => {
     assert.ok(readiness.noplatFcf.missing.some((item) => item.targetTab === "eemDcfAssumptions"));
     assert.ok(readiness.payablesCashFlow.fulfilled.some((item) => item.targetTab === "periods"));
     assert.ok(readiness.valuationAam.missing.every((item) => item.targetTab !== "mapping"));
-    assert.ok(readiness.valuationEemDcf.missing.every((item) => item.targetTab !== "mapping"));
+    assert.ok(readiness.valuationEem.missing.every((item) => item.targetTab !== "mapping"));
+    assert.ok(readiness.valuationDcf.missing.every((item) => item.targetTab !== "mapping"));
   });
 
   it("marks sample workbook-derived data ready for the added analysis sections", () => {
@@ -98,7 +101,8 @@ describe("workbench readiness", () => {
     assert.equal(readiness.roic.isReady, true);
     assert.equal(readiness.valuationAam.isReady, true);
     assert.equal(readiness.fixedAssets.isReady, true);
-    assert.equal(readiness.valuationEemDcf.isReady, true);
+    assert.equal(readiness.valuationEem.isReady, true);
+    assert.equal(readiness.valuationDcf.isReady, true);
     assert.equal(readiness.projectedIncome.isReady, true);
     assert.equal(readiness.projectedBalance.isReady, true);
     assert.equal(readiness.projectedFixedAssets.isReady, true);

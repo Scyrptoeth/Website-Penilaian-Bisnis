@@ -162,8 +162,10 @@ test("AAM valuation remains available without WACC or EEM/DCF driver inputs", as
   await expect(page.getByText(/850\.000/).first()).toBeVisible();
   await expect(page.getByText("Tidak diperlukan")).toBeVisible();
 
-  await openWorkflowTab(page, "Penilaian EEM/DCF");
-  await expect(page.getByTestId("readiness-valuationEemDcf")).toContainText("Masih diperlukan");
+  await openWorkflowTab(page, "Penilaian EEM");
+  await expect(page.getByTestId("readiness-valuationEem")).toContainText("Masih diperlukan");
+  await openWorkflowTab(page, "Penilaian DCF");
+  await expect(page.getByTestId("readiness-valuationDcf")).toContainText("Masih diperlukan");
 
   await page.reload();
   await expect(page.getByTestId("valuation-workbench")).toBeVisible();
@@ -261,7 +263,7 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByTestId("dcf-balance-projection-table")).not.toContainText("Perlu input");
   await expect(page.getByTestId("dcf-balance-projection-table")).not.toContainText(/belum dimodelkan/i);
 
-  await openWorkflowTab(page, "Penilaian EEM/DCF");
+  await openWorkflowTab(page, "Penilaian DCF");
   await expect(page.getByText("DCF - proyeksi neraca berbasis historis")).toBeVisible();
   await expect(page.getByTestId("dcf-projection-governance")).toContainText("Governance proyeksi DCF");
   await expect(page.getByTestId("dcf-projection-governance")).toContainText("Fallback");
@@ -279,7 +281,7 @@ test("added analysis sections use readiness gates before sample data and render 
   await page.getByRole("radio", { name: /Proksi DCF/ }).click();
   await expect(page.getByRole("radio", { name: /Proksi DCF/ })).toHaveAttribute("aria-checked", "true");
   await expect(page.getByTestId("dcf-fixed-asset-projection-table")).toContainText("Proksi DCF berbasis jadwal aset tetap");
-  await openWorkflowTab(page, "Penilaian EEM/DCF");
+  await openWorkflowTab(page, "Penilaian DCF");
   await expect.poll(() => page.getByTestId("dcf-base-equity-value").textContent()).not.toBe(historicalRollForwardDcfValue);
 
   await openWorkflowTab(page, "Proyeksi Cash Flow Statement");
@@ -729,7 +731,11 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await expect(page.getByTestId("required-return-on-nta-calculator")).toContainText("Bobot utang WACC x Kd");
   await expect(page.locator("body")).not.toContainText("STAT_ASSUMPTIONS");
 
-  await openWorkflowTab(page, "Penilaian EEM/DCF");
+  await openWorkflowTab(page, "Penilaian EEM");
+  await expect(page.getByRole("heading", { name: "Excess Earnings Method (EEM)" })).toBeVisible();
+  await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Dihitung dari input WACC");
+  await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Proxy kapasitas aset berwujud yang di-govern");
+  await openWorkflowTab(page, "Penilaian DCF");
   await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Dihitung dari input WACC");
   await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Proxy kapasitas aset berwujud yang di-govern");
 });
