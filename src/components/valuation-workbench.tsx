@@ -6129,47 +6129,45 @@ function NoplatFcfSection({ analysis }: { analysis: SectionAnalysis }) {
 
   return (
     <>
-      <section className="split-panel">
-        <article className="panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">NOPLAT</p>
-              <h3>Normalized Operating Profit After Tax (NOPLAT)</h3>
-            </div>
-            <span className="status-pill muted">Basis statutory komersial</span>
+      <section className="panel" data-testid="noplat-panel">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">NOPLAT</p>
+            <h3>Normalized Operating Profit After Tax (NOPLAT)</h3>
           </div>
-          <AnalysisTable rows={analysis.noplatRows} periods={analysis.periods} />
-        </article>
-
-        <article className="panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Referensi audit sistem</p>
-              <h3>Bridge NOPLAT</h3>
-            </div>
-          </div>
-          <EngineAuditReference
-            sourceLabel="Mesin kasus aktif"
-            summary="Laba operasi dinormalisasi dari line laba rugi yang sudah dipetakan dan asumsi pajak aktif."
-            metrics={[
-              { label: "NPAT komersial", value: latest?.snapshot.commercialNpat ?? null },
-              { label: "NOPLAT ternormalisasi", value: latest?.normalizedNoplat ?? null },
-              { label: "Free Cash Flow (FCF)", value: latest?.freeCashFlow ?? null },
-            ]}
-            notes={[
-              "Bunga dan item non-operasional dikeluarkan dari NOPLAT.",
-              "Pajak memakai tarif statutory aktif atau asumsi tarif pajak yang telah ditinjau.",
-              "FCFF memakai NOPLAT, add-back penyusutan, mutasi working capital, dan capex.",
-            ]}
-          />
-        </article>
+          <span className="status-pill muted">Basis statutory komersial</span>
+        </div>
+        <AnalysisTable rows={analysis.noplatRows} periods={analysis.periods} />
       </section>
 
-      <section className="panel">
+      <section className="panel noplat-audit-panel" data-testid="noplat-audit-panel">
         <div className="panel-heading">
-            <div>
-              <p className="eyebrow">FCF</p>
-              <h3>Free Cash Flow to Firm (FCFF)</h3>
+          <div>
+            <p className="eyebrow">Referensi audit sistem</p>
+            <h3>Bridge NOPLAT</h3>
+          </div>
+        </div>
+        <EngineAuditReference
+          sourceLabel="Mesin kasus aktif"
+          summary="Laba operasi dinormalisasi dari line laba rugi yang sudah dipetakan dan asumsi pajak aktif."
+          metrics={[
+            { label: "NPAT komersial", value: latest?.snapshot.commercialNpat ?? null },
+            { label: "NOPLAT ternormalisasi", value: latest?.normalizedNoplat ?? null },
+            { label: "Free Cash Flow (FCF)", value: latest?.freeCashFlow ?? null },
+          ]}
+          notes={[
+            "Bunga dan item non-operasional dikeluarkan dari NOPLAT.",
+            "Pajak memakai tarif statutory aktif atau asumsi tarif pajak yang telah ditinjau.",
+            "FCFF memakai NOPLAT, add-back penyusutan, mutasi working capital, dan capex.",
+          ]}
+        />
+      </section>
+
+      <section className="panel" data-testid="fcf-panel">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">FCF</p>
+            <h3>Free Cash Flow to Firm (FCFF)</h3>
           </div>
           <span className="status-pill muted">NOPLAT + penyusutan + WC - capex</span>
         </div>

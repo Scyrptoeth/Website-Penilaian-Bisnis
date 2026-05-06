@@ -3173,6 +3173,10 @@ td span {
   min-width: 0;
 }
 
+.noplat-audit-panel .audit-reference-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+}
+
 .roic-section-stack {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

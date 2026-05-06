@@ -207,6 +207,14 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByText("Free Cash Flow to Firm (FCFF)")).toBeVisible();
   await expect(page.getByText("Basis statutory komersial")).toBeVisible();
   await expect(page.getByText("Referensi audit sistem")).toBeVisible();
+  const noplatBox = await page.getByTestId("noplat-panel").boundingBox();
+  const auditBox = await page.getByTestId("noplat-audit-panel").boundingBox();
+  const fcfBox = await page.getByTestId("fcf-panel").boundingBox();
+  expect(noplatBox).not.toBeNull();
+  expect(auditBox).not.toBeNull();
+  expect(fcfBox).not.toBeNull();
+  expect(auditBox!.y).toBeGreaterThan(noplatBox!.y + noplatBox!.height - 1);
+  expect(fcfBox!.y).toBeGreaterThan(auditBox!.y + auditBox!.height - 1);
 
   await openWorkflowTab(page, "Proyeksi Laba Rugi");
   await expect(page.getByRole("heading", { name: "Proyeksi Laba Rugi" })).toBeVisible();
