@@ -210,6 +210,9 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByTestId("dcf-income-projection-table")).toContainText("Operating to NOPLAT Bridge");
   await expect(page.getByTestId("dcf-income-projection-table")).toContainText("Add Back: Interest Expense");
   await expect(page.getByTestId("dcf-income-projection-table")).toContainText("NOPLAT");
+  await expect(page.getByTestId("income-projection-reliance-governance")).toContainText("Governance final report reliance");
+  await expect(page.getByTestId("income-projection-reliance-governance")).toContainText("Current FCFF/WACC tetap menjadi fallback");
+  await expect(page.getByTestId("income-projection-reliance-governance")).toContainText("Stress accounting presentation");
   await expect(page.getByTestId("dcf-income-projection-table")).not.toContainText("Revenue t-1");
   await expect(page.getByTestId("dcf-income-projection-table")).not.toContainText(/belum dimodelkan/i);
   await expect(page.getByTestId("dcf-income-projection-table")).toContainText("Presentation-only");

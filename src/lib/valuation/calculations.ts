@@ -59,6 +59,24 @@ export type DcfProjectionGovernanceResult = {
   traces: FormulaTrace[];
 };
 
+export type IncomeProjectionRelianceDecision = "eligible-for-approval" | "review-only" | "current-dcf-fallback";
+
+export type IncomeProjectionRelianceGovernanceResult = {
+  level: ProjectionGovernanceLevel;
+  decision: IncomeProjectionRelianceDecision;
+  title: string;
+  summary: string;
+  activeBasis: "current-dcf";
+  stressBasis: "accounting-presentation-stress";
+  governedEquityValue: number;
+  currentDcfEquityValue: number;
+  presentationStressEquityValue: number;
+  absoluteVariance: number;
+  relativeVariance: number;
+  items: ProjectionGovernanceMetric[];
+  traces: FormulaTrace[];
+};
+
 export function adjustedTotalAssets(snapshot: FinancialStatementSnapshot): number {
   const componentTotal =
     snapshot.cashOnHand +
@@ -555,6 +573,7 @@ export function calculateAllMethods(snapshot: FinancialStatementSnapshot, option
   const dcfTaxPayableDebtLike = calculateDcf(snapshot, { ...dcfOptions, debtLikeTaxPayable: true });
   const dcfHistoricalDerivedProjection = calculateDcf(snapshot, { ...dcfOptions, projectionEngine: "historical-derived" });
   const projectionGovernance = buildDcfProjectionGovernance(snapshot, dcf, dcfHistoricalDerivedProjection);
+  const incomeProjectionRelianceGovernance = buildIncomeProjectionRelianceGovernance(snapshot, dcf);
   const eemTaxPayableDebtLike = {
     ...calculateEem(snapshot),
     equityValue: calculateEem(snapshot).equityValue - snapshot.taxPayable,
@@ -573,12 +592,170 @@ export function calculateAllMethods(snapshot: FinancialStatementSnapshot, option
       eemTaxPayableDebtLike,
     },
     projectionGovernance,
+    incomeProjectionRelianceGovernance,
     operatingWorkingCapital: operatingWorkingCapital(snapshot),
     nonOperatingAssets: nonOperatingAssets(snapshot),
     interestBearingDebt: interestBearingDebt(snapshot),
     normalizedNoplat: normalizedNoplat(snapshot),
     adjustedTotalAssets: adjustedTotalAssets(snapshot),
     adjustedTotalLiabilities: adjustedTotalLiabilities(snapshot),
+  };
+}
+
+function buildIncomeProjectionRelianceGovernance(
+  snapshot: FinancialStatementSnapshot,
+  baseline: MethodOutput & { forecast: DcfForecastRow[] },
+): IncomeProjectionRelianceGovernanceResult {
+  const presentationStressEquityValue = calculateAccountingPresentationStressEquityValue(snapshot, baseline.forecast);
+  const absoluteVariance = presentationStressEquityValue - baseline.equityValue;
+  const relativeVariance = safeAbsRatio(absoluteVariance, baseline.equityValue);
+  const interestBearingDebtBalance = interestBearingDebt(snapshot);
+  const maximumInterestIncomeRevenueRatio = maxForecastRatio(baseline.forecast, (row) => row.interestIncome, (row) => row.revenue);
+  const maximumInterestExpenseRevenueRatio = maxForecastRatio(baseline.forecast, (row) => row.interestExpense, (row) => row.revenue);
+  const unsupportedDebtCostRatio = interestBearingDebtBalance <= 0 ? maximumInterestExpenseRevenueRatio : 0;
+  const maximumNonOperatingRevenueRatio = maxForecastRatio(baseline.forecast, (row) => row.nonOperatingIncome, (row) => row.revenue);
+  const maximumAccountingNpatBridgeGap = maxForecastRatio(
+    baseline.forecast,
+    (row) => row.accountingNetProfitAfterTax - row.noplat,
+    (row) => row.revenue,
+  );
+
+  const items: ProjectionGovernanceMetric[] = [
+    {
+      id: "presentation-stress-variance",
+      label: "Stress DCF accounting presentation vs current DCF",
+      value: relativeVariance,
+      valueFormat: "percent",
+      level: thresholdLevel(relativeVariance, 0.05, 0.15),
+      threshold: "Review >5%; fallback >15%",
+      note:
+        absoluteVariance === 0
+          ? "Accounting presentation tidak mengubah stress value."
+          : `Jika accounting NPAT dipakai sebagai FCFF, nilai indikatif ${absoluteVariance > 0 ? "lebih tinggi" : "lebih rendah"} dari DCF saat ini.`,
+    },
+    {
+      id: "historical-period-count",
+      label: "Jumlah periode historis pendukung",
+      value: snapshot.historicalProjectionYearCount,
+      valueFormat: "number",
+      level: snapshot.historicalProjectionYearCount >= 3 ? "ok" : snapshot.historicalProjectionYearCount >= 2 ? "review" : "critical",
+      threshold: "Minimal 3 periode untuk final reliance awal",
+      note: "Reliance final membutuhkan histori cukup sebelum approval reviewer diberikan.",
+    },
+    {
+      id: "interest-income-yield",
+      label: "Yield kas/deposito historis",
+      value: Math.abs(snapshot.interestIncomeCashYield),
+      valueFormat: "percent",
+      level: thresholdLevel(Math.abs(snapshot.interestIncomeCashYield), 0.08, 0.15),
+      threshold: "Review >8%; fallback >15%",
+      note: "Yield tinggi dapat menandakan projected cash bukan seluruhnya deposito produktif atau ada outlier historis.",
+    },
+    {
+      id: "interest-income-materiality",
+      label: "Interest income / revenue maksimum",
+      value: maximumInterestIncomeRevenueRatio,
+      valueFormat: "percent",
+      level: thresholdLevel(maximumInterestIncomeRevenueRatio, 0.02, 0.05),
+      threshold: "Review >2%; fallback >5%",
+      note: "Mengukur apakah pendapatan bunga menjadi terlalu material terhadap earning power operasi.",
+    },
+    {
+      id: "interest-expense-without-debt",
+      label: "Interest expense tanpa utang berbunga",
+      value: unsupportedDebtCostRatio,
+      valueFormat: "percent",
+      level: thresholdLevel(unsupportedDebtCostRatio, 0.0025, 0.01),
+      threshold: "Review >0,25%; fallback >1%",
+      note:
+        interestBearingDebtBalance > 0
+          ? "Beban bunga memiliki basis utang berbunga historis."
+          : "Jika tidak ada saldo utang berbunga, beban bunga hanya boleh menjadi presentation line immaterial.",
+    },
+    {
+      id: "non-operating-recurrence",
+      label: "Non-operating income / revenue maksimum",
+      value: maximumNonOperatingRevenueRatio,
+      valueFormat: "percent",
+      level: thresholdLevel(maximumNonOperatingRevenueRatio, 0.01, 0.03),
+      threshold: "Review >1%; fallback >3%",
+      note:
+        snapshot.nonOperatingIncomeRevenueMargin === 0
+          ? "Sistem mengunci non-operating projection ke nol karena tidak ada pola recurring yang supportable."
+          : "Non-operating projection hanya layak dipakai jika recurring dan tidak volatil.",
+    },
+    {
+      id: "accounting-npat-vs-noplat",
+      label: "Accounting NPAT vs NOPLAT gap maksimum",
+      value: maximumAccountingNpatBridgeGap,
+      valueFormat: "percent",
+      level: thresholdLevel(maximumAccountingNpatBridgeGap, 0.05, 0.1),
+      threshold: "Review >5%; fallback >10%",
+      note: "Gap besar menunjukkan accounting presentation tidak boleh dipakai langsung sebagai basis FCFF.",
+    },
+    {
+      id: "cash-deposit-policy",
+      label: "Cash / revenue historis",
+      value: snapshot.cashToRevenueRatio,
+      valueFormat: "percent",
+      level: thresholdLevel(snapshot.cashToRevenueRatio, 0.35, 0.6),
+      threshold: "Review >35%; fallback >60%",
+      note: "Cash policy tinggi dapat membuat interest income projection terlalu tinggi jika seluruh kas dianggap produktif.",
+    },
+  ];
+
+  const level = highestGovernanceLevel(items.map((item) => item.level));
+  const decision: IncomeProjectionRelianceDecision =
+    level === "critical" ? "current-dcf-fallback" : level === "review" ? "review-only" : "eligible-for-approval";
+  const title =
+    decision === "current-dcf-fallback"
+      ? "Fallback current DCF aktif"
+      : decision === "review-only"
+      ? "Historical-only baseline perlu approval"
+      : "Historical-only baseline eligible";
+  const summary =
+    decision === "current-dcf-fallback"
+      ? "Kontrol reliance menemukan risiko nilai terlalu tinggi/rendah atau dukungan historis lemah. Sistem mempertahankan DCF saat ini sebagai nilai aktif."
+      : decision === "review-only"
+      ? "Projection tetap berasal dari histori pengguna, tetapi final report reliance menunggu approval reviewer dan audit trail."
+      : "Projection historis berada dalam batas awal. Current DCF tetap aktif dan dapat disetujui sebagai basis final setelah reviewer approval.";
+
+  const traces: FormulaTrace[] = [
+    {
+      label: "Nilai DCF aktif",
+      formula: "Current FCFF/WACC DCF",
+      value: baseline.equityValue,
+      note: "Nilai ini tetap menjadi fallback dan basis aktif sampai reviewer approval selesai.",
+    },
+    {
+      label: "Stress accounting presentation",
+      formula: "Accounting NPAT + depreciation - capex - change in NWC; discounted with WACC",
+      value: presentationStressEquityValue,
+      note: "Stress test saja untuk mendeteksi risiko jika accounting presentation keliru dijadikan FCFF.",
+    },
+    {
+      label: "Selisih stress vs current DCF",
+      formula: "ABS(stress value - current DCF) / ABS(current DCF)",
+      value: relativeVariance,
+      valueFormat: "percent",
+      note: "Jika selisih melewati ambang batas, current DCF tetap menjadi fallback.",
+    },
+  ];
+
+  return {
+    level,
+    decision,
+    title,
+    summary,
+    activeBasis: "current-dcf",
+    stressBasis: "accounting-presentation-stress",
+    governedEquityValue: baseline.equityValue,
+    currentDcfEquityValue: baseline.equityValue,
+    presentationStressEquityValue,
+    absoluteVariance,
+    relativeVariance,
+    items,
+    traces,
   };
 }
 
@@ -729,6 +906,31 @@ function buildDcfProjectionGovernance(
     items,
     traces,
   };
+}
+
+function calculateAccountingPresentationStressEquityValue(
+  snapshot: FinancialStatementSnapshot,
+  forecast: DcfForecastRow[],
+): number {
+  if (!forecast.length) {
+    return 0;
+  }
+
+  const explicitPv = forecast.reduce((sum, row) => {
+    const stressFreeCashFlow =
+      row.accountingNetProfitAfterTax + row.depreciation - row.capitalExpenditure - row.changeInNwc;
+    return sum + stressFreeCashFlow * row.discountFactor;
+  }, 0);
+  const finalRow = forecast[forecast.length - 1];
+  const finalStressFreeCashFlow =
+    finalRow.accountingNetProfitAfterTax + finalRow.depreciation - finalRow.capitalExpenditure - finalRow.changeInNwc;
+  const terminalDenominator = snapshot.wacc - snapshot.terminalGrowth;
+  const terminalValue =
+    terminalDenominator > 0 ? (finalStressFreeCashFlow * (1 + snapshot.terminalGrowth)) / terminalDenominator : 0;
+  const terminalPv = snapshot.wacc > -1 ? terminalValue / Math.pow(1 + snapshot.wacc, forecast.length) : 0;
+  const enterpriseValue = explicitPv + terminalPv;
+
+  return enterpriseValue + nonOperatingAssets(snapshot) - interestBearingDebt(snapshot);
 }
 
 function forecastStartYear(snapshot: FinancialStatementSnapshot): number {

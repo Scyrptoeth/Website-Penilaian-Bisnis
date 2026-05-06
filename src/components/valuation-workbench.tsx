@@ -49,6 +49,8 @@ import {
   calculateAllMethods,
   normalizedNoplat,
   type DcfFixedAssetProjectionInput,
+  type IncomeProjectionRelianceDecision,
+  type IncomeProjectionRelianceGovernanceResult,
   type ProjectionGovernanceDecision,
   type ProjectionGovernanceMetric,
 } from "@/lib/valuation/calculations";
@@ -223,6 +225,11 @@ const projectionGovernanceDecisionLabel: Record<ProjectionGovernanceDecision, st
   "eligible-for-review": "Layak ditinjau",
   "sensitivity-only": "Sensitivitas",
   "baseline-fallback": "Fallback aktif",
+};
+const incomeProjectionRelianceDecisionLabel: Record<IncomeProjectionRelianceDecision, string> = {
+  "eligible-for-approval": "Eligible approval",
+  "review-only": "Review-only",
+  "current-dcf-fallback": "Fallback aktif",
 };
 const categoryValueSet = new Set<AccountCategory>(categoryOptions.map((option) => option.value));
 const statementValueSet = new Set<StatementType>(["balance_sheet", "income_statement", "fixed_asset"]);
@@ -2100,7 +2107,12 @@ export function ValuationWorkbench() {
 
         {activeWorkflowTab === "projectedIncome" ? (
           readiness.projectedIncome.isReady ? (
-            <ProjectionStatementSection kind="income" forecast={results.dcf.forecast} snapshot={snapshot} />
+            <ProjectionStatementSection
+              kind="income"
+              forecast={results.dcf.forecast}
+              snapshot={snapshot}
+              incomeProjectionRelianceGovernance={results.incomeProjectionRelianceGovernance}
+            />
           ) : (
             <ReadinessPanel status={readiness.projectedIncome} onNavigate={navigateToWorkflowTab} force />
           )
@@ -4240,6 +4252,7 @@ function ProjectionStatementSection({
   fixedAssetProjection,
   fixedAssetProjectionMode = defaultFixedAssetProjectionMode,
   onFixedAssetProjectionModeChange,
+  incomeProjectionRelianceGovernance,
 }: {
   kind: ProjectionStatementKind;
   forecast: DcfForecastRow[];
@@ -4247,6 +4260,7 @@ function ProjectionStatementSection({
   fixedAssetProjection?: FixedAssetProjectionSummary;
   fixedAssetProjectionMode?: FixedAssetProjectionMode;
   onFixedAssetProjectionModeChange?: (mode: FixedAssetProjectionMode) => void;
+  incomeProjectionRelianceGovernance?: IncomeProjectionRelianceGovernanceResult;
 }) {
   const config =
     kind === "fixedAssets"
@@ -4325,8 +4339,67 @@ function ProjectionStatementSection({
         </section>
       )}
 
+      {kind === "income" && incomeProjectionRelianceGovernance ? (
+        <IncomeProjectionReliancePanel governance={incomeProjectionRelianceGovernance} />
+      ) : null}
+
       <DcfProjectionPanel config={config} forecast={forecast} snapshot={snapshot} fixedAssetProjection={fixedAssetProjection} />
     </>
+  );
+}
+
+function IncomeProjectionReliancePanel({ governance }: { governance: IncomeProjectionRelianceGovernanceResult }) {
+  return (
+    <div className={`projection-governance-panel ${governance.level}`} data-testid="income-projection-reliance-governance">
+      <div className="projection-governance-heading">
+        <div>
+          <span>Governance final report reliance</span>
+          <strong>{governance.title}</strong>
+          <small>{governance.summary}</small>
+        </div>
+        <em className={`source-badge ${governance.level === "critical" ? "warning" : governance.level === "review" ? "sensitivity" : "recommended"}`}>
+          {incomeProjectionRelianceDecisionLabel[governance.decision]}
+        </em>
+      </div>
+      <div className="projection-governance-grid">
+        <div>
+          <span>Nilai DCF aktif</span>
+          <strong>{formatIdr(governance.governedEquityValue)}</strong>
+          <small>Current FCFF/WACC tetap menjadi fallback</small>
+        </div>
+        <div>
+          <span>Stress accounting presentation</span>
+          <strong>{formatIdr(governance.presentationStressEquityValue)}</strong>
+          <small>Stress test, bukan nilai aktif</small>
+        </div>
+        <div>
+          <span>Selisih stress vs current DCF</span>
+          <strong>{formatIdr(governance.absoluteVariance)}</strong>
+          <small>{formatPercent(governance.relativeVariance)}</small>
+        </div>
+      </div>
+      <div className="projection-governance-checks">
+        {governance.items.map((item) => (
+          <div className={`projection-governance-check ${item.level}`} key={item.id}>
+            {item.level === "ok" ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+            <div>
+              <span>{item.label}</span>
+              <strong>{formatProjectionGovernanceValue(item)}</strong>
+              <small>{item.threshold} · {item.note}</small>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="projection-governance-trace" aria-label="Jejak final report reliance Proyeksi Laba Rugi">
+        {governance.traces.map((trace) => (
+          <div key={trace.label}>
+            <span>{trace.label}</span>
+            <strong>{formatFormulaTraceValue(trace)}</strong>
+            <small>{trace.note}</small>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 

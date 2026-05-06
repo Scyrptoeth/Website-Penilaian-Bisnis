@@ -178,6 +178,10 @@ describe("valuation calculations", () => {
     assert.equal(allMethods.projectionGovernance.governedEquityValue, allMethods.dcf.equityValue);
     assert.equal(allMethods.projectionGovernance.activeEngine, "balance-reconciled");
     assert.equal(allMethods.projectionGovernance.sensitivityEngine, "historical-derived");
+    assert.equal(allMethods.incomeProjectionRelianceGovernance.governedEquityValue, allMethods.dcf.equityValue);
+    assert.equal(allMethods.incomeProjectionRelianceGovernance.activeBasis, "current-dcf");
+    assert.equal(allMethods.incomeProjectionRelianceGovernance.stressBasis, "accounting-presentation-stress");
+    assert.ok(allMethods.incomeProjectionRelianceGovernance.items.some((item) => item.id === "presentation-stress-variance"));
     assertAlmostEqual(allMethods.sensitivities.eemTaxPayableDebtLike.equityValue, allMethods.eem.equityValue - snapshot.taxPayable, 0.01);
   });
 
@@ -196,5 +200,22 @@ describe("valuation calculations", () => {
     assert.equal(results.projectionGovernance.governedEquityValue, results.dcf.equityValue);
     assert.notEqual(results.sensitivities.dcfHistoricalDerivedProjection.equityValue, results.dcf.equityValue);
     assert.ok(results.projectionGovernance.items.some((item) => item.level === "critical"));
+  });
+
+  it("keeps current DCF as fallback when accounting presentation reliance is unreasonable", () => {
+    const stressedSnapshot = {
+      ...snapshot,
+      interestIncomeCashYield: 0.25,
+      interestIncomeRevenueMargin: 0.2,
+      interestExpenseRevenueMargin: -0.08,
+      nonOperatingIncomeRevenueMargin: 0.12,
+    };
+    const results = calculateAllMethods(stressedSnapshot);
+
+    assert.equal(results.incomeProjectionRelianceGovernance.decision, "current-dcf-fallback");
+    assert.equal(results.incomeProjectionRelianceGovernance.level, "critical");
+    assert.equal(results.incomeProjectionRelianceGovernance.governedEquityValue, results.dcf.equityValue);
+    assert.notEqual(results.incomeProjectionRelianceGovernance.presentationStressEquityValue, results.dcf.equityValue);
+    assert.ok(results.incomeProjectionRelianceGovernance.items.some((item) => item.level === "critical"));
   });
 });
