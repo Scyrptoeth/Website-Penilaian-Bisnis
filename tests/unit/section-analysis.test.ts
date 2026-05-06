@@ -31,11 +31,14 @@ describe("section analysis", () => {
   });
 
   it("keeps payables and cash-flow movement formula-derived instead of workbook-ending-balance driven", () => {
+    const accountPayable = analysis.payablesRows.find((row) => row.key === "account-payable");
     const shortTermDebtEnding = analysis.payablesRows.find((row) => row.key === "short-ending");
     const equityInjectionMovement = analysis.cashFlowRows.find((row) => row.key === "equity-injection");
 
+    assert.ok(accountPayable);
     assert.ok(shortTermDebtEnding);
     assert.ok(equityInjectionMovement);
+    assert.equal(accountPayable.values.p2021, 1_823_364_600);
     assert.equal(shortTermDebtEnding.values.p2021, 0);
     assert.equal(equityInjectionMovement.values.p2021, -3_150_000_000);
   });

@@ -479,7 +479,7 @@ const workflowTabs: Array<{ id: WorkflowTabId; label: string }> = [
   { id: "dlocPfc", label: "DLOC/PFC" },
   { id: "taxSimulation", label: "Simulasi Potensi Pajak" },
   { id: "cashFlowStatement", label: "Cash Flow Statement" },
-  { id: "payablesCashFlow", label: "Utang & Arus Kas" },
+  { id: "payablesCashFlow", label: "Jadwal Utang" },
   { id: "noplatFcf", label: "NOPLAT & FCF" },
   { id: "financialRatio", label: "Financial Ratio" },
   { id: "roic", label: "ROIC" },
@@ -2596,7 +2596,7 @@ export function ValuationWorkbench() {
 
         {activeWorkflowTab === "payablesCashFlow" ? (
           readiness.payablesCashFlow.isReady ? (
-            <PayablesCashFlowSection analysis={sectionAnalysis} />
+            <DebtScheduleSection analysis={sectionAnalysis} />
           ) : (
             <ReadinessPanel status={readiness.payablesCashFlow} onNavigate={navigateToWorkflowTab} force />
           )
@@ -6072,67 +6072,42 @@ function cashFlowOverrideStatusLabel(status: CashFlowOverrideStatus): string {
   return "";
 }
 
-function PayablesCashFlowSection({ analysis }: { analysis: SectionAnalysis }) {
+function DebtScheduleSection({ analysis }: { analysis: SectionAnalysis }) {
   const latest = getLatestPeriodAnalysis(analysis);
-  const equityMovement =
-    latest?.previousSnapshot
-      ? latest.snapshot.paidUpCapital +
-        latest.snapshot.additionalPaidInCapital -
-        (latest.previousSnapshot.paidUpCapital + latest.previousSnapshot.additionalPaidInCapital)
-      : null;
 
   return (
-    <>
-      <section className="split-panel">
-        <article className="panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">ACC PAYABLES</p>
-              <h3>Jadwal mutasi pinjaman dan utang</h3>
-            </div>
-            <span className="status-pill muted">Basis mutasi terkoreksi</span>
-          </div>
-          <AnalysisTable rows={analysis.payablesRows} periods={analysis.periods} />
-        </article>
-
-        <article className="panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Referensi audit sistem</p>
-              <h3>Pemeriksaan mutasi arus kas</h3>
-            </div>
-          </div>
-          <EngineAuditReference
-            sourceLabel="Mesin kasus aktif"
-            summary="Nilai referensi dihitung ulang dari periode aktif, bukan disalin dari prototipe."
-            metrics={[
-              { label: "Mutasi setoran ekuitas", value: equityMovement },
-              { label: "Selisih roll-forward kas", value: latest?.cashFlowRollforwardGap ?? null },
-              {
-                label: "Utang berbunga",
-                value: latest ? latest.loanMovement.shortTermEnding + latest.loanMovement.longTermEnding : null,
-              },
-            ]}
-            notes={[
-              "Pendanaan memakai mutasi modal disetor dan tambahan modal antarperiode.",
-              "Selisih kas membandingkan arus kas bersih terkoreksi dengan mutasi kas di tangan plus bank.",
-              "Utang bersumber dari pinjaman bank dan line utang berbunga yang sudah dipetakan.",
-            ]}
-          />
-        </article>
-      </section>
-
-      <section className="panel">
-        <div className="panel-heading">
-            <div>
-              <p className="eyebrow">CASH FLOW STATEMENT</p>
-              <h3>Bridge arus kas terkoreksi</h3>
-            </div>
-          <span className="status-pill muted">Movement antar periode</span>
+    <section className="panel debt-schedule-panel" data-testid="debt-schedule-section">
+      <div className="panel-heading">
+        <div>
+          <p className="eyebrow">ACC PAYABLES</p>
+          <h3>Jadwal mutasi pinjaman dan utang</h3>
         </div>
-        <AnalysisTable rows={analysis.cashFlowRows} periods={analysis.periods} />
-      </section>
-    </>
+        <span className="status-pill muted">Basis mutasi terkoreksi</span>
+      </div>
+      <AnalysisTable rows={analysis.payablesRows} periods={analysis.periods} />
+
+      <div className="debt-schedule-reference" aria-label="Referensi audit jadwal utang">
+        <EngineAuditReference
+          sourceLabel="Referensi audit sistem"
+          summary="Saldo dan mutasi utang dihitung ulang dari akun yang dipetakan pada kasus aktif, bukan disalin dari prototipe."
+          metrics={[
+            { label: "Utang usaha", value: latest?.snapshot.accountPayable ?? null },
+            { label: "Utang pajak", value: latest?.snapshot.taxPayable ?? null },
+            { label: "Utang lain-lain", value: latest?.snapshot.otherPayable ?? null },
+            {
+              label: "Utang berbunga",
+              value: latest ? latest.loanMovement.shortTermEnding + latest.loanMovement.longTermEnding : null,
+            },
+          ]}
+          notes={[
+            "Penambahan dan pembayaran kembali dihitung dari movement saldo antarperiode.",
+            "Utang usaha, utang pajak, dan utang lain-lain tetap terlihat sebagai saldo utama jadwal.",
+            "Utang bunga dan pinjaman bank tetap tersedia di tabel agar reviewer dapat membedakannya dari saldo operasional.",
+            "Detail arus kas historis tetap direview di tab arus kas terpisah.",
+          ]}
+        />
+      </div>
+    </section>
   );
 }
 

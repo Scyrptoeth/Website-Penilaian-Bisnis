@@ -203,6 +203,14 @@ export function buildSectionAnalysis(
 
 function buildPayablesRows(periodAnalyses: PeriodAnalysis[]): AnalysisRow[] {
   return [
+    sectionRow("trade-payables-section", "Utang usaha dan operasional"),
+    valueRow(periodAnalyses, "account-payable", "Utang usaha", "Terpetakan account payable", "Saldo input", (item) => item.snapshot.accountPayable),
+    valueRow(periodAnalyses, "tax-payable", "Utang pajak", "Terpetakan tax payable", "Saldo input", (item) => item.snapshot.taxPayable),
+    valueRow(periodAnalyses, "other-payable", "Utang lain-lain", "Terpetakan other payable", "Saldo input", (item) => item.snapshot.otherPayable),
+    valueRow(periodAnalyses, "operating-current-liabilities", "Utang operasi", "Operating working capital bridge", "Utang usaha + utang lain-lain", (item) =>
+      operatingCurrentLiabilities(item.snapshot),
+      "subtotal",
+    ),
     sectionRow("bank-loan-short-section", "Pinjaman bank jangka pendek"),
     valueRow(periodAnalyses, "short-beginning", "Saldo awal", "Saldo akhir pinjaman jangka pendek periode sebelumnya", "Saldo akhir periode sebelumnya", (item) => item.loanMovement.shortTermBeginning),
     valueRow(periodAnalyses, "short-addition", "Penambahan", "Mutasi positif pinjaman bank jangka pendek", "max(Saldo akhir - saldo awal, 0)", (item) => item.loanMovement.shortTermAddition),
@@ -215,6 +223,20 @@ function buildPayablesRows(periodAnalyses: PeriodAnalysis[]): AnalysisRow[] {
     valueRow(periodAnalyses, "long-ending", "Saldo akhir", "Terpetakan pinjaman bank jangka panjang / utang berbunga", "Saldo awal + penambahan + pembayaran kembali", (item) => item.loanMovement.longTermEnding, "subtotal"),
     valueRow(periodAnalyses, "interest-payable", "Utang bunga", "Terpetakan utang bunga", "Saldo input", (item) => item.snapshot.interestPayable),
     valueRow(periodAnalyses, "interest-bearing-debt", "Utang berbunga", "Debt bridge", "Pinjaman bank jangka pendek + pinjaman bank jangka panjang", (item) => interestBearingDebt(item.snapshot), "subtotal"),
+    valueRow(
+      periodAnalyses,
+      "total-debt-schedule",
+      "Total jadwal utang",
+      "Saldo utang terpetakan",
+      "Utang usaha + utang pajak + utang lain-lain + utang bunga + utang berbunga",
+      (item) =>
+        item.snapshot.accountPayable +
+        item.snapshot.taxPayable +
+        item.snapshot.otherPayable +
+        item.snapshot.interestPayable +
+        interestBearingDebt(item.snapshot),
+      "subtotal",
+    ),
   ];
 }
 

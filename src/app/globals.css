@@ -1208,6 +1208,20 @@ select {
   width: 122px;
 }
 
+.debt-schedule-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.debt-schedule-reference {
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.debt-schedule-reference .audit-reference-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .cash-flow-statement-table td:first-child span,
 .cash-flow-statement-table td:nth-child(2) span {
   display: block;
@@ -3618,6 +3632,7 @@ td span {
   .active-driver-strip,
   .projection-mode-panel,
   .projection-mode-toggle,
+  .debt-schedule-reference .audit-reference-grid,
   .audit-reference-grid,
   .audit-disclosure-grid,
   .data-awal-grid,

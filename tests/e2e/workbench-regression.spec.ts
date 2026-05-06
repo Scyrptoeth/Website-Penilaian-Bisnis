@@ -190,11 +190,14 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(cashFlowStatementTable.getByText("Override diterapkan", { exact: true })).toBeVisible();
   await expect(page.getByText("100.000.000").first()).toBeVisible();
 
-  await openWorkflowTab(page, "Utang & Arus Kas");
-  await expect(page.getByText("Bridge arus kas terkoreksi")).toBeVisible();
-  await expect(page.getByText("Referensi audit sistem")).toBeVisible();
+  await openWorkflowTab(page, "Jadwal Utang");
+  const debtScheduleSection = page.getByTestId("debt-schedule-section");
+  await expect(debtScheduleSection.getByText("ACC PAYABLES")).toBeVisible();
+  await expect(debtScheduleSection.getByText("Bridge arus kas terkoreksi")).toHaveCount(0);
+  await expect(debtScheduleSection.getByText("CASH FLOW STATEMENT")).toHaveCount(0);
+  await expect(debtScheduleSection.getByText("Referensi audit sistem")).toBeVisible();
   await expect(page.locator("body")).not.toContainText("Workbook audit reference");
-  await expect(page.getByText(/3\.150\.000\.000/).first()).toBeVisible();
+  await expect(debtScheduleSection.getByText(/1\.823\.364\.600/).first()).toBeVisible();
 
   await openWorkflowTab(page, "NOPLAT & FCF");
   await expect(page.getByText("Free Cash Flow to Firm (FCFF)")).toBeVisible();

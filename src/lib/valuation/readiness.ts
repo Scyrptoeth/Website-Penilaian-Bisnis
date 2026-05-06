@@ -266,7 +266,7 @@ export function buildWorkbenchReadiness({
       fixedAssetOrDepreciation,
       mapped,
     ]),
-    payablesCashFlow: status("payablesCashFlow", "Utang & Arus Kas", [
+    payablesCashFlow: status("payablesCashFlow", "Jadwal Utang", [
       period,
       comparativePeriod,
       balance,
