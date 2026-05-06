@@ -3037,7 +3037,7 @@ function TaxSimulationSection({
 }
 
 type DcfProjectionDisplay = "currency" | "percent" | "multiple";
-type DcfProjectionStatus = "calculated" | "review" | "requiresInput" | "notModeled";
+type DcfProjectionStatus = "calculated" | "scheduleDriven" | "review" | "requiresInput" | "notModeled";
 type ProjectionStatementKind = "income" | "balance" | "fixedAssets" | "cashFlow";
 
 type DcfProjectionLine = {
@@ -3070,6 +3070,7 @@ type DcfProjectionConfig = {
 
 const projectionStatusLabels: Record<DcfProjectionStatus, string> = {
   calculated: "Terhitung",
+  scheduleDriven: "Schedule-driven",
   review: "Review",
   requiresInput: "Perlu input",
   notModeled: "Belum dimodelkan",
@@ -3077,6 +3078,7 @@ const projectionStatusLabels: Record<DcfProjectionStatus, string> = {
 
 const projectionStatusClassNames: Record<DcfProjectionStatus, string> = {
   calculated: "ok",
+  scheduleDriven: "ok",
   review: "warning",
   requiresInput: "warning",
   notModeled: "muted",
@@ -4001,6 +4003,32 @@ function buildDcfFixedAssetProjectionInput(
   );
 }
 
+const cfsScheduleAbsoluteMateriality = 1_000_000;
+
+function cfsScheduleMateriality(row: DcfForecastRow, revenueRatio = 0.01): number {
+  return Math.max(cfsScheduleAbsoluteMateriality, Math.abs(row.revenue) * revenueRatio);
+}
+
+function hasMaterialCfsScheduleValue(
+  context: DcfProjectionContext,
+  value: (row: DcfForecastRow) => number,
+  revenueRatio = 0.01,
+): boolean {
+  return context.forecast.some((row) => Math.abs(value(row)) > cfsScheduleMateriality(row, revenueRatio));
+}
+
+function cfsScheduleStatus(
+  context: DcfProjectionContext,
+  value: (row: DcfForecastRow) => number,
+  revenueRatio = 0.01,
+): DcfProjectionStatus {
+  return hasMaterialCfsScheduleValue(context, value, revenueRatio) ? "review" : "scheduleDriven";
+}
+
+function cfsControlStatus(context: DcfProjectionContext, value: (row: DcfForecastRow) => number): DcfProjectionStatus {
+  return context.forecast.every((row) => Math.abs(value(row)) <= 1) ? "scheduleDriven" : "review";
+}
+
 const dcfCashFlowProjectionRows: DcfProjectionLine[] = [
   {
     key: "ebitda",
@@ -4209,6 +4237,183 @@ const dcfCashFlowProjectionRows: DcfProjectionLine[] = [
     kind: "subtotal",
     note: "Harus nol atau dalam toleransi pembulatan agar arus kas dan neraca saling rekonsiliasi.",
   },
+  sectionProjectionLine("schedule-safeguards", "Integrated Schedule Safeguards"),
+  {
+    key: "fcff-preservation-control",
+    label: "FCFF Preservation Control",
+    source: "DCF safeguard",
+    formula: "FCFF - (cash flow from operations + cash flow from investment)",
+    status: (context) => cfsControlStatus(context, (row) => row.freeCashFlow - (row.cashFlowFromOperations + row.cashFlowFromInvestment)),
+    workbookReference: "DCF-FCFF-GUARD-01",
+    value: (row) => row.freeCashFlow - (row.cashFlowFromOperations + row.cashFlowFromInvestment),
+    kind: "subtotal",
+    note: "Harus nol agar schedule CFS tidak mengubah FCFF/WACC valuation stream.",
+  },
+  sectionProjectionLine("tax-payable-schedule", "Tax Payable Schedule"),
+  {
+    key: "tax-payable-beginning",
+    label: "Tax Payable Beginning",
+    source: "Projected balance sheet",
+    formula: "Tax payable ending t-1; first year uses historical tax payable",
+    status: "scheduleDriven",
+    workbookReference: "CF-TAX-01",
+    value: (row) => row.taxPayableBeginning,
+  },
+  {
+    key: "tax-expense-accrued",
+    label: "Current Tax Expense Accrued",
+    source: "Proyeksi laba rugi",
+    formula: "max(EBIT x statutory tax rate, 0)",
+    status: "scheduleDriven",
+    workbookReference: "CF-TAX-02",
+    value: (row) => row.taxExpenseAccrued,
+  },
+  {
+    key: "tax-cash-paid-implied",
+    label: "Cash Tax Paid - Implied by Payable",
+    source: "Tax payable roll-forward",
+    formula: "Beginning tax payable + current tax expense - ending tax payable",
+    status: "scheduleDriven",
+    workbookReference: "CF-TAX-03",
+    value: (row) => -row.taxCashPaidImpliedByPayableSchedule,
+    note: "Diagnostic arus kas pajak berbasis utang pajak; belum mengganti cash tax FCFF baseline.",
+  },
+  {
+    key: "cash-tax-variance-to-schedule",
+    label: "Cash Tax Variance vs DCF Cash Tax",
+    source: "Tax schedule diagnostic",
+    formula: "Implied cash tax paid - DCF cash tax paid",
+    status: (context) => cfsScheduleStatus(context, (row) => row.cashTaxVarianceToSchedule, 0.005),
+    workbookReference: "CF-TAX-04",
+    value: (row) => row.cashTaxVarianceToSchedule,
+    note: "Variance material tetap review agar DCF baseline tidak berubah tanpa approval.",
+  },
+  {
+    key: "tax-payable-ending",
+    label: "Tax Payable Ending",
+    source: "Projected balance sheet",
+    formula: "Projected tax payable ending",
+    status: "scheduleDriven",
+    workbookReference: "CF-TAX-05",
+    value: (row) => row.taxPayable,
+  },
+  {
+    key: "tax-payable-schedule-control",
+    label: "Tax Payable Roll-forward Control",
+    source: "Tax payable roll-forward",
+    formula: "Beginning payable + tax expense - implied cash tax paid - ending payable",
+    status: (context) => cfsControlStatus(context, (row) => row.taxPayableScheduleControl),
+    workbookReference: "CF-TAX-CHK",
+    value: (row) => row.taxPayableScheduleControl,
+    kind: "subtotal",
+  },
+  sectionProjectionLine("debt-distribution-schedule", "Debt & Distribution Schedule"),
+  {
+    key: "debt-beginning-balance",
+    label: "Interest-Bearing Debt Beginning",
+    source: "Projected balance sheet",
+    formula: "Short-term debt + long-term debt ending t-1",
+    status: "scheduleDriven",
+    workbookReference: "CF-DEBT-01",
+    value: (row) => row.debtBeginningBalance,
+  },
+  {
+    key: "debt-balance-sheet-movement",
+    label: "Debt Movement from Balance Sheet",
+    source: "Projected balance sheet",
+    formula: "Ending interest-bearing debt - beginning interest-bearing debt",
+    status: "scheduleDriven",
+    workbookReference: "CF-DEBT-02",
+    value: (row) => row.debtBalanceSheetMovement,
+    note: "Positif berarti drawdown utang; negatif berarti pelunasan utang yang terkonfirmasi di neraca.",
+  },
+  {
+    key: "debt-ending-balance",
+    label: "Interest-Bearing Debt Ending",
+    source: "Projected balance sheet",
+    formula: "Projected short-term debt + projected long-term debt",
+    status: "scheduleDriven",
+    workbookReference: "CF-DEBT-03",
+    value: (row) => row.debtEndingBalance,
+  },
+  {
+    key: "scheduled-dividend-distribution",
+    label: "Dividend / Distribution Scheduled",
+    source: "Equity roll-forward",
+    formula: "-projected dividend distribution",
+    status: "scheduleDriven",
+    workbookReference: "CF-EQ-01",
+    value: (row) => row.scheduledDividendDistribution,
+    note: "Default nol kecuali engine historical-derived menurunkan payout dari pergerakan ekuitas historis.",
+  },
+  {
+    key: "unallocated-financing-inflow",
+    label: "Unallocated Financing Inflow",
+    source: "Financing schedule diagnostic",
+    formula: "max(CFF - known schedule cash flows, 0)",
+    status: (context) => cfsScheduleStatus(context, (row) => row.unallocatedFinancingInflow),
+    workbookReference: "CF-FIN-REVIEW-01",
+    value: (row) => row.unallocatedFinancingInflow,
+    note: "Residual positif belum terikat ke debt/equity/tax/cash policy schedule eksplisit.",
+  },
+  {
+    key: "unallocated-financing-outflow",
+    label: "Unallocated Repayment / Distribution Outflow",
+    source: "Financing schedule diagnostic",
+    formula: "min(CFF - known schedule cash flows, 0)",
+    status: (context) => cfsScheduleStatus(context, (row) => row.unallocatedFinancingOutflow),
+    workbookReference: "CF-FIN-REVIEW-02",
+    value: (row) => row.unallocatedFinancingOutflow,
+    note: "Residual negatif belum terikat ke debt repayment, dividend/distribution, atau cash policy eksplisit.",
+  },
+  {
+    key: "financing-schedule-control",
+    label: "Financing Schedule Control",
+    source: "Debt/equity schedule bridge",
+    formula: "CFF - known schedule cash flows - unallocated residual",
+    status: (context) => cfsControlStatus(context, (row) => row.financingScheduleControl),
+    workbookReference: "CF-FIN-CHK",
+    value: (row) => row.financingScheduleControl,
+    kind: "subtotal",
+  },
+  sectionProjectionLine("cash-policy-schedule", "Cash Policy Schedule"),
+  {
+    key: "target-operating-cash",
+    label: "Target Operating Cash",
+    source: "Historical cash-to-revenue ratio",
+    formula: "Revenue x historical cash-to-revenue ratio",
+    status: "scheduleDriven",
+    workbookReference: "CF-CASH-POL-01",
+    value: (row) => row.cashPolicyTarget,
+  },
+  {
+    key: "cash-policy-gap",
+    label: "Cash Policy Gap",
+    source: "Cash policy diagnostic",
+    formula: "Cash ending - target operating cash",
+    status: (context) => cfsScheduleStatus(context, (row) => row.cashPolicyGap),
+    workbookReference: "CF-CASH-POL-02",
+    value: (row) => row.cashPolicyGap,
+    note: "Gap positif menunjukkan cash surplus relatif terhadap kebijakan historis; gap negatif menunjukkan funding need.",
+  },
+  {
+    key: "cash-policy-surplus",
+    label: "Cash Policy Surplus",
+    source: "Cash policy diagnostic",
+    formula: "max(cash ending - target operating cash, 0)",
+    status: (context) => cfsScheduleStatus(context, (row) => row.cashPolicySurplus),
+    workbookReference: "CF-CASH-POL-03",
+    value: (row) => row.cashPolicySurplus,
+  },
+  {
+    key: "cash-policy-funding-need",
+    label: "Cash Policy Funding Need",
+    source: "Cash policy diagnostic",
+    formula: "max(target operating cash - cash ending, 0)",
+    status: (context) => cfsScheduleStatus(context, (row) => row.cashPolicyFundingNeed),
+    workbookReference: "CF-CASH-POL-04",
+    value: (row) => row.cashPolicyFundingNeed,
+  },
 ];
 
 const dcfProjectionConfigs: Record<ProjectionStatementKind, DcfProjectionConfig> = {
@@ -4240,8 +4445,9 @@ const dcfProjectionConfigs: Record<ProjectionStatementKind, DcfProjectionConfig>
   cashFlow: {
     eyebrow: "MODEL ARUS KAS",
     title: "Proyeksi Cash Flow Statement",
-    badge: "CFO, WC, capex, cash",
-    summary: "Arus kas kini direkonsiliasi ke ending cash neraca; plug pendanaan/distribusi tersirat tetap ditandai review sampai ada jadwal eksplisit.",
+    badge: "Schedule-driven guardrails",
+    summary:
+      "Arus kas direkonsiliasi ke ending cash neraca dan diperkaya dengan schedule pajak, utang, distribusi, cash policy, serta kontrol perlindungan FCFF DCF.",
     rows: dcfCashFlowProjectionRows,
     testId: "dcf-cash-flow-projection-table",
   },

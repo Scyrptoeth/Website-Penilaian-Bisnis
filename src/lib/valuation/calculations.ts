@@ -254,6 +254,9 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
   let previousRetainedEarningsEnding = snapshot.retainedEarningsSurplus + snapshot.retainedEarningsCurrentProfit;
   let previousTaxPayableEnding = snapshot.taxPayable;
   let previousCapitalBalance = snapshot.paidUpCapital + snapshot.additionalPaidInCapital;
+  let previousDebtEndingBalance = interestBearingDebt(snapshot);
+  let previousShareholdersEquityEnding =
+    snapshot.paidUpCapital + snapshot.additionalPaidInCapital + previousRetainedEarningsEnding;
   const includeWorkingCapitalChange = options.includeWorkingCapitalChange ?? true;
   const useHistoricalDerivedProjection = options.projectionEngine === "historical-derived";
   const wacc = options.wacc ?? snapshot.wacc;
@@ -328,6 +331,7 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
     const nonCurrentLiabilities = bankLoanLongTerm + otherNonCurrentLiabilities;
     const paidUpCapital = snapshot.paidUpCapital;
     const additionalPaidInCapital = snapshot.additionalPaidInCapital;
+    const shareholdersEquityBeginning = previousShareholdersEquityEnding;
     const retainedEarningsSurplus = previousRetainedEarningsEnding;
     let dividendDistribution = useHistoricalDerivedProjection
       ? Math.max(0, projectedNetIncome * Math.max(0, snapshot.dividendPayoutRatio))
@@ -364,6 +368,11 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
     const cashOnHand = cashTotal * cashOnHandShare;
     const cashOnBankDeposit = cashTotal - cashOnHand;
     const bankLoanShortTerm = snapshot.bankLoanShortTerm + financingPlug;
+    const debtBeginningBalance = previousDebtEndingBalance;
+    const debtEndingBalance = bankLoanShortTerm + bankLoanLongTerm;
+    const debtBalanceSheetMovement = debtEndingBalance - debtBeginningBalance;
+    const debtDrawdownFromBalanceSheet = Math.max(0, debtBalanceSheetMovement);
+    const debtRepaymentFromBalanceSheet = Math.min(0, debtBalanceSheetMovement);
     const interestIncome = projectInterestIncome(cashTotal, revenue, interestIncomeCashYield, interestIncomeRevenueMargin);
     const interestExpense = projectInterestExpense(bankLoanShortTerm + bankLoanLongTerm, revenue, interestExpenseDebtRate, interestExpenseRevenueMargin);
     const otherIncomeCharge = interestIncome + interestExpense;
@@ -388,6 +397,12 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
     const currentLiabilities = bankLoanShortTerm + ap + taxPayable + projectedOtherPayable;
     const liabilitiesAndEquity = currentLiabilities + nonCurrentLiabilities + shareholdersEquity;
     const balanceControl = totalAssets - liabilitiesAndEquity;
+    const shareholdersEquityMovement = shareholdersEquity - shareholdersEquityBeginning;
+    const taxPayableBeginning = previousTaxPayableEnding;
+    const taxExpenseAccrued = taxExpenseForPayable;
+    const taxCashPaidImpliedByPayableSchedule = taxPayableBeginning + taxExpenseAccrued - taxPayable;
+    const taxPayableScheduleControl =
+      taxPayableBeginning + taxExpenseAccrued - taxCashPaidImpliedByPayableSchedule - taxPayable;
     const grossCashFlow = (useHistoricalDerivedProjection ? cashTaxAdjustedNoplat : noplat) + depreciation;
     const grossInvestment = maintenanceCapex + changeInNwc;
     const freeCashFlow = grossCashFlow - grossInvestment;
@@ -404,6 +419,25 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
     const residualFinancingCashFlow = cashFlowFromFinancing - equityInjection - interestExpenseCashFlow - interestIncomeCashFlow;
     const newLoan = Math.max(0, residualFinancingCashFlow);
     const principalRepayment = Math.min(0, residualFinancingCashFlow);
+    const scheduledDividendDistribution = -dividendDistribution;
+    const unallocatedFinancingCashFlow =
+      cashFlowFromFinancing -
+      equityInjection -
+      debtBalanceSheetMovement -
+      scheduledDividendDistribution -
+      interestExpenseCashFlow -
+      interestIncomeCashFlow;
+    const unallocatedFinancingInflow = Math.max(0, unallocatedFinancingCashFlow);
+    const unallocatedFinancingOutflow = Math.min(0, unallocatedFinancingCashFlow);
+    const financingScheduleControl =
+      cashFlowFromFinancing -
+      equityInjection -
+      debtBalanceSheetMovement -
+      scheduledDividendDistribution -
+      interestExpenseCashFlow -
+      interestIncomeCashFlow -
+      unallocatedFinancingInflow -
+      unallocatedFinancingOutflow;
     const netCashFlow = cashEndingBalance - cashBeginningBalance;
     const cashFlowControl =
       cashBeginningBalance +
@@ -415,6 +449,11 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
     const discountBase = 1 + wacc;
     const discountFactor = discountBase > 0 ? 1 / Math.pow(discountBase, period) : 0;
     const presentValue = freeCashFlow * discountFactor;
+    const cashPolicyTarget = Math.max(0, revenue * baseCashPolicyRatio);
+    const cashPolicyGap = cashEndingBalance - cashPolicyTarget;
+    const cashPolicySurplus = Math.max(0, cashPolicyGap);
+    const cashPolicyFundingNeed = Math.max(0, -cashPolicyGap);
+    const cashTaxVarianceToSchedule = taxCashPaidImpliedByPayableSchedule - cashTaxPaid;
 
     rows.push({
       year,
@@ -467,16 +506,32 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
       nonCurrentAssets,
       totalAssets,
       bankLoanLongTerm,
+      debtBeginningBalance,
+      debtEndingBalance,
+      debtBalanceSheetMovement,
+      debtDrawdownFromBalanceSheet,
+      debtRepaymentFromBalanceSheet,
       otherNonCurrentLiabilities,
       nonCurrentLiabilities,
       paidUpCapital,
       additionalPaidInCapital,
+      shareholdersEquityBeginning,
+      shareholdersEquityMovement,
       retainedEarningsSurplus,
       dividendDistribution,
       retainedEarningsEnding,
       shareholdersEquity,
       liabilitiesAndEquity,
       balanceControl,
+      taxPayableBeginning,
+      taxExpenseAccrued,
+      taxCashPaidImpliedByPayableSchedule,
+      taxPayableScheduleControl,
+      cashTaxVarianceToSchedule,
+      cashPolicyTarget,
+      cashPolicyGap,
+      cashPolicySurplus,
+      cashPolicyFundingNeed,
       cashBeginningBalance,
       cashFlowFromOperations,
       nonOperatingCashFlow,
@@ -487,6 +542,11 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
       interestExpenseCashFlow,
       interestIncomeCashFlow,
       principalRepayment,
+      scheduledDividendDistribution,
+      unallocatedFinancingCashFlow,
+      unallocatedFinancingInflow,
+      unallocatedFinancingOutflow,
+      financingScheduleControl,
       cashFlowFromFinancing,
       netCashFlow,
       cashEndingBalance,
@@ -507,6 +567,8 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
     previousCashEndingBalance = cashEndingBalance;
     previousTaxPayableEnding = taxPayable;
     previousCapitalBalance = capitalBalance;
+    previousDebtEndingBalance = debtEndingBalance;
+    previousShareholdersEquityEnding = shareholdersEquity;
   }
 
   return rows;

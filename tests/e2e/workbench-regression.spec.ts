@@ -253,9 +253,15 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByRole("heading", { name: "Proyeksi Cash Flow Statement" })).toBeVisible();
   await expect(page.getByTestId("dcf-cash-flow-projection-table")).toContainText("Cash Flow before Financing");
   await expect(page.getByTestId("dcf-cash-flow-projection-table")).toContainText("Cash Flow Control");
+  await expect(page.getByTestId("dcf-cash-flow-projection-table")).toContainText("Integrated Schedule Safeguards");
+  await expect(page.getByTestId("dcf-cash-flow-projection-table")).toContainText("FCFF Preservation Control");
+  await expect(page.getByTestId("dcf-cash-flow-projection-table")).toContainText("Tax Payable Schedule");
+  await expect(page.getByTestId("dcf-cash-flow-projection-table")).toContainText("Debt & Distribution Schedule");
+  await expect(page.getByTestId("dcf-cash-flow-projection-table")).toContainText("Cash Policy Schedule");
+  await expect(page.getByTestId("dcf-cash-flow-projection-table")).toContainText("Schedule-driven");
+  await expect(page.getByTestId("dcf-cash-flow-projection-table")).toContainText("Unallocated");
   await expect(page.getByTestId("dcf-cash-flow-projection-table")).toContainText("2026");
   await expect(page.getByTestId("dcf-cash-flow-projection-table")).not.toContainText("Perlu input");
-  await expect(page.getByTestId("dcf-cash-flow-projection-table")).not.toContainText("Review");
   await expect(page.getByTestId("dcf-cash-flow-projection-table")).not.toContainText(/belum dimodelkan/i);
 
   await openWorkflowTab(page, "Rasio & Efisiensi Modal");

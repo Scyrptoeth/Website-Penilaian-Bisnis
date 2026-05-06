@@ -69,6 +69,20 @@ describe("valuation calculations", () => {
       assertAlmostEqual(row.liabilitiesAndEquity, row.currentLiabilities + row.nonCurrentLiabilities + row.shareholdersEquity, 0.01);
       assertAlmostEqual(row.balanceControl, 0, 1);
       assertAlmostEqual(row.cashEndingBalance, row.cashOnHand + row.cashOnBankDeposit, 0.01);
+      assertAlmostEqual(row.taxPayableScheduleControl, 0, 0.01);
+      assertAlmostEqual(
+        row.taxCashPaidImpliedByPayableSchedule,
+        row.taxPayableBeginning + row.taxExpenseAccrued - row.taxPayable,
+        0.01,
+      );
+      assertAlmostEqual(row.cashTaxVarianceToSchedule, row.taxCashPaidImpliedByPayableSchedule - row.cashTaxPaid, 0.01);
+      assertAlmostEqual(row.debtEndingBalance, row.bankLoanShortTerm + row.bankLoanLongTerm, 0.01);
+      assertAlmostEqual(row.debtBalanceSheetMovement, row.debtEndingBalance - row.debtBeginningBalance, 0.01);
+      assertAlmostEqual(row.debtDrawdownFromBalanceSheet, Math.max(0, row.debtBalanceSheetMovement), 0.01);
+      assertAlmostEqual(row.debtRepaymentFromBalanceSheet, Math.min(0, row.debtBalanceSheetMovement), 0.01);
+      assertAlmostEqual(row.cashPolicyGap, row.cashEndingBalance - row.cashPolicyTarget, 0.01);
+      assertAlmostEqual(row.cashPolicySurplus, Math.max(0, row.cashPolicyGap), 0.01);
+      assertAlmostEqual(row.cashPolicyFundingNeed, Math.max(0, -row.cashPolicyGap), 0.01);
       assertAlmostEqual(row.cashFlowFromOperations, row.grossCashFlow - row.changeInNwc, 0.01);
       assertAlmostEqual(row.nonOperatingCashFlow, row.nonOperatingIncome, 0.01);
       assertAlmostEqual(row.cashFlowFromInvestment, -row.capitalExpenditure, 0.01);
@@ -80,6 +94,18 @@ describe("valuation calculations", () => {
         row.equityInjection + row.newLoan + row.interestExpenseCashFlow + row.interestIncomeCashFlow + row.principalRepayment,
         0.01,
       );
+      assertAlmostEqual(
+        row.cashFlowFromFinancing,
+        row.equityInjection +
+          row.debtBalanceSheetMovement +
+          row.scheduledDividendDistribution +
+          row.interestExpenseCashFlow +
+          row.interestIncomeCashFlow +
+          row.unallocatedFinancingInflow +
+          row.unallocatedFinancingOutflow,
+        0.01,
+      );
+      assertAlmostEqual(row.financingScheduleControl, 0, 0.01);
       assertAlmostEqual(row.netCashFlow, row.cashEndingBalance - row.cashBeginningBalance, 0.01);
       assertAlmostEqual(row.cashFlowControl, 0, 1);
       assertAlmostEqual(row.freeCashFlow, row.grossCashFlow - row.grossInvestment, 0.01);
@@ -90,6 +116,9 @@ describe("valuation calculations", () => {
       assert.ok(Number.isFinite(row.interestIncome));
       assert.ok(Number.isFinite(row.interestExpense));
       assert.ok(Number.isFinite(row.nonOperatingIncome));
+      assert.ok(Number.isFinite(row.unallocatedFinancingCashFlow));
+      assert.ok(Number.isFinite(row.cashTaxVarianceToSchedule));
+      assert.ok(Number.isFinite(row.cashPolicyGap));
     });
   });
 
