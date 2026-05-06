@@ -32,6 +32,10 @@ test("period workflow, scoped categories, and display-only balance sheet classif
   await expect(workflowNav(page).getByRole("button", { name: "Data Awal" })).toHaveAttribute("aria-current", "page");
   await expect(workflowNav(page).getByRole("button", { name: "Neraca", exact: true })).toBeVisible();
   await expect(workflowNav(page).getByRole("button", { name: "Aset Tetap", exact: true })).toBeVisible();
+  await expect(workflowNav(page).getByRole("button", { name: "Neraca", exact: true }).locator(".method-badge")).toHaveText(["AAM", "EEM", "DCF"]);
+  await expect(workflowNav(page).getByRole("button", { name: "Laba Rugi", exact: true }).locator(".method-badge")).toHaveText(["EEM", "DCF"]);
+  await expect(workflowNav(page).getByRole("button", { name: "Kategorisasi Akun", exact: true }).locator(".method-badge")).toHaveText(["AAM", "EEM", "DCF"]);
+  await expect(workflowNav(page).getByRole("button", { name: "Penilaian AAM", exact: true }).locator(".method-badge")).toHaveText(["AAM"]);
   await expect(workflowNav(page).getByRole("button", { name: "Neraca & Aset Tetap", exact: true })).toHaveCount(0);
   await expect(workflowNav(page).getByRole("button", { name: "Pemetaan & Label" })).toHaveCount(0);
   await expect(page.getByTestId("case-profile-panel")).toBeVisible();

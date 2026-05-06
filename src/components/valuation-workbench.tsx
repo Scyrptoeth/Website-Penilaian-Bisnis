@@ -457,6 +457,11 @@ type PersistedWorkbenchState = {
 type WorkbenchCoreState = Omit<PersistedWorkbenchState, "version" | "savedAt">;
 
 type WorkflowTabId = WorkbenchSectionId;
+type WorkflowTab = {
+  id: WorkflowTabId;
+  label: string;
+  methods: ValuationMethod[];
+};
 
 declare global {
   interface Window {
@@ -466,29 +471,36 @@ declare global {
   }
 }
 
-const workflowTabs: Array<{ id: WorkflowTabId; label: string }> = [
-  { id: "periods", label: "Data Awal" },
-  { id: "balance", label: "Neraca" },
-  { id: "fixedAssets", label: "Aset Tetap" },
-  { id: "income", label: "Laba Rugi" },
-  { id: "wacc", label: "WACC" },
-  { id: "eemDcfAssumptions", label: "Asumsi EEM/DCF" },
-  { id: "valuationAam", label: "Penilaian AAM" },
-  { id: "valuationEem", label: "Penilaian EEM" },
-  { id: "valuationDcf", label: "Penilaian DCF" },
-  { id: "projectedIncome", label: "Proyeksi Laba Rugi" },
-  { id: "projectedBalance", label: "Proyeksi Neraca" },
-  { id: "projectedFixedAssets", label: "Proyeksi Aset Tetap" },
-  { id: "projectedCashFlow", label: "Proyeksi Cash Flow Statement" },
-  { id: "dlom", label: "DLOM" },
-  { id: "dlocPfc", label: "DLOC/PFC" },
-  { id: "taxSimulation", label: "Simulasi Potensi Pajak" },
-  { id: "cashFlowStatement", label: "Cash Flow Statement" },
-  { id: "payablesCashFlow", label: "Jadwal Utang" },
-  { id: "noplatFcf", label: "NOPLAT & FCF" },
-  { id: "financialRatio", label: "Financial Ratio" },
-  { id: "roic", label: "ROIC" },
-  { id: "audit", label: "Audit" },
+const aamOnlyMethods: ValuationMethod[] = ["AAM"];
+const eemOnlyMethods: ValuationMethod[] = ["EEM"];
+const dcfOnlyMethods: ValuationMethod[] = ["DCF"];
+const eemDcfMethods: ValuationMethod[] = ["EEM", "DCF"];
+const allValuationMethods: ValuationMethod[] = ["AAM", "EEM", "DCF"];
+
+const workflowTabs: WorkflowTab[] = [
+  { id: "periods", label: "Data Awal", methods: allValuationMethods },
+  { id: "balance", label: "Neraca", methods: allValuationMethods },
+  { id: "fixedAssets", label: "Aset Tetap", methods: allValuationMethods },
+  { id: "income", label: "Laba Rugi", methods: eemDcfMethods },
+  { id: "mapping", label: "Kategorisasi Akun", methods: allValuationMethods },
+  { id: "wacc", label: "WACC", methods: eemDcfMethods },
+  { id: "eemDcfAssumptions", label: "Asumsi EEM/DCF", methods: eemDcfMethods },
+  { id: "valuationAam", label: "Penilaian AAM", methods: aamOnlyMethods },
+  { id: "valuationEem", label: "Penilaian EEM", methods: eemOnlyMethods },
+  { id: "valuationDcf", label: "Penilaian DCF", methods: dcfOnlyMethods },
+  { id: "projectedIncome", label: "Proyeksi Laba Rugi", methods: dcfOnlyMethods },
+  { id: "projectedBalance", label: "Proyeksi Neraca", methods: dcfOnlyMethods },
+  { id: "projectedFixedAssets", label: "Proyeksi Aset Tetap", methods: dcfOnlyMethods },
+  { id: "projectedCashFlow", label: "Proyeksi Cash Flow Statement", methods: dcfOnlyMethods },
+  { id: "dlom", label: "DLOM", methods: allValuationMethods },
+  { id: "dlocPfc", label: "DLOC/PFC", methods: allValuationMethods },
+  { id: "taxSimulation", label: "Simulasi Potensi Pajak", methods: allValuationMethods },
+  { id: "cashFlowStatement", label: "Cash Flow Statement", methods: eemDcfMethods },
+  { id: "payablesCashFlow", label: "Jadwal Utang", methods: eemDcfMethods },
+  { id: "noplatFcf", label: "NOPLAT & FCF", methods: eemDcfMethods },
+  { id: "financialRatio", label: "Financial Ratio", methods: eemDcfMethods },
+  { id: "roic", label: "ROIC", methods: eemDcfMethods },
+  { id: "audit", label: "Audit", methods: allValuationMethods },
 ];
 
 const incomeProjectionOverrideFields: Array<{
@@ -562,6 +574,7 @@ export function ValuationWorkbench() {
   const [redoStack, setRedoStack] = useState<WorkbenchCoreState[]>([]);
   const [isTemplateExporting, setIsTemplateExporting] = useState(false);
 
+  const activeWorkflowTabItem = workflowTabs.find((tab) => tab.id === activeWorkflowTab) ?? workflowTabs[0];
   const mappedRows = useMemo(() => rows.map((row) => mapRow(row)), [rows]);
   const caseProfileDerived = useMemo(() => buildCaseProfileDerived(caseProfile), [caseProfile]);
   const activePeriod = periods.find((period) => period.id === activePeriodId) ?? getDefaultActivePeriod(periods);
@@ -1815,9 +1828,12 @@ export function ValuationWorkbench() {
                 type="button"
                 onClick={() => setActiveWorkflowTab(item.id)}
                 aria-current={activeWorkflowTab === item.id ? "page" : undefined}
+                aria-label={item.label}
+                title={`${item.label}: ${formatMethodList(item.methods)}`}
                 key={item.id}
               >
-                {item.label}
+                <span className="workflow-tab-label">{item.label}</span>
+                <WorkflowMethodBadges methods={item.methods} />
               </button>
             ))}
           </nav>
@@ -1826,7 +1842,11 @@ export function ValuationWorkbench() {
 
       <section className="workspace">
         <div className="sticky-workspace-header" data-testid="workspace-header">
-          <header className="topbar toolbar-only">
+          <header className="topbar">
+            <div className="active-workflow-context" aria-label={`Konteks metode ${activeWorkflowTabItem.label}`}>
+              <span>{activeWorkflowTabItem.label}</span>
+              <WorkflowMethodBadges methods={activeWorkflowTabItem.methods} />
+            </div>
             <div className="toolbar">
               <button className="icon-button" type="button" onClick={undoCoreChange} disabled={undoStack.length === 0} title="Undo perubahan data">
                 <Undo2 size={18} />
@@ -1834,15 +1854,15 @@ export function ValuationWorkbench() {
               <button className="icon-button" type="button" onClick={redoCoreChange} disabled={redoStack.length === 0} title="Redo perubahan data">
                 <Redo2 size={18} />
               </button>
-              <button className="button secondary" type="button" onClick={exportWorkbook} disabled={isTemplateExporting} aria-busy={isTemplateExporting}>
+              <button className="button secondary" type="button" onClick={exportWorkbook} disabled={!isDraftRestored || isTemplateExporting} aria-busy={isTemplateExporting}>
                 <Download size={18} />
                 {isTemplateExporting ? "Menyiapkan XLSX" : "Export XLSX"}
               </button>
-              <button className="button secondary" type="button" onClick={exportPdfReport}>
+              <button className="button secondary" type="button" onClick={exportPdfReport} disabled={!isDraftRestored}>
                 <FileText size={18} />
                 Export PDF
               </button>
-              <button className="button ghost" type="button" onClick={resetForm} disabled={!hasAnyInput}>
+              <button className="button ghost" type="button" onClick={resetForm} disabled={!isDraftRestored || !hasAnyInput}>
                 <Eraser size={18} />
                 Reset
               </button>
@@ -1856,10 +1876,13 @@ export function ValuationWorkbench() {
                 type="button"
                 role="tab"
                 aria-selected={activeWorkflowTab === tab.id}
+                aria-label={tab.label}
+                title={`${tab.label}: ${formatMethodList(tab.methods)}`}
                 onClick={() => setActiveWorkflowTab(tab.id)}
                 key={tab.id}
               >
-                {tab.label}
+                <span className="workflow-tab-label">{tab.label}</span>
+                <WorkflowMethodBadges methods={tab.methods} />
               </button>
             ))}
           </div>
@@ -2957,13 +2980,32 @@ function ReadinessOverview({ readiness, onNavigate }: { readiness: WorkbenchRead
             key={tab.id}
           >
             {status.isReady && status.warnings.length === 0 ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
-            <span>{tab.label}</span>
+            <span className="readiness-overview-label">
+              <span>{tab.label}</span>
+              <WorkflowMethodBadges methods={tab.methods} />
+            </span>
             <strong>{unresolvedCount === 0 ? "Siap" : `${unresolvedCount} item`}</strong>
           </button>
         );
       })}
     </section>
   );
+}
+
+function WorkflowMethodBadges({ methods }: { methods: ValuationMethod[] }) {
+  return (
+    <span className="method-badge-list" aria-hidden="true">
+      {methods.map((method) => (
+        <span className={`method-badge method-badge-${method.toLowerCase()}`} key={method}>
+          {method}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function formatMethodList(methods: ValuationMethod[]): string {
+  return methods.join(" / ");
 }
 
 function DlomSection({

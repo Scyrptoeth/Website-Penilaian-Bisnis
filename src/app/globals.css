@@ -205,14 +205,19 @@ svg {
   display: grid;
   align-content: start;
   gap: 2px;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 2px;
 }
 
 .nav-list button {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
+  gap: 6px;
   min-width: 0;
-  min-height: 30px;
-  padding: 0 8px;
+  min-height: 34px;
+  padding: 4px 7px;
   border: 1px solid transparent;
   border-radius: var(--radius);
   background: transparent;
@@ -248,15 +253,59 @@ svg {
 }
 
 .workflow-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   flex: 0 0 auto;
   min-height: 34px;
-  padding: 0 10px;
+  padding: 4px 9px;
   border: 1px solid transparent;
   border-radius: var(--radius);
   background: transparent;
   color: var(--ink-soft);
   font-weight: 700;
   white-space: nowrap;
+}
+
+.workflow-tab-label {
+  min-width: 0;
+}
+
+.method-badge-list {
+  display: inline-flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 3px;
+}
+
+.method-badge {
+  display: inline-grid;
+  min-width: 24px;
+  min-height: 16px;
+  place-items: center;
+  padding: 1px 4px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-family: var(--font-mono), monospace;
+  font-size: 7.2px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.method-badge-aam {
+  background: #fff4d6;
+  color: #6f4300;
+}
+
+.method-badge-eem {
+  background: #dff4ee;
+  color: #074c48;
+}
+
+.method-badge-dcf {
+  background: #e5edff;
+  color: #173469;
 }
 
 .workflow-tabs button.active,
@@ -313,6 +362,28 @@ svg {
 .topbar.toolbar-only {
   justify-content: flex-end;
   align-items: center;
+}
+
+.active-workflow-context {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  min-height: 34px;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-raised);
+  color: var(--ink-soft);
+}
+
+.active-workflow-context > span:first-child {
+  min-width: 0;
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 750;
+  line-height: 1.2;
 }
 
 .topbar > div:first-child,
@@ -3001,9 +3072,18 @@ select {
   color: var(--ok);
 }
 
-.readiness-overview-item span,
+.readiness-overview-label,
 .readiness-overview-item strong {
   min-width: 0;
+}
+
+.readiness-overview-label {
+  display: grid;
+  gap: 4px;
+}
+
+.readiness-overview-label .method-badge-list {
+  justify-content: flex-start;
 }
 
 .readiness-overview-item strong {
