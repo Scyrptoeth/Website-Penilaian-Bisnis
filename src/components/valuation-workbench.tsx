@@ -481,7 +481,8 @@ const workflowTabs: Array<{ id: WorkflowTabId; label: string }> = [
   { id: "cashFlowStatement", label: "Cash Flow Statement" },
   { id: "payablesCashFlow", label: "Utang & Arus Kas" },
   { id: "noplatFcf", label: "NOPLAT & FCF" },
-  { id: "ratiosCapital", label: "Rasio & Efisiensi Modal" },
+  { id: "financialRatio", label: "Financial Ratio" },
+  { id: "roic", label: "ROIC" },
   { id: "audit", label: "Audit" },
 ];
 
@@ -2609,11 +2610,19 @@ export function ValuationWorkbench() {
           )
         ) : null}
 
-        {activeWorkflowTab === "ratiosCapital" ? (
-          readiness.ratiosCapital.isReady ? (
-            <RatiosCapitalSection analysis={sectionAnalysis} readiness={readiness.ratiosCapital} onNavigate={navigateToWorkflowTab} />
+        {activeWorkflowTab === "financialRatio" ? (
+          readiness.financialRatio.isReady ? (
+            <FinancialRatioSection analysis={sectionAnalysis} readiness={readiness.financialRatio} onNavigate={navigateToWorkflowTab} />
           ) : (
-            <ReadinessPanel status={readiness.ratiosCapital} onNavigate={navigateToWorkflowTab} force />
+            <ReadinessPanel status={readiness.financialRatio} onNavigate={navigateToWorkflowTab} force />
+          )
+        ) : null}
+
+        {activeWorkflowTab === "roic" ? (
+          readiness.roic.isReady ? (
+            <RoicSection analysis={sectionAnalysis} readiness={readiness.roic} onNavigate={navigateToWorkflowTab} />
+          ) : (
+            <ReadinessPanel status={readiness.roic} onNavigate={navigateToWorkflowTab} force />
           )
         ) : null}
 
@@ -6182,7 +6191,7 @@ function NoplatFcfSection({ analysis }: { analysis: SectionAnalysis }) {
   );
 }
 
-function RatiosCapitalSection({
+function FinancialRatioSection({
   analysis,
   readiness,
   onNavigate,
@@ -6191,8 +6200,6 @@ function RatiosCapitalSection({
   readiness: SectionReadiness;
   onNavigate: (tabId: WorkflowTabId) => void;
 }) {
-  const latest = getLatestPeriodAnalysis(analysis);
-
   return (
     <>
       <ReadinessPanel status={readiness} onNavigate={onNavigate} />
@@ -6207,6 +6214,24 @@ function RatiosCapitalSection({
         </div>
         <RatioTable rows={analysis.ratioRows} periods={analysis.periods} />
       </section>
+    </>
+  );
+}
+
+function RoicSection({
+  analysis,
+  readiness,
+  onNavigate,
+}: {
+  analysis: SectionAnalysis;
+  readiness: SectionReadiness;
+  onNavigate: (tabId: WorkflowTabId) => void;
+}) {
+  const latest = getLatestPeriodAnalysis(analysis);
+
+  return (
+    <>
+      <ReadinessPanel status={readiness} onNavigate={onNavigate} />
 
       <section className="split-panel">
         <article className="panel">
@@ -6233,6 +6258,7 @@ function RatiosCapitalSection({
             metrics={[
               { label: "Operating NWC", value: latest?.operatingWorkingCapital ?? null },
               { label: "Invested capital akhir", value: latest?.investedCapitalEnd ?? null },
+              { label: "Invested capital awal", value: latest?.investedCapitalBeginning ?? null },
               { label: "ROIC", value: latest?.roic ?? null, display: "percent" },
             ]}
             notes={[

@@ -709,6 +709,21 @@ function buildRatioRows(periodAnalyses: PeriodAnalysis[]): RatioRow[] {
     ratioRow(periodAnalyses, "ocf-sales", "Operating Cash Flow / Sales", "Laporan arus kas terkoreksi", "CFO / revenue", "percent", (item) =>
       item.previousSnapshot ? safeRatio(item.cashFlowFromOperations, item.snapshot.revenue) : null,
     ),
+    ratioRow(periodAnalyses, "fcf-ocf", "FCF / Operating Cash Ratio", "Laporan arus kas terkoreksi", "FCF / operating cash flow", "percent", (item) =>
+      item.previousSnapshot ? safeRatio(item.freeCashFlow, item.cashFlowFromOperations) : null,
+    ),
+    ratioRow(
+      periodAnalyses,
+      "short-term-debt-coverage",
+      "Short Term Debt Coverage",
+      "Bridge utang jangka pendek",
+      "Operating cash flow / bank loan short term",
+      "multiple",
+      (item) => (item.previousSnapshot ? safeRatio(item.cashFlowFromOperations, item.snapshot.bankLoanShortTerm) : null),
+    ),
+    ratioRow(periodAnalyses, "capex-coverage", "Capex Coverage", "Laporan arus kas terkoreksi", "Operating cash flow / capex", "multiple", (item) =>
+      item.previousSnapshot ? safeRatio(item.cashFlowFromOperations, item.capitalExpenditure) : null,
+    ),
   ];
 
   return rows;

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { normalizedNoplat } from "../../src/lib/valuation/calculations";
-import { buildSampleAssumptions, buildSamplePeriods, buildSampleRows, buildSnapshot } from "../../src/lib/valuation/case-model";
+import { buildSampleAssumptions, buildSamplePeriods, buildSampleRows, buildSnapshot, type AccountRow } from "../../src/lib/valuation/case-model";
 import { buildSectionAnalysis } from "../../src/lib/valuation/section-analysis";
 import { assertAlmostEqual } from "./test-utils";
 
@@ -79,5 +79,45 @@ describe("section analysis", () => {
     assert.ok(periodAnalysis);
     assert.equal(roic.values.p2019, null);
     assertAlmostEqual(Number(roic.values.p2021), periodAnalysis.roic ?? 0, 1e-12);
+  });
+
+  it("adds workbook-referenced cash flow indicator ratios with formula trace", () => {
+    const rowsWithShortTermDebt: AccountRow[] = [
+      ...rows,
+      {
+        id: "sample-short-term-bank-loan",
+        statement: "balance_sheet",
+        accountName: "Bank Loan-Short Term",
+        categoryOverride: "BANK_LOAN_SHORT_TERM",
+        balanceSheetClassification: "",
+        labelOverrides: [],
+        values: { p2019: "500.000.000", p2020: "750.000.000", p2021: "1.000.000.000" },
+      },
+      {
+        id: "sample-capex-coverage-denominator",
+        statement: "fixed_asset",
+        accountName: "Test capex denominator",
+        categoryOverride: "FIXED_ASSET",
+        balanceSheetClassification: "",
+        labelOverrides: [],
+        values: { p2019: "0", p2020: "0", p2021: "250.000.000" },
+      },
+    ];
+    const analysisWithDebt = buildSectionAnalysis(periods, rowsWithShortTermDebt, assumptions);
+    const periodAnalysis = analysisWithDebt.periodAnalyses.find((item) => item.period.id === "p2021");
+    const fcfOperatingCash = analysisWithDebt.ratioRows.find((row) => row.key === "fcf-ocf");
+    const shortTermDebtCoverage = analysisWithDebt.ratioRows.find((row) => row.key === "short-term-debt-coverage");
+    const capexCoverage = analysisWithDebt.ratioRows.find((row) => row.key === "capex-coverage");
+
+    assert.ok(periodAnalysis);
+    assert.ok(fcfOperatingCash);
+    assert.ok(shortTermDebtCoverage);
+    assert.ok(capexCoverage);
+    assert.equal(fcfOperatingCash.formula, "FCF / operating cash flow");
+    assert.equal(shortTermDebtCoverage.formula, "Operating cash flow / bank loan short term");
+    assert.equal(capexCoverage.formula, "Operating cash flow / capex");
+    assertAlmostEqual(Number(fcfOperatingCash.values.p2021), periodAnalysis.freeCashFlow / periodAnalysis.cashFlowFromOperations, 1e-12);
+    assertAlmostEqual(Number(shortTermDebtCoverage.values.p2021), periodAnalysis.cashFlowFromOperations / periodAnalysis.snapshot.bankLoanShortTerm, 1e-12);
+    assertAlmostEqual(Number(capexCoverage.values.p2021), periodAnalysis.cashFlowFromOperations / periodAnalysis.capitalExpenditure, 1e-12);
   });
 });

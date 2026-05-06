@@ -31,7 +31,8 @@ export type WorkbenchSectionId =
   | "cashFlowStatement"
   | "payablesCashFlow"
   | "noplatFcf"
-  | "ratiosCapital"
+  | "financialRatio"
+  | "roic"
   | "audit";
 
 export type ReadinessItem = {
@@ -282,7 +283,8 @@ export function buildWorkbenchReadiness({
       fixedAssetOrDepreciation,
       mapped,
     ]),
-    ratiosCapital: status("ratiosCapital", "Rasio & Efisiensi Modal", [period, balance, income, mapped], [comparativePeriod]),
+    financialRatio: status("financialRatio", "Financial Ratio", [period, balance, income, mapped], [comparativePeriod]),
+    roic: status("roic", "ROIC", [period, balance, income, mapped], [comparativePeriod]),
     audit: status("audit", "Audit", []),
   };
 }

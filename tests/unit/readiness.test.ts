@@ -51,6 +51,8 @@ describe("workbench readiness", () => {
     assert.ok(readiness.taxSimulation.warnings.some((item) => item.targetTab === "taxSimulation"));
     assert.equal(readiness.payablesCashFlow.isReady, false);
     assert.equal(readiness.noplatFcf.isReady, false);
+    assert.equal(readiness.financialRatio.isReady, false);
+    assert.equal(readiness.roic.isReady, false);
     assert.ok(readiness.valuationAam.missing.some((item) => item.targetTab === "balance"));
     assert.ok(readiness.valuationAam.missing.every((item) => item.targetTab !== "wacc" && item.targetTab !== "eemDcfAssumptions"));
     assert.ok(readiness.valuationEemDcf.missing.some((item) => item.targetTab === "income"));
@@ -90,7 +92,8 @@ describe("workbench readiness", () => {
 
     assert.equal(readiness.payablesCashFlow.isReady, true);
     assert.equal(readiness.noplatFcf.isReady, true);
-    assert.equal(readiness.ratiosCapital.isReady, true);
+    assert.equal(readiness.financialRatio.isReady, true);
+    assert.equal(readiness.roic.isReady, true);
     assert.equal(readiness.valuationAam.isReady, true);
     assert.equal(readiness.valuationEemDcf.isReady, true);
     assert.equal(readiness.projectedIncome.isReady, true);
@@ -100,7 +103,8 @@ describe("workbench readiness", () => {
     assert.equal(readiness.dlom.isReady, true);
     assert.equal(readiness.dlocPfc.isReady, true);
     assert.equal(readiness.taxSimulation.isReady, true);
-    assert.equal(readiness.ratiosCapital.warnings.length, 0);
+    assert.equal(readiness.financialRatio.warnings.length, 0);
+    assert.equal(readiness.roic.warnings.length, 0);
   });
 
   it("lets projected income stand alone without working-capital or fixed-asset gates", () => {

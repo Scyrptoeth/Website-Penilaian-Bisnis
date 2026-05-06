@@ -282,7 +282,15 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByTestId("dcf-cash-flow-projection-table")).not.toContainText("Perlu input");
   await expect(page.getByTestId("dcf-cash-flow-projection-table")).not.toContainText(/belum dimodelkan/i);
 
-  await openWorkflowTab(page, "Rasio & Efisiensi Modal");
+  await openWorkflowTab(page, "Financial Ratio");
+  const ratioTable = page.locator("table.ratio-table");
+  await expect(ratioTable).toContainText("FCF / Operating Cash Ratio");
+  await expect(ratioTable).toContainText("Short Term Debt Coverage");
+  await expect(ratioTable).toContainText("Capex Coverage");
+  await expect(ratioTable).toContainText("Operating cash flow / capex");
+  await expect(page.getByRole("heading", { name: "Bridge efisiensi modal" })).toHaveCount(0);
+
+  await openWorkflowTab(page, "ROIC");
   await expect(page.getByText("Bridge efisiensi modal")).toBeVisible();
   await expect(page.getByText("Basis NOPLAT terkoreksi")).toBeVisible();
   await expect(page.getByText("Referensi audit sistem")).toBeVisible();
