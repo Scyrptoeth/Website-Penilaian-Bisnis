@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { ArrowUp } from "lucide-react";
 
-const scrollThreshold = 120;
+const scrollThreshold = 96;
 
 export function ScrollToTopButton() {
   const [isVisible, setIsVisible] = useState(false);
