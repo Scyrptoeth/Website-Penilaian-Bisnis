@@ -4,6 +4,7 @@ import * as XLSX from "xlsx";
 import { getCellFontRgbFromXlsx, getWorkbookCalcPrAttributesFromXlsx, hasXlsxEntry } from "../helpers/xlsx-style";
 
 const workbenchStorageKey = "penilaian-valuasi-bisnis.workbench.v1";
+const workspaceManifestStorageKey = "penilaian-valuasi-bisnis.workspaces.v1";
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
@@ -28,16 +29,9 @@ async function loadSampleWorkbook(page: Page) {
 async function loadPersistedWorkbenchFixture(page: Page) {
   const fixtureState = JSON.parse(readFileSync("tests/fixtures/export-xlsx-v2-workbench-state.json", "utf8")) as unknown;
 
-  await expect
-    .poll(() =>
-      page.evaluate((key) => {
-        const raw = window.localStorage.getItem(key);
-        return raw ? JSON.parse(raw).version : null;
-      }, workbenchStorageKey),
-    )
-    .toBe(16);
-  await page.evaluate(
+  await page.addInitScript(
     ({ key, state }) => {
+      window.localStorage.clear();
       window.localStorage.setItem(key, JSON.stringify(state));
     },
     { key: workbenchStorageKey, state: fixtureState },
@@ -45,6 +39,14 @@ async function loadPersistedWorkbenchFixture(page: Page) {
   await page.reload();
   await expect(page.getByTestId("valuation-workbench")).toBeVisible();
   await expect(page.getByLabel("Nama Objek Pajak")).toHaveValue("Makmur Jaya Sejati Raya");
+  await expect
+    .poll(() =>
+      page.evaluate((key) => {
+        const raw = window.localStorage.getItem(key);
+        return raw ? JSON.parse(raw).workspaces?.length : 0;
+      }, workspaceManifestStorageKey),
+    )
+    .toBe(1);
 }
 
 test("JSON export and import round-trip the full workbench draft", async ({ page }) => {
@@ -88,11 +90,12 @@ test("JSON export and import round-trip the full workbench draft", async ({ page
   await expect(page.getByLabel("Nama Objek Pajak")).toHaveValue("");
 
   await page.getByTestId("json-import-input").setInputFiles(downloadPath ?? "");
-  await expect(page.getByRole("dialog", { name: "Import JSON dan ganti draft aktif?" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Import JSON sebagai workspace baru?" })).toBeVisible();
   await expect(page.getByRole("dialog")).toContainText("Makmur Jaya Sejati Raya");
   await page.getByRole("dialog").getByRole("button", { name: "Import JSON" }).click();
 
   await expect(page.getByLabel("Nama Objek Pajak")).toHaveValue("Makmur Jaya Sejati Raya");
+  await expect(page.getByRole("button", { name: /Workspace aktif: Makmur Jaya Sejati Raya/ })).toBeVisible();
   await expect(page.locator(".toolbar").getByRole("button", { name: "Reset" })).toBeEnabled();
   await expect
     .poll(() =>
@@ -102,6 +105,55 @@ test("JSON export and import round-trip the full workbench draft", async ({ page
       }, workbenchStorageKey),
     )
     .toBe("Makmur Jaya Sejati Raya");
+  await expect
+    .poll(() =>
+      page.evaluate((key) => {
+        const raw = window.localStorage.getItem(key);
+        return raw ? JSON.parse(raw).workspaces?.length : 0;
+      }, workspaceManifestStorageKey),
+    )
+    .toBe(2);
+});
+
+test("local workspaces isolate active valuation drafts across create, rename, duplicate, delete, and reload", async ({ page }) => {
+  await page.getByLabel("Nama Objek Pajak").fill("PT Alpha Valuasi");
+  await page.getByRole("button", { name: /Workspace aktif: Workspace Utama/ }).click();
+  await page.getByRole("button", { name: "Workspace kosong" }).click();
+  await expect(page.getByRole("button", { name: /Workspace aktif: Workspace Baru/ })).toBeVisible();
+  await expect(page.getByLabel("Nama Objek Pajak")).toHaveValue("");
+
+  await page.getByLabel("Nama Objek Pajak").fill("PT Beta Skenario");
+  await page.getByRole("button", { name: /Workspace aktif: Workspace Baru/ }).click();
+  await page.getByRole("menu", { name: "Kelola workspace lokal" }).locator(".workspace-menu-item", { hasText: "Workspace Baru" }).getByRole("button", { name: "Rename" }).click();
+  await page.getByLabel("Nama workspace Workspace Baru").fill("Skenario Beta");
+  await page.getByRole("button", { name: "Simpan nama workspace" }).click();
+  await expect(page.getByRole("button", { name: /Workspace aktif: Skenario Beta/ })).toBeVisible();
+
+  await page.getByRole("button", { name: /Workspace aktif: Skenario Beta/ }).click();
+  await page.getByRole("button", { name: "Duplikasi aktif" }).click();
+  await expect(page.getByRole("button", { name: /Workspace aktif: Skenario Beta - Salinan/ })).toBeVisible();
+  await expect(page.getByLabel("Nama Objek Pajak")).toHaveValue("PT Beta Skenario");
+
+  await page.getByRole("button", { name: /Workspace aktif: Skenario Beta - Salinan/ }).click();
+  await page.getByRole("menu", { name: "Kelola workspace lokal" }).locator(".workspace-menu-item", { hasText: "Skenario Beta - Salinan" }).getByRole("button", { name: "Hapus" }).click();
+  await page.getByRole("dialog", { name: /Hapus workspace/ }).getByRole("button", { name: "Hapus workspace" }).click();
+  await expect(page.getByRole("button", { name: /Workspace aktif: Workspace Utama/ })).toBeVisible();
+  await expect(page.getByLabel("Nama Objek Pajak")).toHaveValue("PT Alpha Valuasi");
+
+  await page.getByRole("button", { name: /Workspace aktif: Workspace Utama/ }).click();
+  await page.getByRole("menu", { name: "Kelola workspace lokal" }).locator(".workspace-menu-item", { hasText: "Skenario Beta" }).getByRole("menuitem").click();
+  await expect(page.getByLabel("Nama Objek Pajak")).toHaveValue("PT Beta Skenario");
+  await page.reload();
+  await expect(page.getByRole("button", { name: /Workspace aktif: Skenario Beta/ })).toBeVisible();
+  await expect(page.getByLabel("Nama Objek Pajak")).toHaveValue("PT Beta Skenario");
+  await expect
+    .poll(() =>
+      page.evaluate((key) => {
+        const raw = window.localStorage.getItem(key);
+        return raw ? JSON.parse(raw).workspaces?.map((workspace: { name: string }) => workspace.name).sort() : [];
+      }, workspaceManifestStorageKey),
+    )
+    .toEqual(["Skenario Beta", "Workspace Utama"]);
 });
 
 test("period workflow, scoped categories, and display-only balance sheet classification", async ({ page }) => {
@@ -664,6 +716,7 @@ test("share-transfer input keeps shares as quantity and passes derived rupiah va
 
 test("legacy workbook-like DLOM drafts migrate to workbook UPDATE basis without showing formula UI", async ({ page }) => {
   await page.addInitScript(({ key, state }) => {
+    window.localStorage.clear();
     window.localStorage.setItem(key, JSON.stringify(state));
   }, {
     key: "penilaian-valuasi-bisnis.workbench.v1",
@@ -1012,6 +1065,7 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
 test("terminal growth renders with two decimals across EEM/DCF and projection tabs", async ({ page }) => {
   const fixtureState = JSON.parse(readFileSync("tests/fixtures/export-xlsx-v2-workbench-state.json", "utf8")) as unknown;
   await page.addInitScript(({ key, state }) => {
+    window.localStorage.clear();
     window.localStorage.setItem(key, JSON.stringify(state));
   }, {
     key: "penilaian-valuasi-bisnis.workbench.v1",
@@ -1041,6 +1095,7 @@ test("legacy positive income-statement expense drafts migrate once and remain us
     if (window.sessionStorage.getItem(markerKey)) {
       return;
     }
+    window.localStorage.clear();
     window.localStorage.setItem(key, JSON.stringify(state));
     window.sessionStorage.setItem(markerKey, "1");
   }, {

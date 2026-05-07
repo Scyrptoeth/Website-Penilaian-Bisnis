@@ -418,6 +418,12 @@ const WORKBENCH_STORAGE_KEY = "penilaian-valuasi-bisnis.workbench.v1";
 const WORKBENCH_SCROLL_STORAGE_KEY = "penilaian-valuasi-bisnis.scroll.v1";
 const WORKBENCH_SIDEBAR_STORAGE_KEY = "penilaian-valuasi-bisnis.sidebar.v1";
 const WORKBENCH_STORAGE_VERSION = 16;
+const WORKSPACE_MANIFEST_STORAGE_KEY = "penilaian-valuasi-bisnis.workspaces.v1";
+const WORKSPACE_DATA_STORAGE_PREFIX = "penilaian-valuasi-bisnis.workspace.";
+const WORKSPACE_DATA_STORAGE_SUFFIX = ".v1";
+const WORKSPACE_STORAGE_VERSION = 1;
+const DEFAULT_WORKSPACE_ID = "workspace-default";
+const DEFAULT_WORKSPACE_NAME = "Workspace Utama";
 const JSON_EXPORT_SCHEMA_ID = "penilaian-valuasi-bisnis.full-workbench-json";
 const JSON_EXPORT_SCHEMA_VERSION = 1;
 const defaultFixedAssetProjectionMode: FixedAssetProjectionMode = "workbook-formula";
@@ -557,6 +563,24 @@ type ValuationJsonImportCandidate = {
 };
 
 type WorkbenchCoreState = Omit<PersistedWorkbenchState, "version" | "savedAt">;
+
+type WorkspaceMetadata = {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type WorkspaceManifest = {
+  version: typeof WORKSPACE_STORAGE_VERSION;
+  activeWorkspaceId: string;
+  workspaces: WorkspaceMetadata[];
+};
+
+type WorkspaceStorageSnapshot = {
+  manifest: WorkspaceManifest;
+  activeState: PersistedWorkbenchState;
+};
 
 type WorkflowTabId = WorkbenchSectionId;
 type WorkflowTab = {
@@ -816,6 +840,18 @@ export function ValuationWorkbench() {
   );
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isDraftRestored, setIsDraftRestored] = useState(false);
+  const [workspaces, setWorkspaces] = useState<WorkspaceMetadata[]>([
+    {
+      id: DEFAULT_WORKSPACE_ID,
+      name: DEFAULT_WORKSPACE_NAME,
+      createdAt: "",
+      updatedAt: "",
+    },
+  ]);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState(DEFAULT_WORKSPACE_ID);
+  const [isWorkspaceMenuOpen, setIsWorkspaceMenuOpen] = useState(false);
+  const [renamingWorkspaceId, setRenamingWorkspaceId] = useState<string | null>(null);
+  const [workspaceNameDraft, setWorkspaceNameDraft] = useState("");
   const [activeWorkflowTab, setActiveWorkflowTab] = useState<WorkflowTabId>("periods");
   const [undoStack, setUndoStack] = useState<WorkbenchCoreState[]>([]);
   const [redoStack, setRedoStack] = useState<WorkbenchCoreState[]>([]);
@@ -823,9 +859,11 @@ export function ValuationWorkbench() {
   const [isPdfExportMenuOpen, setIsPdfExportMenuOpen] = useState(false);
   const [isJsonImporting, setIsJsonImporting] = useState(false);
   const [pendingConfirmation, setPendingConfirmation] = useState<ConfirmationDialogState | null>(null);
+  const workspaceMenuRef = useRef<HTMLDivElement>(null);
   const pdfExportMenuRef = useRef<HTMLDivElement>(null);
   const jsonImportInputRef = useRef<HTMLInputElement>(null);
 
+  const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId) ?? workspaces[0];
   const activeWorkflowTabItem = workflowTabRegistry[activeWorkflowTab] ?? workflowTabRegistry.periods;
   const mappedRows = useMemo(() => rows.map((row) => mapRow(row)), [rows]);
   const caseProfileDerived = useMemo(() => buildCaseProfileDerived(caseProfile), [caseProfile]);
@@ -1218,6 +1256,188 @@ export function ValuationWorkbench() {
     applyCoreState(cloneCoreState(next));
   }
 
+  function saveActiveWorkspaceNow(workspaceList = workspaces, workspaceId = activeWorkspaceId) {
+    const savedAt = new Date().toISOString();
+    const persistedState = buildPersistedWorkbenchState(getCurrentCoreState(), savedAt);
+    const nextWorkspaces = markWorkspaceSaved(workspaceList, workspaceId, savedAt);
+
+    persistWorkspaceState(workspaceId, persistedState);
+    persistWorkspaceManifest({
+      version: WORKSPACE_STORAGE_VERSION,
+      activeWorkspaceId: workspaceId,
+      workspaces: nextWorkspaces,
+    });
+    persistLegacyWorkbenchMirror(persistedState);
+
+    return persistedState;
+  }
+
+  function applyWorkspaceState(workspaceId: string, state: PersistedWorkbenchState) {
+    setActiveWorkspaceId(workspaceId);
+    applyCoreState(buildRestoredCoreState(state));
+    setUndoStack([]);
+    setRedoStack([]);
+    setActiveWorkflowTab("periods");
+
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0 });
+    }
+  }
+
+  function switchWorkspace(workspaceId: string) {
+    if (workspaceId === activeWorkspaceId) {
+      setIsWorkspaceMenuOpen(false);
+      return;
+    }
+
+    saveActiveWorkspaceNow();
+
+    const targetState = readWorkspaceState(workspaceId) ?? buildPersistedWorkbenchState(buildEmptyCoreState(), new Date().toISOString());
+
+    persistWorkspaceManifest({
+      version: WORKSPACE_STORAGE_VERSION,
+      activeWorkspaceId: workspaceId,
+      workspaces,
+    });
+    applyWorkspaceState(workspaceId, targetState);
+    persistLegacyWorkbenchMirror(targetState);
+    setIsWorkspaceMenuOpen(false);
+    setRenamingWorkspaceId(null);
+  }
+
+  function createEmptyWorkspace() {
+    const createdAt = new Date().toISOString();
+    const workspaceId = createWorkspaceId();
+    const workspace: WorkspaceMetadata = {
+      id: workspaceId,
+      name: buildUniqueWorkspaceName("Workspace Baru", workspaces),
+      createdAt,
+      updatedAt: createdAt,
+    };
+    const nextWorkspaces = [...workspaces, workspace];
+    const state = buildPersistedWorkbenchState(buildEmptyCoreState(), createdAt);
+
+    saveActiveWorkspaceNow(workspaces, activeWorkspaceId);
+    persistWorkspaceState(workspaceId, state);
+    persistWorkspaceManifest({
+      version: WORKSPACE_STORAGE_VERSION,
+      activeWorkspaceId: workspaceId,
+      workspaces: nextWorkspaces,
+    });
+    persistLegacyWorkbenchMirror(state);
+    setWorkspaces(nextWorkspaces);
+    applyWorkspaceState(workspaceId, state);
+    setIsWorkspaceMenuOpen(false);
+  }
+
+  function duplicateActiveWorkspace() {
+    const createdAt = new Date().toISOString();
+    const sourceName = activeWorkspace?.name || DEFAULT_WORKSPACE_NAME;
+    const workspaceId = createWorkspaceId();
+    const workspace: WorkspaceMetadata = {
+      id: workspaceId,
+      name: buildUniqueWorkspaceName(`${sourceName} - Salinan`, workspaces),
+      createdAt,
+      updatedAt: createdAt,
+    };
+    const nextWorkspaces = [...workspaces, workspace];
+    const state = buildPersistedWorkbenchState(getCurrentCoreState(), createdAt);
+
+    saveActiveWorkspaceNow(workspaces, activeWorkspaceId);
+    persistWorkspaceState(workspaceId, state);
+    persistWorkspaceManifest({
+      version: WORKSPACE_STORAGE_VERSION,
+      activeWorkspaceId: workspaceId,
+      workspaces: nextWorkspaces,
+    });
+    persistLegacyWorkbenchMirror(state);
+    setWorkspaces(nextWorkspaces);
+    applyWorkspaceState(workspaceId, state);
+    setIsWorkspaceMenuOpen(false);
+  }
+
+  function startRenameWorkspace(workspace: WorkspaceMetadata) {
+    setRenamingWorkspaceId(workspace.id);
+    setWorkspaceNameDraft(workspace.name);
+  }
+
+  function commitWorkspaceRename(workspaceId: string) {
+    const trimmedName = workspaceNameDraft.trim();
+
+    if (!trimmedName) {
+      return;
+    }
+
+    const nextWorkspaces = workspaces.map((workspace) =>
+      workspace.id === workspaceId
+        ? {
+            ...workspace,
+            name: buildUniqueWorkspaceName(trimmedName, workspaces.filter((item) => item.id !== workspaceId)),
+            updatedAt: new Date().toISOString(),
+          }
+        : workspace,
+    );
+
+    setWorkspaces(nextWorkspaces);
+    persistWorkspaceManifest({
+      version: WORKSPACE_STORAGE_VERSION,
+      activeWorkspaceId,
+      workspaces: nextWorkspaces,
+    });
+    setRenamingWorkspaceId(null);
+    setWorkspaceNameDraft("");
+    setIsWorkspaceMenuOpen(false);
+  }
+
+  function requestDeleteWorkspace(workspaceId: string) {
+    const workspace = workspaces.find((item) => item.id === workspaceId);
+
+    if (!workspace || workspaces.length <= 1) {
+      return;
+    }
+
+    setIsWorkspaceMenuOpen(false);
+    setRenamingWorkspaceId(null);
+    setPendingConfirmation({
+      title: `Hapus workspace "${workspace.name}"?`,
+      description: "Data lokal workspace ini akan dihapus dari browser ini. Workspace lain tidak akan terdampak.",
+      confirmLabel: "Hapus workspace",
+      onConfirm: () => executeDeleteWorkspace(workspaceId),
+    });
+  }
+
+  function executeDeleteWorkspace(workspaceId: string) {
+    const nextWorkspaces = workspaces.filter((workspace) => workspace.id !== workspaceId);
+
+    if (nextWorkspaces.length === 0) {
+      return;
+    }
+
+    removeWorkspaceState(workspaceId);
+
+    if (workspaceId === activeWorkspaceId) {
+      const nextActiveWorkspaceId = nextWorkspaces[0].id;
+      const nextState = readWorkspaceState(nextActiveWorkspaceId) ?? buildPersistedWorkbenchState(buildEmptyCoreState(), new Date().toISOString());
+
+      setWorkspaces(nextWorkspaces);
+      persistWorkspaceManifest({
+        version: WORKSPACE_STORAGE_VERSION,
+        activeWorkspaceId: nextActiveWorkspaceId,
+        workspaces: nextWorkspaces,
+      });
+      persistLegacyWorkbenchMirror(nextState);
+      applyWorkspaceState(nextActiveWorkspaceId, nextState);
+      return;
+    }
+
+    setWorkspaces(nextWorkspaces);
+    persistWorkspaceManifest({
+      version: WORKSPACE_STORAGE_VERSION,
+      activeWorkspaceId,
+      workspaces: nextWorkspaces,
+    });
+  }
+
   function navigateToWorkflowTab(tabId: WorkflowTabId) {
     setActiveWorkflowTab(tabId);
 
@@ -1231,13 +1451,13 @@ export function ValuationWorkbench() {
   }
 
   useEffect(() => {
-    const storedState = readPersistedWorkbenchState();
+    const storedWorkspace = readPersistedWorkspaceSnapshot();
 
-    if (storedState) {
-      applyCoreState(buildRestoredCoreState(storedState));
-      setUndoStack([]);
-      setRedoStack([]);
-    }
+    setWorkspaces(storedWorkspace.manifest.workspaces);
+    setActiveWorkspaceId(storedWorkspace.manifest.activeWorkspaceId);
+    applyCoreState(buildRestoredCoreState(storedWorkspace.activeState));
+    setUndoStack([]);
+    setRedoStack([]);
 
     setIsSidebarCollapsed(readStoredSidebarState());
     setIsDraftRestored(true);
@@ -1248,31 +1468,43 @@ export function ValuationWorkbench() {
       return;
     }
 
-    persistWorkbenchState({
-      version: WORKBENCH_STORAGE_VERSION,
-      savedAt: new Date().toISOString(),
-      periods,
-      activePeriodId,
-      rows,
-      isFixedAssetScheduleEnabled,
-      fixedAssetScheduleRows,
-      fixedAssetProjectionMode,
-      activeWaccBasis,
-      activeDcfBasis,
-      aamAdjustments,
-      assumptions,
-      caseProfile,
-      dlom,
-      dlocPfc,
-      taxSimulation,
-      cashFlowOverrides,
-      incomeProjectionControls,
+    const savedAt = new Date().toISOString();
+    const persistedState = buildPersistedWorkbenchState(
+      {
+        periods,
+        activePeriodId,
+        rows,
+        isFixedAssetScheduleEnabled,
+        fixedAssetScheduleRows,
+        fixedAssetProjectionMode,
+        activeWaccBasis,
+        activeDcfBasis,
+        aamAdjustments,
+        assumptions,
+        caseProfile,
+        dlom,
+        dlocPfc,
+        taxSimulation,
+        cashFlowOverrides,
+        incomeProjectionControls,
+      },
+      savedAt,
+    );
+    const nextWorkspaces = markWorkspaceSaved(workspaces, activeWorkspaceId, savedAt);
+
+    persistWorkspaceState(activeWorkspaceId, persistedState);
+    persistWorkspaceManifest({
+      version: WORKSPACE_STORAGE_VERSION,
+      activeWorkspaceId,
+      workspaces: nextWorkspaces,
     });
+    persistLegacyWorkbenchMirror(persistedState);
   }, [
     aamAdjustments,
     activeWaccBasis,
     activeDcfBasis,
     activePeriodId,
+    activeWorkspaceId,
     assumptions,
     cashFlowOverrides,
     caseProfile,
@@ -1286,6 +1518,7 @@ export function ValuationWorkbench() {
     periods,
     rows,
     taxSimulation,
+    workspaces,
   ]);
 
   useEffect(() => {
@@ -1339,6 +1572,37 @@ export function ValuationWorkbench() {
       }
     };
   }, [isDraftRestored]);
+
+  useEffect(() => {
+    if (!isWorkspaceMenuOpen || typeof document === "undefined") {
+      return;
+    }
+
+    const closeOnOutsidePointer = (event: MouseEvent) => {
+      const target = event.target;
+
+      if (target instanceof Node && workspaceMenuRef.current?.contains(target)) {
+        return;
+      }
+
+      setIsWorkspaceMenuOpen(false);
+      setRenamingWorkspaceId(null);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsWorkspaceMenuOpen(false);
+        setRenamingWorkspaceId(null);
+      }
+    };
+
+    document.addEventListener("mousedown", closeOnOutsidePointer);
+    document.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutsidePointer);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [isWorkspaceMenuOpen]);
 
   useEffect(() => {
     if (!isPdfExportMenuOpen || typeof document === "undefined") {
@@ -2137,10 +2401,10 @@ export function ValuationWorkbench() {
       const candidate = parseValuationJsonImport(await file.text(), file.name);
 
       setPendingConfirmation({
-        title: "Import JSON dan ganti draft aktif?",
+        title: "Import JSON sebagai workspace baru?",
         description: formatJsonImportConfirmationDescription(candidate.summary),
         confirmLabel: "Import JSON",
-        onConfirm: () => executeJsonImport(candidate.state),
+        onConfirm: () => executeJsonImport(candidate),
       });
     } catch (error) {
       window.alert(error instanceof Error ? error.message : "Import JSON gagal dijalankan.");
@@ -2153,21 +2417,38 @@ export function ValuationWorkbench() {
     }
   }
 
-  function executeJsonImport(state: PersistedWorkbenchState) {
-    const nextState = buildRestoredCoreState(state);
+  function executeJsonImport(candidate: ValuationJsonImportCandidate) {
+    const createdAt = new Date().toISOString();
+    const workspaceId = createWorkspaceId();
+    const importedState: PersistedWorkbenchState = {
+      ...candidate.state,
+      version: WORKBENCH_STORAGE_VERSION,
+      savedAt: createdAt,
+    };
+    const workspace: WorkspaceMetadata = {
+      id: workspaceId,
+      name: buildUniqueWorkspaceName(buildImportedWorkspaceName(candidate.summary), workspaces),
+      createdAt,
+      updatedAt: createdAt,
+    };
+    const nextWorkspaces = [...workspaces, workspace];
 
-    commitCoreState(() => nextState);
-    setActiveWorkflowTab("periods");
-
-    if (typeof window !== "undefined") {
-      window.scrollTo({ top: 0 });
-    }
+    saveActiveWorkspaceNow(workspaces, activeWorkspaceId);
+    persistWorkspaceState(workspaceId, importedState);
+    persistWorkspaceManifest({
+      version: WORKSPACE_STORAGE_VERSION,
+      activeWorkspaceId: workspaceId,
+      workspaces: nextWorkspaces,
+    });
+    persistLegacyWorkbenchMirror(importedState);
+    setWorkspaces(nextWorkspaces);
+    applyWorkspaceState(workspaceId, importedState);
   }
 
   function resetForm() {
     setPendingConfirmation({
       title: "Reset seluruh model?",
-      description: "Semua input, asumsi, proyeksi, dan override di workbench aktif akan dikosongkan. Draft tersimpan lokal juga akan dihapus.",
+      description: "Semua input, asumsi, proyeksi, dan override di workspace aktif akan dikosongkan. Workspace lain tidak akan terdampak.",
       confirmLabel: "Reset",
       onConfirm: executeResetForm,
     });
@@ -2175,24 +2456,7 @@ export function ValuationWorkbench() {
 
   function executeResetForm() {
     clearPersistedWorkbenchState();
-    commitCoreState(() => ({
-      periods: initialPeriods,
-      activePeriodId: initialPeriods[0].id,
-      rows: [],
-      isFixedAssetScheduleEnabled: false,
-      fixedAssetScheduleRows: [],
-      fixedAssetProjectionMode: defaultFixedAssetProjectionMode,
-      activeWaccBasis: defaultActiveWaccBasis,
-      activeDcfBasis: defaultActiveDcfBasis,
-      aamAdjustments: {},
-      assumptions: emptyAssumptions,
-      caseProfile: emptyCaseProfile,
-      dlom: createEmptyDlomState(),
-      dlocPfc: createEmptyDlocPfcState(),
-      taxSimulation: createEmptyTaxSimulationState(),
-      cashFlowOverrides: {},
-      incomeProjectionControls: createEmptyIncomeProjectionControls(),
-    }));
+    commitCoreState(() => buildEmptyCoreState());
 
     if (typeof window !== "undefined") {
       window.scrollTo({ top: 0 });
@@ -2298,9 +2562,112 @@ export function ValuationWorkbench() {
       <section className="workspace">
         <div className="sticky-workspace-header" data-testid="workspace-header">
           <header className="topbar">
-            <div className="active-workflow-context" aria-label={`Konteks metode ${activeWorkflowTabItem.label}`}>
-              <span>{activeWorkflowTabItem.label}</span>
-              <WorkflowMethodBadges methods={activeWorkflowTabItem.methods} />
+            <div className="topbar-context">
+              <div className="workspace-switcher" ref={workspaceMenuRef}>
+                <button
+                  className="workspace-switcher-trigger"
+                  type="button"
+                  onClick={() => setIsWorkspaceMenuOpen((isOpen) => !isOpen)}
+                  disabled={!isDraftRestored}
+                  aria-haspopup="menu"
+                  aria-expanded={isWorkspaceMenuOpen}
+                  aria-label={`Workspace aktif: ${activeWorkspace?.name || DEFAULT_WORKSPACE_NAME}`}
+                  title="Kelola workspace lokal"
+                >
+                  <GitBranch size={16} />
+                  <span className="workspace-switcher-name">{activeWorkspace?.name || DEFAULT_WORKSPACE_NAME}</span>
+                  <span className="workspace-count">{workspaces.length}</span>
+                  <ChevronDown size={14} />
+                </button>
+                {isWorkspaceMenuOpen ? (
+                  <div className="workspace-menu" role="menu" aria-label="Kelola workspace lokal">
+                    <div className="workspace-menu-heading">
+                      <span>Workspace lokal</span>
+                      <small>Data tersimpan terpisah di browser ini</small>
+                    </div>
+                    <div className="workspace-menu-list">
+                      {workspaces.map((workspace) => {
+                        const isActive = workspace.id === activeWorkspaceId;
+                        const isRenaming = renamingWorkspaceId === workspace.id;
+
+                        return (
+                          <div className={isActive ? "workspace-menu-item active" : "workspace-menu-item"} key={workspace.id}>
+                            {isRenaming ? (
+                              <form className="workspace-rename-form" onSubmit={(event) => {
+                                event.preventDefault();
+                                commitWorkspaceRename(workspace.id);
+                              }}>
+                                <input
+                                  value={workspaceNameDraft}
+                                  onChange={(event) => setWorkspaceNameDraft(event.target.value)}
+                                  onKeyDown={(event) => {
+                                    if (event.key === "Escape") {
+                                      setRenamingWorkspaceId(null);
+                                      setWorkspaceNameDraft("");
+                                    }
+                                  }}
+                                  aria-label={`Nama workspace ${workspace.name}`}
+                                  autoFocus
+                                />
+                                <button className="icon-button" type="submit" title="Simpan nama workspace" aria-label="Simpan nama workspace">
+                                  <CheckCircle2 size={16} />
+                                </button>
+                              </form>
+                            ) : (
+                              <>
+                                <button
+                                  className="workspace-menu-switch"
+                                  type="button"
+                                  role="menuitem"
+                                  onClick={() => switchWorkspace(workspace.id)}
+                                  aria-current={isActive ? "true" : undefined}
+                                  title={workspace.name}
+                                >
+                                  <span>{workspace.name}</span>
+                                  <small>{isActive ? "Aktif" : "Klik untuk pindah"}</small>
+                                </button>
+                                <div className="workspace-item-actions">
+                                  <button
+                                    className="workspace-text-action"
+                                    type="button"
+                                    onClick={() => startRenameWorkspace(workspace)}
+                                    title="Rename workspace"
+                                  >
+                                    Rename
+                                  </button>
+                                  <button
+                                    className="workspace-text-action danger"
+                                    type="button"
+                                    onClick={() => requestDeleteWorkspace(workspace.id)}
+                                    disabled={workspaces.length <= 1}
+                                    title={workspaces.length <= 1 ? "Minimal satu workspace harus tersedia" : "Hapus workspace"}
+                                  >
+                                    Hapus
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="workspace-menu-actions">
+                      <button className="button secondary" type="button" onClick={createEmptyWorkspace}>
+                        <Plus size={16} />
+                        Workspace kosong
+                      </button>
+                      <button className="button ghost" type="button" onClick={duplicateActiveWorkspace}>
+                        <FileText size={16} />
+                        Duplikasi aktif
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+              <div className="active-workflow-context" aria-label={`Konteks metode ${activeWorkflowTabItem.label}`}>
+                <span>{activeWorkflowTabItem.label}</span>
+                <WorkflowMethodBadges methods={activeWorkflowTabItem.methods} />
+              </div>
             </div>
             <div className="toolbar">
               <button className="icon-button" type="button" onClick={undoCoreChange} disabled={undoStack.length === 0} title="Undo perubahan data">
@@ -7288,13 +7655,144 @@ function formatAnalysisValue(value: AnalysisValue, display: "currency" | "percen
   return formatIdr(value);
 }
 
-function readPersistedWorkbenchState(): PersistedWorkbenchState | null {
+function readPersistedWorkspaceSnapshot(): WorkspaceStorageSnapshot {
+  const manifest = readWorkspaceManifest();
+
+  if (manifest) {
+    const activeWorkspaceId = manifest.workspaces.some((workspace) => workspace.id === manifest.activeWorkspaceId)
+      ? manifest.activeWorkspaceId
+      : manifest.workspaces[0].id;
+    const activeState =
+      readWorkspaceState(activeWorkspaceId) ??
+      readLegacyPersistedWorkbenchState() ??
+      buildPersistedWorkbenchState(buildEmptyCoreState(), new Date().toISOString());
+    const normalizedManifest = {
+      ...manifest,
+      activeWorkspaceId,
+    };
+
+    persistWorkspaceManifest(normalizedManifest);
+    persistWorkspaceState(activeWorkspaceId, activeState);
+    persistLegacyWorkbenchMirror(activeState);
+
+    return {
+      manifest: normalizedManifest,
+      activeState,
+    };
+  }
+
+  const legacyState = readLegacyPersistedWorkbenchState();
+  const createdAt = legacyState?.savedAt || new Date().toISOString();
+  const workspaceId = createWorkspaceId();
+  const activeState = legacyState ?? buildPersistedWorkbenchState(buildEmptyCoreState(), createdAt);
+  const workspace: WorkspaceMetadata = {
+    id: workspaceId,
+    name: buildWorkspaceNameFromState(activeState, DEFAULT_WORKSPACE_NAME),
+    createdAt,
+    updatedAt: createdAt,
+  };
+  const migratedManifest: WorkspaceManifest = {
+    version: WORKSPACE_STORAGE_VERSION,
+    activeWorkspaceId: workspaceId,
+    workspaces: [workspace],
+  };
+
+  persistWorkspaceManifest(migratedManifest);
+  persistWorkspaceState(workspaceId, activeState);
+  persistLegacyWorkbenchMirror(activeState);
+
+  return {
+    manifest: migratedManifest,
+    activeState,
+  };
+}
+
+function readLegacyPersistedWorkbenchState(): PersistedWorkbenchState | null {
   if (typeof window === "undefined") {
     return null;
   }
 
   try {
     const raw = window.localStorage.getItem(WORKBENCH_STORAGE_KEY);
+
+    if (!raw) {
+      return null;
+    }
+
+    const parsed: unknown = JSON.parse(raw);
+
+    return normalizeWorkbenchStatePayload(parsed);
+  } catch {
+    return null;
+  }
+}
+
+function readWorkspaceManifest(): WorkspaceManifest | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(WORKSPACE_MANIFEST_STORAGE_KEY);
+
+    if (!raw) {
+      return null;
+    }
+
+    const parsed: unknown = JSON.parse(raw);
+
+    if (!isRecord(parsed) || parsed.version !== WORKSPACE_STORAGE_VERSION || !Array.isArray(parsed.workspaces)) {
+      return null;
+    }
+
+    const workspaces = parsed.workspaces.flatMap((workspace): WorkspaceMetadata[] => {
+      if (!isRecord(workspace) || typeof workspace.id !== "string" || typeof workspace.name !== "string") {
+        return [];
+      }
+
+      const name = workspace.name.trim();
+
+      if (!workspace.id || !name) {
+        return [];
+      }
+
+      return [
+        {
+          id: workspace.id,
+          name,
+          createdAt: typeof workspace.createdAt === "string" ? workspace.createdAt : "",
+          updatedAt: typeof workspace.updatedAt === "string" ? workspace.updatedAt : "",
+        },
+      ];
+    });
+    const uniqueWorkspaces = dedupeWorkspaces(workspaces);
+
+    if (uniqueWorkspaces.length === 0) {
+      return null;
+    }
+
+    const activeWorkspaceId =
+      typeof parsed.activeWorkspaceId === "string" && uniqueWorkspaces.some((workspace) => workspace.id === parsed.activeWorkspaceId)
+        ? parsed.activeWorkspaceId
+        : uniqueWorkspaces[0].id;
+
+    return {
+      version: WORKSPACE_STORAGE_VERSION,
+      activeWorkspaceId,
+      workspaces: uniqueWorkspaces,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function readWorkspaceState(workspaceId: string): PersistedWorkbenchState | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(getWorkspaceDataStorageKey(workspaceId));
 
     if (!raw) {
       return null;
@@ -7379,8 +7877,135 @@ function migrateLegacyIncomeStatementSigns(rows: AccountRow[]): AccountRow[] {
   });
 }
 
-function persistWorkbenchState(state: PersistedWorkbenchState) {
+function buildEmptyCoreState(): WorkbenchCoreState {
+  return {
+    periods: initialPeriods.map((period) => ({ ...period })),
+    activePeriodId: initialPeriods[0].id,
+    rows: [],
+    isFixedAssetScheduleEnabled: false,
+    fixedAssetScheduleRows: [],
+    fixedAssetProjectionMode: defaultFixedAssetProjectionMode,
+    activeWaccBasis: defaultActiveWaccBasis,
+    activeDcfBasis: defaultActiveDcfBasis,
+    aamAdjustments: {},
+    assumptions: { ...emptyAssumptions },
+    caseProfile: { ...emptyCaseProfile },
+    dlom: createEmptyDlomState(),
+    dlocPfc: createEmptyDlocPfcState(),
+    taxSimulation: createEmptyTaxSimulationState(),
+    cashFlowOverrides: {},
+    incomeProjectionControls: createEmptyIncomeProjectionControls(),
+  };
+}
+
+function buildPersistedWorkbenchState(coreState: WorkbenchCoreState, savedAt: string): PersistedWorkbenchState {
+  return {
+    version: WORKBENCH_STORAGE_VERSION,
+    savedAt,
+    ...cloneCoreState(coreState),
+  };
+}
+
+function persistWorkspaceManifest(manifest: WorkspaceManifest) {
+  safeSetLocalStorage(WORKSPACE_MANIFEST_STORAGE_KEY, JSON.stringify(manifest));
+}
+
+function persistWorkspaceState(workspaceId: string, state: PersistedWorkbenchState) {
+  safeSetLocalStorage(getWorkspaceDataStorageKey(workspaceId), JSON.stringify(state));
+}
+
+function persistLegacyWorkbenchMirror(state: PersistedWorkbenchState) {
   safeSetLocalStorage(WORKBENCH_STORAGE_KEY, JSON.stringify(state));
+}
+
+function removeWorkspaceState(workspaceId: string) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.removeItem(getWorkspaceDataStorageKey(workspaceId));
+  } catch {
+    // Storage can be unavailable in private or restricted browser contexts.
+  }
+}
+
+function getWorkspaceDataStorageKey(workspaceId: string): string {
+  return `${WORKSPACE_DATA_STORAGE_PREFIX}${workspaceId}${WORKSPACE_DATA_STORAGE_SUFFIX}`;
+}
+
+function markWorkspaceSaved(workspaces: WorkspaceMetadata[], workspaceId: string, savedAt: string): WorkspaceMetadata[] {
+  return workspaces.map((workspace) =>
+    workspace.id === workspaceId
+      ? {
+          ...workspace,
+          updatedAt: savedAt,
+        }
+      : workspace,
+  );
+}
+
+function createWorkspaceId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return `workspace-${crypto.randomUUID()}`;
+  }
+
+  return `workspace-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function buildWorkspaceNameFromState(state: PersistedWorkbenchState, fallback: string): string {
+  const objectName = state.caseProfile.objectTaxpayerName.trim();
+  const subjectName = state.caseProfile.subjectTaxpayerName.trim();
+
+  return objectName || subjectName || fallback;
+}
+
+function buildImportedWorkspaceName(summary: ValuationJsonImportSummary): string {
+  if (summary.caseName && summary.caseName !== "Tanpa nama objek") {
+    return summary.caseName;
+  }
+
+  const fileName = summary.fileName
+    .replace(/\.json$/i, "")
+    .replace(/[-_]+/g, " ")
+    .trim();
+
+  return fileName || "Workspace Import";
+}
+
+function buildUniqueWorkspaceName(baseName: string, existingWorkspaces: WorkspaceMetadata[]): string {
+  const normalizedBaseName = baseName.trim() || DEFAULT_WORKSPACE_NAME;
+  const existingNames = new Set(existingWorkspaces.map((workspace) => workspace.name.trim().toLowerCase()));
+
+  if (!existingNames.has(normalizedBaseName.toLowerCase())) {
+    return normalizedBaseName;
+  }
+
+  for (let index = 2; index < 1000; index += 1) {
+    const candidate = `${normalizedBaseName} ${index}`;
+
+    if (!existingNames.has(candidate.toLowerCase())) {
+      return candidate;
+    }
+  }
+
+  return `${normalizedBaseName} ${Date.now().toString(36)}`;
+}
+
+function dedupeWorkspaces(workspaces: WorkspaceMetadata[]): WorkspaceMetadata[] {
+  const seen = new Set<string>();
+  const uniqueWorkspaces: WorkspaceMetadata[] = [];
+
+  for (const workspace of workspaces) {
+    if (seen.has(workspace.id)) {
+      continue;
+    }
+
+    seen.add(workspace.id);
+    uniqueWorkspaces.push(workspace);
+  }
+
+  return uniqueWorkspaces;
 }
 
 function clearPersistedWorkbenchState() {
@@ -7579,7 +8204,7 @@ function formatJsonImportConfirmationDescription(summary: ValuationJsonImportSum
     ? " File ini memuat data lengkap termasuk NPWP bila tersedia."
     : " File ini tetap memuat seluruh data angka dan asumsi model.";
 
-  return `File ${summary.fileName} berisi ${summary.accountRowCount} akun, ${summary.periodCount} periode, ${summary.fixedAssetClassCount} kelas aset tetap, ${summary.cashFlowOverrideCount} override cash-flow, dan ${summary.incomeProjectionAuditCount} audit proyeksi untuk ${summary.caseName}.${exportedAt} Draft aktif akan diganti seluruhnya.${sensitiveDataNote}`;
+  return `File ${summary.fileName} berisi ${summary.accountRowCount} akun, ${summary.periodCount} periode, ${summary.fixedAssetClassCount} kelas aset tetap, ${summary.cashFlowOverrideCount} override cash-flow, dan ${summary.incomeProjectionAuditCount} audit proyeksi untuk ${summary.caseName}.${exportedAt} Workspace baru akan dibuat dan workspace aktif saat ini tetap tersimpan.${sensitiveDataNote}`;
 }
 
 function buildJsonExportFilename(caseName: string, exportedAt: string): string {
