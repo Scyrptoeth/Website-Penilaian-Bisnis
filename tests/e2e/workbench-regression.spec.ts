@@ -128,8 +128,16 @@ test("period workflow, scoped categories, and display-only balance sheet classif
   await expect.poll(() => getTotalAssetsText(page)).toBe(totalBefore);
 
   await openWorkflowTab(page, "Laba Rugi");
+  const incomePanel = page.locator("#income");
+  await expect(incomePanel.getByText("Langkah 2C")).toHaveCount(0);
   await page.getByRole("button", { name: "Tambah akun laba rugi" }).first().click();
+  const incomeHeaders = await page.getByTestId("income-account-table").locator("thead th").evaluateAll((headers) =>
+    headers.map((header) => header.textContent?.trim() ?? ""),
+  );
+  expect(incomeHeaders.slice(0, 3)).toEqual(["Nama akun dari laporan", "Kategori utama", "Label & dampak"]);
+  expect(incomeHeaders).not.toContain("Sumber");
   const incomeRow = page.getByTestId("income-account-table-row").last();
+  await expect(incomeRow.getByLabel("Sumber laporan")).toHaveCount(0);
   await expect(incomeRow.getByLabel("Kategori utama").locator("option", { hasText: "Utang usaha" })).toHaveCount(0);
   await incomeRow.getByLabel("Nama akun").fill("Pajak penghasilan badan");
   await incomeRow.getByLabel("Tahun Y amount").fill("436128347");

@@ -2077,7 +2077,6 @@ export function ValuationWorkbench() {
         <section id="income" className="panel">
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">Langkah 2C</p>
               <h3>Laba rugi dan driver operasi</h3>
             </div>
             <button className="button secondary" type="button" onClick={() => addRow("income_statement")}>
@@ -2088,6 +2087,7 @@ export function ValuationWorkbench() {
           <ReadinessPanel status={readiness.income} onNavigate={navigateToWorkflowTab} />
           <AccountInputTable
             emptyMessage="Belum ada akun laba rugi. Tambahkan baris akun laba rugi."
+            hideStatementColumn
             mappedRows={incomeStatementRows}
             periods={periods}
             testId="income-account-table"

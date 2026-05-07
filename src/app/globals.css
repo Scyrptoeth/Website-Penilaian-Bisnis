@@ -1466,6 +1466,10 @@ select {
   min-width: 1240px;
 }
 
+.account-entry-table.no-source-entry-table:not(.balance-entry-table) {
+  min-width: 1180px;
+}
+
 .account-entry-table th,
 .account-entry-table td {
   min-width: 0;
@@ -1479,12 +1483,24 @@ select {
   width: 220px;
 }
 
+.account-entry-table.no-source-entry-table:not(.balance-entry-table) .account-name-column {
+  width: 280px;
+}
+
 .account-entry-table .category-column {
   width: 210px;
 }
 
+.account-entry-table.no-source-entry-table:not(.balance-entry-table) .category-column {
+  width: 220px;
+}
+
 .account-entry-table .label-impact-column {
   width: 280px;
+}
+
+.account-entry-table.no-source-entry-table:not(.balance-entry-table) .label-impact-column {
+  width: 330px;
 }
 
 .account-entry-table .period-entry-column {
