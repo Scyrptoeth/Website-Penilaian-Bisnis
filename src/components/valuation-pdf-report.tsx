@@ -5,7 +5,6 @@ import { Banknote, Calculator, FileSearch, Printer, type LucideIcon } from "luci
 import { buildBalanceSheetView, groupBalanceSheetLines, type BalanceSheetLine } from "@/lib/valuation/balance-sheet-view";
 import { categoryLabelMap } from "@/lib/valuation/category-options";
 import { parseInputNumber, type CaseProfileDerived, type MappedRow, type Period } from "@/lib/valuation/case-model";
-import { resolveAccountLabels } from "@/lib/valuation/account-labels";
 import { formatDisplayDate, formatIdr, formatInputNumber, formatPercent, formatPercentFixed } from "@/lib/valuation/format";
 import { formatKluOptionLabel, getKluSectorRecord } from "@/lib/valuation/klu-sector";
 import {
@@ -14,6 +13,7 @@ import {
   type ValuationPdfExportPayload,
   type ValuationPdfExportScope,
 } from "@/lib/valuation/pdf-export";
+import { filterMappedRowsByValuationScope } from "@/lib/valuation/export-scopes";
 import type { TaxSimulationMethodRow } from "@/lib/valuation/tax-simulation";
 import type { FormulaTrace, MethodOutput, ValuationMethod } from "@/lib/valuation/types";
 
@@ -76,7 +76,7 @@ export function ValuationPdfReport() {
   const primaryTaxRow = input.taxSimulationResult.primaryRow && scope.methods.includes(input.taxSimulationResult.primaryRow.method)
     ? input.taxSimulationResult.primaryRow
     : (scopedTaxRows[0] ?? null);
-  const scopedMappedRows = filterMappedRowsByPdfScope(input.mappedRows, scope);
+  const scopedMappedRows = filterMappedRowsByValuationScope(input.mappedRows, scope);
   const incomeStatementRows = scopedMappedRows.filter((item) => item.row.statement === "income_statement");
   const balanceSheetView = buildBalanceSheetView(periods, scopedMappedRows, input.fixedAssetSchedule);
   const driverMetrics = buildDriverMetrics(payload, scope);
@@ -809,47 +809,6 @@ function buildScopedTaxRows(activeRows: TaxSimulationMethodRow[], baselineRows: 
   return scope.methods.flatMap((method) => {
     const row = activeRows.find((item) => item.method === method) ?? baselineRows.find((item) => item.method === method);
     return row ? [row] : [];
-  });
-}
-
-function filterMappedRowsByPdfScope(rows: MappedRow[], scope: ValuationPdfExportScope): MappedRow[] {
-  if (scope.id === "all") {
-    return rows;
-  }
-
-  return rows.filter((item) => isMappedRowRelevantToMethods(item, scope.methods));
-}
-
-function isMappedRowRelevantToMethods(item: MappedRow, methods: ValuationMethod[]): boolean {
-  const labels = new Set(resolveAccountLabels(item.row.statement, item.effectiveCategory, item.row.labelOverrides));
-
-  return methods.some((method) => {
-    if (method === "AAM") {
-      return labels.has("formula:aam") || item.row.statement === "fixed_asset";
-    }
-
-    if (method === "EEM") {
-      return (
-        labels.has("formula:eem") ||
-        labels.has("formula:nta") ||
-        labels.has("formula:noplat") ||
-        labels.has("formula:excess-earnings") ||
-        labels.has("treatment:working-capital") ||
-        labels.has("treatment:non-operating") ||
-        labels.has("treatment:debt-like")
-      );
-    }
-
-    return (
-      labels.has("formula:dcf") ||
-      labels.has("formula:fcff") ||
-      labels.has("formula:noplat") ||
-      labels.has("formula:fixed-asset") ||
-      labels.has("treatment:working-capital") ||
-      labels.has("treatment:non-operating") ||
-      labels.has("treatment:debt-like") ||
-      labels.has("fs:cash")
-    );
   });
 }
 

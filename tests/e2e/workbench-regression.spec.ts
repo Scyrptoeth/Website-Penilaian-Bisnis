@@ -159,7 +159,7 @@ test("period workflow, scoped categories, and display-only balance sheet classif
   await expect(page.locator(".brand-mark")).toHaveText("B-2");
   await expect(page.getByRole("button", { name: "Muat contoh workbook" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Kosongkan" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Export XLSX" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Export XLSX" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Export PDF" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Reset" })).toBeDisabled();
   await expect(workflowNav(page).getByRole("button", { name: "Data Awal" })).toHaveAttribute("aria-current", "page");
@@ -871,6 +871,32 @@ test("exports method-scoped PDF reports for AAM and DCF", async ({ page }) => {
   await expect(dcfTraceSection.getByText("Metode DCF")).toBeVisible();
 
   await dcfReportPage.close();
+});
+
+test("exports method-scoped XLSX workbooks", async ({ page }) => {
+  await loadPersistedWorkbenchFixture(page);
+
+  await page.getByRole("button", { name: "Export XLSX" }).click();
+  await expect(page.getByRole("menu", { name: "Pilihan export XLSX" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Export XLSX Penilaian AAM" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Export XLSX Penilaian EEM" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Export XLSX Penilaian DCF" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Export XLSX AAM + EEM + DCF" })).toBeVisible();
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("menuitem", { name: "Export XLSX Penilaian DCF" }).click();
+  const download = await downloadPromise;
+  const downloadPath = await download.path();
+
+  expect(download.suggestedFilename()).toMatch(/^penilaian-bisnis-makmur-jaya-sejati-raya-dcf-\d{4}-\d{2}-\d{2}\.xlsx$/);
+  expect(downloadPath).toBeTruthy();
+
+  const bytes = readFileSync(downloadPath ?? "");
+  expect(bytes[0]).toBe(0x50);
+  expect(bytes[1]).toBe(0x4b);
+  expect(bytes[2]).toBe(0x03);
+  expect(bytes[3]).toBe(0x04);
+  expect(bytes.length).toBeGreaterThan(10_000);
 });
 
 test("company sector can be manually overridden after KLU suggestion", async ({ page }) => {

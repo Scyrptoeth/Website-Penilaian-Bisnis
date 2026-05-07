@@ -15,8 +15,15 @@ import type { DlomCalculation } from "./dlom";
 import type { WorkbenchReadiness } from "./readiness";
 import type { SectionAnalysis } from "./section-analysis";
 import type { TaxSimulationResult, TaxSimulationState } from "./tax-simulation";
-import type { FinancialStatementSnapshot, ValuationMethod } from "./types";
+import type { FinancialStatementSnapshot } from "./types";
 import type { ValidationCheck } from "./validation-checks";
+import {
+  defaultValuationExportScope,
+  resolveValuationExportScope,
+  valuationExportScopes,
+  type ValuationExportScope,
+  type ValuationExportScopeId,
+} from "./export-scopes";
 
 type CalculationResults = ReturnType<typeof calculateAllMethods>;
 
@@ -58,50 +65,18 @@ export type ValuationPdfExportPayload = {
   input: ValuationPdfExportInput;
 };
 
-export type ValuationPdfExportScopeId = "aam" | "eem" | "dcf" | "all";
+export type ValuationPdfExportScopeId = ValuationExportScopeId;
 
-export type ValuationPdfExportScope = {
-  id: ValuationPdfExportScopeId;
-  label: string;
-  title: string;
-  methods: ValuationMethod[];
-  description: string;
-};
+export type ValuationPdfExportScope = ValuationExportScope;
 
 export const pdfExportStorageKey = "penilaian-valuasi-bisnis.pdf-export.v1";
 
-export const valuationPdfExportScopes: ValuationPdfExportScope[] = [
-  {
-    id: "aam",
-    label: "Penilaian AAM",
-    title: "Laporan Penilaian AAM",
-    methods: ["AAM"],
-    description: "Asset Accumulation Method, neraca terkait, penyesuaian aset/liabilitas, diskon, dan simulasi pajak AAM.",
-  },
-  {
-    id: "eem",
-    label: "Penilaian EEM",
-    title: "Laporan Penilaian EEM",
-    methods: ["EEM"],
-    description: "Excess Earnings Method, driver NTA/NOPLAT, asumsi EEM, diskon, dan simulasi pajak EEM.",
-  },
-  {
-    id: "dcf",
-    label: "Penilaian DCF",
-    title: "Laporan Penilaian DCF",
-    methods: ["DCF"],
-    description: "Discounted Cash Flow, driver WACC/terminal growth, sensitivitas DCF, diskon, dan simulasi pajak DCF.",
-  },
-  {
-    id: "all",
-    label: "AAM + EEM + DCF",
-    title: "Laporan Gabungan AAM, EEM, dan DCF",
-    methods: ["AAM", "EEM", "DCF"],
-    description: "Default gabungan lengkap untuk membandingkan seluruh metode penilaian dalam satu PDF.",
-  },
-];
+export const valuationPdfExportScopes: ValuationPdfExportScope[] = valuationExportScopes.map((scope) =>
+  scope.id === "all" ? { ...scope, description: "Default gabungan lengkap untuk membandingkan seluruh metode penilaian dalam satu PDF." } : scope,
+);
 
-export const defaultValuationPdfExportScope = valuationPdfExportScopes.find((scope) => scope.id === "all") ?? valuationPdfExportScopes[0];
+export const defaultValuationPdfExportScope =
+  valuationPdfExportScopes.find((scope) => scope.id === defaultValuationExportScope.id) ?? valuationPdfExportScopes[0];
 
 export function saveValuationPdfExportPayload(
   input: ValuationPdfExportInput,
@@ -148,8 +123,8 @@ export function readValuationPdfExportPayload(): ValuationPdfExportPayload | nul
 }
 
 export function resolveValuationPdfExportScope(scope: ValuationPdfExportScopeId | Partial<ValuationPdfExportScope> | null | undefined): ValuationPdfExportScope {
-  const scopeId = typeof scope === "string" ? scope : scope?.id;
-  return valuationPdfExportScopes.find((item) => item.id === scopeId) ?? defaultValuationPdfExportScope;
+  const resolved = resolveValuationExportScope(scope);
+  return valuationPdfExportScopes.find((item) => item.id === resolved.id) ?? defaultValuationPdfExportScope;
 }
 
 function normalizeValuationPdfExportPayload(value: unknown): ValuationPdfExportPayload | null {

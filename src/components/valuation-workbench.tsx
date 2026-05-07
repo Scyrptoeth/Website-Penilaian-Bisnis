@@ -12,6 +12,7 @@ import {
   Download,
   Eraser,
   FileSearch,
+  FileSpreadsheet,
   FileText,
   GitBranch,
   PanelLeftClose,
@@ -152,6 +153,12 @@ import {
 } from "@/lib/valuation/section-analysis";
 import { buildValidationChecks } from "@/lib/valuation/validation-checks";
 import { saveValuationPdfExportPayload, valuationPdfExportScopes, type ValuationPdfExportScopeId } from "@/lib/valuation/pdf-export";
+import {
+  buildValuationXlsxBlob,
+  createValuationXlsxFile,
+  valuationXlsxExportScopes,
+  type ValuationXlsxExportScopeId,
+} from "@/lib/valuation/xlsx-export";
 import {
   buildFixedAssetProjection,
   fixedAssetProjectionClassLabels,
@@ -855,10 +862,12 @@ export function ValuationWorkbench() {
   const [undoStack, setUndoStack] = useState<WorkbenchCoreState[]>([]);
   const [redoStack, setRedoStack] = useState<WorkbenchCoreState[]>([]);
   const [isPdfExportMenuOpen, setIsPdfExportMenuOpen] = useState(false);
+  const [isXlsxExportMenuOpen, setIsXlsxExportMenuOpen] = useState(false);
   const [isJsonImporting, setIsJsonImporting] = useState(false);
   const [pendingConfirmation, setPendingConfirmation] = useState<ConfirmationDialogState | null>(null);
   const workspaceMenuRef = useRef<HTMLDivElement>(null);
   const pdfExportMenuRef = useRef<HTMLDivElement>(null);
+  const xlsxExportMenuRef = useRef<HTMLDivElement>(null);
   const jsonImportInputRef = useRef<HTMLInputElement>(null);
 
   const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId) ?? workspaces[0];
@@ -1603,22 +1612,27 @@ export function ValuationWorkbench() {
   }, [isWorkspaceMenuOpen]);
 
   useEffect(() => {
-    if (!isPdfExportMenuOpen || typeof document === "undefined") {
+    if ((!isPdfExportMenuOpen && !isXlsxExportMenuOpen) || typeof document === "undefined") {
       return;
     }
 
     const closeOnOutsidePointer = (event: MouseEvent) => {
       const target = event.target;
 
-      if (target instanceof Node && pdfExportMenuRef.current?.contains(target)) {
+      if (
+        target instanceof Node &&
+        (pdfExportMenuRef.current?.contains(target) || xlsxExportMenuRef.current?.contains(target))
+      ) {
         return;
       }
 
       setIsPdfExportMenuOpen(false);
+      setIsXlsxExportMenuOpen(false);
     };
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setIsPdfExportMenuOpen(false);
+        setIsXlsxExportMenuOpen(false);
       }
     };
 
@@ -1629,7 +1643,7 @@ export function ValuationWorkbench() {
       document.removeEventListener("mousedown", closeOnOutsidePointer);
       document.removeEventListener("keydown", closeOnEscape);
     };
-  }, [isPdfExportMenuOpen]);
+  }, [isPdfExportMenuOpen, isXlsxExportMenuOpen]);
 
   function addPeriod() {
     commitCoreState((current) => {
@@ -2354,6 +2368,25 @@ export function ValuationWorkbench() {
     }
   }
 
+  function exportXlsxReport(scopeId: ValuationXlsxExportScopeId) {
+    try {
+      const file = createValuationXlsxFile(getExportInput(), scopeId);
+      const blob = buildValuationXlsxBlob(file);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = file.filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      setIsXlsxExportMenuOpen(false);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Export XLSX gagal dijalankan.");
+    }
+  }
+
   function exportJsonDraft() {
     try {
       downloadValuationJsonExport(getCurrentCoreState());
@@ -2662,7 +2695,10 @@ export function ValuationWorkbench() {
                 <button
                   className="button secondary export-menu-trigger"
                   type="button"
-                  onClick={() => setIsPdfExportMenuOpen((isOpen) => !isOpen)}
+                  onClick={() => {
+                    setIsXlsxExportMenuOpen(false);
+                    setIsPdfExportMenuOpen((isOpen) => !isOpen);
+                  }}
                   disabled={!isDraftRestored}
                   aria-haspopup="menu"
                   aria-expanded={isPdfExportMenuOpen}
@@ -2680,6 +2716,40 @@ export function ValuationWorkbench() {
                         role="menuitem"
                         aria-label={`Export PDF ${scope.label}`}
                         onClick={() => exportPdfReport(scope.id)}
+                        key={scope.id}
+                      >
+                        <span>{scope.label}</span>
+                        <small>{scope.description}</small>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+              <div className="export-menu" ref={xlsxExportMenuRef}>
+                <button
+                  className="button secondary export-menu-trigger"
+                  type="button"
+                  onClick={() => {
+                    setIsPdfExportMenuOpen(false);
+                    setIsXlsxExportMenuOpen((isOpen) => !isOpen);
+                  }}
+                  disabled={!isDraftRestored}
+                  aria-haspopup="menu"
+                  aria-expanded={isXlsxExportMenuOpen}
+                >
+                  <FileSpreadsheet size={18} />
+                  Export XLSX
+                  <ChevronDown size={14} />
+                </button>
+                {isXlsxExportMenuOpen ? (
+                  <div className="export-menu-panel" role="menu" aria-label="Pilihan export XLSX">
+                    {valuationXlsxExportScopes.map((scope) => (
+                      <button
+                        className={scope.id === "all" ? "export-menu-item default" : "export-menu-item"}
+                        type="button"
+                        role="menuitem"
+                        aria-label={`Export XLSX ${scope.label}`}
+                        onClick={() => exportXlsxReport(scope.id)}
                         key={scope.id}
                       >
                         <span>{scope.label}</span>
