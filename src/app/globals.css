@@ -682,6 +682,15 @@ select:focus-visible,
   letter-spacing: 0;
 }
 
+.period-section-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+
 .period-card {
   display: grid;
   grid-template-columns: auto minmax(92px, 1fr) minmax(116px, 1fr) auto;

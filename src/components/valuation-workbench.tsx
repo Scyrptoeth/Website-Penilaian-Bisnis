@@ -1945,16 +1945,6 @@ export function ValuationWorkbench() {
 
         {activeWorkflowTab === "periods" ? (
         <section id="periods" className="panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Langkah 1</p>
-              <h3>Data Awal</h3>
-            </div>
-            <button className="button secondary" type="button" onClick={addPeriod}>
-              <Plus size={18} />
-              Tambah {nextHistoricalPeriodLabel}
-            </button>
-          </div>
           <ReadinessPanel status={readiness.periods} onNavigate={navigateToWorkflowTab} />
           <CaseProfilePanel
             profile={caseProfile}
@@ -1966,9 +1956,15 @@ export function ValuationWorkbench() {
               <p className="eyebrow">Periode penilaian</p>
               <h4>Periode input laporan keuangan</h4>
             </div>
-            {caseProfileDerived.cutOffDate ? (
-              <span className="status-pill">Cut off {formatDisplayDate(caseProfileDerived.cutOffDate)}</span>
-            ) : null}
+            <div className="period-section-actions">
+              {caseProfileDerived.cutOffDate ? (
+                <span className="status-pill">Cut off {formatDisplayDate(caseProfileDerived.cutOffDate)}</span>
+              ) : null}
+              <button className="button secondary" type="button" onClick={addPeriod}>
+                <Plus size={18} />
+                Tambah {nextHistoricalPeriodLabel}
+              </button>
+            </div>
           </div>
           <div className="period-grid">
             {periods.map((period) => {
