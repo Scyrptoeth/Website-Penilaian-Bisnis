@@ -52,7 +52,11 @@ test("JSON export and import round-trip the full workbench draft", async ({ page
   await expect(page.getByLabel("Nama Objek Pajak")).toHaveValue("Makmur Jaya Sejati Raya");
 
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Export JSON" }).click();
+  await page.getByRole("button", { name: "JSON" }).click();
+  await expect(page.getByRole("menu", { name: "Pilihan JSON" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Export JSON" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Import JSON" })).toBeVisible();
+  await page.getByRole("menuitem", { name: "Export JSON" }).click();
   const download = await downloadPromise;
   const downloadPath = await download.path();
 
@@ -87,7 +91,11 @@ test("JSON export and import round-trip the full workbench draft", async ({ page
   await page.getByRole("dialog").getByRole("button", { name: "Reset" }).click();
   await expect(page.getByLabel("Nama Objek Pajak")).toHaveValue("");
 
-  await page.getByTestId("json-import-input").setInputFiles(downloadPath ?? "");
+  const fileChooserPromise = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "JSON" }).click();
+  await page.getByRole("menuitem", { name: "Import JSON" }).click();
+  const fileChooser = await fileChooserPromise;
+  await fileChooser.setFiles(downloadPath ?? "");
   await expect(page.getByRole("dialog", { name: "Import JSON sebagai workspace baru?" })).toBeVisible();
   await expect(page.getByRole("dialog")).toContainText("Makmur Jaya Sejati Raya");
   await page.getByRole("dialog").getByRole("button", { name: "Import JSON" }).click();
@@ -161,6 +169,7 @@ test("period workflow, scoped categories, and display-only balance sheet classif
   await expect(page.getByRole("button", { name: "Kosongkan" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Export XLSX" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Export PDF" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "JSON" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Reset" })).toBeDisabled();
   await expect(workflowNav(page).getByRole("button", { name: "Data Awal" })).toHaveAttribute("aria-current", "page");
   await expect(workflowNav(page).getByRole("button", { name: "Neraca", exact: true })).toBeVisible();
@@ -795,8 +804,9 @@ test("exports the active workbench state to a print-ready PDF report view", asyn
   const reportPage = await popupPromise;
   await reportPage.waitForLoadState("domcontentloaded");
 
-  await expect(reportPage).toHaveURL(/\/export\/pdf$/);
+  await expect(reportPage).toHaveURL(/\/export\/pdf\?filename=penilaian-bisnis-makmur-jaya-sejati-raya-aam-eem-dcf-\d{4}-\d{2}-\d{2}\.pdf$/);
   await expect(reportPage.getByTestId("pdf-report")).toBeVisible();
+  await expect(reportPage).toHaveTitle(/^penilaian-bisnis-makmur-jaya-sejati-raya-aam-eem-dcf-\d{4}-\d{2}-\d{2}\.pdf$/);
   await expect(reportPage.getByRole("heading", { name: "Laporan Gabungan AAM, EEM, dan DCF" })).toBeVisible();
   await expect(reportPage.getByText("Scope Export")).toBeVisible();
   await expect(reportPage.getByText("AAM + EEM + DCF")).toBeVisible();
@@ -843,6 +853,7 @@ test("exports method-scoped PDF reports for AAM and DCF", async ({ page }) => {
   await aamReportPage.waitForLoadState("domcontentloaded");
 
   await expect(aamReportPage.getByRole("heading", { name: "Laporan Penilaian AAM" })).toBeVisible();
+  await expect(aamReportPage).toHaveTitle(/^penilaian-bisnis-makmur-jaya-sejati-raya-aam-\d{4}-\d{2}-\d{2}\.pdf$/);
   await expect(aamReportPage.locator(".pdf-report-cover").getByText("Penilaian AAM", { exact: true })).toBeVisible();
   await expect(aamReportPage.getByRole("heading", { name: "Penyesuaian AAM" })).toBeVisible();
   await expect(aamReportPage.getByRole("heading", { name: "Sensitivitas EEM" })).toHaveCount(0);
@@ -861,6 +872,7 @@ test("exports method-scoped PDF reports for AAM and DCF", async ({ page }) => {
   await dcfReportPage.waitForLoadState("domcontentloaded");
 
   await expect(dcfReportPage.getByRole("heading", { name: "Laporan Penilaian DCF" })).toBeVisible();
+  await expect(dcfReportPage).toHaveTitle(/^penilaian-bisnis-makmur-jaya-sejati-raya-dcf-\d{4}-\d{2}-\d{2}\.pdf$/);
   await expect(dcfReportPage.getByRole("heading", { name: "Sensitivitas DCF" })).toBeVisible();
   await expect(dcfReportPage.getByText("DCF - terminal downside")).toBeVisible();
   await expect(dcfReportPage.getByText("DCF tanpa WC incremental")).toBeVisible();

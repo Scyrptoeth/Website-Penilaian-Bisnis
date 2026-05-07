@@ -759,6 +759,10 @@ svg {
   box-shadow: var(--shadow);
 }
 
+.export-menu-panel.compact {
+  width: min(240px, calc(100vw - 32px));
+}
+
 .export-menu-item {
   display: grid;
   gap: 3px;
@@ -770,6 +774,11 @@ svg {
   background: transparent;
   color: var(--ink);
   text-align: left;
+}
+
+.export-menu-item:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
 }
 
 .export-menu-item:hover,

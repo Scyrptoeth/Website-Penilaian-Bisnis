@@ -127,6 +127,19 @@ export function resolveValuationPdfExportScope(scope: ValuationPdfExportScopeId 
   return valuationPdfExportScopes.find((item) => item.id === resolved.id) ?? defaultValuationPdfExportScope;
 }
 
+export function buildPdfExportFilename(
+  taxpayerName: string,
+  scopeId: ValuationPdfExportScopeId,
+  exportedAt = new Date(),
+): string {
+  const scope = resolveValuationPdfExportScope(scopeId);
+  const taxpayerSlug = slugifyFilenamePart(taxpayerName || "workbench");
+  const scopeSlug = scope.id === "all" ? "aam-eem-dcf" : scope.id;
+  const dateSlug = formatLocalDateSlug(exportedAt);
+
+  return `penilaian-bisnis-${taxpayerSlug}-${scopeSlug}-${dateSlug}.pdf`;
+}
+
 function normalizeValuationPdfExportPayload(value: unknown): ValuationPdfExportPayload | null {
   if (!isPdfExportPayload(value)) {
     return null;
@@ -155,4 +168,23 @@ function isPdfExportPayload(value: unknown): value is Omit<ValuationPdfExportPay
   };
 
   return (payload.schemaVersion === 1 || payload.schemaVersion === 2) && typeof payload.generatedAt === "string" && Boolean(payload.input);
+}
+
+function formatLocalDateSlug(value: Date): string {
+  const year = String(value.getFullYear()).padStart(4, "0");
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function slugifyFilenamePart(value: string): string {
+  const slug = value
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return slug || "workbench";
 }

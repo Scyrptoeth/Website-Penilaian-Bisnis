@@ -9,8 +9,8 @@ import {
   CalendarDays,
   CheckCircle2,
   ChevronDown,
-  Download,
   Eraser,
+  FileBraces,
   FileSearch,
   FileSpreadsheet,
   FileText,
@@ -22,7 +22,6 @@ import {
   TableProperties,
   Trash2,
   Undo2,
-  Upload,
 } from "lucide-react";
 import { accountMappingRules } from "@/lib/valuation/account-taxonomy";
 import {
@@ -152,7 +151,12 @@ import {
   type SectionAnalysis,
 } from "@/lib/valuation/section-analysis";
 import { buildValidationChecks } from "@/lib/valuation/validation-checks";
-import { saveValuationPdfExportPayload, valuationPdfExportScopes, type ValuationPdfExportScopeId } from "@/lib/valuation/pdf-export";
+import {
+  buildPdfExportFilename,
+  saveValuationPdfExportPayload,
+  valuationPdfExportScopes,
+  type ValuationPdfExportScopeId,
+} from "@/lib/valuation/pdf-export";
 import {
   buildValuationXlsxBlob,
   createValuationXlsxFile,
@@ -863,11 +867,13 @@ export function ValuationWorkbench() {
   const [redoStack, setRedoStack] = useState<WorkbenchCoreState[]>([]);
   const [isPdfExportMenuOpen, setIsPdfExportMenuOpen] = useState(false);
   const [isXlsxExportMenuOpen, setIsXlsxExportMenuOpen] = useState(false);
+  const [isJsonMenuOpen, setIsJsonMenuOpen] = useState(false);
   const [isJsonImporting, setIsJsonImporting] = useState(false);
   const [pendingConfirmation, setPendingConfirmation] = useState<ConfirmationDialogState | null>(null);
   const workspaceMenuRef = useRef<HTMLDivElement>(null);
   const pdfExportMenuRef = useRef<HTMLDivElement>(null);
   const xlsxExportMenuRef = useRef<HTMLDivElement>(null);
+  const jsonMenuRef = useRef<HTMLDivElement>(null);
   const jsonImportInputRef = useRef<HTMLInputElement>(null);
 
   const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId) ?? workspaces[0];
@@ -1612,7 +1618,7 @@ export function ValuationWorkbench() {
   }, [isWorkspaceMenuOpen]);
 
   useEffect(() => {
-    if ((!isPdfExportMenuOpen && !isXlsxExportMenuOpen) || typeof document === "undefined") {
+    if ((!isPdfExportMenuOpen && !isXlsxExportMenuOpen && !isJsonMenuOpen) || typeof document === "undefined") {
       return;
     }
 
@@ -1621,18 +1627,24 @@ export function ValuationWorkbench() {
 
       if (
         target instanceof Node &&
-        (pdfExportMenuRef.current?.contains(target) || xlsxExportMenuRef.current?.contains(target))
+        (
+          pdfExportMenuRef.current?.contains(target) ||
+          xlsxExportMenuRef.current?.contains(target) ||
+          jsonMenuRef.current?.contains(target)
+        )
       ) {
         return;
       }
 
       setIsPdfExportMenuOpen(false);
       setIsXlsxExportMenuOpen(false);
+      setIsJsonMenuOpen(false);
     };
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setIsPdfExportMenuOpen(false);
         setIsXlsxExportMenuOpen(false);
+        setIsJsonMenuOpen(false);
       }
     };
 
@@ -1643,7 +1655,7 @@ export function ValuationWorkbench() {
       document.removeEventListener("mousedown", closeOnOutsidePointer);
       document.removeEventListener("keydown", closeOnEscape);
     };
-  }, [isPdfExportMenuOpen, isXlsxExportMenuOpen]);
+  }, [isPdfExportMenuOpen, isXlsxExportMenuOpen, isJsonMenuOpen]);
 
   function addPeriod() {
     commitCoreState((current) => {
@@ -2360,9 +2372,12 @@ export function ValuationWorkbench() {
 
   function exportPdfReport(scopeId: ValuationPdfExportScopeId) {
     try {
-      saveValuationPdfExportPayload(getExportInput(), scopeId);
+      const payload = saveValuationPdfExportPayload(getExportInput(), scopeId);
+      const filename = buildPdfExportFilename(payload.input.caseProfile.objectTaxpayerName, payload.scope.id);
+      const query = new URLSearchParams({ filename });
+
       setIsPdfExportMenuOpen(false);
-      window.open("/export/pdf", "_blank", "noopener,noreferrer");
+      window.open(`/export/pdf?${query.toString()}`, "_blank", "noopener,noreferrer");
     } catch (error) {
       window.alert(error instanceof Error ? error.message : "Export PDF gagal dijalankan.");
     }
@@ -2392,10 +2407,13 @@ export function ValuationWorkbench() {
       downloadValuationJsonExport(getCurrentCoreState());
     } catch (error) {
       window.alert(error instanceof Error ? error.message : "Export JSON gagal dijalankan.");
+    } finally {
+      setIsJsonMenuOpen(false);
     }
   }
 
   function requestJsonImport() {
+    setIsJsonMenuOpen(false);
     jsonImportInputRef.current?.click();
   }
 
@@ -2697,6 +2715,7 @@ export function ValuationWorkbench() {
                   type="button"
                   onClick={() => {
                     setIsXlsxExportMenuOpen(false);
+                    setIsJsonMenuOpen(false);
                     setIsPdfExportMenuOpen((isOpen) => !isOpen);
                   }}
                   disabled={!isDraftRestored}
@@ -2731,6 +2750,7 @@ export function ValuationWorkbench() {
                   type="button"
                   onClick={() => {
                     setIsPdfExportMenuOpen(false);
+                    setIsJsonMenuOpen(false);
                     setIsXlsxExportMenuOpen((isOpen) => !isOpen);
                   }}
                   disabled={!isDraftRestored}
@@ -2759,10 +2779,50 @@ export function ValuationWorkbench() {
                   </div>
                 ) : null}
               </div>
-              <button className="button secondary" type="button" onClick={exportJsonDraft} disabled={!isDraftRestored}>
-                <Download size={18} />
-                Export JSON
-              </button>
+              <div className="export-menu" ref={jsonMenuRef}>
+                <button
+                  className="button secondary export-menu-trigger"
+                  type="button"
+                  onClick={() => {
+                    setIsPdfExportMenuOpen(false);
+                    setIsXlsxExportMenuOpen(false);
+                    setIsJsonMenuOpen((isOpen) => !isOpen);
+                  }}
+                  disabled={!isDraftRestored || isJsonImporting}
+                  aria-busy={isJsonImporting}
+                  aria-haspopup="menu"
+                  aria-expanded={isJsonMenuOpen}
+                >
+                  <FileBraces size={18} />
+                  JSON
+                  <ChevronDown size={14} />
+                </button>
+                {isJsonMenuOpen ? (
+                  <div className="export-menu-panel compact" role="menu" aria-label="Pilihan JSON">
+                    <button
+                      className="export-menu-item"
+                      type="button"
+                      role="menuitem"
+                      aria-label="Export JSON"
+                      onClick={exportJsonDraft}
+                    >
+                      <span>Export</span>
+                      <small>Simpan seluruh workspace aktif sebagai file JSON.</small>
+                    </button>
+                    <button
+                      className="export-menu-item"
+                      type="button"
+                      role="menuitem"
+                      aria-label="Import JSON"
+                      onClick={requestJsonImport}
+                      disabled={isJsonImporting}
+                    >
+                      <span>{isJsonImporting ? "Membaca" : "Import"}</span>
+                      <small>Muat file JSON sebagai workspace baru.</small>
+                    </button>
+                  </div>
+                ) : null}
+              </div>
               <input
                 ref={jsonImportInputRef}
                 data-testid="json-import-input"
@@ -2772,16 +2832,6 @@ export function ValuationWorkbench() {
                 className="file-input-hidden"
                 aria-label="Import JSON workbench"
               />
-              <button
-                className="button ghost"
-                type="button"
-                onClick={requestJsonImport}
-                disabled={!isDraftRestored || isJsonImporting}
-                aria-busy={isJsonImporting}
-              >
-                <Upload size={18} />
-                {isJsonImporting ? "Membaca JSON" : "Import JSON"}
-              </button>
               <button className="button ghost" type="button" onClick={resetForm} disabled={!isDraftRestored || !hasAnyInput}>
                 <Eraser size={18} />
                 Reset
