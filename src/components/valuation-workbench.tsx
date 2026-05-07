@@ -2060,12 +2060,6 @@ export function ValuationWorkbench() {
 
         {activeWorkflowTab === "fixedAssets" ? (
         <section id="fixedAssets" className="panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Langkah 2B</p>
-              <h3>Aset Tetap</h3>
-            </div>
-          </div>
           <ReadinessPanel status={readiness.fixedAssets} onNavigate={navigateToWorkflowTab} />
 
           <FixedAssetScheduleEditor

@@ -145,6 +145,9 @@ test("period workflow, scoped categories, and display-only balance sheet classif
 test("fixed asset schedule remains empty until user adds a class and then rolls forward values", async ({ page }) => {
   await page.getByRole("button", { name: /Tambah Y-1/ }).click();
   await openWorkflowTab(page, "Aset Tetap");
+  const fixedAssetsPanel = page.locator("#fixedAssets");
+  await expect(fixedAssetsPanel.getByText("Langkah 2B")).toHaveCount(0);
+  await expect(fixedAssetsPanel.getByRole("heading", { name: "Aset Tetap", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Jadwal Aset Tetap" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "A. Biaya Perolehan · B. Penyusutan · Nilai Buku Neto" })).toHaveCount(0);
   await expect(page.getByTestId("fixed-asset-empty")).toBeVisible();
