@@ -1,6 +1,7 @@
 import { resolveAccountLabels } from "./account-labels";
 import { categoryLabelMap } from "./category-options";
 import { parseInputNumber, statementLabels } from "./case-model";
+import { resolveTaxRateRegime, type ProgressiveTaxBracket, type TaxpayerKind } from "./tax-rates";
 import {
   filterMappedRowsByValuationScope,
   resolveValuationExportScope,
@@ -60,7 +61,11 @@ const eemSensitivitySheetName = "EEM Sensitivity";
 const dcfSensitivitySheetName = "DCF Sensitivity";
 const dcfForecastSheetName = "DCF Forecast";
 const formulaTraceSheetName = "Formula Trace";
+const dlomSheetName = "DLOM";
+const dlocPfcSheetName = "DLOC PFC";
 const taxSimulationSheetName = "Tax Simulation";
+
+type XlsxNumberFormatKind = "comma" | "percent";
 
 export function createValuationXlsxFile(
   input: ValuationPdfExportInput,
@@ -155,23 +160,25 @@ export function buildValuationXlsxWorkbook(
   if (scope.methods.some((method) => method === "EEM" || method === "DCF")) {
     sheets.push({
       name: "EEM DCF Analysis",
-      rows: [
-        ...buildAnalysisRows("NOPLAT", input.sectionAnalysis.noplatRows, periods),
-        [],
-        ...buildAnalysisRows("FCF", input.sectionAnalysis.fcfRows, periods),
-        [],
-        ...buildAnalysisRows("Financial Ratio", input.sectionAnalysis.ratioRows, periods),
-        [],
-        ...buildAnalysisRows("ROIC", input.sectionAnalysis.roicRows, periods),
-      ],
+      rows: buildAnalysisSheetRows(
+        [
+          { title: "NOPLAT", rows: input.sectionAnalysis.noplatRows },
+          { title: "FCF", rows: input.sectionAnalysis.fcfRows },
+          { title: "Financial Ratio", rows: input.sectionAnalysis.ratioRows },
+          { title: "ROIC", rows: input.sectionAnalysis.roicRows },
+        ],
+        periods,
+      ),
     });
     sheets.push({
       name: "Cash Flow",
-      rows: [
-        ...buildAnalysisRows("Payables", input.sectionAnalysis.payablesRows, periods),
-        [],
-        ...buildAnalysisRows("Cash Flow Statement", input.sectionAnalysis.cashFlowStatementRows, periods),
-      ],
+      rows: buildAnalysisSheetRows(
+        [
+          { title: "Payables", rows: input.sectionAnalysis.payablesRows },
+          { title: "Cash Flow Statement", rows: input.sectionAnalysis.cashFlowStatementRows },
+        ],
+        periods,
+      ),
     });
   }
 
@@ -206,8 +213,18 @@ export function buildValuationXlsxWorkbook(
   });
 
   sheets.push({
+    name: dlomSheetName,
+    rows: buildDlomRows(input),
+  });
+
+  sheets.push({
+    name: dlocPfcSheetName,
+    rows: buildDlocPfcRows(input),
+  });
+
+  sheets.push({
     name: taxSimulationSheetName,
-    rows: buildTaxSimulationRows(scopedTaxRows),
+    rows: buildTaxSimulationRows(scopedTaxRows, calculationModel.refs, input.caseProfile.subjectTaxpayerType),
   });
 
   return {
@@ -240,7 +257,7 @@ export function encodeXlsxWorkbook(sheets: XlsxSheet[]): Uint8Array {
   const sharedStringIndex = new Map<string, number>();
   const worksheetEntries = normalizedSheets.map((sheet, index) => ({
     path: `xl/worksheets/sheet${index + 1}.xml`,
-    content: buildWorksheetXml(sheet.rows, sharedStrings, sharedStringIndex),
+    content: buildWorksheetXml(sheet.name, sheet.rows, sharedStrings, sharedStringIndex),
   }));
   const entries: ZipEntryInput[] = [
     { path: "[Content_Types].xml", content: buildContentTypesXml(normalizedSheets.length) },
@@ -269,8 +286,10 @@ function buildSummaryRows(input: ValuationPdfExportInput, scope: ValuationExport
     ["NPWP Objek Pajak", input.caseProfile.objectTaxpayerNpwp || "-"],
     ["KLU", input.caseProfile.objectBusinessKlu || "-"],
     ["Sektor Perusahaan", input.caseProfile.companySector || "-"],
+    ["Jenis Perusahaan", input.caseProfile.companyType || "-"],
     ["Nama Subjek Pajak", input.caseProfile.subjectTaxpayerName || "-"],
     ["NPWP Subjek Pajak", input.caseProfile.subjectTaxpayerNpwp || "-"],
+    ["Jenis Subjek Pajak", input.caseProfile.subjectTaxpayerType || "-"],
     ["Jenis Kepemilikan", input.caseProfile.shareOwnershipType || "-"],
     ["Jenis Peralihan", input.caseProfile.transferType || "-"],
     ["Tahun Transaksi", input.caseProfile.transactionYear || "-"],
@@ -303,6 +322,7 @@ function buildCalculationModelRows(input: ValuationPdfExportInput, scope: Valuat
   const aamLineCount = input.aamAdjustmentModel.assetLines.length + input.aamAdjustmentModel.liabilityLines.length;
   const aamFirstRow = 2;
   const aamLastRow = Math.max(aamFirstRow, aamFirstRow + aamLineCount - 1);
+  const reportedTransferOverride = parseInputNumber(input.taxSimulation.reportedTransferValue);
 
   add("taxRate", "Input", "Tax rate", input.snapshot.taxRate, "Input", input.resolvedAssumptions.taxRateSource || input.assumptions.taxRateSource);
   add("wacc", "Input", "WACC", input.snapshot.wacc, "Input", input.activeWaccBasisLabel || input.resolvedAssumptions.waccSource || input.assumptions.waccSource);
@@ -325,6 +345,12 @@ function buildCalculationModelRows(input: ValuationPdfExportInput, scope: Valuat
   add("fixedAssetsNet", "Source", "Fixed assets net", input.snapshot.fixedAssetsNet, "Formula", input.fixedAssetSchedule.hasInput ? `SUM(${sheetCell(fixedAssetsSheetName, `I${fixedAssetFirstRow}:I${fixedAssetLastRow}`)}) for active period support.` : "Mapped source accounts.");
   add("nonOperatingAssets", "Source", "Non-operating assets", input.results.nonOperatingAssets, "Formula", "Cash/deposit, marketable securities, employee receivable, and non-operating asset bridge.");
   add("interestBearingDebt", "Source", "Interest-bearing debt", input.results.interestBearingDebt, "Formula", "Short-term and long-term interest-bearing debt.");
+  add("capitalBaseFull", "Tax", "Capital base full", input.caseProfileDerived.capitalBaseFullAmount ?? 0, "Input", "Data Awal capitalBaseFull.");
+  add("capitalBaseValued", "Tax", "Capital base valued", input.caseProfileDerived.capitalBaseValuedAmount ?? 0, "Input", "Data Awal capitalBaseValued.");
+  add("sharePercentage", "Tax", "Share percentage valued", formulaCell(`IF(${refs.capitalBaseFull}>0,${refs.capitalBaseValued}/${refs.capitalBaseFull},0)`, input.caseProfileDerived.capitalProportion ?? 0), "Formula", "Capital base valued / capital base full.");
+  add("reportedTransferValue", "Tax", "Reported transfer value", reportedTransferOverride > 0 ? reportedTransferOverride : formulaCell(refs.capitalBaseValued, input.caseProfileDerived.capitalBaseValuedAmount ?? 0), reportedTransferOverride > 0 ? "Input" : "Formula", reportedTransferOverride > 0 ? "Manual override in tax simulation." : "Fallback to capital base valued from Data Awal.");
+  add("dlomRate", "Tax", "DLOM rate", formulaCell(sheetCell(dlomSheetName, "B9"), input.dlomCalculation.dlomRate), "Formula", "DLOM detail sheet.");
+  add("dlocPfcSignedRate", "Tax", "DLOC/PFC signed rate", formulaCell(sheetCell(dlocPfcSheetName, "B10"), input.dlocPfcCalculation.signedRate), "Formula", "DLOC PFC detail sheet.");
 
   if (scope.methods.includes("AAM")) {
     add("aamHistoricalAssets", "AAM", "Historical assets", formulaCell(`SUMIF(${sheetCell(aamAdjustmentsSheetName, `A${aamFirstRow}:A${aamLastRow}`)},"Aset",${sheetCell(aamAdjustmentsSheetName, `E${aamFirstRow}:E${aamLastRow}`)})`, input.aamAdjustmentModel.historicalAssetTotal), "Formula", "SUMIF AAM adjustment asset rows.");
@@ -508,20 +534,164 @@ function buildFixedAssetRows(input: ValuationPdfExportInput): XlsxCellValue[][] 
   ];
 }
 
-function buildAnalysisRows(title: string, rows: AnalysisRow[], periods: ValuationPdfExportInput["periods"]): XlsxCellValue[][] {
-  return [
-    [title],
-    ["Kind", "Key", "Label", "Source", "Formula", "Note", ...periods.map((period) => period.label)],
-    ...rows.map((row) => [
-      row.kind ?? "value",
-      row.key,
-      row.label,
-      row.source,
-      row.formula,
-      row.note ?? "",
-      ...periods.map((period) => row.values[period.id] ?? null),
-    ]),
-  ];
+function buildAnalysisSheetRows(
+  sections: { title: string; rows: AnalysisRow[] }[],
+  periods: ValuationPdfExportInput["periods"],
+): XlsxCellValue[][] {
+  const output: XlsxCellValue[][] = [];
+
+  sections.forEach((section, sectionIndex) => {
+    if (sectionIndex > 0) {
+      output.push([]);
+    }
+
+    const headerRowNumber = output.length + 2;
+    const dataStartRowNumber = headerRowNumber + 1;
+    const rowNumberByKey = new Map(section.rows.map((row, index) => [row.key, dataStartRowNumber + index]));
+
+    output.push([section.title]);
+    output.push(["Kind", "Key", "Label", "Source", "Formula", "Note", ...periods.map((period) => period.label)]);
+    section.rows.forEach((row) => {
+      output.push([
+        row.kind ?? "value",
+        row.key,
+        row.label,
+        row.source,
+        row.formula,
+        row.note ?? "",
+        ...periods.map((period, periodIndex) => {
+          const value = row.values[period.id] ?? null;
+          const formula = resolveAnalysisFormula(section.title, row.key, periodIndex, rowNumberByKey);
+
+          return formula && value !== null ? formulaCell(formula, value) : value;
+        }),
+      ]);
+    });
+  });
+
+  return output;
+}
+
+function resolveAnalysisFormula(
+  sectionTitle: string,
+  key: string,
+  periodIndex: number,
+  rowNumberByKey: Map<string, number>,
+): string | undefined {
+  const periodColumn = cellReference(7 + periodIndex, 1).replace("1", "");
+  const cellFor = (rowKey: string) => {
+    const rowNumber = rowNumberByKey.get(rowKey);
+    return rowNumber ? `${periodColumn}${rowNumber}` : "";
+  };
+  const sum = (...rowKeys: string[]) => rowKeys.map(cellFor).filter(Boolean).join("+");
+  const priorPeriodCell = (rowKey: string) => {
+    const rowNumber = rowNumberByKey.get(rowKey);
+    return rowNumber && periodIndex > 0 ? cellReference(7 + periodIndex - 1, rowNumber) : "";
+  };
+
+  if (sectionTitle === "NOPLAT") {
+    if (key === "ebit") {
+      return sum("pbt", "add-interest", "less-interest-income", "less-non-operating");
+    }
+
+    if (key === "tax-on-ebit") {
+      return `${cellFor("ebit")}*${sheetCell(calculationModelSheetName, "C2")}`;
+    }
+
+    if (key === "noplat") {
+      return `${cellFor("ebit")}-${cellFor("tax-on-ebit")}`;
+    }
+  }
+
+  if (sectionTitle === "FCF") {
+    if (key === "gross-cash-flow") {
+      return sum("noplat", "depreciation");
+    }
+
+    if (key === "wc-total") {
+      return sum("oca-change", "ocl-change");
+    }
+
+    if (key === "gross-investment") {
+      return sum("wc-total", "capex");
+    }
+
+    if (key === "fcf") {
+      return sum("gross-cash-flow", "gross-investment");
+    }
+  }
+
+  if (sectionTitle === "ROIC") {
+    if (key === "invested-capital-end") {
+      return sum("fixed-assets-net", "operating-nwc");
+    }
+
+    if (key === "invested-capital-beginning") {
+      return priorPeriodCell("invested-capital-end") || undefined;
+    }
+
+    if (key === "roic") {
+      return `IF(${cellFor("invested-capital-beginning")}<>0,${cellFor("noplat")}/${cellFor("invested-capital-beginning")},0)`;
+    }
+  }
+
+  if (sectionTitle === "Payables") {
+    if (key === "operating-current-liabilities") {
+      return sum("account-payable", "other-payable");
+    }
+
+    if (key === "short-ending") {
+      return sum("short-beginning", "short-addition", "short-repayment");
+    }
+
+    if (key === "long-ending") {
+      return sum("long-beginning", "long-addition", "long-repayment");
+    }
+
+    if (key === "interest-bearing-debt") {
+      return sum("short-ending", "long-ending");
+    }
+
+    if (key === "total-debt-schedule") {
+      return sum("account-payable", "tax-payable", "other-payable", "interest-payable", "interest-bearing-debt");
+    }
+  }
+
+  if (sectionTitle === "Cash Flow Statement") {
+    if (key === "working-capital-effect") {
+      return sum("oca-change", "ocl-change");
+    }
+
+    if (key === "cfo") {
+      return sum("ebitda", "operating-tax", "oca-change", "ocl-change");
+    }
+
+    if (key === "cash-flow-before-financing") {
+      return sum("cfo", "non-operating-income", "capex");
+    }
+
+    if (key === "cash-flow-from-financing") {
+      return sum("equity-injection", "new-loan", "interest-payment", "interest-income", "principal-repayment");
+    }
+
+    if (key === "net-cash-flow") {
+      return sum("cash-flow-before-financing", "cash-flow-from-financing");
+    }
+
+    if (key === "cash-ending") {
+      return sum("cash-on-bank", "cash-on-hand");
+    }
+
+    if (key === "cash-movement") {
+      return `${cellFor("cash-ending")}-${cellFor("cash-beginning")}`;
+    }
+
+    if (key === "cash-rollforward-gap") {
+      return `${cellFor("net-cash-flow")}-${cellFor("cash-movement")}`;
+    }
+  }
+
+  return undefined;
 }
 
 function buildAamAdjustmentRows(input: ValuationPdfExportInput): XlsxCellValue[][] {
@@ -667,7 +837,98 @@ function buildFormulaTraceRows(methodOutputs: MethodOutput[], refs: Record<strin
   ];
 }
 
-function buildTaxSimulationRows(rows: TaxSimulationMethodRow[]): XlsxCellValue[][] {
+function buildDlomRows(input: ValuationPdfExportInput): XlsxCellValue[][] {
+  const calculation = input.dlomCalculation;
+  const factorStartRow = 14;
+  const factorEndRow = factorStartRow + calculation.factors.length - 1;
+  const companyMarketabilityFormula = `IF(${sheetCell("Summary", "B11")}="Tertutup","DLOM Perusahaan tertutup",IF(${sheetCell("Summary", "B11")}="Terbuka (Tbk)","DLOM Perusahaan terbuka",""))`;
+  const interestBasisFormula = `IF(OR(${sheetCell("Summary", "B15")}="Minoritas",${sheetCell("Summary", "B15")}="Mayoritas"),${sheetCell("Summary", "B15")},"")`;
+  const interestBasisValue =
+    calculation.interestBasisSource === "Terhubung dari Jenis Kepemilikan Saham"
+      ? formulaCell(interestBasisFormula, calculation.interestBasis)
+      : calculation.interestBasis;
+  const interestBasisSourceType = calculation.interestBasisSource === "Terhubung dari Jenis Kepemilikan Saham" ? "Formula" : "Input";
+
+  return [
+    ["Metric", "Value", "Source Type", "Formula / Source", "Note"],
+    [
+      "Company marketability",
+      formulaCell(companyMarketabilityFormula, calculation.companyMarketability),
+      "Formula",
+      "Jenis Perusahaan on Summary.",
+      calculation.companyMarketabilitySource,
+    ],
+    ["Interest basis", interestBasisValue, interestBasisSourceType, calculation.interestBasisSource, ""],
+    ["Range min", formulaCell('IFS(AND(B2="DLOM Perusahaan tertutup",B3="Minoritas"),0.3,AND(B2="DLOM Perusahaan tertutup",B3="Mayoritas"),0.2,AND(B2="DLOM Perusahaan terbuka",B3="Minoritas"),0.1,AND(B2="DLOM Perusahaan terbuka",B3="Mayoritas"),0,TRUE,0)', calculation.rangeMin), "Formula", "DLOM range matrix.", ""],
+    ["Range max", formulaCell('IFS(AND(B2="DLOM Perusahaan tertutup",B3="Minoritas"),0.5,AND(B2="DLOM Perusahaan tertutup",B3="Mayoritas"),0.4,AND(B2="DLOM Perusahaan terbuka",B3="Minoritas"),0.3,AND(B2="DLOM Perusahaan terbuka",B3="Mayoritas"),0.2,TRUE,0)', calculation.rangeMax), "Formula", "DLOM range matrix.", ""],
+    ["Range spread", formulaCell("B5-B4", calculation.rangeSpread), "Formula", "Range max - range min.", ""],
+    ["Total score", formulaCell(`SUM(D${factorStartRow}:D${factorEndRow})`, calculation.totalScore), "Formula", "SUM factor score.", ""],
+    ["Max score", formulaCell(`COUNTA(B${factorStartRow}:B${factorEndRow})`, calculation.maxScore), "Formula", "Count scored factors.", ""],
+    ["DLOM rate", formulaCell(`IF(COUNTBLANK(C${factorStartRow}:C${factorEndRow})>0,0,B4+(B7/B8)*B6)`, calculation.dlomRate), "Formula", "Range min + (total score / max score x range spread).", ""],
+    ["Status", formulaCell(`IF(COUNTBLANK(C${factorStartRow}:C${factorEndRow})>0,"Belum lengkap",IF(IF(B6<=0,IF(B9<=B4,0,1),MAX(0,MIN(1,(B9-B4)/B6)))<=0.32,"Rendah",IF(IF(B6<=0,IF(B9<=B4,0,1),MAX(0,MIN(1,(B9-B4)/B6)))<=0.64,"Moderat","Tinggi")))`, calculation.status), "Formula", "Range-position classification.", ""],
+    ["Taxpayer resistance", formulaCell('IF(B10="Belum lengkap","Belum lengkap",IF(B10="Rendah","Tinggi",IF(B10="Moderat","Moderat","Rendah")))', calculation.taxpayerResistance), "Formula", "Inverse resistance mapping.", ""],
+    [],
+    ["No", "Factor", "Answer", "Score", "Recommendation", "Recommendation Source", "Evidence Basis", "Override Reason"],
+    ...calculation.factors.map((factor, index) => {
+      const rowNumber = factorStartRow + index;
+
+      return [
+        factor.no,
+        factor.factor,
+        factor.answer,
+        formulaCell(buildOptionScoreFormula(`C${rowNumber}`, factor.options), factor.score),
+        factor.recommendation.answer || "",
+        factor.recommendation.source,
+        factor.evidenceBasis,
+        factor.isOverride ? factor.recommendation.evidence : "",
+      ];
+    }),
+  ];
+}
+
+function buildDlocPfcRows(input: ValuationPdfExportInput): XlsxCellValue[][] {
+  const calculation = input.dlocPfcCalculation;
+  const factorStartRow = 16;
+  const factorEndRow = factorStartRow + calculation.factors.length - 1;
+  const companyBasisFormula = `IF(OR(${sheetCell("Summary", "B11")}="Tertutup",${sheetCell("Summary", "B11")}="Terbuka (Tbk)"),${sheetCell("Summary", "B11")},"")`;
+  const adjustmentTypeFormula = `IF(${sheetCell("Summary", "B15")}="Minoritas","DLOC",IF(${sheetCell("Summary", "B15")}="Mayoritas","PFC",""))`;
+
+  return [
+    ["Metric", "Value", "Source Type", "Formula / Source", "Note"],
+    ["Company basis", formulaCell(companyBasisFormula, calculation.companyBasis), "Formula", "Jenis Perusahaan on Summary.", ""],
+    ["Adjustment type", formulaCell(adjustmentTypeFormula, calculation.adjustmentType), "Formula", "Minoritas = DLOC; Mayoritas = PFC.", ""],
+    ["Range min", formulaCell('IF(B2="Tertutup",0.3,IF(B2="Terbuka (Tbk)",0.2,0))', calculation.rangeMin), "Formula", "DLOC/PFC range matrix.", ""],
+    ["Range max", formulaCell('IF(B2="Tertutup",0.7,IF(B2="Terbuka (Tbk)",0.35,0))', calculation.rangeMax), "Formula", "DLOC/PFC range matrix.", ""],
+    ["Range spread", formulaCell("B5-B4", calculation.rangeSpread), "Formula", "Range max - range min.", ""],
+    ["Total score", formulaCell(`SUM(D${factorStartRow}:D${factorEndRow})`, calculation.totalScore), "Formula", "SUM factor score.", ""],
+    ["Max score", formulaCell(`COUNTA(B${factorStartRow}:B${factorEndRow})`, calculation.maxScore), "Formula", "Count scored factors.", ""],
+    ["Unsigned rate", formulaCell(`IF(COUNTBLANK(C${factorStartRow}:C${factorEndRow})>0,0,B4+(B7/B8)*B6)`, calculation.unsignedRate), "Formula", "Range min + (total score / max score x range spread).", ""],
+    ["Signed rate", formulaCell('IF(B3="PFC",-B9,B9)', calculation.signedRate), "Formula", "PFC is sign-reversed; DLOC remains positive.", ""],
+    ["Adjustment multiplier", formulaCell("-B10", calculation.adjustmentMultiplier), "Formula", "Tax simulation multiplier.", ""],
+    ["Status", formulaCell(`IF(COUNTBLANK(C${factorStartRow}:C${factorEndRow})>0,"Belum lengkap",IF(IF(B6<=0,IF(B9<=B4,0,1),MAX(0,MIN(1,(B9-B4)/B6)))<=0.32,"Rendah",IF(IF(B6<=0,IF(B9<=B4,0,1),MAX(0,MIN(1,(B9-B4)/B6)))<=0.64,"Moderat","Tinggi")))`, calculation.status), "Formula", "Range-position classification.", ""],
+    ["Taxpayer resistance", formulaCell('IF(B12="Belum lengkap","Belum lengkap",IF(B12="Rendah","Tinggi",IF(B12="Moderat","Moderat","Rendah")))', calculation.taxpayerResistance), "Formula", "Inverse resistance mapping.", ""],
+    [],
+    ["No", "Factor", "Answer", "Score", "Override Reason", "Evidence Basis"],
+    ...calculation.factors.map((factor, index) => {
+      const rowNumber = factorStartRow + index;
+
+      return [
+        factor.no,
+        factor.factor,
+        factor.answer,
+        formulaCell(buildOptionScoreFormula(`C${rowNumber}`, factor.options), factor.score),
+        factor.overrideReason,
+        factor.evidenceBasis,
+      ];
+    }),
+  ];
+}
+
+function buildTaxSimulationRows(
+  rows: TaxSimulationMethodRow[],
+  refs: Record<string, string>,
+  subjectTaxpayerType: string,
+): XlsxCellValue[][] {
   return [
     [
       "Method",
@@ -692,30 +953,77 @@ function buildTaxSimulationRows(rows: TaxSimulationMethodRow[]): XlsxCellValue[]
     ],
     ...rows.map((row, index) => {
       const rowNumber = index + 2;
+      const baseEquityRef =
+        row.method === "AAM" ? refs.aamEquityValue : row.method === "EEM" ? refs.eemEquityValue : refs.dcfEquityValue;
+      const dlomRate = row.basis === "baseline" ? formulaCell(refs.dlomRate, row.dlomRate) : row.dlomRate;
+      const dlocPfcRate = row.basis === "baseline" ? formulaCell(refs.dlocPfcSignedRate, row.dlocPfcRate) : row.dlocPfcRate;
 
       return [
         row.method,
         row.basisLabel,
-        row.baseEquityValue,
-        row.dlomRate,
+        baseEquityRef ? formulaCell(baseEquityRef, row.baseEquityValue) : row.baseEquityValue,
+        dlomRate,
         formulaCell(`-(C${rowNumber}*D${rowNumber})`, row.dlomAdjustment),
         formulaCell(`C${rowNumber}+E${rowNumber}`, row.valueAfterDlom),
-        row.dlocPfcRate,
+        dlocPfcRate,
         formulaCell(`-(F${rowNumber}*G${rowNumber})`, row.dlocPfcAdjustment),
         formulaCell(`F${rowNumber}+H${rowNumber}`, row.marketValueOfEquity100),
-        row.sharePercentage,
+        formulaCell(refs.sharePercentage, row.sharePercentage),
         formulaCell(`I${rowNumber}*J${rowNumber}`, row.marketValueOfTransferredInterest),
-        row.reportedTransferValue,
+        formulaCell(refs.reportedTransferValue, row.reportedTransferValue),
         formulaCell(`K${rowNumber}-L${rowNumber}`, row.transferValueDifference),
         formulaCell(`MAX(0,M${rowNumber})`, row.potentialTaxableDifference),
-        row.taxableIncomeRounded,
-        row.potentialTax,
-        formulaCell(`IF(N${rowNumber}=0,0,P${rowNumber}/N${rowNumber})`, row.effectiveTaxRate),
+        formulaCell(`FLOOR(N${rowNumber},1000)`, row.taxableIncomeRounded),
+        formulaCell(buildPotentialTaxFormula(`O${rowNumber}`, row, resolveTaxpayerKindForExport(subjectTaxpayerType)), row.potentialTax),
+        formulaCell(`IF(O${rowNumber}=0,0,P${rowNumber}/O${rowNumber})`, row.effectiveTaxRate),
         row.isPrimary ? "Yes" : "No",
         row.taxSourceLegalBasis || row.taxBasisLabel,
       ];
     }),
   ];
+}
+
+function buildOptionScoreFormula(answerCell: string, options: { label: string; score: number }[]): string {
+  const cases = options.flatMap((option) => [excelString(option.label), String(option.score)]).join(",");
+  return `SWITCH(${answerCell},${cases},0)`;
+}
+
+function buildPotentialTaxFormula(taxableIncomeCell: string, row: TaxSimulationMethodRow, taxpayerKind: TaxpayerKind): string {
+  if (!row.appliedTaxYear) {
+    return "0";
+  }
+
+  const yearResolution = resolveTaxRateRegime(row.appliedTaxYear);
+
+  if (!yearResolution.regime) {
+    return "0";
+  }
+
+  if (taxpayerKind === "corporate") {
+    return `${taxableIncomeCell}*${yearResolution.regime.corporateRate}`;
+  }
+
+  return buildProgressiveTaxFormula(taxableIncomeCell, yearResolution.regime.individualBrackets);
+}
+
+function buildProgressiveTaxFormula(taxableIncomeCell: string, brackets: ProgressiveTaxBracket[]): string {
+  let previousCap = 0;
+  const parts = brackets.map((bracket) => {
+    const upperBound = bracket.upTo;
+    const taxableSlice =
+      upperBound === null
+        ? `MAX(0,${taxableIncomeCell}-${previousCap})`
+        : `MAX(0,MIN(${taxableIncomeCell},${upperBound})-${previousCap})`;
+    previousCap = upperBound ?? previousCap;
+
+    return `${taxableSlice}*${bracket.rate}`;
+  });
+
+  return parts.join("+") || "0";
+}
+
+function resolveTaxpayerKindForExport(subjectTaxpayerType: string): TaxpayerKind {
+  return subjectTaxpayerType === "Badan" ? "corporate" : "individual";
 }
 
 function buildScopedTaxRows(
@@ -797,6 +1105,10 @@ function quoteSheetName(sheetName: string): string {
   return `'${sheetName.replace(/'/g, "''")}'`;
 }
 
+function excelString(value: string): string {
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
 function resolveTraceFormulaRef(method: ValuationMethod, label: string, refs: Record<string, string>): string | undefined {
   if (method === "AAM" && label === "Nilai Ekuitas 100% - AAM") {
     return refs.aamEquityValue;
@@ -840,6 +1152,7 @@ function resolveActiveDcfTerminalGrowth(input: ValuationPdfExportInput): number 
 }
 
 function buildWorksheetXml(
+  sheetName: string,
   rows: XlsxCellValue[][],
   sharedStrings: string[],
   sharedStringIndex: Map<string, number>,
@@ -847,8 +1160,9 @@ function buildWorksheetXml(
   const body = rows
     .map((row, rowIndex) => {
       const rowNumber = rowIndex + 1;
+      const isHeader = isHeaderLikeRow(row, rowIndex, rows);
       const cells = row
-        .map((value, columnIndex) => buildCellXml(value, columnIndex + 1, rowNumber, rowIndex <= 1, sharedStrings, sharedStringIndex))
+        .map((value, columnIndex) => buildCellXml(value, sheetName, row, columnIndex + 1, rowNumber, isHeader, sharedStrings, sharedStringIndex))
         .join("");
 
       return `<row r="${rowNumber}">${cells}</row>`;
@@ -864,6 +1178,8 @@ function buildWorksheetXml(
 
 function buildCellXml(
   value: XlsxCellValue,
+  sheetName: string,
+  rowValues: XlsxCellValue[],
   columnNumber: number,
   rowNumber: number,
   isHeader: boolean,
@@ -875,8 +1191,9 @@ function buildCellXml(
   }
 
   const reference = cellReference(columnNumber, rowNumber);
-  const style = isHeader ? ' s="1"' : "";
   const formula = readFormulaCell(value);
+  const styleId = resolveCellStyleId(value, sheetName, rowValues, columnNumber, isHeader);
+  const style = styleId === 0 ? "" : ` s="${styleId}"`;
 
   if (formula) {
     const normalizedFormula = normalizeFormula(formula.formula);
@@ -909,6 +1226,102 @@ function buildCellXml(
   const sharedIndex = getSharedStringIndex(text, sharedStrings, sharedStringIndex);
 
   return `<c r="${reference}" t="s"${style}><v>${sharedIndex}</v></c>`;
+}
+
+function isHeaderLikeRow(row: XlsxCellValue[], rowIndex: number, rows: XlsxCellValue[][]): boolean {
+  if (rowIndex === 0) {
+    return true;
+  }
+
+  if (row.length === 1 && typeof row[0] === "string") {
+    return true;
+  }
+
+  return rows[rowIndex - 1]?.length === 0 && row.some((cell) => typeof cell === "string");
+}
+
+function resolveCellStyleId(
+  value: XlsxCellValue,
+  sheetName: string,
+  rowValues: XlsxCellValue[],
+  columnNumber: number,
+  isHeader: boolean,
+): number {
+  if (isHeader) {
+    return 1;
+  }
+
+  const numericValue = getNumericCellValue(value);
+  const formatKind = resolveNumberFormatKind(numericValue, sheetName, rowValues, columnNumber);
+
+  if (formatKind === "comma") {
+    return 2;
+  }
+
+  if (formatKind === "percent") {
+    return 3;
+  }
+
+  return 0;
+}
+
+function resolveNumberFormatKind(
+  value: number | null,
+  sheetName: string,
+  rowValues: XlsxCellValue[],
+  columnNumber: number,
+): XlsxNumberFormatKind | null {
+  if (value === null || value === 0 || isYearLikeNumber(value) || shouldKeepGeneralNumberFormat(sheetName, rowValues, columnNumber)) {
+    return null;
+  }
+
+  return Math.abs(value) > 1000 ? "comma" : "percent";
+}
+
+function getNumericCellValue(value: XlsxCellValue): number | null {
+  const formula = readFormulaCell(value);
+  const rawValue = formula ? formula.value : value;
+
+  return typeof rawValue === "number" && Number.isFinite(rawValue) ? rawValue : null;
+}
+
+function shouldKeepGeneralNumberFormat(sheetName: string, rowValues: XlsxCellValue[], columnNumber: number): boolean {
+  const firstLabel = getPlainCellText(rowValues[0]).toLowerCase();
+  const headerLikeLabels = new Set(["no", "period", "year"]);
+  const summaryGeneralLabels = new Set(["npwp objek pajak", "klu", "tahun transaksi"]);
+
+  if (headerLikeLabels.has(firstLabel)) {
+    return true;
+  }
+
+  if (sheetName === "Summary" && summaryGeneralLabels.has(firstLabel)) {
+    return true;
+  }
+
+  if (columnNumber === 1 && rowValues.some((cell) => typeof cell === "string")) {
+    return true;
+  }
+
+  if (/(^| )(score|max score|total score|jumlah skor|count|confidence|tahun|tax year|applied tax year|requested tax year)( |$)/i.test(firstLabel)) {
+    return true;
+  }
+
+  return false;
+}
+
+function getPlainCellText(value: XlsxCellValue): string {
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  const formula = readFormulaCell(value);
+  const rawValue = formula ? formula.value : value;
+
+  return typeof rawValue === "string" ? rawValue.trim() : "";
+}
+
+function isYearLikeNumber(value: number): boolean {
+  return Number.isInteger(value) && value >= 1900 && value <= 2100;
 }
 
 function buildColumnWidths(columnCount: number): string {
@@ -981,7 +1394,7 @@ function buildSharedStringsXml(strings: string[]): string {
 
 function buildStylesXml(): string {
   return xmlDocument(
-    `<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><color theme="1"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF0F766E"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles><dxfs count="0"/><tableStyles count="0" defaultTableStyle="TableStyleMedium2" defaultPivotStyle="PivotStyleLight16"/></styleSheet>`,
+    `<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="2"><numFmt numFmtId="164" formatCode="#,##0;[Red](#,##0);0"/><numFmt numFmtId="165" formatCode="0.00%;[Red](0.00%);0.00%"/></numFmts><fonts count="2"><font><sz val="11"/><color theme="1"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF0F766E"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles><dxfs count="0"/><tableStyles count="0" defaultTableStyle="TableStyleMedium2" defaultPivotStyle="PivotStyleLight16"/></styleSheet>`,
   );
 }
 

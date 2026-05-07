@@ -33,11 +33,13 @@ describe("valuation XLSX export", () => {
     assert.ok(sheetNames.includes("Calculation Model"));
     assert.ok(sheetNames.includes("AAM Adjustments"));
     assert.ok(sheetNames.includes("Formula Trace"));
+    assert.ok(sheetNames.includes("DLOM"));
+    assert.ok(sheetNames.includes("DLOC PFC"));
     assert.equal(sheetNames.includes("EEM Sensitivity"), false);
     assert.equal(sheetNames.includes("DCF Sensitivity"), false);
     assert.equal(sheetNames.includes("DCF Forecast"), false);
     assert.equal(workbook.sheets.find((sheet) => sheet.name === "Formula Trace")?.rows.slice(1).every((row) => row[0] === "AAM"), true);
-    assert.ok(countFormulaCells(workbook.sheets.flatMap((sheet) => sheet.rows)) > 10);
+    assert.ok(countFormulaCells(workbook.sheets.flatMap((sheet) => sheet.rows)) > 40);
   });
 
   it("builds DCF workbook sheets with active scenario metadata and scoped traces", () => {
@@ -53,6 +55,8 @@ describe("valuation XLSX export", () => {
     assert.ok(summaryRows.some((row) => row[0] === "Active DCF Basis" && row[1] === "DCF - skenario dasar"));
     assert.equal(workbook.sheets.find((sheet) => sheet.name === "Formula Trace")?.rows.slice(1).every((row) => row[0] === "DCF"), true);
     assert.ok(countFormulaCells(workbook.sheets.find((sheet) => sheet.name === "DCF Forecast")?.rows ?? []) >= 35);
+    assert.ok(countFormulaCells(workbook.sheets.find((sheet) => sheet.name === "DLOM")?.rows ?? []) >= 15);
+    assert.ok(countFormulaCells(workbook.sheets.find((sheet) => sheet.name === "DLOC PFC")?.rows ?? []) >= 10);
   });
 
   it("encodes a valid OOXML zip package with a scoped XLSX filename", () => {
@@ -64,7 +68,13 @@ describe("valuation XLSX export", () => {
     assert.equal(file.bytes[2], 0x03);
     assert.equal(file.bytes[3], 0x04);
     assert.ok(file.bytes.length > 10_000);
-    assert.ok(new TextDecoder().decode(file.bytes).includes("<f>"));
+    const xml = new TextDecoder().decode(file.bytes);
+
+    assert.ok(xml.includes("<f>"));
+    assert.ok(xml.includes('formatCode="#,##0;[Red](#,##0);0"'));
+    assert.ok(xml.includes('formatCode="0.00%;[Red](0.00%);0.00%"'));
+    assert.ok(xml.includes(' s="2"'));
+    assert.ok(xml.includes(' s="3"'));
   });
 });
 
