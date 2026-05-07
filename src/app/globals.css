@@ -618,6 +618,12 @@ svg {
   color: var(--ink);
 }
 
+.button.danger {
+  border-color: var(--danger);
+  background: var(--danger);
+  color: white;
+}
+
 .button.compact-button {
   min-height: 30px;
   padding: 0 8px;
@@ -696,6 +702,68 @@ select:focus-visible,
   border-color: rgba(161, 98, 7, 0.36);
   background: var(--review-soft);
   color: var(--review);
+}
+
+.confirmation-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(23, 25, 24, 0.42);
+  backdrop-filter: blur(6px);
+}
+
+.confirmation-dialog {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  width: min(460px, 100%);
+  padding: 16px;
+  border: 1px solid rgba(180, 35, 24, 0.28);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.confirmation-dialog-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid rgba(180, 35, 24, 0.22);
+  border-radius: var(--radius);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.confirmation-dialog-copy {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.confirmation-dialog-copy h2 {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.confirmation-dialog-copy p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 10.4px;
+  line-height: 1.45;
+}
+
+.confirmation-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  grid-column: 1 / -1;
+  gap: 8px;
+  justify-content: flex-end;
+  padding-top: 4px;
 }
 
 .section-grid {

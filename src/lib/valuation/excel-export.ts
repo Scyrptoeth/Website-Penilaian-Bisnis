@@ -88,7 +88,7 @@ type TemplateUnmapped = {
 };
 
 const currencyFormat = '#,##0;[Red](#,##0);"-"';
-const numberFormat = '#,##0.00;[Red](#,##0.00);"-"';
+const numberFormat = '#,##0;[Red](#,##0);"-"';
 const integerFormat = '#,##0;[Red](#,##0);"-"';
 const percentFormat = '0.00%;[Red](0.00%);"-"';
 const templateWorkbookUrl = "/templates/kkp-saham-final-account-category-review-update.xlsx";

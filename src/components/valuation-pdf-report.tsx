@@ -6,7 +6,7 @@ import { buildBalanceSheetView, groupBalanceSheetLines, type BalanceSheetLine } 
 import { categoryLabelMap } from "@/lib/valuation/category-options";
 import { parseInputNumber, type CaseProfileDerived, type MappedRow, type Period } from "@/lib/valuation/case-model";
 import { resolveAccountLabels } from "@/lib/valuation/account-labels";
-import { formatDisplayDate, formatIdr, formatPercent, formatPercentFixed } from "@/lib/valuation/format";
+import { formatDisplayDate, formatIdr, formatInputNumber, formatPercent, formatPercentFixed } from "@/lib/valuation/format";
 import { formatKluOptionLabel, getKluSectorRecord } from "@/lib/valuation/klu-sector";
 import {
   readValuationPdfExportPayload,
@@ -745,7 +745,7 @@ function formatTraceValue(trace: FormulaTrace): string {
   }
 
   if (trace.valueFormat === "number") {
-    return trace.value.toLocaleString("id-ID", { maximumFractionDigits: 2 });
+    return formatInputNumber(trace.value);
   }
 
   return formatIdr(trace.value);

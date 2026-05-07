@@ -118,7 +118,17 @@ import {
   type WaccBasis,
 } from "@/lib/valuation/case-model";
 import { categoryLabelMap, categoryOptions, categoryOptionsByStatement } from "@/lib/valuation/category-options";
-import { formatDisplayDate, formatEditableNumber, formatIdr, formatInputNumber, formatPercent, formatPercentFixed, formatScore } from "@/lib/valuation/format";
+import {
+  formatDisplayDate,
+  formatEditableInteger,
+  formatEditableNumber,
+  formatIdr,
+  formatInputNumber,
+  formatPercent,
+  formatPercentFixed,
+  formatRateInputNumber,
+  formatScore,
+} from "@/lib/valuation/format";
 import {
   formatKluOptionLabel,
   getKluSectorRecord,
@@ -301,6 +311,39 @@ const assumptionKeys: Array<keyof AssumptionState> = [
   "apDays",
   "otherPayableDays",
 ];
+
+const preciseAssumptionKeys = new Set<keyof AssumptionState>([
+  "taxRate",
+  "terminalGrowth",
+  "terminalGrowthDownside",
+  "terminalGrowthUpside",
+  "revenueGrowth",
+  "wacc",
+  "waccRiskFreeRate",
+  "waccBeta",
+  "waccEquityRiskPremium",
+  "waccRatingBasedDefaultSpread",
+  "waccCountryRiskPremium",
+  "waccSpecificRiskPremium",
+  "waccPreTaxCostOfDebt",
+  "waccBankPerseroInvestmentLoanRate",
+  "waccBankPemdaInvestmentLoanRate",
+  "waccBankSwastaInvestmentLoanRate",
+  "waccBankAsingInvestmentLoanRate",
+  "waccBankCampuranInvestmentLoanRate",
+  "waccBankUmumInvestmentLoanRate",
+  "waccDebtWeight",
+  "waccEquityWeight",
+  "waccComparable1BetaLevered",
+  "waccComparable2BetaLevered",
+  "waccComparable3BetaLevered",
+  "requiredReturnOnNta",
+  "requiredReturnReceivablesCapacity",
+  "requiredReturnInventoryCapacity",
+  "requiredReturnFixedAssetCapacity",
+  "requiredReturnAfterTaxDebtCost",
+  "requiredReturnEquityCost",
+]);
 
 const caseProfileKeys: Array<keyof CaseProfile> = [
   "objectTaxpayerName",
@@ -716,6 +759,13 @@ const reviewerDecisionOptions: Array<{ value: IncomeProjectionReviewerDecision; 
 
 const MAX_HISTORY_STEPS = 80;
 
+type ConfirmationDialogState = {
+  title: string;
+  description: string;
+  confirmLabel: string;
+  onConfirm: () => void;
+};
+
 export function ValuationWorkbench() {
   const [periods, setPeriods] = useState<Period[]>(initialPeriods);
   const [activePeriodId, setActivePeriodId] = useState(initialPeriods[0].id);
@@ -742,6 +792,7 @@ export function ValuationWorkbench() {
   const [redoStack, setRedoStack] = useState<WorkbenchCoreState[]>([]);
   const [isTemplateExporting, setIsTemplateExporting] = useState(false);
   const [isPdfExportMenuOpen, setIsPdfExportMenuOpen] = useState(false);
+  const [pendingConfirmation, setPendingConfirmation] = useState<ConfirmationDialogState | null>(null);
   const pdfExportMenuRef = useRef<HTMLDivElement>(null);
 
   const activeWorkflowTabItem = workflowTabRegistry[activeWorkflowTab] ?? workflowTabRegistry.periods;
@@ -1043,6 +1094,21 @@ export function ValuationWorkbench() {
       }),
     [caseProfile, caseProfileDerived, dlocPfcCalculation, fixedAssetSchedule, mappedRows, periods, resolvedAssumptions, rows, snapshot, taxSimulation],
   );
+
+  useEffect(() => {
+    if (!pendingConfirmation) {
+      return undefined;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setPendingConfirmation(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [pendingConfirmation]);
 
   function getCurrentCoreState(): WorkbenchCoreState {
     return {
@@ -1421,7 +1487,7 @@ export function ValuationWorkbench() {
                 ...row.values,
                 [periodId]: {
                   ...(row.values[periodId] ?? emptyFixedAssetInputValues()),
-                  [key]: formatEditableNumber(value),
+                  [key]: formatEditableInteger(value),
                 },
               },
             }
@@ -1443,7 +1509,7 @@ export function ValuationWorkbench() {
       const nextEntry = {
         ...currentEntry,
         ...patch,
-        adjustment: patch.adjustment !== undefined ? formatEditableNumber(patch.adjustment) : currentEntry.adjustment,
+        adjustment: patch.adjustment !== undefined ? formatEditableInteger(patch.adjustment) : currentEntry.adjustment,
       };
       const nextAdjustments = { ...current.aamAdjustments };
 
@@ -1484,6 +1550,19 @@ export function ValuationWorkbench() {
   }
 
   function removeRow(id: string) {
+    const row = rows.find((item) => item.id === id);
+    const accountName = row?.accountName.trim() || "baris akun ini";
+    const statementLabel = row ? statementLabels[row.statement] : "laporan keuangan";
+
+    setPendingConfirmation({
+      title: "Hapus akun?",
+      description: `Akun ${accountName} pada ${statementLabel} akan dihapus dari model aktif. Tindakan ini memengaruhi perhitungan sampai Anda membatalkannya melalui Undo.`,
+      confirmLabel: "Hapus akun",
+      onConfirm: () => deleteRow(id),
+    });
+  }
+
+  function deleteRow(id: string) {
     commitCoreState((current) => ({ ...current, rows: current.rows.filter((row) => row.id !== id) }));
   }
 
@@ -1511,7 +1590,7 @@ export function ValuationWorkbench() {
   function updateAssumption(key: keyof AssumptionState, value: string) {
     commitCoreState((current) => ({
       ...current,
-      assumptions: markManualAssumptionSource({ ...current.assumptions, [key]: formatEditableNumber(value) }, key),
+      assumptions: markManualAssumptionSource({ ...current.assumptions, [key]: formatAssumptionInput(key, value) }, key),
     }));
   }
 
@@ -1562,7 +1641,7 @@ export function ValuationWorkbench() {
         ...patch,
         reportedTransferValue:
           patch.reportedTransferValue !== undefined
-            ? formatEditableNumber(patch.reportedTransferValue)
+            ? formatEditableInteger(patch.reportedTransferValue)
             : current.taxSimulation.reportedTransferValue,
         dlocPfcRate:
           patch.dlocPfcRate !== undefined ? formatEditableNumber(patch.dlocPfcRate) : current.taxSimulation.dlocPfcRate,
@@ -1578,7 +1657,7 @@ export function ValuationWorkbench() {
       const nextEntry: CashFlowOverrideEntry = {
         ...currentEntry,
         ...patch,
-        value: patch.value !== undefined ? formatEditableNumber(patch.value) : currentEntry.value,
+        value: patch.value !== undefined ? formatEditableInteger(patch.value) : currentEntry.value,
         updatedAt: new Date().toISOString(),
       };
       const nextOverrides = { ...current.cashFlowOverrides };
@@ -1801,10 +1880,10 @@ export function ValuationWorkbench() {
           const currentEntry = current.incomeProjectionControls.yearlyOverrides[yearKey] ?? createEmptyIncomeProjectionYearOverride();
           const nextEntry: IncomeProjectionYearOverrideState = {
             ...currentEntry,
-            revenueGrowth: formatInputNumber(readIncomeProjectionDefaultRate("revenueGrowth", row, index, forecast, snapshot)),
-            grossProfitMargin: formatInputNumber(readIncomeProjectionDefaultRate("grossProfitMargin", row, index, forecast, snapshot)),
-            operatingExpenseMargin: formatInputNumber(readIncomeProjectionDefaultRate("operatingExpenseMargin", row, index, forecast, snapshot)),
-            depreciationMargin: formatInputNumber(readIncomeProjectionDefaultRate("depreciationMargin", row, index, forecast, snapshot)),
+            revenueGrowth: formatRateInputNumber(readIncomeProjectionDefaultRate("revenueGrowth", row, index, forecast, snapshot)),
+            grossProfitMargin: formatRateInputNumber(readIncomeProjectionDefaultRate("grossProfitMargin", row, index, forecast, snapshot)),
+            operatingExpenseMargin: formatRateInputNumber(readIncomeProjectionDefaultRate("operatingExpenseMargin", row, index, forecast, snapshot)),
+            depreciationMargin: formatRateInputNumber(readIncomeProjectionDefaultRate("depreciationMargin", row, index, forecast, snapshot)),
             reason: currentEntry.reason.trim() || suggestedReason,
             updatedAt: now,
           };
@@ -1815,10 +1894,10 @@ export function ValuationWorkbench() {
       const currentPresentation = current.incomeProjectionControls.presentationAssumptions;
       const presentationAssumptions: IncomeProjectionPresentationAssumptionState = {
         ...currentPresentation,
-        cashYield: formatInputNumber(readIncomeProjectionPresentationDefault("cashYield", snapshot)),
-        debtRate: formatInputNumber(readIncomeProjectionPresentationDefault("debtRate", snapshot)),
-        interestIncomeRevenueMargin: formatInputNumber(readIncomeProjectionPresentationDefault("interestIncomeRevenueMargin", snapshot)),
-        interestExpenseRevenueMargin: formatInputNumber(readIncomeProjectionPresentationDefault("interestExpenseRevenueMargin", snapshot)),
+        cashYield: formatRateInputNumber(readIncomeProjectionPresentationDefault("cashYield", snapshot)),
+        debtRate: formatRateInputNumber(readIncomeProjectionPresentationDefault("debtRate", snapshot)),
+        interestIncomeRevenueMargin: formatRateInputNumber(readIncomeProjectionPresentationDefault("interestIncomeRevenueMargin", snapshot)),
+        interestExpenseRevenueMargin: formatRateInputNumber(readIncomeProjectionPresentationDefault("interestExpenseRevenueMargin", snapshot)),
         reason: currentPresentation.reason.trim() || suggestedReason,
         updatedAt: now,
       };
@@ -1873,7 +1952,7 @@ export function ValuationWorkbench() {
       ...current,
       assumptions: {
         ...current.assumptions,
-        [key]: formatInputNumber(candidate.value),
+        [key]: formatRateInputNumber(candidate.value),
         [sourceKey]: candidate.id,
         [reasonKey]: "",
       },
@@ -1890,18 +1969,18 @@ export function ValuationWorkbench() {
       assumptions: {
         ...current.assumptions,
         wacc: "",
-        waccRiskFreeRate: formatInputNumber(suggestion.metrics.riskFreeSun.value),
-        waccEquityRiskPremium: formatInputNumber(suggestion.metrics.equityRiskPremium.value),
-        waccRatingBasedDefaultSpread: formatInputNumber(suggestion.metrics.ratingBasedDefaultSpread.value),
-        waccCountryRiskPremium: formatInputNumber(-suggestion.metrics.ratingBasedDefaultSpread.value),
-        waccSpecificRiskPremium: current.assumptions.waccSpecificRiskPremium.trim() || formatInputNumber(0),
-        waccPreTaxCostOfDebt: formatInputNumber(averageDebtRate),
-        waccBankPerseroInvestmentLoanRate: formatInputNumber(suggestion.metrics.bankPerseroInvestmentLoan.value),
-        waccBankPemdaInvestmentLoanRate: formatInputNumber(suggestion.metrics.bankPemdaInvestmentLoan.value),
-        waccBankSwastaInvestmentLoanRate: formatInputNumber(suggestion.metrics.bankSwastaInvestmentLoan.value),
-        waccBankAsingInvestmentLoanRate: formatInputNumber(suggestion.metrics.bankAsingInvestmentLoan.value),
-        waccBankCampuranInvestmentLoanRate: formatInputNumber(suggestion.metrics.bankCampuranInvestmentLoan.value),
-        waccBankUmumInvestmentLoanRate: formatInputNumber(suggestion.metrics.bankUmumInvestmentLoan.value),
+        waccRiskFreeRate: formatRateInputNumber(suggestion.metrics.riskFreeSun.value),
+        waccEquityRiskPremium: formatRateInputNumber(suggestion.metrics.equityRiskPremium.value),
+        waccRatingBasedDefaultSpread: formatRateInputNumber(suggestion.metrics.ratingBasedDefaultSpread.value),
+        waccCountryRiskPremium: formatRateInputNumber(-suggestion.metrics.ratingBasedDefaultSpread.value),
+        waccSpecificRiskPremium: current.assumptions.waccSpecificRiskPremium.trim() || formatRateInputNumber(0),
+        waccPreTaxCostOfDebt: formatRateInputNumber(averageDebtRate),
+        waccBankPerseroInvestmentLoanRate: formatRateInputNumber(suggestion.metrics.bankPerseroInvestmentLoan.value),
+        waccBankPemdaInvestmentLoanRate: formatRateInputNumber(suggestion.metrics.bankPemdaInvestmentLoan.value),
+        waccBankSwastaInvestmentLoanRate: formatRateInputNumber(suggestion.metrics.bankSwastaInvestmentLoan.value),
+        waccBankAsingInvestmentLoanRate: formatRateInputNumber(suggestion.metrics.bankAsingInvestmentLoan.value),
+        waccBankCampuranInvestmentLoanRate: formatRateInputNumber(suggestion.metrics.bankCampuranInvestmentLoan.value),
+        waccBankUmumInvestmentLoanRate: formatRateInputNumber(suggestion.metrics.bankUmumInvestmentLoan.value),
         waccSource: `market-suggestion-${suggestion.year}`,
         waccOverrideReason: sourceNote,
       },
@@ -1913,9 +1992,9 @@ export function ValuationWorkbench() {
       ...current,
       assumptions: {
         ...current.assumptions,
-        terminalGrowth: formatInputNumber(suggestion.baseGrowth),
-        terminalGrowthDownside: formatInputNumber(suggestion.downsideGrowth),
-        terminalGrowthUpside: formatInputNumber(suggestion.upsideGrowth),
+        terminalGrowth: formatRateInputNumber(suggestion.baseGrowth),
+        terminalGrowthDownside: formatRateInputNumber(suggestion.downsideGrowth),
+        terminalGrowthUpside: formatRateInputNumber(suggestion.upsideGrowth),
         terminalGrowthSource: suggestion.sourceId,
         terminalGrowthOverrideReason: suggestion.reason,
       },
@@ -2020,6 +2099,15 @@ export function ValuationWorkbench() {
   }
 
   function resetForm() {
+    setPendingConfirmation({
+      title: "Reset seluruh model?",
+      description: "Semua input, asumsi, proyeksi, dan override di workbench aktif akan dikosongkan. Draft tersimpan lokal juga akan dihapus.",
+      confirmLabel: "Reset",
+      onConfirm: executeResetForm,
+    });
+  }
+
+  function executeResetForm() {
     clearPersistedWorkbenchState();
     commitCoreState(() => ({
       periods: initialPeriods,
@@ -2047,6 +2135,45 @@ export function ValuationWorkbench() {
 
   return (
     <main className={isSidebarCollapsed ? "app-shell sidebar-collapsed" : "app-shell"} data-testid="valuation-workbench">
+      {pendingConfirmation ? (
+        <div className="confirmation-dialog-backdrop" onMouseDown={(event) => {
+          if (event.target === event.currentTarget) {
+            setPendingConfirmation(null);
+          }
+        }}>
+          <section
+            aria-describedby="confirmation-dialog-description"
+            aria-labelledby="confirmation-dialog-title"
+            aria-modal="true"
+            className="confirmation-dialog"
+            role="dialog"
+          >
+            <div className="confirmation-dialog-icon" aria-hidden="true">
+              <AlertTriangle size={18} />
+            </div>
+            <div className="confirmation-dialog-copy">
+              <h2 id="confirmation-dialog-title">{pendingConfirmation.title}</h2>
+              <p id="confirmation-dialog-description">{pendingConfirmation.description}</p>
+            </div>
+            <div className="confirmation-dialog-actions">
+              <button className="button ghost" type="button" onClick={() => setPendingConfirmation(null)} autoFocus>
+                Batal
+              </button>
+              <button
+                className="button danger"
+                type="button"
+                onClick={() => {
+                  const action = pendingConfirmation.onConfirm;
+                  setPendingConfirmation(null);
+                  action();
+                }}
+              >
+                {pendingConfirmation.confirmLabel}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
       {isSidebarCollapsed ? (
         <div className="sidebar-rail" aria-label="Navigasi ringkas" data-testid="sidebar-rail">
           <button
@@ -2492,6 +2619,7 @@ export function ValuationWorkbench() {
                 effectiveLabel: formatDays(snapshot.arDays),
                 fallbackSource: "saldo piutang dan pendapatan historis",
               })}
+              inputMode="numeric"
               onChange={(value) => updateAssumption("arDays", value)}
               onApplySuggestion={(value) => updateAssumption("arDays", value)}
             />
@@ -2508,6 +2636,7 @@ export function ValuationWorkbench() {
                 effectiveLabel: formatDays(snapshot.inventoryDays),
                 fallbackSource: "saldo persediaan dan COGS historis",
               })}
+              inputMode="numeric"
               onChange={(value) => updateAssumption("inventoryDays", value)}
               onApplySuggestion={(value) => updateAssumption("inventoryDays", value)}
             />
@@ -2524,6 +2653,7 @@ export function ValuationWorkbench() {
                 effectiveLabel: formatDays(snapshot.apDays),
                 fallbackSource: "saldo utang usaha dan COGS historis",
               })}
+              inputMode="numeric"
               onChange={(value) => updateAssumption("apDays", value)}
               onApplySuggestion={(value) => updateAssumption("apDays", value)}
             />
@@ -2540,6 +2670,7 @@ export function ValuationWorkbench() {
                 effectiveLabel: formatDays(snapshot.otherPayableDays),
                 fallbackSource: "saldo utang lain-lain dan beban operasional historis",
               })}
+              inputMode="numeric"
               onChange={(value) => updateAssumption("otherPayableDays", value)}
               onApplySuggestion={(value) => updateAssumption("otherPayableDays", value)}
             />
@@ -3777,7 +3908,7 @@ function TaxSimulationSection({
               <span>Nilai pengalihan dilaporkan (override)</span>
               <input
                 aria-describedby="reported-transfer-override-note"
-                inputMode="decimal"
+                inputMode="numeric"
                 value={state.reportedTransferValue}
                 onChange={(event) => onUpdate({ reportedTransferValue: event.target.value })}
                 placeholder="Kosong = memakai nilai Data Awal"
@@ -5742,7 +5873,7 @@ function IncomeProjectionControlsPanel({
                         aria-label={`${field.label} override ${row.year}`}
                         inputMode="decimal"
                         onChange={(event) => onYearOverrideChange?.(row.year, field.key, event.target.value)}
-                        placeholder={formatInputNumber(readIncomeProjectionDefaultRate(field.key, row, index, forecast, snapshot))}
+                        placeholder={formatRateInputNumber(readIncomeProjectionDefaultRate(field.key, row, index, forecast, snapshot))}
                         type="text"
                         value={entry[field.key]}
                       />
@@ -5811,7 +5942,7 @@ function IncomeProjectionControlsPanel({
               <input
                 inputMode="decimal"
                 onChange={(event) => onPresentationAssumptionChange?.(field.key, event.target.value)}
-                placeholder={formatInputNumber(readIncomeProjectionPresentationDefault(field.key, snapshot))}
+                placeholder={formatRateInputNumber(readIncomeProjectionPresentationDefault(field.key, snapshot))}
                 type="text"
                 value={controls.presentationAssumptions[field.key]}
               />
@@ -6662,7 +6793,7 @@ function CashFlowStatementTable({
                         <div className="cash-flow-override-stack">
                           <input
                             aria-label={`Override ${row.label} ${period.label || "Periode"}`}
-                            inputMode="decimal"
+                            inputMode="numeric"
                             placeholder="Nilai"
                             value={row.overrideInputs[period.id] ?? ""}
                             onChange={(event) => onUpdateOverride(row.key, period.id, { value: event.target.value })}
@@ -7257,7 +7388,9 @@ function sanitizeRows(value: unknown): AccountRow[] {
             ? (row.balanceSheetClassification as BalanceSheetClassification)
             : "",
         labelOverrides: sanitizeAccountLabels(row.labelOverrides),
-        values: sanitizeStringRecord(row.values),
+        values: Object.fromEntries(
+          Object.entries(sanitizeStringRecord(row.values)).map(([periodId, value]) => [periodId, formatEditableInteger(value)]),
+        ),
       },
     ];
   });
@@ -7308,7 +7441,10 @@ function sanitizeFixedAssetScheduleRows(value: unknown): FixedAssetScheduleRow[]
               [
                 periodId,
                 Object.fromEntries(
-                  fixedAssetScheduleValueKeys.map((key) => [key, typeof periodValues[key] === "string" ? periodValues[key] : ""]),
+                  fixedAssetScheduleValueKeys.map((key) => [
+                    key,
+                    typeof periodValues[key] === "string" ? formatEditableInteger(periodValues[key]) : "",
+                  ]),
                 ) as Record<FixedAssetScheduleValueKey, string>,
               ],
             ];
@@ -7337,7 +7473,7 @@ function sanitizeAamAdjustments(value: unknown): AamAdjustmentState {
         return [];
       }
 
-      const adjustment = typeof entry.adjustment === "string" ? formatEditableNumber(entry.adjustment) : "";
+      const adjustment = typeof entry.adjustment === "string" ? formatEditableInteger(entry.adjustment) : "";
       const note = typeof entry.note === "string" ? entry.note : "";
 
       if (!adjustment.trim() && !note.trim()) {
@@ -7352,14 +7488,19 @@ function sanitizeAamAdjustments(value: unknown): AamAdjustmentState {
 function sanitizeAssumptions(value: unknown): AssumptionState {
   const source = isRecord(value) ? value : {};
   return Object.fromEntries(
-    assumptionKeys.map((key) => [key, typeof source[key] === "string" ? source[key] : ""]),
+    assumptionKeys.map((key) => [
+      key,
+      typeof source[key] === "string"
+        ? isNumericAssumptionKey(key) ? formatAssumptionInput(key, source[key]) : source[key]
+        : "",
+    ]),
   ) as AssumptionState;
 }
 
 function sanitizeCaseProfile(value: unknown): CaseProfile {
   const source = isRecord(value) ? value : {};
   const profile = Object.fromEntries(
-    caseProfileKeys.map((key) => [key, typeof source[key] === "string" ? source[key] : ""]),
+    caseProfileKeys.map((key) => [key, typeof source[key] === "string" ? formatCaseProfileValue(key, source[key]) : ""]),
   ) as CaseProfile;
   const kluRecord = getKluSectorRecord(profile.objectBusinessKlu);
   const validCompanySector = companySectorOptions.includes(profile.companySector) ? profile.companySector : "";
@@ -7510,7 +7651,7 @@ function sanitizeTaxSimulationState(value: unknown): TaxSimulationState {
     useDlocPfcOverride: typeof value.useDlocPfcOverride === "boolean" ? value.useDlocPfcOverride : false,
     dlocPfcRate: typeof value.dlocPfcRate === "string" ? formatEditableNumber(value.dlocPfcRate) : "",
     dlocPfcOverrideReason: typeof value.dlocPfcOverrideReason === "string" ? value.dlocPfcOverrideReason : "",
-    reportedTransferValue: typeof value.reportedTransferValue === "string" ? formatEditableNumber(value.reportedTransferValue) : "",
+    reportedTransferValue: typeof value.reportedTransferValue === "string" ? formatEditableInteger(value.reportedTransferValue) : "",
     note: typeof value.note === "string" ? value.note : "",
   });
 }
@@ -7555,7 +7696,7 @@ function sanitizeCashFlowOverrides(value: unknown): CashFlowOverrideState {
             return [];
           }
 
-          const valueInput = typeof entry.value === "string" ? formatEditableNumber(entry.value) : "";
+          const valueInput = typeof entry.value === "string" ? formatEditableInteger(entry.value) : "";
           const reason = typeof entry.reason === "string" ? entry.reason : "";
           const updatedAt = typeof entry.updatedAt === "string" ? entry.updatedAt : "";
 
@@ -8155,7 +8296,7 @@ function AccountInputTable({
                   <td className="period-entry-column" key={period.id}>
                     <input
                       aria-label={`${period.label || "Periode"} amount`}
-                      inputMode="decimal"
+                      inputMode="numeric"
                       placeholder="0"
                       value={row.values[period.id] ?? ""}
                       onChange={(event) => onUpdateRowValue(row.id, period.id, event.target.value)}
@@ -8398,20 +8539,20 @@ function CaseProfilePanel({
           <CaseProfileInput
             label={derived.capitalBaseFullLabel}
             value={profile.capitalBaseFull}
-            inputMode="decimal"
+            inputMode="numeric"
             onChange={(value) => onChange("capitalBaseFull", value)}
           />
           <CaseProfileInput
             label={derived.capitalBaseValuedLabel}
             value={profile.capitalBaseValued}
-            inputMode="decimal"
+            inputMode="numeric"
             onChange={(value) => onChange("capitalBaseValued", value)}
           />
           {isShareTransfer ? (
             <CaseProfileInput
               label="Nilai Saham Per Lembar"
               value={profile.shareValuePerShare}
-              inputMode="decimal"
+              inputMode="numeric"
               state={shareValuePerShareState}
               help={shareValuePerShareHelp}
               onChange={(value) => onChange("shareValuePerShare", value)}
@@ -8794,7 +8935,7 @@ function WaccBasisControl({
       <div className="wacc-basis-manual-row">
         <AssumptionInput
           label="Manual WACC reviewer"
-          value={manualWacc === null ? "" : formatInputNumber(manualWacc)}
+          value={manualWacc === null ? "" : formatRateInputNumber(manualWacc)}
           note="Mengisi nilai ini otomatis memilih basis Manual WACC. Kosongkan atau pilih basis lain untuk kembali ke kalkulasi sistem."
           onChange={onManualWaccChange}
         />
@@ -9021,11 +9162,12 @@ function WaccComparableTable({
                     <AssumptionInput
                       label={`Market cap ${index + 1}`}
                       value={assumptions[keys.marketCap]}
+                      inputMode="numeric"
                       onChange={(value) => onChange(keys.marketCap, value)}
                     />
                   </td>
                   <td>
-                    <AssumptionInput label={`Debt ${index + 1}`} value={assumptions[keys.debt]} onChange={(value) => onChange(keys.debt, value)} />
+                    <AssumptionInput label={`Debt ${index + 1}`} value={assumptions[keys.debt]} inputMode="numeric" onChange={(value) => onChange(keys.debt, value)} />
                   </td>
                   <td className="numeric-cell">{row?.unleveredBeta !== null && row?.unleveredBeta !== undefined ? formatNumber(row.unleveredBeta) : "Belum dihitung"}</td>
                 </tr>
@@ -9119,7 +9261,7 @@ function WaccCapitalStructureTable({
           <tr>
             <td>Hutang</td>
             <td>
-              <AssumptionInput label="Nilai pasar utang" value={debtMarketValue} onChange={(value) => onChange("waccDebtMarketValue", value)} />
+              <AssumptionInput label="Nilai pasar utang" value={debtMarketValue} inputMode="numeric" onChange={(value) => onChange("waccDebtMarketValue", value)} />
               {isDebtAuto ? <small className="auto-source-note">Auto Neraca: liabilitas lancar + liabilitas tidak lancar.</small> : null}
             </td>
             <td>
@@ -9131,7 +9273,7 @@ function WaccCapitalStructureTable({
           <tr>
             <td>Ekuitas</td>
             <td>
-              <AssumptionInput label="Nilai pasar ekuitas" value={equityMarketValue} onChange={(value) => onChange("waccEquityMarketValue", value)} />
+              <AssumptionInput label="Nilai pasar ekuitas" value={equityMarketValue} inputMode="numeric" onChange={(value) => onChange("waccEquityMarketValue", value)} />
               {isEquityAuto ? <small className="auto-source-note">Auto Neraca: book equity aktif.</small> : null}
             </td>
             <td>
@@ -9692,6 +9834,7 @@ function RequiredReturnOnNtaPanel({
           value={assumptions.requiredReturnAdditionalCapacity}
           suggestion={buildRequiredReturnInputSuggestion(suggestion.fields.requiredReturnAdditionalCapacity, "number")}
           note={buildSuggestionInputNote(assumptions.requiredReturnAdditionalCapacity, suggestion.fields.requiredReturnAdditionalCapacity)}
+          inputMode="numeric"
           onChange={(value) => onChange("requiredReturnAdditionalCapacity", value)}
           onApplySuggestion={(value) => onChange("requiredReturnAdditionalCapacity", value)}
         />
@@ -9858,7 +10001,7 @@ function AamAdjustmentTable({
                 <td>
                   <input
                     aria-label={`Penyesuaian ${line.label}`}
-                    inputMode="decimal"
+                    inputMode="numeric"
                     placeholder="0"
                     value={line.adjustmentInput}
                     onChange={(event) => onUpdate(line.id, { adjustment: event.target.value })}
@@ -10144,6 +10287,7 @@ function AssumptionInput({
   value,
   note,
   suggestion,
+  inputMode = "decimal",
   onChange,
   onApplySuggestion,
 }: {
@@ -10151,6 +10295,7 @@ function AssumptionInput({
   value: string;
   note?: string;
   suggestion?: OptionalDriverSuggestion;
+  inputMode?: "decimal" | "numeric";
   onChange: (value: string) => void;
   onApplySuggestion?: (value: string) => void;
 }) {
@@ -10177,7 +10322,7 @@ function AssumptionInput({
           </button>
         ) : null}
       </div>
-      <input id={inputId} inputMode="decimal" placeholder="Opsional" value={value} onChange={(event) => onChange(event.target.value)} />
+      <input id={inputId} inputMode={inputMode} placeholder="Opsional" value={value} onChange={(event) => onChange(event.target.value)} />
       {note ? <small className="auto-source-note">{note}</small> : null}
     </div>
   );
@@ -10204,7 +10349,7 @@ function formatOptionalDriverSuggestionInput(value: number, kind: OptionalDriver
     return "";
   }
 
-  return formatInputNumber(kind === "rate" ? value * 100 : value);
+  return kind === "rate" ? formatRateInputNumber(value * 100) : formatInputNumber(value);
 }
 
 function isOptionalDriverSuggestionApplied(currentValue: string, suggestionValue: string, kind: OptionalDriverSuggestionKind): boolean {
@@ -10223,7 +10368,7 @@ function isOptionalDriverSuggestionApplied(currentValue: string, suggestionValue
 }
 
 function formatDays(value: number): string {
-  return `${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 2 }).format(value)} hari`;
+  return `${formatInputNumber(value)} hari`;
 }
 
 function formatCaseProfileValue(key: keyof CaseProfile, value: string): string {
@@ -10232,7 +10377,7 @@ function formatCaseProfileValue(key: keyof CaseProfile, value: string): string {
   }
 
   if (key === "capitalBaseFull" || key === "capitalBaseValued" || key === "shareValuePerShare") {
-    return formatEditableNumber(value);
+    return formatEditableInteger(value);
   }
 
   if (key === "transactionYear") {
@@ -10275,7 +10420,7 @@ function formatAutoCapitalValue(value: number): string {
 }
 
 function formatAutoCapitalWeight(value: number | undefined): string {
-  return typeof value === "number" && Number.isFinite(value) ? formatInputNumber(value) : "";
+  return typeof value === "number" && Number.isFinite(value) ? formatRateInputNumber(value) : "";
 }
 
 function buildAutoCapitalWeightNote(currentValue: string, value: number | undefined): string | undefined {
@@ -10307,13 +10452,17 @@ function resolveAutoRequiredReturnOnNtaValues(
 
     return {
       ...nextAssumptions,
-      [key]: formatInputNumber(field.value),
+      [key]: preciseAssumptionKeys.has(key) ? formatRateInputNumber(field.value) : formatInputNumber(field.value),
     };
   }, assumptions);
 }
 
 function formatRequiredReturnSuggestionInput(field: RequiredReturnOnNtaSuggestionField | undefined): string {
-  return field?.canAutoApply && field.value !== null ? formatInputNumber(field.value) : "";
+  if (!field?.canAutoApply || field.value === null) {
+    return "";
+  }
+
+  return preciseAssumptionKeys.has(field.key) ? formatRateInputNumber(field.value) : formatInputNumber(field.value);
 }
 
 function buildRequiredReturnInputSuggestion(
@@ -10382,10 +10531,19 @@ function applyIdxComparableToSlot(
   return {
     ...assumptions,
     [slot.name]: formatIdxComparableLabel(company),
-    [slot.beta]: company.betaLevered !== null ? formatInputNumber(company.betaLevered) : "",
+    [slot.beta]: company.betaLevered !== null ? formatRateInputNumber(company.betaLevered) : "",
     [slot.marketCap]: company.marketCap !== null ? formatInputNumber(company.marketCap) : "",
     [slot.debt]: company.debt !== null ? formatInputNumber(company.debt) : "",
   };
+}
+
+function formatAssumptionInput(key: keyof AssumptionState, value: string): string {
+  return preciseAssumptionKeys.has(key) ? formatEditableNumber(value) : formatEditableInteger(value);
+}
+
+function isNumericAssumptionKey(key: keyof AssumptionState): boolean {
+  const keyName = String(key);
+  return !keyName.endsWith("Source") && !keyName.endsWith("OverrideReason") && !keyName.endsWith("Name");
 }
 
 function markManualAssumptionSource(assumptions: AssumptionState, key: keyof AssumptionState): AssumptionState {
@@ -10683,7 +10841,7 @@ function FixedAssetSectionTable({
                         {isManualBeginning ? (
                           <input
                             aria-label={`${title} ${period.label || "Periode"} Saldo awal`}
-                            inputMode="decimal"
+                            inputMode="numeric"
                             value={values[beginningKey] ?? ""}
                             onChange={(event) => onUpdateValue(row.id, period.id, beginningKey, event.target.value)}
                             placeholder="0"
@@ -10695,7 +10853,7 @@ function FixedAssetSectionTable({
                       <td className={getPeriodGroupClassName(periodIndex, "middle")}>
                         <input
                           aria-label={`${title} ${period.label || "Periode"} Penambahan`}
-                          inputMode="decimal"
+                          inputMode="numeric"
                           value={values[additionsKey] ?? ""}
                           onChange={(event) => onUpdateValue(row.id, period.id, additionsKey, event.target.value)}
                           placeholder="0"

@@ -1,5 +1,5 @@
 import { aggregateForPeriod, parseInputNumber, type FixedAssetScheduleSummary, type MappedRow, type Period } from "./case-model";
-import { formatEditableNumber } from "./format";
+import { formatEditableInteger } from "./format";
 import type { AccountCategory } from "./types";
 
 export type IncomeStatementLineKind = "input" | "subtotal" | "section" | "derived";
@@ -32,7 +32,7 @@ export function shouldDefaultNegativeIncomeCategory(category: AccountCategory): 
 }
 
 export function formatIncomeStatementInputValue(category: AccountCategory, statement: string, previousValue: string, nextValue: string): string {
-  const formattedValue = formatEditableNumber(nextValue);
+  const formattedValue = formatEditableInteger(nextValue);
 
   if (!shouldDefaultNegativeIncomeValue(category, statement, previousValue, formattedValue)) {
     return formattedValue;

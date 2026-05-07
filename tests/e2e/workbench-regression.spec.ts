@@ -145,7 +145,8 @@ test("period workflow, scoped categories, and display-only balance sheet classif
   await expect(balanceRow.getByLabel("Sumber laporan")).toHaveCount(0);
   await expect(balanceRow.getByLabel("Klasifikasi neraca").locator("option", { hasText: "Ekuitas" })).toHaveCount(1);
   await balanceRow.getByLabel("Nama akun").fill("Kas");
-  await balanceRow.getByLabel("Tahun Y amount").fill("1000");
+  await balanceRow.getByLabel("Tahun Y amount").fill("1000,75");
+  await expect(balanceRow.getByLabel("Tahun Y amount")).toHaveValue("1.000");
   await expect(balanceRow).toContainText("Saran: Kas di tangan");
   await expect(balanceRow.getByLabel("Kategori utama").locator("option", { hasText: "Pendapatan usaha" })).toHaveCount(0);
 
@@ -155,6 +156,13 @@ test("period workflow, scoped categories, and display-only balance sheet classif
   await expect(page.getByTestId("balance-sheet-position-table")).toContainText("Total Liabilitas + Ekuitas");
   await expect(page.getByTestId("balance-sheet-position-table")).toContainText("Cek Kesesuaian");
   await expect.poll(() => getTotalAssetsText(page)).toBe(totalBefore);
+  await balanceRow.getByTitle("Hapus akun").click();
+  await expect(page.getByRole("dialog", { name: "Hapus akun?" })).toBeVisible();
+  await page.getByRole("dialog").getByRole("button", { name: "Batal" }).click();
+  await expect(page.getByTestId("balance-account-table-row")).toHaveCount(1);
+  await balanceRow.getByTitle("Hapus akun").click();
+  await page.getByRole("dialog").getByRole("button", { name: "Hapus akun" }).click();
+  await expect(page.getByTestId("balance-account-table-row")).toHaveCount(0);
 
   await openWorkflowTab(page, "Laba Rugi");
   const incomePanel = page.locator("#income");
@@ -177,6 +185,14 @@ test("period workflow, scoped categories, and display-only balance sheet classif
 
   await page.getByRole("button", { name: "Tambah akun laba rugi" }).last().click();
   await expect(page.getByTestId("income-account-table-row")).toHaveCount(2);
+  await page.locator(".toolbar").getByRole("button", { name: "Reset" }).click();
+  await expect(page.getByRole("dialog", { name: "Reset seluruh model?" })).toBeVisible();
+  await page.getByRole("dialog").getByRole("button", { name: "Batal" }).click();
+  await expect(page.getByTestId("income-account-table-row")).toHaveCount(2);
+  await page.locator(".toolbar").getByRole("button", { name: "Reset" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Reset" }).click();
+  await expect(page.getByTestId("income-account-table-row")).toHaveCount(0);
+  await expect(page.locator(".toolbar").getByRole("button", { name: "Reset" })).toBeDisabled();
 });
 
 test("fixed asset schedule remains empty until user adds a class and then rolls forward values", async ({ page }) => {
@@ -530,7 +546,7 @@ test("DLOM and tax simulation render workbook-derived scenario layer after loadi
   await openWorkflowTab(page, "Simulasi Potensi Pajak");
   await expect(page.getByText("Tahun Cut Off").locator("..")).toContainText("2021");
   await expect(page.getByText("Tahun Pajak Legal")).toHaveCount(0);
-  await expect(page.getByText("Nilai pengalihan dari Data Awal").locator("..")).toContainText(/Rp\s*1\.600\.000\.000,00/);
+  await expect(page.getByText("Nilai pengalihan dari Data Awal").locator("..")).toContainText(/Rp\s*1\.600\.000\.000/);
   await expect(page.getByText("Nilai pengalihan dilaporkan (override)")).not.toBeVisible();
   await page.getByText("Advanced override nilai pengalihan").click();
   await expect(page.getByLabel("Nilai pengalihan dilaporkan (override)")).toHaveValue("");
@@ -576,16 +592,16 @@ test("share-transfer input keeps shares as quantity and passes derived rupiah va
   await expect(page.getByText("Nilai Saham yang Dinilai").locator("..")).toContainText("Data Tidak Valid");
 
   await page.getByLabel("Nilai Saham Per Lembar").fill("1000000");
-  await expect(page.getByTestId("case-profile-panel")).toContainText(/Rp\s*1\.610\.000\.000,00/);
+  await expect(page.getByTestId("case-profile-panel")).toContainText(/Rp\s*1\.610\.000\.000/);
   await expect(page.getByTestId("case-profile-panel")).toContainText("30,49%");
 
   await openWorkflowTab(page, "Simulasi Potensi Pajak");
   await expect(page.getByText("Nilai pengalihan dilaporkan (override)")).not.toBeVisible();
-  await expect(page.getByText("Nilai pengalihan dari Data Awal").locator("..")).toContainText(/Rp\s*1\.610\.000\.000,00/);
+  await expect(page.getByText("Nilai pengalihan dari Data Awal").locator("..")).toContainText(/Rp\s*1\.610\.000\.000/);
   await page.getByText("Advanced override nilai pengalihan").click();
   await expect(page.getByLabel("Nilai pengalihan dilaporkan (override)")).toHaveValue("");
   await expect(page.getByText(/Kosong berarti sistem memakai Data Awal:/)).toBeVisible();
-  await expect(page.getByTestId("tax-simulation-table")).toContainText(/Rp\s*1\.610\.000\.000,00/);
+  await expect(page.getByTestId("tax-simulation-table")).toContainText(/Rp\s*1\.610\.000\.000/);
   await expect(page.getByTestId("tax-simulation-table")).not.toContainText("Rp1.610,00");
 });
 

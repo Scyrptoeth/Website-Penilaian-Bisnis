@@ -1,4 +1,5 @@
 import type { RequiredReturnOnNtaCalculation, WaccCalculation } from "./assumption-calculators";
+import { formatInputNumber } from "./format";
 import type { FormulaTrace, FinancialStatementSnapshot } from "./types";
 import { valuationDriverGovernancePolicy } from "./valuation-driver-governance-policy";
 
@@ -183,7 +184,5 @@ function formatPercentText(value: number): string {
 }
 
 function formatNumberText(value: number): string {
-  return new Intl.NumberFormat("id-ID", {
-    maximumFractionDigits: 3,
-  }).format(value);
+  return formatInputNumber(value);
 }

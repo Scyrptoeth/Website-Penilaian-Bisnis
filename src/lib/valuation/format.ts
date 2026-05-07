@@ -2,7 +2,8 @@ export function formatIdr(value: number): string {
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",
-    maximumFractionDigits: 2,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
   }).format(value);
 }
 
@@ -26,8 +27,18 @@ export function formatScore(value: number): string {
 }
 
 export function formatInputNumber(value: number): string {
+  return formatIntegerNumber(value);
+}
+
+export function formatRateInputNumber(value: number): string {
   return new Intl.NumberFormat("id-ID", {
     maximumFractionDigits: 8,
+  }).format(value);
+}
+
+export function formatIntegerNumber(value: number): string {
+  return new Intl.NumberFormat("id-ID", {
+    maximumFractionDigits: 0,
   }).format(value);
 }
 
@@ -53,6 +64,31 @@ export function formatEditableNumber(input: string): string {
   }
 
   return `${sign}${groupedInteger || "0"}${hasDecimalSeparator ? `,${decimalDigits}` : ""}`;
+}
+
+export function formatEditableInteger(input: string): string {
+  const value = input.trim();
+
+  if (!value) {
+    return "";
+  }
+
+  const isNegative = value.startsWith("-");
+  const withoutCurrency = value.replace(/\s/g, "").replace(/rp/gi, "");
+  const normalizedSign = withoutCurrency.replace(/-/g, "");
+  const commaIndex = normalizedSign.indexOf(",");
+  const dotCount = normalizedSign.split(".").length - 1;
+  const integerCandidate =
+    commaIndex >= 0
+      ? normalizedSign.slice(0, commaIndex)
+      : dotCount === 1 && normalizedSign.split(".")[1]?.length !== 3
+        ? normalizedSign.split(".")[0]
+        : normalizedSign;
+  const integerDigits = integerCandidate.replace(/\D/g, "");
+  const groupedInteger = integerDigits ? formatIntegerNumber(Number(integerDigits)) : "";
+  const sign = isNegative ? "-" : "";
+
+  return groupedInteger ? `${sign}${groupedInteger}` : sign;
 }
 
 export function formatDisplayDate(value: string): string {
