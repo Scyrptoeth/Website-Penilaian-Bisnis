@@ -897,6 +897,7 @@ test("exports method-scoped XLSX workbooks", async ({ page }) => {
   expect(bytes[2]).toBe(0x03);
   expect(bytes[3]).toBe(0x04);
   expect(bytes.length).toBeGreaterThan(10_000);
+  expect(bytes.toString("utf8")).toContain("<f>");
 });
 
 test("company sector can be manually overridden after KLU suggestion", async ({ page }) => {

@@ -19,7 +19,7 @@ import { buildSectionAnalysis } from "../../src/lib/valuation/section-analysis";
 import { buildSampleTaxSimulationState, calculateTaxSimulation } from "../../src/lib/valuation/tax-simulation";
 import { buildValidationChecks } from "../../src/lib/valuation/validation-checks";
 import { buildWorkbenchReadiness } from "../../src/lib/valuation/readiness";
-import { buildValuationXlsxWorkbook, createValuationXlsxFile } from "../../src/lib/valuation/xlsx-export";
+import { buildValuationXlsxWorkbook, createValuationXlsxFile, type XlsxCellValue } from "../../src/lib/valuation/xlsx-export";
 import type { ValuationPdfExportInput } from "../../src/lib/valuation/pdf-export";
 
 const exportedAt = new Date("2026-05-07T10:00:00.000Z");
@@ -30,12 +30,14 @@ describe("valuation XLSX export", () => {
     const sheetNames = workbook.sheets.map((sheet) => sheet.name);
 
     assert.equal(workbook.scope.id, "aam");
+    assert.ok(sheetNames.includes("Calculation Model"));
     assert.ok(sheetNames.includes("AAM Adjustments"));
     assert.ok(sheetNames.includes("Formula Trace"));
     assert.equal(sheetNames.includes("EEM Sensitivity"), false);
     assert.equal(sheetNames.includes("DCF Sensitivity"), false);
     assert.equal(sheetNames.includes("DCF Forecast"), false);
     assert.equal(workbook.sheets.find((sheet) => sheet.name === "Formula Trace")?.rows.slice(1).every((row) => row[0] === "AAM"), true);
+    assert.ok(countFormulaCells(workbook.sheets.flatMap((sheet) => sheet.rows)) > 10);
   });
 
   it("builds DCF workbook sheets with active scenario metadata and scoped traces", () => {
@@ -50,6 +52,7 @@ describe("valuation XLSX export", () => {
     assert.equal(sheetNames.includes("EEM Sensitivity"), false);
     assert.ok(summaryRows.some((row) => row[0] === "Active DCF Basis" && row[1] === "DCF - skenario dasar"));
     assert.equal(workbook.sheets.find((sheet) => sheet.name === "Formula Trace")?.rows.slice(1).every((row) => row[0] === "DCF"), true);
+    assert.ok(countFormulaCells(workbook.sheets.find((sheet) => sheet.name === "DCF Forecast")?.rows ?? []) >= 35);
   });
 
   it("encodes a valid OOXML zip package with a scoped XLSX filename", () => {
@@ -61,8 +64,13 @@ describe("valuation XLSX export", () => {
     assert.equal(file.bytes[2], 0x03);
     assert.equal(file.bytes[3], 0x04);
     assert.ok(file.bytes.length > 10_000);
+    assert.ok(new TextDecoder().decode(file.bytes).includes("<f>"));
   });
 });
+
+function countFormulaCells(rows: XlsxCellValue[][]): number {
+  return rows.flat().filter((cell) => Boolean(cell && typeof cell === "object" && "formula" in cell)).length;
+}
 
 function buildSampleExportInput(): ValuationPdfExportInput {
   const periods = buildSamplePeriods();

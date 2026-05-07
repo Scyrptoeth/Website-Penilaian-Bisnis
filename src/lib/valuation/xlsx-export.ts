@@ -15,7 +15,14 @@ import type { ValuationPdfExportInput } from "./pdf-export";
 
 export type ValuationXlsxExportScopeId = ValuationExportScopeId;
 
-export type XlsxCellValue = string | number | boolean | null | undefined;
+export type XlsxCellPrimitive = string | number | boolean | null | undefined;
+
+export type XlsxFormulaCell = {
+  formula: string;
+  value?: XlsxCellPrimitive;
+};
+
+export type XlsxCellValue = XlsxCellPrimitive | XlsxFormulaCell;
 
 export type XlsxSheet = {
   name: string;
@@ -38,9 +45,22 @@ type ReportMetric = {
   label: string;
   value: XlsxCellValue;
   note?: string;
+  sourceType?: "Input" | "Formula" | "System";
 };
 
 const xlsxMimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+const calculationModelSheetName = "Calculation Model";
+const methodSummarySheetName = "Method Summary";
+const driversSheetName = "Drivers";
+const sourceAccountsSheetName = "Source Accounts";
+const fixedAssetsSheetName = "Fixed Assets";
+const aamAdjustmentsSheetName = "AAM Adjustments";
+const eemSensitivitySheetName = "EEM Sensitivity";
+const dcfSensitivitySheetName = "DCF Sensitivity";
+const dcfForecastSheetName = "DCF Forecast";
+const formulaTraceSheetName = "Formula Trace";
+const taxSimulationSheetName = "Tax Simulation";
 
 export function createValuationXlsxFile(
   input: ValuationPdfExportInput,
@@ -78,21 +98,26 @@ export function buildValuationXlsxWorkbook(
   const scopedTaxRows = buildScopedTaxRows(input.taxSimulationResult.rows, input.taxSimulationResult.baselineRows, scope);
   const periods = input.sectionAnalysis.periods.length > 0 ? input.sectionAnalysis.periods : input.periods;
   const baseResults = input.baseResults ?? input.results;
+  const calculationModel = buildCalculationModelRows(input, scope);
   const sheets: XlsxSheet[] = [
     {
       name: "Summary",
       rows: buildSummaryRows(input, scope, exportedAt),
     },
     {
-      name: "Method Summary",
-      rows: buildMethodSummaryRows(methodOutputs, scopedTaxRows),
+      name: methodSummarySheetName,
+      rows: buildMethodSummaryRows(methodOutputs, scopedTaxRows, calculationModel.refs),
     },
     {
-      name: "Drivers",
-      rows: buildDriverRows(input, scope),
+      name: driversSheetName,
+      rows: buildDriverRows(input, scope, calculationModel.refs),
     },
     {
-      name: "Source Accounts",
+      name: calculationModelSheetName,
+      rows: calculationModel.rows,
+    },
+    {
+      name: sourceAccountsSheetName,
       rows: [
         [
           "Statement",
@@ -122,7 +147,7 @@ export function buildValuationXlsxWorkbook(
 
   if (input.fixedAssetSchedule.hasInput) {
     sheets.push({
-      name: "Fixed Assets",
+      name: fixedAssetsSheetName,
       rows: buildFixedAssetRows(input),
     });
   }
@@ -152,48 +177,36 @@ export function buildValuationXlsxWorkbook(
 
   if (scope.methods.includes("AAM")) {
     sheets.push({
-      name: "AAM Adjustments",
+      name: aamAdjustmentsSheetName,
       rows: buildAamAdjustmentRows(input),
     });
   }
 
   if (scope.methods.includes("EEM")) {
     sheets.push({
-      name: "EEM Sensitivity",
-      rows: [
-        ["Scenario", "Equity Value 100%", "Audit Note"],
-        [
-          "EEM - skenario dasar",
-          input.results.eem.equityValue,
-          "NTA + excess earnings yang dikapitalisasi + aset non-operasional - utang berbunga.",
-        ],
-        [
-          "EEM utang pajak debt-like",
-          input.results.sensitivities.eemTaxPayableDebtLike.equityValue,
-          "Utang pajak diperlakukan sebagai debt-like sensitivity.",
-        ],
-      ],
+      name: eemSensitivitySheetName,
+      rows: buildEemSensitivityRows(input, calculationModel.refs),
     });
   }
 
   if (scope.methods.includes("DCF")) {
     sheets.push({
-      name: "DCF Sensitivity",
-      rows: buildDcfSensitivityRows(input, baseResults),
+      name: dcfSensitivitySheetName,
+      rows: buildDcfSensitivityRows(input, baseResults, calculationModel.refs),
     });
     sheets.push({
-      name: "DCF Forecast",
+      name: dcfForecastSheetName,
       rows: buildDcfForecastRows(input),
     });
   }
 
   sheets.push({
-    name: "Formula Trace",
-    rows: buildFormulaTraceRows(methodOutputs),
+    name: formulaTraceSheetName,
+    rows: buildFormulaTraceRows(methodOutputs, calculationModel.refs),
   });
 
   sheets.push({
-    name: "Tax Simulation",
+    name: taxSimulationSheetName,
     rows: buildTaxSimulationRows(scopedTaxRows),
   });
 
@@ -272,56 +285,152 @@ function buildSummaryRows(input: ValuationPdfExportInput, scope: ValuationExport
   ];
 }
 
-function buildMethodSummaryRows(methodOutputs: MethodOutput[], taxRows: TaxSimulationMethodRow[]): XlsxCellValue[][] {
+type CalculationModelBuild = {
+  rows: XlsxCellValue[][];
+  refs: Record<string, string>;
+};
+
+function buildCalculationModelRows(input: ValuationPdfExportInput, scope: ValuationExportScope): CalculationModelBuild {
+  const rows: XlsxCellValue[][] = [["Area", "Metric", "Value", "Source Type", "Formula / Source"]];
+  const refs: Record<string, string> = {};
+  const add = (key: string, area: string, metric: string, value: XlsxCellValue, sourceType: "Input" | "Formula" | "System", source: string) => {
+    rows.push([area, metric, value, sourceType, source]);
+    refs[key] = sheetCell(calculationModelSheetName, `C${rows.length}`);
+  };
+  const fixedAssetScheduleRowCount = input.fixedAssetSchedule.rows.length * input.periods.length;
+  const fixedAssetFirstRow = 2;
+  const fixedAssetLastRow = Math.max(fixedAssetFirstRow, fixedAssetFirstRow + fixedAssetScheduleRowCount - 1);
+  const aamLineCount = input.aamAdjustmentModel.assetLines.length + input.aamAdjustmentModel.liabilityLines.length;
+  const aamFirstRow = 2;
+  const aamLastRow = Math.max(aamFirstRow, aamFirstRow + aamLineCount - 1);
+
+  add("taxRate", "Input", "Tax rate", input.snapshot.taxRate, "Input", input.resolvedAssumptions.taxRateSource || input.assumptions.taxRateSource);
+  add("wacc", "Input", "WACC", input.snapshot.wacc, "Input", input.activeWaccBasisLabel || input.resolvedAssumptions.waccSource || input.assumptions.waccSource);
+  add("terminalGrowth", "Input", "Terminal growth", input.snapshot.terminalGrowth, "Input", input.resolvedAssumptions.terminalGrowthSource || input.assumptions.terminalGrowthSource);
+  add("terminalGrowthDownside", "Input", "Terminal growth downside", input.snapshot.terminalGrowthDownside ?? input.snapshot.terminalGrowth, "Input", "DCF downside scenario input.");
+  add("terminalGrowthUpside", "Input", "Terminal growth upside", input.snapshot.terminalGrowthUpside ?? input.snapshot.terminalGrowth, "Input", "DCF upside scenario input.");
+  add("dcfTerminalGrowth", "Input", "Active DCF terminal growth", resolveActiveDcfTerminalGrowth(input), "Input", input.activeDcfBasisSummary || "DCF active basis.");
+  add("revenueGrowth", "Input", "Revenue growth", input.snapshot.revenueGrowth, "Input", "DCF forecast driver.");
+  add("requiredReturnOnNta", "Input", "Required return on NTA", input.snapshot.requiredReturnOnNta, "Input", input.resolvedAssumptions.requiredReturnOnNtaSource || input.assumptions.requiredReturnOnNtaSource);
+  add("revenueBase", "Source", "Revenue active period", input.snapshot.revenue, "Input", "Mapped source accounts.");
+  add("cogsMargin", "Source", "COGS margin", input.snapshot.cogsMargin, "System", "Derived from source accounts.");
+  add("operatingExpenseMargin", "Source", "Operating expense margin", input.snapshot.gaMargin, "System", "Derived from source accounts.");
+  add("depreciationMargin", "Source", "Depreciation margin", input.snapshot.depreciationMargin, "System", "Derived from source accounts and fixed asset schedule.");
+  add("ebit", "Source", "EBIT", input.snapshot.ebit, "Formula", "Revenue + COGS + selling expense + G&A + depreciation.");
+  add("accountReceivable", "Source", "Account receivable", input.snapshot.accountReceivable, "Input", "Mapped source accounts.");
+  add("inventory", "Source", "Inventory", input.snapshot.inventory, "Input", "Mapped source accounts.");
+  add("accountPayable", "Source", "Account payable", input.snapshot.accountPayable, "Input", "Mapped source accounts.");
+  add("otherPayable", "Source", "Other payable", input.snapshot.otherPayable, "Input", "Mapped source accounts.");
+  add("taxPayable", "Source", "Tax payable", input.snapshot.taxPayable, "Input", "Mapped source accounts.");
+  add("fixedAssetsNet", "Source", "Fixed assets net", input.snapshot.fixedAssetsNet, "Formula", input.fixedAssetSchedule.hasInput ? `SUM(${sheetCell(fixedAssetsSheetName, `I${fixedAssetFirstRow}:I${fixedAssetLastRow}`)}) for active period support.` : "Mapped source accounts.");
+  add("nonOperatingAssets", "Source", "Non-operating assets", input.results.nonOperatingAssets, "Formula", "Cash/deposit, marketable securities, employee receivable, and non-operating asset bridge.");
+  add("interestBearingDebt", "Source", "Interest-bearing debt", input.results.interestBearingDebt, "Formula", "Short-term and long-term interest-bearing debt.");
+
+  if (scope.methods.includes("AAM")) {
+    add("aamHistoricalAssets", "AAM", "Historical assets", formulaCell(`SUMIF(${sheetCell(aamAdjustmentsSheetName, `A${aamFirstRow}:A${aamLastRow}`)},"Aset",${sheetCell(aamAdjustmentsSheetName, `E${aamFirstRow}:E${aamLastRow}`)})`, input.aamAdjustmentModel.historicalAssetTotal), "Formula", "SUMIF AAM adjustment asset rows.");
+    add("aamAssetAdjustment", "AAM", "Asset adjustment", formulaCell(`SUMIF(${sheetCell(aamAdjustmentsSheetName, `A${aamFirstRow}:A${aamLastRow}`)},"Aset",${sheetCell(aamAdjustmentsSheetName, `F${aamFirstRow}:F${aamLastRow}`)})`, input.aamAdjustmentModel.assetAdjustmentTotal), "Formula", "SUMIF AAM asset adjustment rows.");
+    add("aamAdjustedAssets", "AAM", "Adjusted assets", formulaCell(`${refs.aamHistoricalAssets}+${refs.aamAssetAdjustment}`, input.aamAdjustmentModel.adjustedAssetTotal), "Formula", "Historical assets + asset adjustment.");
+    add("aamHistoricalLiabilities", "AAM", "Historical liabilities", formulaCell(`SUMIF(${sheetCell(aamAdjustmentsSheetName, `A${aamFirstRow}:A${aamLastRow}`)},"Liabilitas",${sheetCell(aamAdjustmentsSheetName, `E${aamFirstRow}:E${aamLastRow}`)})`, input.aamAdjustmentModel.historicalLiabilityTotal), "Formula", "SUMIF AAM liability rows.");
+    add("aamLiabilityAdjustment", "AAM", "Liability adjustment", formulaCell(`SUMIF(${sheetCell(aamAdjustmentsSheetName, `A${aamFirstRow}:A${aamLastRow}`)},"Liabilitas",${sheetCell(aamAdjustmentsSheetName, `F${aamFirstRow}:F${aamLastRow}`)})`, input.aamAdjustmentModel.liabilityAdjustmentTotal), "Formula", "SUMIF AAM liability adjustment rows.");
+    add("aamAdjustedLiabilities", "AAM", "Adjusted liabilities", formulaCell(`${refs.aamHistoricalLiabilities}+${refs.aamLiabilityAdjustment}`, input.aamAdjustmentModel.adjustedLiabilityTotal), "Formula", "Historical liabilities + liability adjustment.");
+    add("aamEquityValue", "AAM", "Equity value 100%", formulaCell(`${refs.aamAdjustedAssets}-${refs.aamAdjustedLiabilities}`, input.results.aam.equityValue), "Formula", "Adjusted assets - adjusted liabilities.");
+  }
+
+  if (scope.methods.includes("EEM")) {
+    add("eemOperatingCurrentAssets", "EEM", "Operating current assets", formulaCell(`${refs.accountReceivable}+${refs.inventory}`, input.snapshot.accountReceivable + input.snapshot.inventory), "Formula", "AR + inventory.");
+    add("eemOperatingCurrentLiabilities", "EEM", "Operating current liabilities", formulaCell(`${refs.accountPayable}+${refs.otherPayable}`, input.snapshot.accountPayable + input.snapshot.otherPayable), "Formula", "AP + other payable.");
+    add("eemOperatingNwc", "EEM", "Operating NWC", formulaCell(`${refs.eemOperatingCurrentAssets}-${refs.eemOperatingCurrentLiabilities}`, input.results.operatingWorkingCapital), "Formula", "Operating current assets - operating current liabilities.");
+    add("eemNta", "EEM", "Net operating tangible assets", formulaCell(`${refs.fixedAssetsNet}+${refs.eemOperatingNwc}`, input.snapshot.fixedAssetsNet + input.results.operatingWorkingCapital), "Formula", "Fixed assets net + operating NWC.");
+    add("eemNoplat", "EEM", "NOPLAT", formulaCell(`${refs.ebit}*(1-${refs.taxRate})`, input.results.normalizedNoplat), "Formula", "EBIT x (1 - tax rate).");
+    add("eemRequiredReturn", "EEM", "Required return charge", formulaCell(`${refs.eemNta}*${refs.requiredReturnOnNta}`, (input.snapshot.fixedAssetsNet + input.results.operatingWorkingCapital) * input.snapshot.requiredReturnOnNta), "Formula", "NTA x required return on NTA.");
+    add("eemExcessEarnings", "EEM", "Excess earnings", formulaCell(`${refs.eemNoplat}-${refs.eemRequiredReturn}`, input.results.normalizedNoplat - (input.snapshot.fixedAssetsNet + input.results.operatingWorkingCapital) * input.snapshot.requiredReturnOnNta), "Formula", "NOPLAT - required return charge.");
+    add("eemCapitalizationRate", "EEM", "Capitalization rate", formulaCell(`${refs.wacc}-${refs.terminalGrowth}`, input.snapshot.wacc - input.snapshot.terminalGrowth), "Formula", "WACC - terminal growth.");
+    add("eemCapitalizedExcess", "EEM", "Capitalized excess earnings", formulaCell(`IF(${refs.eemCapitalizationRate}>0,${refs.eemExcessEarnings}/${refs.eemCapitalizationRate},0)`, input.results.eem.equityValue - (input.snapshot.fixedAssetsNet + input.results.operatingWorkingCapital) - input.results.nonOperatingAssets + input.results.interestBearingDebt), "Formula", "Excess earnings / capitalization rate.");
+    add("eemEnterpriseValue", "EEM", "Enterprise value", formulaCell(`${refs.eemNta}+${refs.eemCapitalizedExcess}`, input.results.eem.equityValue - input.results.nonOperatingAssets + input.results.interestBearingDebt), "Formula", "NTA + capitalized excess earnings.");
+    add("eemEquityValue", "EEM", "Equity value 100%", formulaCell(`${refs.eemEnterpriseValue}+${refs.nonOperatingAssets}-${refs.interestBearingDebt}`, input.results.eem.equityValue), "Formula", "Enterprise value + non-operating assets - interest-bearing debt.");
+    add("eemTaxPayableDebtLike", "EEM", "Equity value tax payable debt-like", formulaCell(`${refs.eemEquityValue}-${refs.taxPayable}`, input.results.sensitivities.eemTaxPayableDebtLike.equityValue), "Formula", "EEM equity value - tax payable.");
+  }
+
+  if (scope.methods.includes("DCF")) {
+    const forecastLength = input.results.dcf.forecast.length;
+    const forecastFirstRow = 2;
+    const forecastLastRow = forecastFirstRow + forecastLength - 1;
+    const activeDebtLikeTaxPayable = input.activeDcfBasis === "taxPayableDebtLike" ? input.snapshot.taxPayable : 0;
+
+    add("dcfExplicitPv", "DCF", "PV explicit FCFF", formulaCell(`SUM(${sheetCell(dcfForecastSheetName, `N${forecastFirstRow}:N${forecastLastRow}`)})`, input.results.dcf.forecast.reduce((sum, row) => sum + row.presentValue, 0)), "Formula", "Sum of projected FCFF present values.");
+    add("dcfFinalFcff", "DCF", "Final projected FCFF", formulaCell(sheetCell(dcfForecastSheetName, `L${forecastLastRow}`), input.results.dcf.forecast.at(-1)?.freeCashFlow ?? 0), "Formula", "Last forecast year FCFF.");
+    add("dcfTerminalValue", "DCF", "Terminal value", formulaCell(`IF(${refs.wacc}-${refs.dcfTerminalGrowth}>0,${refs.dcfFinalFcff}*(1+${refs.dcfTerminalGrowth})/(${refs.wacc}-${refs.dcfTerminalGrowth}),0)`, calculateTerminalValue(input.results.dcf.equityValue, input.results.nonOperatingAssets, input.results.interestBearingDebt, activeDebtLikeTaxPayable, input.results.dcf.forecast.reduce((sum, row) => sum + row.presentValue, 0), input.snapshot.wacc, forecastLength)), "Formula", "Final FCFF x (1 + active terminal growth) / (WACC - active terminal growth).");
+    add("dcfTerminalPv", "DCF", "PV terminal value", formulaCell(`${refs.dcfTerminalValue}/(1+${refs.wacc})^${forecastLength}`, calculateTerminalValue(input.results.dcf.equityValue, input.results.nonOperatingAssets, input.results.interestBearingDebt, activeDebtLikeTaxPayable, input.results.dcf.forecast.reduce((sum, row) => sum + row.presentValue, 0), input.snapshot.wacc, forecastLength) / Math.pow(1 + input.snapshot.wacc, forecastLength)), "Formula", "Terminal value discounted to present value.");
+    add("dcfEnterpriseValue", "DCF", "Enterprise value", formulaCell(`${refs.dcfExplicitPv}+${refs.dcfTerminalPv}`, input.results.dcf.equityValue - input.results.nonOperatingAssets + input.results.interestBearingDebt + activeDebtLikeTaxPayable), "Formula", "PV explicit FCFF + PV terminal value.");
+    add("dcfDebtLikeTaxPayable", "DCF", "Debt-like tax payable active", activeDebtLikeTaxPayable, "System", "Applied only when active DCF basis is tax payable debt-like.");
+    add("dcfEquityValue", "DCF", "Equity value 100%", formulaCell(`${refs.dcfEnterpriseValue}+${refs.nonOperatingAssets}-${refs.interestBearingDebt}-${refs.dcfDebtLikeTaxPayable}`, input.results.dcf.equityValue), "Formula", "Enterprise value + non-operating assets - debt - active debt-like tax payable.");
+    add("dcfTerminalDownsideValue", "DCF", "DCF terminal downside value", formulaCell(`${refs.dcfExplicitPv}+(IF(${refs.wacc}-${refs.terminalGrowthDownside}>0,${refs.dcfFinalFcff}*(1+${refs.terminalGrowthDownside})/(${refs.wacc}-${refs.terminalGrowthDownside}),0)/(1+${refs.wacc})^${forecastLength})+${refs.nonOperatingAssets}-${refs.interestBearingDebt}`, input.baseResults?.sensitivities.dcfTerminalDownside.equityValue ?? input.results.sensitivities.dcfTerminalDownside.equityValue), "Formula", "Active forecast with downside terminal growth.");
+    add("dcfTerminalUpsideValue", "DCF", "DCF terminal upside value", formulaCell(`${refs.dcfExplicitPv}+(IF(${refs.wacc}-${refs.terminalGrowthUpside}>0,${refs.dcfFinalFcff}*(1+${refs.terminalGrowthUpside})/(${refs.wacc}-${refs.terminalGrowthUpside}),0)/(1+${refs.wacc})^${forecastLength})+${refs.nonOperatingAssets}-${refs.interestBearingDebt}`, input.baseResults?.sensitivities.dcfTerminalUpside.equityValue ?? input.results.sensitivities.dcfTerminalUpside.equityValue), "Formula", "Active forecast with upside terminal growth.");
+  }
+
+  return { rows, refs };
+}
+
+function buildMethodSummaryRows(
+  methodOutputs: MethodOutput[],
+  taxRows: TaxSimulationMethodRow[],
+  refs: Record<string, string>,
+): XlsxCellValue[][] {
   return [
-    ["Method", "Equity Value 100%", "Transferred Interest Value", "Potential Tax", "Primary"],
-    ...methodOutputs.map((output) => {
+    ["Method", "Equity Value 100%", "Value Source", "Transferred Interest Value", "Transferred Source", "Potential Tax", "Tax Source", "Primary"],
+    ...methodOutputs.map((output, index) => {
       const taxRow = taxRows.find((row) => row.method === output.method) ?? null;
+      const taxRowNumber = index + 2;
+      const equityRef = output.method === "AAM" ? refs.aamEquityValue : output.method === "EEM" ? refs.eemEquityValue : refs.dcfEquityValue;
 
       return [
         output.method,
-        output.equityValue,
-        taxRow?.marketValueOfTransferredInterest ?? null,
-        taxRow?.potentialTax ?? null,
+        equityRef ? formulaCell(equityRef, output.equityValue) : output.equityValue,
+        equityRef ? "Formula" : "System",
+        taxRow ? formulaCell(sheetCell(taxSimulationSheetName, `K${taxRowNumber}`), taxRow.marketValueOfTransferredInterest) : null,
+        taxRow ? "Formula" : "",
+        taxRow ? formulaCell(sheetCell(taxSimulationSheetName, `P${taxRowNumber}`), taxRow.potentialTax) : null,
+        taxRow ? "Formula" : "",
         taxRow?.isPrimary ? "Yes" : "No",
       ];
     }),
   ];
 }
 
-function buildDriverRows(input: ValuationPdfExportInput, scope: ValuationExportScope): XlsxCellValue[][] {
+function buildDriverRows(input: ValuationPdfExportInput, scope: ValuationExportScope, refs: Record<string, string>): XlsxCellValue[][] {
   return [
-    ["Driver", "Value", "Note"],
-    ...buildDriverMetrics(input, scope).map((metric) => [metric.label, metric.value, metric.note ?? ""]),
+    ["Driver", "Value", "Source Type", "Note"],
+    ...buildDriverMetrics(input, scope, refs).map((metric) => [metric.label, metric.value, metric.sourceType ?? "System", metric.note ?? ""]),
   ];
 }
 
-function buildDriverMetrics(input: ValuationPdfExportInput, scope: ValuationExportScope): ReportMetric[] {
+function buildDriverMetrics(input: ValuationPdfExportInput, scope: ValuationExportScope, refs: Record<string, string>): ReportMetric[] {
   const metrics: ReportMetric[] = [
-    { label: "Tax rate", value: input.snapshot.taxRate, note: input.resolvedAssumptions.taxRateSource || input.assumptions.taxRateSource },
+    { label: "Tax rate", value: formulaCell(refs.taxRate, input.snapshot.taxRate), sourceType: "Formula", note: input.resolvedAssumptions.taxRateSource || input.assumptions.taxRateSource },
   ];
 
   if (scope.methods.includes("AAM")) {
     metrics.push(
-      { label: "Aset historis AAM", value: input.aamAdjustmentModel.historicalAssetTotal },
-      { label: "Liabilitas historis AAM", value: input.aamAdjustmentModel.historicalLiabilityTotal },
-      { label: "Penyesuaian aset AAM", value: input.aamAdjustmentModel.assetAdjustmentTotal },
-      { label: "Penyesuaian liabilitas AAM", value: input.aamAdjustmentModel.liabilityAdjustmentTotal },
+      { label: "Aset historis AAM", value: formulaCell(refs.aamHistoricalAssets, input.aamAdjustmentModel.historicalAssetTotal), sourceType: "Formula" },
+      { label: "Liabilitas historis AAM", value: formulaCell(refs.aamHistoricalLiabilities, input.aamAdjustmentModel.historicalLiabilityTotal), sourceType: "Formula" },
+      { label: "Penyesuaian aset AAM", value: formulaCell(refs.aamAssetAdjustment, input.aamAdjustmentModel.assetAdjustmentTotal), sourceType: "Formula" },
+      { label: "Penyesuaian liabilitas AAM", value: formulaCell(refs.aamLiabilityAdjustment, input.aamAdjustmentModel.liabilityAdjustmentTotal), sourceType: "Formula" },
     );
   }
 
   if (scope.methods.includes("EEM")) {
     metrics.push(
-      { label: "Required return on NTA", value: input.snapshot.requiredReturnOnNta },
-      { label: "Operating working capital", value: input.results.operatingWorkingCapital },
-      { label: "Non-operating assets", value: input.results.nonOperatingAssets },
+      { label: "Required return on NTA", value: formulaCell(refs.requiredReturnOnNta, input.snapshot.requiredReturnOnNta), sourceType: "Formula" },
+      { label: "Operating working capital", value: formulaCell(refs.eemOperatingNwc, input.results.operatingWorkingCapital), sourceType: "Formula" },
+      { label: "Non-operating assets", value: formulaCell(refs.nonOperatingAssets, input.results.nonOperatingAssets), sourceType: "Formula" },
     );
   }
 
   if (scope.methods.some((method) => method === "EEM" || method === "DCF")) {
     metrics.push({
       label: "WACC",
-      value: input.snapshot.wacc,
+      value: formulaCell(refs.wacc, input.snapshot.wacc),
+      sourceType: "Formula",
       note: input.activeWaccBasisLabel || input.resolvedAssumptions.waccSource || input.assumptions.waccSource,
     });
   }
@@ -331,11 +440,12 @@ function buildDriverMetrics(input: ValuationPdfExportInput, scope: ValuationExpo
       { label: "Basis DCF aktif", value: input.activeDcfBasisLabel || "DCF - skenario dasar", note: input.activeDcfBasisSummary || "Default sistem" },
       {
         label: "Terminal growth",
-        value: input.snapshot.terminalGrowth,
+        value: formulaCell(refs.terminalGrowth, input.snapshot.terminalGrowth),
+        sourceType: "Formula",
         note: input.resolvedAssumptions.terminalGrowthSource || input.assumptions.terminalGrowthSource,
       },
-      { label: "Revenue growth", value: input.snapshot.revenueGrowth },
-      { label: "Nilai aktif DCF", value: input.results.dcf.equityValue, note: input.results.projectionGovernance.title },
+      { label: "Revenue growth", value: formulaCell(refs.revenueGrowth, input.snapshot.revenueGrowth), sourceType: "Formula" },
+      { label: "Nilai aktif DCF", value: formulaCell(refs.dcfEquityValue, input.results.dcf.equityValue), sourceType: "Formula", note: input.results.projectionGovernance.title },
     );
   }
 
@@ -358,37 +468,41 @@ function buildFixedAssetRows(input: ValuationPdfExportInput): XlsxCellValue[][] 
       "Net Value",
     ],
     ...input.fixedAssetSchedule.rows.flatMap((item) =>
-      periods.map((period) => {
+      periods.map((period, periodIndex) => {
         const amounts = item.amounts[period.id];
+        const rowNumber = 2 + periodIndex + input.fixedAssetSchedule.rows.indexOf(item) * periods.length;
 
         return [
           item.row.assetName || "-",
           period.label,
           amounts?.acquisitionBeginning ?? null,
           amounts?.acquisitionAdditions ?? null,
-          amounts?.acquisitionEnding ?? null,
+          formulaCell(`C${rowNumber}+D${rowNumber}`, amounts?.acquisitionEnding ?? null),
           amounts?.depreciationBeginning ?? null,
           amounts?.depreciationAdditions ?? null,
-          amounts?.depreciationEnding ?? null,
-          amounts?.netValue ?? null,
+          formulaCell(`F${rowNumber}+G${rowNumber}`, amounts?.depreciationEnding ?? null),
+          formulaCell(`E${rowNumber}-H${rowNumber}`, amounts?.netValue ?? null),
         ];
       }),
     ),
     [],
     ["Total"],
-    ...periods.map((period) => {
+    ...periods.map((period, periodIndex) => {
       const amounts = input.fixedAssetSchedule.totals[period.id];
+      const rowNumber = 4 + input.fixedAssetSchedule.rows.length * periods.length + periodIndex;
+      const sourceRows = input.fixedAssetSchedule.rows.map((_, rowIndex) => 2 + rowIndex * periods.length + periodIndex);
+      const sumColumn = (column: string) => sourceRows.map((sourceRow) => `${column}${sourceRow}`).join(",");
 
       return [
         "Total",
         period.label,
-        amounts?.acquisitionBeginning ?? null,
-        amounts?.acquisitionAdditions ?? null,
-        amounts?.acquisitionEnding ?? null,
-        amounts?.depreciationBeginning ?? null,
-        amounts?.depreciationAdditions ?? null,
-        amounts?.depreciationEnding ?? null,
-        amounts?.netValue ?? null,
+        formulaCell(`SUM(${sumColumn("C")})`, amounts?.acquisitionBeginning ?? null),
+        formulaCell(`SUM(${sumColumn("D")})`, amounts?.acquisitionAdditions ?? null),
+        formulaCell(`C${rowNumber}+D${rowNumber}`, amounts?.acquisitionEnding ?? null),
+        formulaCell(`SUM(${sumColumn("F")})`, amounts?.depreciationBeginning ?? null),
+        formulaCell(`SUM(${sumColumn("G")})`, amounts?.depreciationAdditions ?? null),
+        formulaCell(`F${rowNumber}+G${rowNumber}`, amounts?.depreciationEnding ?? null),
+        formulaCell(`E${rowNumber}-H${rowNumber}`, amounts?.netValue ?? null),
       ];
     }),
   ];
@@ -415,47 +529,71 @@ function buildAamAdjustmentRows(input: ValuationPdfExportInput): XlsxCellValue[]
 
   return [
     ["Role", "Section", "Line", "Source", "Historical", "Adjustment", "Adjusted", "Requires Note", "Note"],
-    ...lines.map((line) => [
-      line.role === "asset" ? "Aset" : "Liabilitas",
-      line.section,
-      line.label,
-      line.source,
-      line.historical,
-      line.adjustment,
-      line.adjusted,
-      line.requiresNote ? "Yes" : "No",
-      line.note || (line.requiresNote ? "Catatan penyesuaian belum diisi." : ""),
-    ]),
+    ...lines.map((line, index) => {
+      const rowNumber = index + 2;
+
+      return [
+        line.role === "asset" ? "Aset" : "Liabilitas",
+        line.section,
+        line.label,
+        line.source,
+        line.historical,
+        line.adjustment,
+        formulaCell(`E${rowNumber}+F${rowNumber}`, line.adjusted),
+        line.requiresNote ? "Yes" : "No",
+        line.note || (line.requiresNote ? "Catatan penyesuaian belum diisi." : ""),
+      ];
+    }),
     [],
     ["Metric", "Value"],
-    ["Total aset historis", input.aamAdjustmentModel.historicalAssetTotal],
-    ["Total penyesuaian aset", input.aamAdjustmentModel.assetAdjustmentTotal],
-    ["Total liabilitas historis", input.aamAdjustmentModel.historicalLiabilityTotal],
-    ["Total penyesuaian liabilitas", input.aamAdjustmentModel.liabilityAdjustmentTotal],
-    ["Nilai ekuitas AAM", input.aamAdjustmentModel.adjustedEquityValue],
-    ["Catatan wajib belum lengkap", input.aamAdjustmentModel.missingNoteCount],
+    ["Total aset historis", formulaCell(`SUMIF(A2:A${lines.length + 1},"Aset",E2:E${lines.length + 1})`, input.aamAdjustmentModel.historicalAssetTotal)],
+    ["Total penyesuaian aset", formulaCell(`SUMIF(A2:A${lines.length + 1},"Aset",F2:F${lines.length + 1})`, input.aamAdjustmentModel.assetAdjustmentTotal)],
+    ["Total liabilitas historis", formulaCell(`SUMIF(A2:A${lines.length + 1},"Liabilitas",E2:E${lines.length + 1})`, input.aamAdjustmentModel.historicalLiabilityTotal)],
+    ["Total penyesuaian liabilitas", formulaCell(`SUMIF(A2:A${lines.length + 1},"Liabilitas",F2:F${lines.length + 1})`, input.aamAdjustmentModel.liabilityAdjustmentTotal)],
+    ["Nilai ekuitas AAM", formulaCell(`B${lines.length + 4}+B${lines.length + 5}-B${lines.length + 6}-B${lines.length + 7}`, input.aamAdjustmentModel.adjustedEquityValue)],
+    ["Catatan wajib belum lengkap", formulaCell(`COUNTIFS(H2:H${lines.length + 1},"Yes",I2:I${lines.length + 1},"")`, input.aamAdjustmentModel.missingNoteCount)],
+  ];
+}
+
+function buildEemSensitivityRows(input: ValuationPdfExportInput, refs: Record<string, string>): XlsxCellValue[][] {
+  return [
+    ["Scenario", "Equity Value 100%", "Value Source", "Audit Note"],
+    [
+      "EEM - skenario dasar",
+      formulaCell(refs.eemEquityValue, input.results.eem.equityValue),
+      "Formula",
+      "NTA + excess earnings yang dikapitalisasi + aset non-operasional - utang berbunga.",
+    ],
+    [
+      "EEM utang pajak debt-like",
+      formulaCell(refs.eemTaxPayableDebtLike, input.results.sensitivities.eemTaxPayableDebtLike.equityValue),
+      "Formula",
+      "Utang pajak diperlakukan sebagai debt-like sensitivity.",
+    ],
   ];
 }
 
 function buildDcfSensitivityRows(
   input: ValuationPdfExportInput,
   baseResults: NonNullable<ValuationPdfExportInput["baseResults"]>,
+  refs: Record<string, string>,
 ): XlsxCellValue[][] {
   return [
-    ["Scenario", "Value", "Audit Note"],
-    ["Basis DCF aktif", input.results.dcf.equityValue, input.activeDcfBasisSummary || "Default sistem."],
-    ["DCF - skenario dasar", baseResults.dcf.equityValue, "Nilai dasar dari engine FCFF/WACC."],
-    ["DCF - terminal downside", baseResults.sensitivities.dcfTerminalDownside.equityValue, "Terminal growth downside."],
-    ["DCF - terminal upside", baseResults.sensitivities.dcfTerminalUpside.equityValue, "Terminal growth upside."],
-    ["DCF tanpa WC incremental", baseResults.sensitivities.dcfNoIncrementalWorkingCapital.equityValue, "Perubahan modal kerja dinonaktifkan."],
-    ["DCF utang pajak debt-like", baseResults.sensitivities.dcfTaxPayableDebtLike.equityValue, "Utang pajak dikurangkan sebagai debt-like sensitivity."],
+    ["Scenario", "Value", "Value Source", "Audit Note"],
+    ["Basis DCF aktif", formulaCell(refs.dcfEquityValue, input.results.dcf.equityValue), "Formula", input.activeDcfBasisSummary || "Default sistem."],
+    ["DCF - skenario dasar", baseResults.dcf.equityValue, "System", "Nilai dasar dari engine FCFF/WACC."],
+    ["DCF - terminal downside", formulaCell(refs.dcfTerminalDownsideValue, baseResults.sensitivities.dcfTerminalDownside.equityValue), "Formula", "Terminal growth downside."],
+    ["DCF - terminal upside", formulaCell(refs.dcfTerminalUpsideValue, baseResults.sensitivities.dcfTerminalUpside.equityValue), "Formula", "Terminal growth upside."],
+    ["DCF tanpa WC incremental", baseResults.sensitivities.dcfNoIncrementalWorkingCapital.equityValue, "System", "Perubahan modal kerja dinonaktifkan."],
+    ["DCF utang pajak debt-like", baseResults.sensitivities.dcfTaxPayableDebtLike.equityValue, "System", "Utang pajak dikurangkan sebagai debt-like sensitivity."],
     [
       "DCF - proyeksi neraca berbasis historis",
       baseResults.sensitivities.dcfHistoricalDerivedProjection.equityValue,
+      "System",
       "Kebijakan kas, utang pajak, dan roll-forward ekuitas diturunkan dari historis.",
     ],
-    ["Nilai DCF governed aktif", input.results.projectionGovernance.governedEquityValue, input.results.projectionGovernance.summary],
-    ["Variance governance proyeksi DCF", input.results.projectionGovernance.relativeVariance, input.results.projectionGovernance.title],
+    ["Nilai DCF governed aktif", input.results.projectionGovernance.governedEquityValue, "System", input.results.projectionGovernance.summary],
+    ["Variance governance proyeksi DCF", input.results.projectionGovernance.relativeVariance, "System", input.results.projectionGovernance.title],
   ];
 }
 
@@ -481,33 +619,51 @@ function buildDcfForecastRows(input: ValuationPdfExportInput): XlsxCellValue[][]
       "Balance Control",
       "Cash Flow Control",
     ],
-    ...input.results.dcf.forecast.map((row) => [
-      row.year,
-      row.revenue,
-      row.cogs,
-      row.grossProfit,
-      row.operatingExpenses,
-      row.depreciation,
-      row.ebit,
-      row.statutoryTaxOnEbit,
-      row.noplat,
-      row.changeInNwc,
-      row.capitalExpenditure,
-      row.freeCashFlow,
-      row.discountFactor,
-      row.presentValue,
-      row.cashEndingBalance,
-      row.operatingNwc,
-      row.balanceControl,
-      row.cashFlowControl,
-    ]),
+    ...input.results.dcf.forecast.map((row, index) => {
+      const rowNumber = index + 2;
+
+      return [
+        row.year,
+        row.revenue,
+        row.cogs,
+        formulaCell(`B${rowNumber}-C${rowNumber}`, row.grossProfit),
+        row.operatingExpenses,
+        row.depreciation,
+        formulaCell(`D${rowNumber}-E${rowNumber}-F${rowNumber}`, row.ebit),
+        formulaCell(`G${rowNumber}*${sheetCell(calculationModelSheetName, "C2")}`, row.statutoryTaxOnEbit),
+        formulaCell(`G${rowNumber}-H${rowNumber}`, row.noplat),
+        row.changeInNwc,
+        row.capitalExpenditure,
+        formulaCell(`I${rowNumber}+F${rowNumber}-J${rowNumber}-K${rowNumber}`, row.freeCashFlow),
+        formulaCell(`1/(1+${sheetCell(calculationModelSheetName, "C3")})^${index + 1}`, row.discountFactor),
+        formulaCell(`L${rowNumber}*M${rowNumber}`, row.presentValue),
+        row.cashEndingBalance,
+        row.operatingNwc,
+        row.balanceControl,
+        row.cashFlowControl,
+      ];
+    }),
   ];
 }
 
-function buildFormulaTraceRows(methodOutputs: MethodOutput[]): XlsxCellValue[][] {
+function buildFormulaTraceRows(methodOutputs: MethodOutput[], refs: Record<string, string>): XlsxCellValue[][] {
   return [
-    ["Method", "Trace", "Formula", "Value", "Value Format", "Note"],
-    ...methodOutputs.flatMap((method) => method.traces.map((trace) => [method.method, trace.label, trace.formula, trace.value, trace.valueFormat ?? "currency", trace.note])),
+    ["Method", "Trace", "Formula", "Value", "Value Source", "Value Format", "Note"],
+    ...methodOutputs.flatMap((method) =>
+      method.traces.map((trace) => {
+        const traceRef = resolveTraceFormulaRef(method.method, trace.label, refs);
+
+        return [
+          method.method,
+          trace.label,
+          trace.formula,
+          traceRef ? formulaCell(traceRef, trace.value) : trace.value,
+          traceRef ? "Formula" : "System",
+          trace.valueFormat ?? "currency",
+          trace.note,
+        ];
+      }),
+    ),
   ];
 }
 
@@ -518,29 +674,47 @@ function buildTaxSimulationRows(rows: TaxSimulationMethodRow[]): XlsxCellValue[]
       "Basis",
       "Base Equity Value",
       "DLOM Rate",
+      "DLOM Adjustment",
+      "Value After DLOM",
       "DLOC/PFC Rate",
+      "DLOC/PFC Adjustment",
+      "Market Value Equity 100%",
+      "Share %",
       "Transferred Interest Value",
       "Reported Transfer Value",
       "Taxable Difference",
+      "Potential Taxable Difference",
+      "Taxable Income Rounded",
       "Potential Tax",
       "Effective Tax Rate",
       "Primary",
       "Legal Basis",
     ],
-    ...rows.map((row) => [
-      row.method,
-      row.basisLabel,
-      row.baseEquityValue,
-      row.dlomRate,
-      row.dlocPfcRate,
-      row.marketValueOfTransferredInterest,
-      row.reportedTransferValue,
-      row.transferValueDifference,
-      row.potentialTax,
-      row.effectiveTaxRate,
-      row.isPrimary ? "Yes" : "No",
-      row.taxSourceLegalBasis || row.taxBasisLabel,
-    ]),
+    ...rows.map((row, index) => {
+      const rowNumber = index + 2;
+
+      return [
+        row.method,
+        row.basisLabel,
+        row.baseEquityValue,
+        row.dlomRate,
+        formulaCell(`-(C${rowNumber}*D${rowNumber})`, row.dlomAdjustment),
+        formulaCell(`C${rowNumber}+E${rowNumber}`, row.valueAfterDlom),
+        row.dlocPfcRate,
+        formulaCell(`-(F${rowNumber}*G${rowNumber})`, row.dlocPfcAdjustment),
+        formulaCell(`F${rowNumber}+H${rowNumber}`, row.marketValueOfEquity100),
+        row.sharePercentage,
+        formulaCell(`I${rowNumber}*J${rowNumber}`, row.marketValueOfTransferredInterest),
+        row.reportedTransferValue,
+        formulaCell(`K${rowNumber}-L${rowNumber}`, row.transferValueDifference),
+        formulaCell(`MAX(0,M${rowNumber})`, row.potentialTaxableDifference),
+        row.taxableIncomeRounded,
+        row.potentialTax,
+        formulaCell(`IF(N${rowNumber}=0,0,P${rowNumber}/N${rowNumber})`, row.effectiveTaxRate),
+        row.isPrimary ? "Yes" : "No",
+        row.taxSourceLegalBasis || row.taxBasisLabel,
+      ];
+    }),
   ];
 }
 
@@ -595,6 +769,76 @@ function normalizeSheetName(name: string, index: number, usedNames: Set<string>)
   return candidate;
 }
 
+function formulaCell(formula: string | undefined, value?: XlsxCellPrimitive): XlsxCellValue {
+  if (!formula) {
+    return value;
+  }
+
+  return { formula, value };
+}
+
+function readFormulaCell(value: XlsxCellValue): XlsxFormulaCell | null {
+  if (!value || typeof value !== "object" || !("formula" in value)) {
+    return null;
+  }
+
+  return value;
+}
+
+function normalizeFormula(formula: string): string {
+  return formula.startsWith("=") ? formula.slice(1) : formula;
+}
+
+function sheetCell(sheetName: string, cellOrRange: string): string {
+  return `${quoteSheetName(sheetName)}!${cellOrRange}`;
+}
+
+function quoteSheetName(sheetName: string): string {
+  return `'${sheetName.replace(/'/g, "''")}'`;
+}
+
+function resolveTraceFormulaRef(method: ValuationMethod, label: string, refs: Record<string, string>): string | undefined {
+  if (method === "AAM" && label === "Nilai Ekuitas 100% - AAM") {
+    return refs.aamEquityValue;
+  }
+
+  if (method === "EEM" && label === "Nilai Ekuitas 100% - EEM") {
+    return refs.eemEquityValue;
+  }
+
+  if (method === "DCF" && label === "Nilai Ekuitas 100% - DCF") {
+    return refs.dcfEquityValue;
+  }
+
+  return undefined;
+}
+
+function calculateTerminalValue(
+  equityValue: number,
+  nonOperatingAssets: number,
+  interestBearingDebt: number,
+  debtLikeTaxPayable: number,
+  explicitPv: number,
+  wacc: number,
+  forecastLength: number,
+): number {
+  const terminalPv = equityValue - nonOperatingAssets + interestBearingDebt + debtLikeTaxPayable - explicitPv;
+
+  return terminalPv * Math.pow(1 + wacc, forecastLength);
+}
+
+function resolveActiveDcfTerminalGrowth(input: ValuationPdfExportInput): number {
+  if (input.activeDcfBasis === "terminalDownside") {
+    return input.snapshot.terminalGrowthDownside ?? input.snapshot.terminalGrowth;
+  }
+
+  if (input.activeDcfBasis === "terminalUpside") {
+    return input.snapshot.terminalGrowthUpside ?? input.snapshot.terminalGrowth;
+  }
+
+  return input.snapshot.terminalGrowth;
+}
+
 function buildWorksheetXml(
   rows: XlsxCellValue[][],
   sharedStrings: string[],
@@ -632,6 +876,26 @@ function buildCellXml(
 
   const reference = cellReference(columnNumber, rowNumber);
   const style = isHeader ? ' s="1"' : "";
+  const formula = readFormulaCell(value);
+
+  if (formula) {
+    const normalizedFormula = normalizeFormula(formula.formula);
+    const cachedValue = formula.value;
+
+    if (cachedValue === null || cachedValue === undefined || cachedValue === "") {
+      return `<c r="${reference}"${style}><f>${escapeXmlText(normalizedFormula)}</f></c>`;
+    }
+
+    if (typeof cachedValue === "number" && Number.isFinite(cachedValue)) {
+      return `<c r="${reference}"${style}><f>${escapeXmlText(normalizedFormula)}</f><v>${cachedValue}</v></c>`;
+    }
+
+    if (typeof cachedValue === "boolean") {
+      return `<c r="${reference}" t="b"${style}><f>${escapeXmlText(normalizedFormula)}</f><v>${cachedValue ? 1 : 0}</v></c>`;
+    }
+
+    return `<c r="${reference}" t="str"${style}><f>${escapeXmlText(normalizedFormula)}</f><v>${escapeXmlText(String(cachedValue))}</v></c>`;
+  }
 
   if (typeof value === "number" && Number.isFinite(value)) {
     return `<c r="${reference}"${style}><v>${value}</v></c>`;
@@ -691,7 +955,7 @@ function buildWorkbookXml(sheetNames: string[]): string {
     .join("");
 
   return xmlDocument(
-    `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><workbookPr date1904="false"/><sheets>${sheets}</sheets></workbook>`,
+    `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><workbookPr date1904="false"/><sheets>${sheets}</sheets><calcPr calcId="191029" fullCalcOnLoad="1" forceFullCalc="1"/></workbook>`,
   );
 }
 
