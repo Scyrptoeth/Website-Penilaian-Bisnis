@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowRight,
@@ -8,6 +8,7 @@ import {
   Calculator,
   CalendarDays,
   CheckCircle2,
+  ChevronDown,
   Download,
   Eraser,
   FileSearch,
@@ -140,7 +141,7 @@ import {
 } from "@/lib/valuation/section-analysis";
 import { buildValidationChecks } from "@/lib/valuation/validation-checks";
 import { downloadValuationTemplateWorkbook } from "@/lib/valuation/excel-export";
-import { saveValuationPdfExportPayload } from "@/lib/valuation/pdf-export";
+import { saveValuationPdfExportPayload, valuationPdfExportScopes, type ValuationPdfExportScopeId } from "@/lib/valuation/pdf-export";
 import {
   buildFixedAssetProjection,
   fixedAssetProjectionClassLabels,
@@ -740,6 +741,8 @@ export function ValuationWorkbench() {
   const [undoStack, setUndoStack] = useState<WorkbenchCoreState[]>([]);
   const [redoStack, setRedoStack] = useState<WorkbenchCoreState[]>([]);
   const [isTemplateExporting, setIsTemplateExporting] = useState(false);
+  const [isPdfExportMenuOpen, setIsPdfExportMenuOpen] = useState(false);
+  const pdfExportMenuRef = useRef<HTMLDivElement>(null);
 
   const activeWorkflowTabItem = workflowTabRegistry[activeWorkflowTab] ?? workflowTabRegistry.periods;
   const mappedRows = useMemo(() => rows.map((row) => mapRow(row)), [rows]);
@@ -1260,6 +1263,35 @@ export function ValuationWorkbench() {
       }
     };
   }, [isDraftRestored]);
+
+  useEffect(() => {
+    if (!isPdfExportMenuOpen || typeof document === "undefined") {
+      return;
+    }
+
+    const closeOnOutsidePointer = (event: MouseEvent) => {
+      const target = event.target;
+
+      if (target instanceof Node && pdfExportMenuRef.current?.contains(target)) {
+        return;
+      }
+
+      setIsPdfExportMenuOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsPdfExportMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", closeOnOutsidePointer);
+    document.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutsidePointer);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [isPdfExportMenuOpen]);
 
   function addPeriod() {
     commitCoreState((current) => {
@@ -1977,9 +2009,10 @@ export function ValuationWorkbench() {
     }
   }
 
-  function exportPdfReport() {
+  function exportPdfReport(scopeId: ValuationPdfExportScopeId) {
     try {
-      saveValuationPdfExportPayload(getExportInput());
+      saveValuationPdfExportPayload(getExportInput(), scopeId);
+      setIsPdfExportMenuOpen(false);
       window.open("/export/pdf", "_blank", "noopener,noreferrer");
     } catch (error) {
       window.alert(error instanceof Error ? error.message : "Export PDF gagal dijalankan.");
@@ -2087,10 +2120,37 @@ export function ValuationWorkbench() {
                 <Download size={18} />
                 {isTemplateExporting ? "Menyiapkan XLSX" : "Export XLSX"}
               </button>
-              <button className="button secondary" type="button" onClick={exportPdfReport} disabled={!isDraftRestored}>
-                <FileText size={18} />
-                Export PDF
-              </button>
+              <div className="export-menu" ref={pdfExportMenuRef}>
+                <button
+                  className="button secondary export-menu-trigger"
+                  type="button"
+                  onClick={() => setIsPdfExportMenuOpen((isOpen) => !isOpen)}
+                  disabled={!isDraftRestored}
+                  aria-haspopup="menu"
+                  aria-expanded={isPdfExportMenuOpen}
+                >
+                  <FileText size={18} />
+                  Export PDF
+                  <ChevronDown size={14} />
+                </button>
+                {isPdfExportMenuOpen ? (
+                  <div className="export-menu-panel" role="menu" aria-label="Pilihan export PDF">
+                    {valuationPdfExportScopes.map((scope) => (
+                      <button
+                        className={scope.id === "all" ? "export-menu-item default" : "export-menu-item"}
+                        type="button"
+                        role="menuitem"
+                        aria-label={`Export PDF ${scope.label}`}
+                        onClick={() => exportPdfReport(scope.id)}
+                        key={scope.id}
+                      >
+                        <span>{scope.label}</span>
+                        <small>{scope.description}</small>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
               <button className="button ghost" type="button" onClick={resetForm} disabled={!isDraftRestored || !hasAnyInput}>
                 <Eraser size={18} />
                 Reset

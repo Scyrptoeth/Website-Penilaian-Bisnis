@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import * as XLSX from "xlsx";
 import { getCellFontRgbFromXlsx, getWorkbookCalcPrAttributesFromXlsx, hasXlsxEntry } from "../helpers/xlsx-style";
 
+const workbenchStorageKey = "penilaian-valuasi-bisnis.workbench.v1";
+
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
   await page.evaluate(() => window.localStorage.clear());
@@ -21,6 +23,28 @@ async function loadSampleWorkbook(page: Page) {
   await page.evaluate(() =>
     (window as Window & { __PVB_TEST_HOOKS__?: { loadSampleWorkbook: () => void } }).__PVB_TEST_HOOKS__?.loadSampleWorkbook(),
   );
+}
+
+async function loadPersistedWorkbenchFixture(page: Page) {
+  const fixtureState = JSON.parse(readFileSync("tests/fixtures/export-xlsx-v2-workbench-state.json", "utf8")) as unknown;
+
+  await expect
+    .poll(() =>
+      page.evaluate((key) => {
+        const raw = window.localStorage.getItem(key);
+        return raw ? JSON.parse(raw).version : null;
+      }, workbenchStorageKey),
+    )
+    .toBe(16);
+  await page.evaluate(
+    ({ key, state }) => {
+      window.localStorage.setItem(key, JSON.stringify(state));
+    },
+    { key: workbenchStorageKey, state: fixtureState },
+  );
+  await page.reload();
+  await expect(page.getByTestId("valuation-workbench")).toBeVisible();
+  await expect(page.getByLabel("Nama Objek Pajak")).toHaveValue("Makmur Jaya Sejati Raya");
 }
 
 test("period workflow, scoped categories, and display-only balance sheet classification", async ({ page }) => {
@@ -682,25 +706,23 @@ test("exports the active workbench state through the primary template-clone XLSX
 });
 
 test("exports the active workbench state to a print-ready PDF report view", async ({ page }) => {
-  const fixtureState = JSON.parse(readFileSync("tests/fixtures/export-xlsx-v2-workbench-state.json", "utf8")) as unknown;
-  await page.addInitScript(({ key, state }) => {
-    window.localStorage.setItem(key, JSON.stringify(state));
-  }, {
-    key: "penilaian-valuasi-bisnis.workbench.v1",
-    state: fixtureState,
-  });
-  await page.reload();
-  await expect(page.getByTestId("valuation-workbench")).toBeVisible();
-  await expect(page.getByLabel("Nama Objek Pajak")).toHaveValue("Makmur Jaya Sejati Raya");
+  await loadPersistedWorkbenchFixture(page);
 
-  const popupPromise = page.waitForEvent("popup");
   await page.getByRole("button", { name: "Export PDF" }).click();
+  await expect(page.getByRole("menu", { name: "Pilihan export PDF" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Export PDF Penilaian AAM" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Export PDF Penilaian EEM" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Export PDF Penilaian DCF" })).toBeVisible();
+  const popupPromise = page.waitForEvent("popup");
+  await page.getByRole("menuitem", { name: "Export PDF AAM + EEM + DCF" }).click();
   const reportPage = await popupPromise;
   await reportPage.waitForLoadState("domcontentloaded");
 
   await expect(reportPage).toHaveURL(/\/export\/pdf$/);
   await expect(reportPage.getByTestId("pdf-report")).toBeVisible();
-  await expect(reportPage.getByRole("heading", { name: "Laporan Ringkas Penilaian Valuasi Bisnis" })).toBeVisible();
+  await expect(reportPage.getByRole("heading", { name: "Laporan Gabungan AAM, EEM, dan DCF" })).toBeVisible();
+  await expect(reportPage.getByText("Scope Export")).toBeVisible();
+  await expect(reportPage.getByText("AAM + EEM + DCF")).toBeVisible();
   await expect(reportPage.getByText("Makmur Jaya Sejati Raya").first()).toBeVisible();
   await expect(reportPage.getByRole("heading", { name: "Identitas Objek Pajak" })).toBeVisible();
   await expect(reportPage.getByText("Jenis Kepemilikan Saham")).toBeVisible();
@@ -715,6 +737,9 @@ test("exports the active workbench state to a print-ready PDF report view", asyn
   await expect(reportPage.getByRole("columnheader", { name: "Sumber" })).toHaveCount(0);
   await expect(reportPage.getByRole("heading", { name: "Laporan Laba Rugi" })).toBeVisible();
   await expect(reportPage.getByRole("heading", { name: "Laporan Daftar Aset" })).toBeVisible();
+  await expect(reportPage.getByRole("heading", { name: "Penyesuaian AAM" })).toBeVisible();
+  await expect(reportPage.getByRole("heading", { name: "Sensitivitas EEM" })).toBeVisible();
+  await expect(reportPage.getByRole("heading", { name: "Sensitivitas DCF" })).toBeVisible();
   await expect(reportPage.getByRole("heading", { name: "Ringkasan", exact: true })).toBeVisible();
   await expect(reportPage.getByText("Metode AAM")).toBeVisible();
   await expect(reportPage.getByText("Metode EEM")).toBeVisible();
@@ -727,6 +752,46 @@ test("exports the active workbench state to a print-ready PDF report view", asyn
   await expect(reportPage.getByRole("button", { name: "Cetak / Simpan PDF" })).toBeVisible();
 
   await reportPage.close();
+});
+
+test("exports method-scoped PDF reports for AAM and DCF", async ({ page }) => {
+  await loadPersistedWorkbenchFixture(page);
+
+  await page.getByRole("button", { name: "Export PDF" }).click();
+  const aamPopupPromise = page.waitForEvent("popup");
+  await page.getByRole("menuitem", { name: "Export PDF Penilaian AAM" }).click();
+  const aamReportPage = await aamPopupPromise;
+  await aamReportPage.waitForLoadState("domcontentloaded");
+
+  await expect(aamReportPage.getByRole("heading", { name: "Laporan Penilaian AAM" })).toBeVisible();
+  await expect(aamReportPage.locator(".pdf-report-cover").getByText("Penilaian AAM", { exact: true })).toBeVisible();
+  await expect(aamReportPage.getByRole("heading", { name: "Penyesuaian AAM" })).toBeVisible();
+  await expect(aamReportPage.getByRole("heading", { name: "Sensitivitas EEM" })).toHaveCount(0);
+  await expect(aamReportPage.getByRole("heading", { name: "Sensitivitas DCF" })).toHaveCount(0);
+  await expect(aamReportPage.getByRole("heading", { name: "Laporan Laba Rugi" })).toHaveCount(0);
+  const aamTraceSection = aamReportPage.locator(".pdf-report-section").filter({ has: aamReportPage.getByRole("heading", { name: "Ringkasan", exact: true }) });
+  await expect(aamTraceSection.getByText("Metode AAM")).toBeVisible();
+  await expect(aamTraceSection.getByText("Metode EEM")).toHaveCount(0);
+  await expect(aamTraceSection.getByText("Metode DCF")).toHaveCount(0);
+  await aamReportPage.close();
+
+  await page.getByRole("button", { name: "Export PDF" }).click();
+  const dcfPopupPromise = page.waitForEvent("popup");
+  await page.getByRole("menuitem", { name: "Export PDF Penilaian DCF" }).click();
+  const dcfReportPage = await dcfPopupPromise;
+  await dcfReportPage.waitForLoadState("domcontentloaded");
+
+  await expect(dcfReportPage.getByRole("heading", { name: "Laporan Penilaian DCF" })).toBeVisible();
+  await expect(dcfReportPage.getByRole("heading", { name: "Sensitivitas DCF" })).toBeVisible();
+  await expect(dcfReportPage.getByText("DCF - terminal downside")).toBeVisible();
+  await expect(dcfReportPage.getByText("DCF tanpa WC incremental")).toBeVisible();
+  await expect(dcfReportPage.getByRole("heading", { name: "Penyesuaian AAM" })).toHaveCount(0);
+  const dcfTraceSection = dcfReportPage.locator(".pdf-report-section").filter({ has: dcfReportPage.getByRole("heading", { name: "Ringkasan", exact: true }) });
+  await expect(dcfTraceSection.getByText("Metode AAM")).toHaveCount(0);
+  await expect(dcfTraceSection.getByText("Metode EEM")).toHaveCount(0);
+  await expect(dcfTraceSection.getByText("Metode DCF")).toBeVisible();
+
+  await dcfReportPage.close();
 });
 
 test("company sector can be manually overridden after KLU suggestion", async ({ page }) => {

@@ -5,9 +5,15 @@ import { Banknote, Calculator, FileSearch, Printer, type LucideIcon } from "luci
 import { buildBalanceSheetView, groupBalanceSheetLines, type BalanceSheetLine } from "@/lib/valuation/balance-sheet-view";
 import { categoryLabelMap } from "@/lib/valuation/category-options";
 import { parseInputNumber, type CaseProfileDerived, type MappedRow, type Period } from "@/lib/valuation/case-model";
+import { resolveAccountLabels } from "@/lib/valuation/account-labels";
 import { formatDisplayDate, formatIdr, formatPercent, formatPercentFixed } from "@/lib/valuation/format";
 import { formatKluOptionLabel, getKluSectorRecord } from "@/lib/valuation/klu-sector";
-import { readValuationPdfExportPayload, type ValuationPdfExportPayload } from "@/lib/valuation/pdf-export";
+import {
+  readValuationPdfExportPayload,
+  resolveValuationPdfExportScope,
+  type ValuationPdfExportPayload,
+  type ValuationPdfExportScope,
+} from "@/lib/valuation/pdf-export";
 import type { TaxSimulationMethodRow } from "@/lib/valuation/tax-simulation";
 import type { FormulaTrace, MethodOutput, ValuationMethod } from "@/lib/valuation/types";
 
@@ -56,22 +62,26 @@ export function ValuationPdfReport() {
   }
 
   const { input } = payload;
+  const scope = resolveValuationPdfExportScope(payload.scope);
   const periods = input.sectionAnalysis.periods.length > 0 ? input.sectionAnalysis.periods : input.periods;
-  const methodOutputs: MethodOutput[] = [input.results.aam, input.results.eem, input.results.dcf];
+  const methodOutputById: Record<ValuationMethod, MethodOutput> = {
+    AAM: input.results.aam,
+    EEM: input.results.eem,
+    DCF: input.results.dcf,
+  };
+  const methodOutputs = scope.methods.map((method) => methodOutputById[method]);
   const methodSummaries = buildMethodSummaries(input.taxSimulationResult.rows, input.taxSimulationResult.baselineRows, methodOutputs);
   const transferredEquityHeader = `Nilai Ekuitas (${formatCapitalProportion(input.caseProfileDerived)})`;
-  const primaryTaxRow = input.taxSimulationResult.primaryRow;
-  const balanceSheetView = buildBalanceSheetView(periods, input.mappedRows, input.fixedAssetSchedule);
-  const driverMetrics: ReportMetric[] = [
-    { label: "Basis DCF aktif", value: input.activeDcfBasisLabel || "DCF - skenario dasar", note: input.activeDcfBasisSummary || "Default sistem" },
-    { label: "Tax rate", value: formatPercent(input.snapshot.taxRate), note: input.resolvedAssumptions.taxRateSource || input.assumptions.taxRateSource },
-    { label: "WACC", value: formatPercent(input.snapshot.wacc), note: input.activeWaccBasisLabel || input.resolvedAssumptions.waccSource || input.assumptions.waccSource },
-    { label: "Terminal growth", value: formatPercentFixed(input.snapshot.terminalGrowth), note: input.resolvedAssumptions.terminalGrowthSource || input.assumptions.terminalGrowthSource },
-    { label: "Revenue growth", value: formatPercent(input.snapshot.revenueGrowth) },
-    { label: "Required return on NTA", value: formatPercent(input.snapshot.requiredReturnOnNta) },
-    { label: "Operating working capital", value: formatIdr(input.results.operatingWorkingCapital) },
-  ];
+  const scopedTaxRows = buildScopedTaxRows(input.taxSimulationResult.rows, input.taxSimulationResult.baselineRows, scope);
+  const primaryTaxRow = input.taxSimulationResult.primaryRow && scope.methods.includes(input.taxSimulationResult.primaryRow.method)
+    ? input.taxSimulationResult.primaryRow
+    : (scopedTaxRows[0] ?? null);
+  const scopedMappedRows = filterMappedRowsByPdfScope(input.mappedRows, scope);
+  const incomeStatementRows = scopedMappedRows.filter((item) => item.row.statement === "income_statement");
+  const balanceSheetView = buildBalanceSheetView(periods, scopedMappedRows, input.fixedAssetSchedule);
+  const driverMetrics = buildDriverMetrics(payload, scope);
   const taxMetrics = primaryTaxRow ? buildTaxMetrics(primaryTaxRow) : [];
+  const isCombinedScope = scope.id === "all";
 
   return (
     <main className="pdf-report-page" data-testid="pdf-report">
@@ -85,17 +95,22 @@ export function ValuationPdfReport() {
       <article className="pdf-report-sheet">
         <header className="pdf-report-cover">
           <p>PENILAIAN BISNIS II</p>
-          <h1>Laporan Ringkas Penilaian Valuasi Bisnis</h1>
+          <h1>{scope.title}</h1>
           <dl>
             <div>
               <dt>Wajib Pajak Objek</dt>
               <dd>{input.caseProfile.objectTaxpayerName || "-"}</dd>
             </div>
             <div>
+              <dt>Scope Export</dt>
+              <dd>{scope.label}</dd>
+            </div>
+            <div>
               <dt>Dibuat</dt>
               <dd>{generatedAt}</dd>
             </div>
           </dl>
+          <p className="pdf-report-scope-note">{scope.description}</p>
         </header>
 
         <ReportSection title="Data Awal">
@@ -129,13 +144,18 @@ export function ValuationPdfReport() {
           <MetricGrid metrics={driverMetrics} />
         </ReportSection>
 
-        <ReportSection title="Laporan Neraca">
-          <BalanceSheetReportTable view={balanceSheetView} periods={periods} />
+        <ReportSection title={isCombinedScope ? "Laporan Neraca" : `Laporan Neraca Terkait ${scope.label}`}>
+          <p className="pdf-report-note">
+            {isCombinedScope ? "Tabel menampilkan seluruh akun neraca." : "Tabel disaring memakai label metode dan sumber data yang relevan untuk scope export ini."}
+          </p>
+          <BalanceSheetReportTable view={balanceSheetView} periods={periods} showBalanceCheck={isCombinedScope} />
         </ReportSection>
 
-        <ReportSection title="Laporan Laba Rugi" className="page-break-before">
-          <FinancialStatementTable rows={input.mappedRows.filter((item) => item.row.statement === "income_statement")} periods={periods} />
-        </ReportSection>
+        {incomeStatementRows.length > 0 ? (
+          <ReportSection title={isCombinedScope ? "Laporan Laba Rugi" : `Laporan Laba Rugi Terkait ${scope.label}`} className="page-break-before">
+            <FinancialStatementTable rows={incomeStatementRows} periods={periods} />
+          </ReportSection>
+        ) : null}
 
         {input.fixedAssetSchedule.hasInput ? (
           <ReportSection title="Laporan Daftar Aset">
@@ -169,6 +189,24 @@ export function ValuationPdfReport() {
                 </tr>
               </tbody>
             </table>
+          </ReportSection>
+        ) : null}
+
+        {scope.methods.includes("AAM") ? (
+          <ReportSection title="Penyesuaian AAM">
+            <AamAdjustmentReportTable payload={payload} />
+          </ReportSection>
+        ) : null}
+
+        {scope.methods.includes("EEM") ? (
+          <ReportSection title="Sensitivitas EEM">
+            <EemSensitivityReportTable payload={payload} />
+          </ReportSection>
+        ) : null}
+
+        {scope.methods.includes("DCF") ? (
+          <ReportSection title="Sensitivitas DCF">
+            <DcfSensitivityReportTable payload={payload} />
           </ReportSection>
         ) : null}
 
@@ -215,6 +253,28 @@ export function ValuationPdfReport() {
           {primaryTaxRow ? (
             <>
               <MetricGrid metrics={taxMetrics} />
+              <table className="pdf-report-table compact">
+                <thead>
+                  <tr>
+                    <th>Metode</th>
+                    <th>Basis</th>
+                    <th>Nilai Ekuitas 100%</th>
+                    <th>{transferredEquityHeader}</th>
+                    <th>Potensi Pajak</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {scopedTaxRows.map((row) => (
+                    <tr className={row.isPrimary ? `trace-method-row method-${row.method.toLowerCase()}` : ""} key={`${row.method}-${row.basis}`}>
+                      <td>{row.method}</td>
+                      <td>{row.basisLabel}</td>
+                      <td className="numeric-cell">{formatIdr(row.baseEquityValue)}</td>
+                      <td className="numeric-cell">{formatIdr(row.marketValueOfTransferredInterest)}</td>
+                      <td className="numeric-cell">{formatIdr(row.potentialTax)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
               <table className="pdf-report-table compact">
                 <thead>
                   <tr>
@@ -349,14 +409,195 @@ function MetricGrid({ metrics }: { metrics: ReportMetric[] }) {
   );
 }
 
+function AamAdjustmentReportTable({ payload }: { payload: ValuationPdfExportPayload }) {
+  const { aamAdjustmentModel } = payload.input;
+  const lines = [...aamAdjustmentModel.assetLines, ...aamAdjustmentModel.liabilityLines];
+
+  return (
+    <>
+      <table className="pdf-report-table compact">
+        <thead>
+          <tr>
+            <th>Peran</th>
+            <th>Pos</th>
+            <th>Historis</th>
+            <th>Penyesuaian</th>
+            <th>Setelah penyesuaian</th>
+            <th>Catatan</th>
+          </tr>
+        </thead>
+        <tbody>
+          {lines.map((line) => (
+            <tr key={line.id}>
+              <td>{line.role === "asset" ? "Aset" : "Liabilitas"}</td>
+              <td>
+                <strong>{line.label}</strong>
+                <small>{line.source}</small>
+              </td>
+              <td className="numeric-cell">{formatIdr(line.historical)}</td>
+              <td className="numeric-cell">{formatIdr(line.adjustment)}</td>
+              <td className="numeric-cell">{formatIdr(line.adjusted)}</td>
+              <td>{line.note || (line.requiresNote ? "Catatan penyesuaian belum diisi." : "-")}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <MetricGrid
+        metrics={[
+          { label: "Total aset historis", value: formatIdr(aamAdjustmentModel.historicalAssetTotal) },
+          { label: "Total penyesuaian aset", value: formatIdr(aamAdjustmentModel.assetAdjustmentTotal) },
+          { label: "Total liabilitas historis", value: formatIdr(aamAdjustmentModel.historicalLiabilityTotal) },
+          { label: "Total penyesuaian liabilitas", value: formatIdr(aamAdjustmentModel.liabilityAdjustmentTotal) },
+          { label: "Nilai ekuitas AAM", value: formatIdr(aamAdjustmentModel.adjustedEquityValue) },
+          { label: "Catatan wajib belum lengkap", value: String(aamAdjustmentModel.missingNoteCount) },
+        ]}
+      />
+    </>
+  );
+}
+
+function EemSensitivityReportTable({ payload }: { payload: ValuationPdfExportPayload }) {
+  const { input } = payload;
+  const rows = [
+    {
+      label: "EEM - skenario dasar",
+      value: input.results.eem.equityValue,
+      note: "NTA + excess earnings yang dikapitalisasi + aset non-operasional - utang berbunga.",
+    },
+    {
+      label: "EEM utang pajak debt-like",
+      value: input.results.sensitivities.eemTaxPayableDebtLike.equityValue,
+      note: "Utang pajak diperlakukan sebagai debt-like sensitivity.",
+    },
+  ];
+
+  return (
+    <table className="pdf-report-table compact">
+      <thead>
+        <tr>
+          <th>Skenario</th>
+          <th>Nilai Ekuitas 100%</th>
+          <th>Catatan audit</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row) => (
+          <tr key={row.label}>
+            <td>{row.label}</td>
+            <td className="numeric-cell">{formatIdr(row.value)}</td>
+            <td>{row.note}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function DcfSensitivityReportTable({ payload }: { payload: ValuationPdfExportPayload }) {
+  const { input } = payload;
+  const baseResults = input.baseResults ?? input.results;
+  const rows: Array<{ label: string; value: string; note: string }> = [
+    {
+      label: "Basis DCF aktif",
+      value: formatIdr(input.results.dcf.equityValue),
+      note: input.activeDcfBasisSummary || "Default sistem.",
+    },
+    { label: "DCF - skenario dasar", value: formatIdr(baseResults.dcf.equityValue), note: "Nilai dasar dari engine FCFF/WACC." },
+    {
+      label: "DCF - terminal downside",
+      value: formatIdr(baseResults.sensitivities.dcfTerminalDownside.equityValue),
+      note: "Terminal growth downside.",
+    },
+    {
+      label: "DCF - terminal upside",
+      value: formatIdr(baseResults.sensitivities.dcfTerminalUpside.equityValue),
+      note: "Terminal growth upside.",
+    },
+    {
+      label: "DCF tanpa WC incremental",
+      value: formatIdr(baseResults.sensitivities.dcfNoIncrementalWorkingCapital.equityValue),
+      note: "Perubahan modal kerja dinonaktifkan.",
+    },
+    {
+      label: "DCF utang pajak debt-like",
+      value: formatIdr(baseResults.sensitivities.dcfTaxPayableDebtLike.equityValue),
+      note: "Utang pajak dikurangkan sebagai debt-like sensitivity.",
+    },
+    {
+      label: "DCF - proyeksi neraca berbasis historis",
+      value: formatIdr(baseResults.sensitivities.dcfHistoricalDerivedProjection.equityValue),
+      note: "Kebijakan kas, utang pajak, dan roll-forward ekuitas diturunkan dari historis.",
+    },
+    {
+      label: "Nilai DCF governed aktif",
+      value: formatIdr(input.results.projectionGovernance.governedEquityValue),
+      note: input.results.projectionGovernance.summary,
+    },
+    {
+      label: "Variance governance proyeksi DCF",
+      value: formatPercent(input.results.projectionGovernance.relativeVariance),
+      note: input.results.projectionGovernance.title,
+    },
+  ];
+
+  return (
+    <>
+      <table className="pdf-report-table compact">
+        <thead>
+          <tr>
+            <th>Skenario</th>
+            <th>Nilai</th>
+            <th>Catatan audit</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.label}>
+              <td>{row.label}</td>
+              <td className="numeric-cell">{row.value}</td>
+              <td>{row.note}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <table className="pdf-report-table compact">
+        <thead>
+          <tr>
+            <th>Tahun</th>
+            <th>Revenue</th>
+            <th>EBIT</th>
+            <th>FCFF</th>
+            <th>PV FCFF</th>
+          </tr>
+        </thead>
+        <tbody>
+          {input.results.dcf.forecast.map((row) => (
+            <tr key={row.year}>
+              <td>{row.year}</td>
+              <td className="numeric-cell">{formatIdr(row.revenue)}</td>
+              <td className="numeric-cell">{formatIdr(row.ebit)}</td>
+              <td className="numeric-cell">{formatIdr(row.freeCashFlow)}</td>
+              <td className="numeric-cell">{formatIdr(row.presentValue)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </>
+  );
+}
+
 function BalanceSheetReportTable({
   view,
   periods,
+  showBalanceCheck = true,
 }: {
   view: ReturnType<typeof buildBalanceSheetView>;
   periods: Period[];
+  showBalanceCheck?: boolean;
 }) {
-  if (!view.hasRows) {
+  const visibleSections = view.sections.filter((section) => section.lines.length > 0);
+
+  if (!view.hasRows || visibleSections.length === 0) {
     return <p className="pdf-report-note">Data neraca belum tersedia.</p>;
   }
 
@@ -373,7 +614,7 @@ function BalanceSheetReportTable({
         </tr>
       </thead>
       <tbody>
-        {view.sections.flatMap((section) => {
+        {visibleSections.flatMap((section) => {
           const groups = groupBalanceSheetLines(section.lines);
 
           return [
@@ -409,26 +650,30 @@ function BalanceSheetReportTable({
             </tr>,
           ];
         })}
-        <tr className="subtotal-row">
-          <td>Liabilitas + Ekuitas</td>
-          <td>Total</td>
-          <td>Total Liabilitas + Ekuitas</td>
-          {periods.map((period) => (
-            <td className="numeric-cell" key={period.id}>
-              {formatIdr(view.totalLiabilitiesAndEquity[period.id] ?? 0)}
-            </td>
-          ))}
-        </tr>
-        <tr className="balance-check-row">
-          <td>Cek Kesesuaian</td>
-          <td>Model</td>
-          <td>Aset - (Liabilitas + Ekuitas)</td>
-          {periods.map((period) => (
-            <td className="numeric-cell" key={period.id}>
-              {formatIdr(view.balanceGap[period.id] ?? 0)}
-            </td>
-          ))}
-        </tr>
+        {showBalanceCheck ? (
+          <>
+            <tr className="subtotal-row">
+              <td>Liabilitas + Ekuitas</td>
+              <td>Total</td>
+              <td>Total Liabilitas + Ekuitas</td>
+              {periods.map((period) => (
+                <td className="numeric-cell" key={period.id}>
+                  {formatIdr(view.totalLiabilitiesAndEquity[period.id] ?? 0)}
+                </td>
+              ))}
+            </tr>
+            <tr className="balance-check-row">
+              <td>Cek Kesesuaian</td>
+              <td>Model</td>
+              <td>Aset - (Liabilitas + Ekuitas)</td>
+              {periods.map((period) => (
+                <td className="numeric-cell" key={period.id}>
+                  {formatIdr(view.balanceGap[period.id] ?? 0)}
+                </td>
+              ))}
+            </tr>
+          </>
+        ) : null}
       </tbody>
     </table>
   );
@@ -516,6 +761,108 @@ function buildMethodSummaries(activeRows: TaxSimulationMethodRow[], baselineRows
       transferredEquityValue: taxRow?.marketValueOfTransferredInterest ?? null,
       potentialTax: taxRow?.potentialTax ?? null,
     };
+  });
+}
+
+function buildDriverMetrics(payload: ValuationPdfExportPayload, scope: ValuationPdfExportScope): ReportMetric[] {
+  const { input } = payload;
+  const metrics: ReportMetric[] = [
+    { label: "Tax rate", value: formatPercent(input.snapshot.taxRate), note: input.resolvedAssumptions.taxRateSource || input.assumptions.taxRateSource },
+  ];
+
+  if (scope.methods.includes("AAM")) {
+    metrics.push(
+      { label: "Aset historis AAM", value: formatIdr(input.aamAdjustmentModel.historicalAssetTotal) },
+      { label: "Liabilitas historis AAM", value: formatIdr(input.aamAdjustmentModel.historicalLiabilityTotal) },
+    );
+  }
+
+  if (scope.methods.includes("EEM")) {
+    metrics.push(
+      { label: "Required return on NTA", value: formatPercent(input.snapshot.requiredReturnOnNta) },
+      { label: "Operating working capital", value: formatIdr(input.results.operatingWorkingCapital) },
+      { label: "Non-operating assets", value: formatIdr(input.results.nonOperatingAssets) },
+    );
+  }
+
+  if (scope.methods.some((method) => method === "EEM" || method === "DCF")) {
+    metrics.push({ label: "WACC", value: formatPercent(input.snapshot.wacc), note: input.activeWaccBasisLabel || input.resolvedAssumptions.waccSource || input.assumptions.waccSource });
+  }
+
+  if (scope.methods.includes("DCF")) {
+    metrics.push(
+      { label: "Basis DCF aktif", value: input.activeDcfBasisLabel || "DCF - skenario dasar", note: input.activeDcfBasisSummary || "Default sistem" },
+      {
+        label: "Terminal growth",
+        value: formatPercentFixed(input.snapshot.terminalGrowth),
+        note: input.resolvedAssumptions.terminalGrowthSource || input.assumptions.terminalGrowthSource,
+      },
+      { label: "Revenue growth", value: formatPercent(input.snapshot.revenueGrowth) },
+      { label: "Nilai aktif DCF", value: formatIdr(input.results.projectionGovernance.governedEquityValue), note: input.results.projectionGovernance.title },
+    );
+  }
+
+  return uniqueMetrics(metrics);
+}
+
+function buildScopedTaxRows(activeRows: TaxSimulationMethodRow[], baselineRows: TaxSimulationMethodRow[], scope: ValuationPdfExportScope): TaxSimulationMethodRow[] {
+  return scope.methods.flatMap((method) => {
+    const row = activeRows.find((item) => item.method === method) ?? baselineRows.find((item) => item.method === method);
+    return row ? [row] : [];
+  });
+}
+
+function filterMappedRowsByPdfScope(rows: MappedRow[], scope: ValuationPdfExportScope): MappedRow[] {
+  if (scope.id === "all") {
+    return rows;
+  }
+
+  return rows.filter((item) => isMappedRowRelevantToMethods(item, scope.methods));
+}
+
+function isMappedRowRelevantToMethods(item: MappedRow, methods: ValuationMethod[]): boolean {
+  const labels = new Set(resolveAccountLabels(item.row.statement, item.effectiveCategory, item.row.labelOverrides));
+
+  return methods.some((method) => {
+    if (method === "AAM") {
+      return labels.has("formula:aam") || item.row.statement === "fixed_asset";
+    }
+
+    if (method === "EEM") {
+      return (
+        labels.has("formula:eem") ||
+        labels.has("formula:nta") ||
+        labels.has("formula:noplat") ||
+        labels.has("formula:excess-earnings") ||
+        labels.has("treatment:working-capital") ||
+        labels.has("treatment:non-operating") ||
+        labels.has("treatment:debt-like")
+      );
+    }
+
+    return (
+      labels.has("formula:dcf") ||
+      labels.has("formula:fcff") ||
+      labels.has("formula:noplat") ||
+      labels.has("formula:fixed-asset") ||
+      labels.has("treatment:working-capital") ||
+      labels.has("treatment:non-operating") ||
+      labels.has("treatment:debt-like") ||
+      labels.has("fs:cash")
+    );
+  });
+}
+
+function uniqueMetrics(metrics: ReportMetric[]): ReportMetric[] {
+  const seen = new Set<string>();
+
+  return metrics.filter((metric) => {
+    if (seen.has(metric.label)) {
+      return false;
+    }
+
+    seen.add(metric.label);
+    return true;
   });
 }
 
