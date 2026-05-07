@@ -732,6 +732,14 @@ select {
   color: var(--ink);
 }
 
+.field.invalid input,
+.field.invalid select,
+.field.invalid textarea {
+  border-color: rgba(180, 35, 24, 0.32);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
 .period-card input,
 .field input,
 .account-entry-table input,

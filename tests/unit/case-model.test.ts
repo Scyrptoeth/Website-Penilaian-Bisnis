@@ -160,22 +160,58 @@ describe("case model", () => {
     assert.equal(derived.capitalBaseFullLabel, "Jumlah Modal Disetor 100%");
     assert.equal(derived.capitalBaseValuedLabel, "Jumlah Modal Disetor yang Dinilai");
     assert.equal(derived.capitalProportionStatus, "valid");
+    assert.equal(derived.capitalBaseAmountStatus, "valid");
     assertAlmostEqual(derived.capitalProportion ?? 0, 1_600_000_000 / 5_280_000_000, 1e-12);
+    assert.equal(derived.capitalBaseFullAmount, 5_280_000_000);
+    assert.equal(derived.capitalBaseValuedAmount, 1_600_000_000);
     assert.equal(derived.cutOffDate, "2021-12-31");
     assert.equal(derived.firstProjectionEndDate, "2022-12-31");
   });
 
-  it("switches capital labels for share-transfer input and flags invalid proportions", () => {
+  it("switches capital labels for share-transfer input and requires share value for rupiah amounts", () => {
+    const missingShareValue = buildCaseProfileDerived({
+      ...emptyCaseProfile,
+      transferType: "Lembar Saham",
+      capitalBaseFull: "5.280",
+      capitalBaseValued: "1.610",
+    });
+
+    assert.equal(missingShareValue.capitalBaseFullLabel, "Jumlah Saham Beredar 100%");
+    assert.equal(missingShareValue.capitalBaseValuedLabel, "Jumlah Saham yang Dinilai");
+    assert.equal(missingShareValue.capitalProportionStatus, "valid");
+    assert.equal(missingShareValue.shareValuePerShareStatus, "empty");
+    assert.equal(missingShareValue.capitalBaseAmountStatus, "invalid");
+    assert.equal(missingShareValue.capitalBaseValuedAmount, null);
+
+    const derived = buildCaseProfileDerived({
+      ...emptyCaseProfile,
+      transferType: "Lembar Saham",
+      capitalBaseFull: "5.280",
+      capitalBaseValued: "1.610",
+      shareValuePerShare: "1.000.000",
+    });
+
+    assert.equal(derived.capitalBaseFullLabel, "Jumlah Saham Beredar 100%");
+    assert.equal(derived.capitalBaseValuedLabel, "Jumlah Saham yang Dinilai");
+    assert.equal(derived.capitalProportionStatus, "valid");
+    assert.equal(derived.shareValuePerShareStatus, "valid");
+    assert.equal(derived.capitalBaseAmountStatus, "valid");
+    assertAlmostEqual(derived.capitalProportion ?? 0, 1_610 / 5_280, 1e-12);
+    assert.equal(derived.capitalBaseFullAmount, 5_280_000_000);
+    assert.equal(derived.capitalBaseValuedAmount, 1_610_000_000);
+  });
+
+  it("flags share-transfer proportions above 100% even when share value is valid", () => {
     const derived = buildCaseProfileDerived({
       ...emptyCaseProfile,
       transferType: "Lembar Saham",
       capitalBaseFull: "100",
       capitalBaseValued: "120",
+      shareValuePerShare: "1.000",
     });
 
-    assert.equal(derived.capitalBaseFullLabel, "Jumlah Saham Beredar 100%");
-    assert.equal(derived.capitalBaseValuedLabel, "Jumlah Saham yang Dinilai");
     assert.equal(derived.capitalProportionStatus, "invalid");
+    assert.equal(derived.capitalBaseAmountStatus, "invalid");
   });
 
   it("parses Indonesian and common accounting number inputs", () => {

@@ -128,6 +128,58 @@ describe("DLOM and tax simulation scenario layer", () => {
     assert.equal(methods.aam.traces.some((trace) => trace.note.includes("DLOM/DLOC tidak diterapkan")), true);
   });
 
+  it("uses share quantity times share value per share as the reported transfer value fallback", () => {
+    const shareCaseProfile = {
+      ...caseProfile,
+      transferType: "Lembar Saham",
+      capitalBaseFull: "5.280",
+      capitalBaseValued: "1.610",
+      shareValuePerShare: "1.000.000",
+    };
+    const shareCaseProfileDerived = buildCaseProfileDerived(shareCaseProfile);
+    const dlom = calculateDlom(buildSampleDlomState(), snapshot, shareCaseProfile);
+    const simulation = calculateTaxSimulation({
+      methods: [methods.aam],
+      dlom,
+      dlocPfc,
+      state: { ...buildSampleTaxSimulationState(), reportedTransferValue: "" },
+      caseProfile: shareCaseProfile,
+      caseProfileDerived: shareCaseProfileDerived,
+      snapshot,
+    });
+    const aam = simulation.rows[0];
+
+    assertAlmostEqual(aam.sharePercentage, 1_610 / 5_280, 1e-12);
+    assert.equal(aam.reportedTransferValue, 1_610_000_000);
+    assert.ok(!simulation.warnings.some((warning) => warning.includes("Nilai Saham Per Lembar wajib")));
+  });
+
+  it("does not treat share quantity as rupiah when share value per share is missing", () => {
+    const shareCaseProfile = {
+      ...caseProfile,
+      transferType: "Lembar Saham",
+      capitalBaseFull: "5.280",
+      capitalBaseValued: "1.610",
+      shareValuePerShare: "",
+    };
+    const shareCaseProfileDerived = buildCaseProfileDerived(shareCaseProfile);
+    const dlom = calculateDlom(buildSampleDlomState(), snapshot, shareCaseProfile);
+    const simulation = calculateTaxSimulation({
+      methods: [methods.aam],
+      dlom,
+      dlocPfc,
+      state: { ...buildSampleTaxSimulationState(), reportedTransferValue: "" },
+      caseProfile: shareCaseProfile,
+      caseProfileDerived: shareCaseProfileDerived,
+      snapshot,
+    });
+    const aam = simulation.rows[0];
+
+    assertAlmostEqual(aam.sharePercentage, 1_610 / 5_280, 1e-12);
+    assert.equal(aam.reportedTransferValue, 0);
+    assert.ok(simulation.warnings.some((warning) => warning.includes("Nilai Saham Per Lembar wajib")));
+  });
+
   it("warns instead of silently finalizing blank-case tax simulation", () => {
     const dlom = calculateDlom(createEmptyDlomState(), snapshot, caseProfile);
     const simulation = calculateTaxSimulation({

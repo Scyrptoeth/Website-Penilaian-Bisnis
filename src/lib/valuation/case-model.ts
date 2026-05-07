@@ -37,16 +37,25 @@ export type CaseProfile = {
   transferType: string;
   capitalBaseFull: string;
   capitalBaseValued: string;
+  shareValuePerShare: string;
   transactionYear: string;
   valuationObject: string;
 };
 
 export type CaseProfileDerived = {
+  isShareTransfer: boolean;
   capitalBaseFullLabel: string;
   capitalBaseValuedLabel: string;
   capitalProportionLabel: string;
   capitalProportion: number | null;
   capitalProportionStatus: "empty" | "valid" | "invalid";
+  shareValuePerShare: number | null;
+  shareValuePerShareStatus: "not_applicable" | "empty" | "valid" | "invalid";
+  capitalBaseFullAmountLabel: string;
+  capitalBaseValuedAmountLabel: string;
+  capitalBaseFullAmount: number | null;
+  capitalBaseValuedAmount: number | null;
+  capitalBaseAmountStatus: "empty" | "valid" | "invalid";
   cutOffDate: string;
   firstProjectionEndDate: string;
 };
@@ -198,6 +207,7 @@ export const emptyCaseProfile: CaseProfile = {
   transferType: "",
   capitalBaseFull: "",
   capitalBaseValued: "",
+  shareValuePerShare: "",
   transactionYear: "",
   valuationObject: "",
 };
@@ -412,6 +422,7 @@ export function getChronologicalPeriods(periods: Period[]): Period[] {
 
 export function buildCaseProfileDerived(profile: CaseProfile): CaseProfileDerived {
   const isPaidUpCapitalTransfer = profile.transferType === "Modal Disetor" || profile.transferType.trim() === "";
+  const isShareTransfer = !isPaidUpCapitalTransfer;
   const capitalBaseFullLabel = isPaidUpCapitalTransfer ? "Jumlah Modal Disetor 100%" : "Jumlah Saham Beredar 100%";
   const capitalBaseValuedLabel = isPaidUpCapitalTransfer ? "Jumlah Modal Disetor yang Dinilai" : "Jumlah Saham yang Dinilai";
   const capitalProportionLabel = isPaidUpCapitalTransfer ? "Proporsi Modal Disetor yang Dinilai" : "Proporsi Saham yang Dinilai";
@@ -424,16 +435,57 @@ export function buildCaseProfileDerived(profile: CaseProfile): CaseProfileDerive
       : capitalProportion !== null && capitalProportion > 0 && capitalProportion <= 1
         ? "valid"
         : "invalid";
+  const shareValueInput = profile.shareValuePerShare ?? "";
+  const shareValuePerShare = parseInputNumber(shareValueInput);
+  const shareValuePerShareStatus =
+    isPaidUpCapitalTransfer
+      ? "not_applicable"
+      : !shareValueInput.trim()
+        ? "empty"
+        : shareValuePerShare > 0
+          ? "valid"
+          : "invalid";
+  const hasCapitalInputs = profile.capitalBaseFull.trim() !== "" || profile.capitalBaseValued.trim() !== "";
+  const hasShareAmountInputs = hasCapitalInputs || shareValueInput.trim() !== "";
+  const capitalBaseFullAmount = isPaidUpCapitalTransfer
+    ? fullCapital
+    : shareValuePerShareStatus === "valid"
+      ? fullCapital * shareValuePerShare
+      : null;
+  const capitalBaseValuedAmount = isPaidUpCapitalTransfer
+    ? valuedCapital
+    : shareValuePerShareStatus === "valid"
+      ? valuedCapital * shareValuePerShare
+      : null;
+  const capitalBaseAmountStatus = isPaidUpCapitalTransfer
+    ? !hasCapitalInputs
+      ? "empty"
+      : fullCapital > 0 && valuedCapital > 0
+        ? "valid"
+        : "invalid"
+    : !hasShareAmountInputs
+      ? "empty"
+      : capitalProportionStatus === "valid" && shareValuePerShareStatus === "valid"
+        ? "valid"
+        : "invalid";
   const transactionYear = readTransactionYear(profile.transactionYear);
   const cutOffDate = transactionYear ? `${transactionYear - 1}-12-31` : "";
   const firstProjectionEndDate = transactionYear ? `${transactionYear}-12-31` : "";
 
   return {
+    isShareTransfer,
     capitalBaseFullLabel,
     capitalBaseValuedLabel,
     capitalProportionLabel,
     capitalProportion,
     capitalProportionStatus,
+    shareValuePerShare: shareValuePerShareStatus === "valid" ? shareValuePerShare : null,
+    shareValuePerShareStatus,
+    capitalBaseFullAmountLabel: isPaidUpCapitalTransfer ? "Nilai Modal Disetor 100%" : "Nilai Saham Beredar 100%",
+    capitalBaseValuedAmountLabel: isPaidUpCapitalTransfer ? "Nilai Modal Disetor yang Dinilai" : "Nilai Saham yang Dinilai",
+    capitalBaseFullAmount,
+    capitalBaseValuedAmount,
+    capitalBaseAmountStatus,
     cutOffDate,
     firstProjectionEndDate,
   };
@@ -541,6 +593,7 @@ export function buildSampleCaseProfile(): CaseProfile {
     transferType: "Modal Disetor",
     capitalBaseFull: formatInputNumber(5_280_000_000),
     capitalBaseValued: formatInputNumber(1_600_000_000),
+    shareValuePerShare: "",
     transactionYear: "2022",
     valuationObject: "Saham",
   };

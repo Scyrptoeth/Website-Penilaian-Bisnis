@@ -114,6 +114,39 @@ describe("workbench readiness", () => {
     assert.equal(readiness.roic.warnings.length, 0);
   });
 
+  it("flags share-transfer tax simulation when share value per share is missing", () => {
+    const periods = buildSamplePeriods();
+    const rows = buildSampleRows();
+    const mappedRows = rows.map(mapRow);
+    const assumptions = buildSampleAssumptions();
+    const caseProfile = {
+      ...buildSampleCaseProfile(),
+      transferType: "Lembar Saham",
+      capitalBaseFull: "5.280",
+      capitalBaseValued: "1.610",
+      shareValuePerShare: "",
+    };
+    const caseProfileDerived = buildCaseProfileDerived(caseProfile);
+    const dlocPfc = calculateDlocPfc(buildSampleDlocPfcState(), caseProfile);
+    const fixedAssetSchedule = buildFixedAssetScheduleSummary(periods, []);
+    const snapshot = buildSnapshot(periods, "p2021", rows, assumptions);
+    const readiness = buildWorkbenchReadiness({
+      periods,
+      rows,
+      mappedRows,
+      assumptions,
+      snapshot,
+      fixedAssetSchedule,
+      caseProfile,
+      caseProfileDerived,
+      dlocPfc,
+      taxSimulation: { ...buildSampleTaxSimulationState(), reportedTransferValue: "" },
+    });
+
+    assert.equal(readiness.taxSimulation.isReady, false);
+    assert.ok(readiness.taxSimulation.missing.some((item) => item.label.includes("Nilai Saham Per Lembar")));
+  });
+
   it("lets projected income stand alone without working-capital or fixed-asset gates", () => {
     const activePeriodId = initialPeriods[0].id;
     const rows: AccountRow[] = [

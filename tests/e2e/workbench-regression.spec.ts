@@ -487,6 +487,26 @@ test("DLOM and tax simulation render workbook-derived scenario layer after loadi
   await expect(page.getByText("Effective rate")).toBeVisible();
 });
 
+test("share-transfer input keeps shares as quantity and passes derived rupiah value to tax simulation", async ({ page }) => {
+  await loadSampleWorkbook(page);
+
+  await workflowNav(page).getByRole("button", { name: "Data Awal" }).click();
+  await page.getByLabel("Jenis Peralihan yang Diketahui").selectOption("Lembar Saham");
+  await page.getByLabel("Jumlah Saham Beredar 100%").fill("5280");
+  await page.getByLabel("Jumlah Saham yang Dinilai").fill("1610");
+  await expect(page.getByText("Nilai Saham Per Lembar")).toBeVisible();
+  await expect(page.getByText("Nilai Saham yang Dinilai").locator("..")).toContainText("Data Tidak Valid");
+
+  await page.getByLabel("Nilai Saham Per Lembar").fill("1000000");
+  await expect(page.getByTestId("case-profile-panel")).toContainText(/Rp\s*1\.610\.000\.000,00/);
+  await expect(page.getByTestId("case-profile-panel")).toContainText("30,49%");
+
+  await openWorkflowTab(page, "Simulasi Potensi Pajak");
+  await expect(page.getByText("Nilai pengalihan dari Data Awal").locator("..")).toContainText(/Rp\s*1\.610\.000\.000,00/);
+  await expect(page.getByTestId("tax-simulation-table")).toContainText(/Rp\s*1\.610\.000\.000,00/);
+  await expect(page.getByTestId("tax-simulation-table")).not.toContainText("Rp1.610,00");
+});
+
 test("legacy workbook-like DLOM drafts migrate to workbook UPDATE basis without showing formula UI", async ({ page }) => {
   await page.addInitScript(({ key, state }) => {
     window.localStorage.setItem(key, JSON.stringify(state));
@@ -549,7 +569,7 @@ test("legacy workbook-like DLOM drafts migrate to workbook UPDATE basis without 
   await expect(page.getByTestId("dlom-basis-grid")).not.toContainText("Workbook UPDATE DLOM!C31");
   await expect(page.getByTestId("dlom-basis-grid")).not.toContainText("Formula");
   await expect(page.getByTestId("dlom-summary")).toContainText("25%");
-  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(14);
+  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(15);
 });
 
 test("exports the active workbench state through the primary template-clone XLSX workflow", async ({ page }) => {
@@ -605,14 +625,15 @@ test("exports the active workbench state through the primary template-clone XLSX
 
 test("exports the active workbench state to a print-ready PDF report view", async ({ page }) => {
   const fixtureState = JSON.parse(readFileSync("tests/fixtures/export-xlsx-v2-workbench-state.json", "utf8")) as unknown;
-  await page.evaluate(
-    ({ key, state }) => {
-      window.localStorage.setItem(key, JSON.stringify(state));
-    },
-    { key: "penilaian-valuasi-bisnis.workbench.v1", state: fixtureState },
-  );
+  await page.addInitScript(({ key, state }) => {
+    window.localStorage.setItem(key, JSON.stringify(state));
+  }, {
+    key: "penilaian-valuasi-bisnis.workbench.v1",
+    state: fixtureState,
+  });
   await page.reload();
   await expect(page.getByTestId("valuation-workbench")).toBeVisible();
+  await expect(page.getByLabel("Nama Objek Pajak")).toHaveValue("Makmur Jaya Sejati Raya");
 
   const popupPromise = page.waitForEvent("popup");
   await page.getByRole("button", { name: "Export PDF" }).click();
@@ -825,7 +846,7 @@ test("legacy positive income-statement expense drafts migrate once and remain us
   await amountInput.press("Home");
   await amountInput.press("Delete");
   await expect(amountInput).toHaveValue("100");
-  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(14);
+  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(15);
 
   await page.reload();
   await openWorkflowTab(page, "Laba Rugi");

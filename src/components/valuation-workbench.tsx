@@ -311,6 +311,7 @@ const caseProfileKeys: Array<keyof CaseProfile> = [
   "transferType",
   "capitalBaseFull",
   "capitalBaseValued",
+  "shareValuePerShare",
   "transactionYear",
   "valuationObject",
 ];
@@ -368,7 +369,7 @@ const requiredReturnSuggestionOrder: RequiredReturnOnNtaSuggestionKey[] = [
 const WORKBENCH_STORAGE_KEY = "penilaian-valuasi-bisnis.workbench.v1";
 const WORKBENCH_SCROLL_STORAGE_KEY = "penilaian-valuasi-bisnis.scroll.v1";
 const WORKBENCH_SIDEBAR_STORAGE_KEY = "penilaian-valuasi-bisnis.sidebar.v1";
-const WORKBENCH_STORAGE_VERSION = 14;
+const WORKBENCH_STORAGE_VERSION = 15;
 const defaultFixedAssetProjectionMode: FixedAssetProjectionMode = "workbook-formula";
 
 type IncomeProjectionOverrideField = "revenueGrowth" | "grossProfitMargin" | "operatingExpenseMargin" | "depreciationMargin";
@@ -3448,6 +3449,11 @@ function TaxSimulationSection({
           <DerivedCaseField label="DLOM baseline" value={dlom.isComplete ? formatPercent(dlom.dlomRate) : "Belum lengkap"} />
           <DerivedCaseField label="DLOC/PFC baseline" value={dlocPfc.isComplete ? `${dlocPfc.adjustmentType} ${formatPercent(dlocPfc.signedRate)}` : "Belum lengkap"} />
           <DerivedCaseField label={caseProfileDerived.capitalProportionLabel} value={formatCaseProfileProportion(caseProfileDerived)} />
+          <DerivedCaseField
+            label="Nilai pengalihan dari Data Awal"
+            value={formatCaseProfileAmount(caseProfileDerived.capitalBaseValuedAmount, caseProfileDerived.capitalBaseAmountStatus)}
+            state={caseProfileDerived.capitalBaseAmountStatus === "invalid" ? "invalid" : "neutral"}
+          />
           <DerivedCaseField label="Resistensi keseluruhan" value={result.overallResistance} state={result.overallResistance === "Belum lengkap" ? "invalid" : "neutral"} />
           <label className="field">
             <span>Skenario DLOM</span>
@@ -7870,6 +7876,13 @@ function CaseProfilePanel({
   onChange: (key: keyof CaseProfile, value: string) => void;
 }) {
   const kluRecord = getKluSectorRecord(profile.objectBusinessKlu);
+  const isShareTransfer = derived.isShareTransfer;
+  const shareValuePerShareState =
+    isShareTransfer && derived.shareValuePerShareStatus !== "valid" && profile.shareValuePerShare.trim() !== "" ? "invalid" : "neutral";
+  const shareValuePerShareHelp =
+    isShareTransfer && derived.shareValuePerShareStatus !== "valid"
+      ? "Wajib diisi untuk mengubah lembar saham menjadi nilai rupiah penuh."
+      : undefined;
 
   return (
     <div className="data-awal-grid" data-testid="case-profile-panel">
@@ -7938,11 +7951,35 @@ function CaseProfilePanel({
             inputMode="decimal"
             onChange={(value) => onChange("capitalBaseValued", value)}
           />
+          {isShareTransfer ? (
+            <CaseProfileInput
+              label="Nilai Saham Per Lembar"
+              value={profile.shareValuePerShare}
+              inputMode="decimal"
+              state={shareValuePerShareState}
+              help={shareValuePerShareHelp}
+              onChange={(value) => onChange("shareValuePerShare", value)}
+            />
+          ) : null}
           <DerivedCaseField
             label={derived.capitalProportionLabel}
             value={formatCaseProfileProportion(derived)}
             state={derived.capitalProportionStatus === "invalid" ? "invalid" : "neutral"}
           />
+          {isShareTransfer ? (
+            <>
+              <DerivedCaseField
+                label={derived.capitalBaseFullAmountLabel}
+                value={formatCaseProfileAmount(derived.capitalBaseFullAmount, derived.capitalBaseAmountStatus)}
+                state={derived.capitalBaseAmountStatus === "invalid" ? "invalid" : "neutral"}
+              />
+              <DerivedCaseField
+                label={derived.capitalBaseValuedAmountLabel}
+                value={formatCaseProfileAmount(derived.capitalBaseValuedAmount, derived.capitalBaseAmountStatus)}
+                state={derived.capitalBaseAmountStatus === "invalid" ? "invalid" : "neutral"}
+              />
+            </>
+          ) : null}
           <CaseProfileInput
             label="Tahun Transaksi Pengalihan"
             value={profile.transactionYear}
@@ -7962,19 +7999,34 @@ function CaseProfileInput({
   label,
   value,
   inputMode = "text",
+  state = "neutral",
+  help,
   onChange,
 }: {
   label: string;
   value: string;
   inputMode?: "text" | "decimal" | "numeric";
+  state?: "neutral" | "invalid";
+  help?: string;
   onChange: (value: string) => void;
 }) {
   const inputId = `case-profile-${slugifyLabel(label)}`;
 
   return (
-    <label className="field" htmlFor={inputId}>
+    <label className={state === "invalid" ? "field invalid" : "field"} htmlFor={inputId}>
       <span>{label}</span>
-      <input id={inputId} inputMode={inputMode} value={value} onChange={(event) => onChange(event.target.value)} />
+      <input
+        aria-invalid={state === "invalid"}
+        id={inputId}
+        inputMode={inputMode}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+      {help ? (
+        <small className="field-help" role={state === "invalid" ? "alert" : undefined}>
+          {help}
+        </small>
+      ) : null}
     </label>
   );
 }
@@ -9642,7 +9694,7 @@ function formatCaseProfileValue(key: keyof CaseProfile, value: string): string {
     return normalizeKluCode(value);
   }
 
-  if (key === "capitalBaseFull" || key === "capitalBaseValued") {
+  if (key === "capitalBaseFull" || key === "capitalBaseValued" || key === "shareValuePerShare") {
     return formatEditableNumber(value);
   }
 
@@ -9663,6 +9715,18 @@ function formatCaseProfileProportion(derived: CaseProfileDerived): string {
   }
 
   return formatPercent(derived.capitalProportion);
+}
+
+function formatCaseProfileAmount(value: number | null, status: CaseProfileDerived["capitalBaseAmountStatus"]): string {
+  if (status === "empty") {
+    return "Belum dihitung";
+  }
+
+  if (status === "invalid" || value === null) {
+    return "Data Tidak Valid";
+  }
+
+  return formatIdr(value);
 }
 
 function formatDerivedDate(value: string): string {

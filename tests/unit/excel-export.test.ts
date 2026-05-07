@@ -109,6 +109,38 @@ describe("valuation Excel export", () => {
     assert.ok(sourceOriginEntries?.some((entry) => entry.sheet === "HOME" && entry.cell === "B4" && entry.sourceOrigin === "website-sourced"));
   });
 
+  it("exports share-transfer quantities as derived rupiah values for template interoperability", () => {
+    const templateData = readFileSync("public/templates/kkp-saham-final-account-category-review-update.xlsx");
+    const baseInput = buildSampleExportInput();
+    const caseProfile = {
+      ...baseInput.caseProfile,
+      transferType: "Lembar Saham",
+      capitalBaseFull: "5.280",
+      capitalBaseValued: "1.610",
+      shareValuePerShare: "1.000.000",
+    };
+    const caseProfileDerived = buildCaseProfileDerived(caseProfile);
+    const taxSimulation = { ...baseInput.taxSimulation, reportedTransferValue: "" };
+    const taxSimulationResult = calculateTaxSimulation({
+      methods: [baseInput.results.aam, baseInput.results.eem, baseInput.results.dcf],
+      dlom: baseInput.dlomCalculation,
+      dlocPfc: baseInput.dlocPfcCalculation,
+      state: taxSimulation,
+      caseProfile,
+      caseProfileDerived,
+      snapshot: baseInput.snapshot,
+    });
+    const input = { ...baseInput, caseProfile, caseProfileDerived, taxSimulation, taxSimulationResult };
+    const { workbook } = buildValuationTemplateWorkbook(input, templateData);
+
+    assert.equal(input.caseProfileDerived.capitalBaseFullAmount, 5_280_000_000);
+    assert.equal(input.caseProfileDerived.capitalBaseValuedAmount, 1_610_000_000);
+    assert.equal(input.taxSimulationResult.primaryRow?.reportedTransferValue, 1_610_000_000);
+    assert.equal(workbook.Sheets.HOME.B15.v, 5_280_000_000);
+    assert.equal(workbook.Sheets.HOME.B16.v, 1_610_000_000);
+    assert.equal(workbook.Sheets["SIMULASI POTENSI PAJAK"].E14.v, 1_610_000_000);
+  });
+
   it("writes blue font styles to non-website V2 cells through XLSX XML post-processing", () => {
     const templateData = readFileSync("public/templates/kkp-saham-final-account-category-review-update.xlsx");
     const input = buildSampleExportInput();

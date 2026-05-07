@@ -176,10 +176,16 @@ export function buildWorkbenchReadiness({
   const hasDlocPfcAnswers = criterion(dlocPfc.factors.every((factor) => factor.status === "answered"), "Questionnaire DLOC/PFC lengkap", "dlocPfc", "Isi DLOC/PFC");
   const primaryMethod = criterion(taxSimulation.primaryMethod !== "", "Primary Method simulasi pajak dipilih", "taxSimulation", "Pilih Primary Method");
   const reportedTransferValue = criterion(
-    taxSimulation.reportedTransferValue.trim() !== "" || caseProfile.capitalBaseValued.trim() !== "",
+    taxSimulation.reportedTransferValue.trim() !== "" || (caseProfileDerived.capitalBaseValuedAmount ?? 0) > 0,
     "Nilai pengalihan dilaporkan tersedia",
     "taxSimulation",
     "Isi Nilai Pengalihan",
+  );
+  const shareValuePerShare = criterion(
+    !caseProfileDerived.isShareTransfer || caseProfileDerived.shareValuePerShareStatus === "valid",
+    "Nilai Saham Per Lembar tersedia untuk peralihan berbasis lembar saham",
+    "periods",
+    "Isi Data Awal",
   );
   const shareRatio = criterion(
     caseProfileDerived.capitalProportionStatus === "valid",
@@ -262,7 +268,7 @@ export function buildWorkbenchReadiness({
     ]),
     dlom: status("dlom", "DLOM", [period, hasCompanyType, hasShareOwnershipType], [balance, income]),
     dlocPfc: status("dlocPfc", "DLOC/PFC", [period, hasCompanyType, hasShareOwnershipType, hasDlocPfcAnswers]),
-    taxSimulation: status("taxSimulation", "Simulasi Potensi Pajak", [period], [
+    taxSimulation: status("taxSimulation", "Simulasi Potensi Pajak", [period, shareValuePerShare], [
       balance,
       income,
       primaryMethod,

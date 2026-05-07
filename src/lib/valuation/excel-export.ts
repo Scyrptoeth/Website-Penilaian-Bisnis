@@ -99,6 +99,7 @@ const caseProfileLabels: Record<keyof CaseProfile, string> = {
   transferType: "Jenis Pengalihan",
   capitalBaseFull: "Basis modal/saham 100%",
   capitalBaseValued: "Basis modal/saham dinilai",
+  shareValuePerShare: "Nilai saham per lembar",
   transactionYear: "Tahun transaksi",
   valuationObject: "Objek penilaian",
 };
@@ -295,6 +296,7 @@ function buildSummarySheet(input: ValuationExcelExportInput, methodRefs: MethodR
     ["Valuation date", input.snapshot.valuationDate || "-"],
     ["Transaction year", input.caseProfile.transactionYear || "-"],
     ["Capital/share proportion", numberCell(input.caseProfileDerived.capitalProportion ?? 0, "percent")],
+    ["Reported transfer value from Data Awal", numberCell(input.caseProfileDerived.capitalBaseValuedAmount ?? 0, "currency")],
     [],
     ["Base valuation", "Formula", "Value", "Note"],
     ["AAM equity value", methodRefs.AAM, formulaCell(methodRefs.AAM, input.results.aam.equityValue, "currency"), "Asset Accumulation Method before DLOM/DLOC/PFC."],
@@ -330,7 +332,7 @@ function buildCaseProfileSheet(input: ValuationExcelExportInput, exportedAt: Dat
     ["Field", "Input Value", "Derived / Status", "Source"],
     ["Exported at", exportedAt.toISOString(), "", "System"],
     ...typedEntries(input.caseProfile)
-      .filter(([key]) => key !== "objectTaxpayerNpwp")
+      .filter(([key]) => key !== "objectTaxpayerNpwp" && (key !== "shareValuePerShare" || input.caseProfileDerived.isShareTransfer))
       .map(([key, value]): SheetRow => [
         caseProfileLabels[key],
         value,
@@ -345,6 +347,8 @@ function buildCaseProfileSheet(input: ValuationExcelExportInput, exportedAt: Dat
     ["First projection end date", "", input.caseProfileDerived.firstProjectionEndDate || "-", "Derived from transaction year"],
     ["Capital proportion label", "", input.caseProfileDerived.capitalProportionLabel, "Derived"],
     ["Capital proportion", "", numberCell(input.caseProfileDerived.capitalProportion ?? 0, "percent"), input.caseProfileDerived.capitalProportionStatus],
+    [input.caseProfileDerived.capitalBaseFullAmountLabel, "", numberCell(input.caseProfileDerived.capitalBaseFullAmount ?? 0, "currency"), input.caseProfileDerived.capitalBaseAmountStatus],
+    [input.caseProfileDerived.capitalBaseValuedAmountLabel, "", numberCell(input.caseProfileDerived.capitalBaseValuedAmount ?? 0, "currency"), input.caseProfileDerived.capitalBaseAmountStatus],
   ];
 
   return createSheet(rows, [32, 28, 28, 34]);
@@ -835,8 +839,8 @@ function patchHomeSheet(workbook: XLSX.WorkBook, input: ValuationExcelExportInpu
   writeTemplateCell(workbook, patches, "HOME", "B11", profile.subjectTaxpayerType, "Jenis Subjek Pajak", "Case profile");
   writeTemplateCell(workbook, patches, "HOME", "B12", profile.shareOwnershipType, "Jenis Kepemilikan Saham", "Case profile");
   writeTemplateCell(workbook, patches, "HOME", "B14", profile.transferType, "Jenis Peralihan", "Case profile");
-  writeTemplateCell(workbook, patches, "HOME", "B15", parseInputNumber(profile.capitalBaseFull), "Capital base 100%", "Case profile");
-  writeTemplateCell(workbook, patches, "HOME", "B16", parseInputNumber(profile.capitalBaseValued), "Capital base valued", "Case profile");
+  writeTemplateCell(workbook, patches, "HOME", "B15", input.caseProfileDerived.capitalBaseFullAmount ?? 0, "Capital base 100%", "Case profile");
+  writeTemplateCell(workbook, patches, "HOME", "B16", input.caseProfileDerived.capitalBaseValuedAmount ?? 0, "Capital base valued", "Case profile");
   writeTemplateCell(workbook, patches, "HOME", "B19", parseInputNumber(profile.transactionYear), "Tahun Transaksi Pengalihan", "Case profile");
   writeTemplateCell(workbook, patches, "HOME", "B22", profile.valuationObject, "Objek Penilaian", "Case profile");
 }
@@ -1287,7 +1291,9 @@ function adjustedAamInterestBearingDebt(input: ValuationExcelExportInput): numbe
 }
 
 function aamValuePerShare(input: ValuationExcelExportInput): number {
-  const capitalBaseFull = parseInputNumber(input.caseProfile.capitalBaseFull);
+  const capitalBaseFull = input.caseProfileDerived.isShareTransfer
+    ? parseInputNumber(input.caseProfile.capitalBaseFull)
+    : (input.caseProfileDerived.capitalBaseFullAmount ?? parseInputNumber(input.caseProfile.capitalBaseFull));
 
   return capitalBaseFull > 0 ? input.results.aam.equityValue / capitalBaseFull : 0;
 }

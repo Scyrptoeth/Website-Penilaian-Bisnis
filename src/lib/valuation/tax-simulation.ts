@@ -111,8 +111,8 @@ export function buildSampleTaxSimulationState(): TaxSimulationState {
     scenarioDlomRate: "",
     scenarioDlocPfcRate: "",
     scenarioReason: "",
-    reportedTransferValue: "1.600.000.000",
-    note: "Sample workbook default: AAM sebagai primary method; DLOM dan DLOC/PFC otomatis dari tab asal.",
+    reportedTransferValue: "",
+    note: "Sample workbook default: AAM sebagai primary method; nilai pengalihan dilaporkan mengikuti Data Awal kecuali di-override manual.",
     applyDlom: true,
     applyDlocPfc: true,
     useDlocPfcOverride: false,
@@ -138,7 +138,7 @@ export function calculateTaxSimulation({
   snapshot: FinancialStatementSnapshot;
 }): TaxSimulationResult {
   const sharePercentage = caseProfileDerived.capitalProportionStatus === "valid" ? caseProfileDerived.capitalProportion ?? 0 : 0;
-  const reportedTransferValue = readReportedTransferValue(state, caseProfile);
+  const reportedTransferValue = readReportedTransferValue(state, caseProfileDerived);
   const requestedTaxYear = resolveRequestedTaxYear(caseProfile, caseProfileDerived);
   const taxYearResolution = resolveTaxRateRegime(requestedTaxYear);
   const baselineBasis = buildBaselineBasis(dlom, dlocPfc);
@@ -429,14 +429,14 @@ function buildScenarioBasis(state: TaxSimulationState, dlocPfc: DlocPfcCalculati
   };
 }
 
-function readReportedTransferValue(state: TaxSimulationState, caseProfile: CaseProfile): number {
+function readReportedTransferValue(state: TaxSimulationState, caseProfileDerived: CaseProfileDerived): number {
   const overrideValue = parseInputNumber(state.reportedTransferValue);
 
   if (overrideValue > 0) {
     return overrideValue;
   }
 
-  return parseInputNumber(caseProfile.capitalBaseValued);
+  return caseProfileDerived.capitalBaseValuedAmount ?? 0;
 }
 
 function buildWarnings({
@@ -478,6 +478,10 @@ function buildWarnings({
 
   if (sharePercentage <= 0 || sharePercentage > 1) {
     warnings.push("Persentase saham/modal yang dinilai belum valid di Data Awal.");
+  }
+
+  if (caseProfile.transferType === "Lembar Saham" && parseInputNumber(caseProfile.shareValuePerShare ?? "") <= 0) {
+    warnings.push("Nilai Saham Per Lembar wajib diisi agar jumlah lembar saham dapat diterjemahkan menjadi nilai rupiah pengalihan.");
   }
 
   if (reportedTransferValue <= 0) {

@@ -276,6 +276,19 @@ function CaseProfileSummary({ payload }: { payload: ValuationPdfExportPayload })
     { label: "Jenis Peralihan yang Diketahui", value: caseProfile.transferType || "-" },
     { label: caseProfileDerived.capitalBaseFullLabel, value: caseProfile.capitalBaseFull || "-" },
     { label: caseProfileDerived.capitalBaseValuedLabel, value: caseProfile.capitalBaseValued || "-" },
+    ...(caseProfileDerived.isShareTransfer
+      ? [
+          { label: "Nilai Saham Per Lembar", value: caseProfile.shareValuePerShare || "-" },
+          {
+            label: caseProfileDerived.capitalBaseFullAmountLabel,
+            value: formatCaseProfileAmount(caseProfileDerived.capitalBaseFullAmount, caseProfileDerived.capitalBaseAmountStatus),
+          },
+          {
+            label: caseProfileDerived.capitalBaseValuedAmountLabel,
+            value: formatCaseProfileAmount(caseProfileDerived.capitalBaseValuedAmount, caseProfileDerived.capitalBaseAmountStatus),
+          },
+        ]
+      : []),
     { label: caseProfileDerived.capitalProportionLabel, value: formatCapitalProportion(caseProfileDerived) },
     { label: "Tahun Transaksi Pengalihan", value: caseProfile.transactionYear || "-" },
     { label: "Tanggal cut-off", value: formatDerivedDate(caseProfileDerived.cutOffDate) },
@@ -519,6 +532,18 @@ function formatCapitalProportion(derived: CaseProfileDerived): string {
   }
 
   return formatPercent(derived.capitalProportion);
+}
+
+function formatCaseProfileAmount(value: number | null, status: CaseProfileDerived["capitalBaseAmountStatus"]): string {
+  if (status === "empty") {
+    return "Belum dihitung";
+  }
+
+  if (status === "invalid" || value === null) {
+    return "Data tidak valid";
+  }
+
+  return formatIdr(value);
 }
 
 function formatDerivedDate(value: string): string {
