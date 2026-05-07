@@ -65,7 +65,7 @@ export function ValuationPdfReport() {
   const driverMetrics: ReportMetric[] = [
     { label: "Basis DCF aktif", value: input.activeDcfBasisLabel || "DCF - skenario dasar", note: input.activeDcfBasisSummary || "Default sistem" },
     { label: "Tax rate", value: formatPercent(input.snapshot.taxRate), note: input.resolvedAssumptions.taxRateSource || input.assumptions.taxRateSource },
-    { label: "WACC", value: formatPercent(input.snapshot.wacc), note: input.resolvedAssumptions.waccSource || input.assumptions.waccSource },
+    { label: "WACC", value: formatPercent(input.snapshot.wacc), note: input.activeWaccBasisLabel || input.resolvedAssumptions.waccSource || input.assumptions.waccSource },
     { label: "Terminal growth", value: formatPercentFixed(input.snapshot.terminalGrowth), note: input.resolvedAssumptions.terminalGrowthSource || input.assumptions.terminalGrowthSource },
     { label: "Revenue growth", value: formatPercent(input.snapshot.revenueGrowth) },
     { label: "Required return on NTA", value: formatPercent(input.snapshot.requiredReturnOnNta) },

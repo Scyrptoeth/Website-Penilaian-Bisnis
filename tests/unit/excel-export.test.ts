@@ -47,6 +47,8 @@ describe("valuation Excel export", () => {
       "11_Section_Analysis",
       "12_Audit_Trace",
     ]);
+    assert.equal(workbook.Sheets["05_Snapshot"].B6.v, "Active WACC basis");
+    assert.equal(workbook.Sheets["05_Snapshot"].C6.v, "Manual WACC");
 
     assert.match(findFormulaByLabel(workbook.Sheets["06_AAM"], "AAM equity value"), /-/);
     assert.match(findFormulaByLabel(workbook.Sheets["07_EEM"], "EEM equity value"), /\+/);
@@ -329,6 +331,9 @@ function buildSampleExportInput(): ValuationExcelExportInput {
       aamAdjustmentModel,
       results,
       baseResults: results,
+      activeWaccBasis: "manual",
+      activeWaccBasisLabel: "Manual WACC",
+      activeWaccBasisSummary: "Override reviewer. Aktif hanya jika field WACC manual diisi dan didukung alasan.",
       activeDcfBasis: "base",
       activeDcfBasisLabel: "DCF - skenario dasar",
       activeDcfBasisSummary: "Skenario utama memakai WACC, terminal growth, modal kerja incremental, dan struktur utang aktif.",

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { calculateWaccAssumption } from "../../src/lib/valuation/assumption-calculators";
 import { calculateAllMethods } from "../../src/lib/valuation/calculations";
 import {
   buildSampleAssumptions,
@@ -35,6 +36,43 @@ describe("governed valuation drivers", () => {
     assertAlmostEqual(snapshot.terminalGrowth, 0.005, 1e-12);
     assertAlmostEqual(snapshot.revenueGrowth, 0.22185417359762538, 1e-12);
     assert.ok(snapshot.requiredReturnOnNta > 0.08);
+  });
+
+  it("allows a raw WACC sensitivity basis without changing the governed default", () => {
+    const rows = buildBrowserStateRows();
+    const fixedAssetRows = buildBrowserStateFixedAssetRows();
+    const assumptions = buildHighRiskSmartSuggestionAssumptions();
+    const rawWaccCalculation = calculateWaccAssumption(assumptions);
+    const governedSnapshot = buildSnapshot(browserStatePeriods, "p1", rows, assumptions, fixedAssetRows, { waccBasis: "governed" });
+    const rawSnapshot = buildSnapshot(browserStatePeriods, "p1", rows, assumptions, fixedAssetRows, { waccBasis: "raw" });
+    const governedResults = calculateAllMethods(governedSnapshot);
+    const rawResults = calculateAllMethods(rawSnapshot);
+
+    assert.ok(rawWaccCalculation);
+    assertAlmostEqual(rawSnapshot.wacc, rawWaccCalculation.wacc, 1e-12);
+    assert.ok(governedSnapshot.wacc > rawSnapshot.wacc);
+    assert.ok(rawResults.eem.equityValue > governedResults.eem.equityValue);
+    assert.ok(rawResults.dcf.equityValue > governedResults.dcf.equityValue);
+  });
+
+  it("keeps manual WACC as an explicit basis instead of forcing every scenario to use the manual value", () => {
+    const rows = buildBrowserStateRows();
+    const fixedAssetRows = buildBrowserStateFixedAssetRows();
+    const assumptions = {
+      ...buildHighRiskSmartSuggestionAssumptions(),
+      wacc: "0,09",
+      waccSource: "manual-wacc",
+    };
+    const rawWaccCalculation = calculateWaccAssumption(assumptions);
+    const manualSnapshot = buildSnapshot(browserStatePeriods, "p1", rows, assumptions, fixedAssetRows, { waccBasis: "manual" });
+    const rawSnapshot = buildSnapshot(browserStatePeriods, "p1", rows, assumptions, fixedAssetRows, { waccBasis: "raw" });
+    const governedSnapshot = buildSnapshot(browserStatePeriods, "p1", rows, assumptions, fixedAssetRows, { waccBasis: "governed" });
+
+    assert.ok(rawWaccCalculation);
+    assertAlmostEqual(manualSnapshot.wacc, 0.09, 1e-12);
+    assertAlmostEqual(rawSnapshot.wacc, rawWaccCalculation.wacc, 1e-12);
+    assert.notEqual(governedSnapshot.wacc, manualSnapshot.wacc);
+    assert.notEqual(rawSnapshot.wacc, manualSnapshot.wacc);
   });
 
   it("uses the lowest non-negative historical growth observation when CAGR is too high for an unreviewed auto-driver", () => {

@@ -801,6 +801,16 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await openWorkflowTab(page, "WACC");
   await expect(page.getByTestId("wacc-calculator")).toContainText("Kalkulator WACC");
   await expect(page.getByTestId("wacc-calculator")).toContainText("Risk-free rate");
+  const waccBasisControl = page.getByTestId("wacc-basis-control");
+  await expect(waccBasisControl).toContainText("Governed WACC");
+  await expect(waccBasisControl).toContainText("Raw calculated WACC");
+  await expect(waccBasisControl).toContainText("Manual WACC");
+  await waccBasisControl.locator('input[value="raw"]').check();
+  await expect(waccBasisControl).toContainText("Raw calculated WACC mengalir ke EEM/DCF");
+  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").activeWaccBasis)).toBe("raw");
+  await waccBasisControl.getByLabel("Manual WACC reviewer").fill("0,09");
+  await expect(waccBasisControl).toContainText("Manual WACC mengalir ke EEM/DCF");
+  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").activeWaccBasis)).toBe("manual");
   await expect(page.getByTestId("discount-rate-analysis")).toContainText("Rata-rata mentah");
   await expect(page.getByTestId("discount-rate-analysis")).toContainText("8,804%");
   await expect(page.getByTestId("discount-rate-analysis")).toContainText("8,8%");
@@ -854,10 +864,10 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
 
   await openWorkflowTab(page, "Penilaian EEM");
   await expect(page.getByRole("heading", { name: "Excess Earnings Method (EEM)" })).toBeVisible();
-  await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Dihitung dari input WACC");
+  await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Manual WACC reviewer");
   await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Proxy kapasitas aset berwujud yang di-govern");
   await openWorkflowTab(page, "Penilaian DCF");
-  await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Dihitung dari input WACC");
+  await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Manual WACC reviewer");
   await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Proxy kapasitas aset berwujud yang di-govern");
 });
 

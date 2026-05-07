@@ -8,6 +8,8 @@ import type { AccountLabelId } from "./account-labels";
 
 export type StatementType = "balance_sheet" | "income_statement" | "fixed_asset";
 
+export type WaccBasis = "governed" | "raw" | "manual";
+
 export type BalanceSheetClassification =
   | "current_asset"
   | "non_current_asset"
@@ -841,6 +843,7 @@ export function buildSnapshot(
   rows: AccountRow[],
   assumptions: AssumptionState,
   fixedAssetScheduleRows: FixedAssetScheduleRow[] = [],
+  options: { waccBasis?: WaccBasis } = {},
 ): FinancialStatementSnapshot {
   const activePeriod = periods.find((period) => period.id === activePeriodId) ?? getDefaultActivePeriod(periods);
   const effectiveActivePeriodId = activePeriod?.id ?? activePeriodId;
@@ -918,19 +921,22 @@ export function buildSnapshot(
   const retainedEarningsCurrentProfit = amount(activeAggregate("RETAINED_EARNINGS_CURRENT_PROFIT"));
   const waccCalculation = calculateWaccAssumption(assumptions);
   const governedWaccCalculation = resolveGovernedWaccCalculation(assumptions, waccCalculation);
+  const explicitWacc = readRateInput(assumptions.wacc);
+  const requestedWaccBasis = options.waccBasis ?? (explicitWacc !== null ? "manual" : "governed");
+  const effectiveWaccBasis = resolveEffectiveWaccBasis(assumptions, requestedWaccBasis);
+  const selectedWaccCalculation = resolveWaccCalculationForBasis(assumptions, effectiveWaccBasis, waccCalculation);
   const requiredReturnCalculation = calculateRequiredReturnOnNtaAssumption(assumptions, {
     accountReceivable,
     inventory,
     fixedAssetsNet,
   });
-  const explicitWacc = readRateInput(assumptions.wacc);
   const explicitRevenueGrowth = readRateInput(assumptions.revenueGrowth);
-  const baseWacc = explicitWacc ?? governedWaccCalculation?.wacc ?? waccCalculation?.wacc ?? 0;
+  const baseWacc = resolveWaccValueForBasis(effectiveWaccBasis, explicitWacc, selectedWaccCalculation, governedWaccCalculation, waccCalculation);
   const baseTerminalGrowth = resolveGovernedTerminalGrowth(assumptions, baseWacc);
   const baseRequiredReturnOnNta = resolveGovernedRequiredReturnOnNta({
     assumptions,
     calculation: requiredReturnCalculation,
-    waccCalculation: governedWaccCalculation ?? waccCalculation,
+    waccCalculation: selectedWaccCalculation ?? governedWaccCalculation ?? waccCalculation,
     accountReceivable,
     employeeReceivable,
     inventory,
@@ -1152,8 +1158,46 @@ export function deriveHistoricalDrivers(periods: Period[], mappedRows: MappedRow
   };
 }
 
-function resolveGovernedWaccCalculation(assumptions: AssumptionState, calculation: WaccCalculation | null): WaccCalculation | null {
-  if (!calculation || readRateInput(assumptions.wacc) !== null || !isSmartWaccSuggestion(assumptions)) {
+export function resolveEffectiveWaccBasis(assumptions: AssumptionState, basis: WaccBasis): WaccBasis {
+  return basis === "manual" && readRateInput(assumptions.wacc) === null ? "governed" : basis;
+}
+
+export function resolveWaccCalculationForBasis(
+  assumptions: AssumptionState,
+  basis: WaccBasis,
+  calculation: WaccCalculation | null = calculateWaccAssumption(assumptions),
+): WaccCalculation | null {
+  return basis === "raw" ? calculation : resolveGovernedWaccCalculation(assumptions, calculation, { ignoreManualWacc: basis !== "manual" });
+}
+
+function resolveWaccValueForBasis(
+  basis: WaccBasis,
+  explicitWacc: number | null,
+  selectedCalculation: WaccCalculation | null,
+  governedCalculation: WaccCalculation | null,
+  rawCalculation: WaccCalculation | null,
+): number {
+  if (basis === "raw") {
+    return selectedCalculation?.wacc ?? explicitWacc ?? 0;
+  }
+
+  if (basis === "manual") {
+    return explicitWacc ?? governedCalculation?.wacc ?? rawCalculation?.wacc ?? 0;
+  }
+
+  return selectedCalculation?.wacc ?? governedCalculation?.wacc ?? rawCalculation?.wacc ?? explicitWacc ?? 0;
+}
+
+export function resolveGovernedWaccCalculation(
+  assumptions: AssumptionState,
+  calculation: WaccCalculation | null,
+  options: { ignoreManualWacc?: boolean } = {},
+): WaccCalculation | null {
+  if (
+    !calculation ||
+    (!options.ignoreManualWacc && readRateInput(assumptions.wacc) !== null) ||
+    !isSmartWaccSuggestion(assumptions, options.ignoreManualWacc)
+  ) {
     return calculation;
   }
 
@@ -1257,8 +1301,8 @@ function resolveGovernedAutoRevenueGrowth(revenueGrowth: number, revenueGrowthSe
   return Math.min(revenueGrowth, ...nonNegativeGrowthRates);
 }
 
-function isSmartWaccSuggestion(assumptions: AssumptionState): boolean {
-  return !assumptions.wacc.trim() && assumptions.waccSource.startsWith("market-suggestion");
+function isSmartWaccSuggestion(assumptions: AssumptionState, ignoreManualWacc = false): boolean {
+  return (ignoreManualWacc || !assumptions.wacc.trim()) && assumptions.waccSource.startsWith("market-suggestion");
 }
 
 export function parseInputNumber(input: string): number {

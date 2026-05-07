@@ -95,6 +95,8 @@ import {
   mapRow,
   normalizePeriods,
   parseInputNumber,
+  resolveEffectiveWaccBasis,
+  resolveWaccCalculationForBasis,
   shareOwnershipTypeOptions,
   subjectTaxpayerTypeOptions,
   statementLabels,
@@ -112,6 +114,7 @@ import {
   type MappedRow,
   type Period,
   type StatementType,
+  type WaccBasis,
 } from "@/lib/valuation/case-model";
 import { categoryLabelMap, categoryOptions, categoryOptionsByStatement } from "@/lib/valuation/category-options";
 import { formatDisplayDate, formatEditableNumber, formatIdr, formatInputNumber, formatPercent, formatPercentFixed, formatScore } from "@/lib/valuation/format";
@@ -371,6 +374,7 @@ const WORKBENCH_SCROLL_STORAGE_KEY = "penilaian-valuasi-bisnis.scroll.v1";
 const WORKBENCH_SIDEBAR_STORAGE_KEY = "penilaian-valuasi-bisnis.sidebar.v1";
 const WORKBENCH_STORAGE_VERSION = 16;
 const defaultFixedAssetProjectionMode: FixedAssetProjectionMode = "workbook-formula";
+const defaultActiveWaccBasis: WaccBasis = "governed";
 
 type ActiveDcfBasis =
   | "base"
@@ -467,6 +471,7 @@ type PersistedWorkbenchState = {
   isFixedAssetScheduleEnabled: boolean;
   fixedAssetScheduleRows: FixedAssetScheduleRow[];
   fixedAssetProjectionMode: FixedAssetProjectionMode;
+  activeWaccBasis: WaccBasis;
   activeDcfBasis: ActiveDcfBasis;
   aamAdjustments: AamAdjustmentState;
   assumptions: AssumptionState;
@@ -562,6 +567,37 @@ const activeDcfBasisLabels = Object.fromEntries(activeDcfBasisOptions.map((optio
   (typeof activeDcfBasisOptions)[number]
 >;
 const defaultActiveDcfBasis: ActiveDcfBasis = "base";
+
+const activeWaccBasisOptions: Array<{
+  value: WaccBasis;
+  label: string;
+  shortLabel: string;
+  summary: string;
+}> = [
+  {
+    value: "governed",
+    label: "Governed WACC",
+    shortLabel: "Governed",
+    summary: "Default sistem. Smart suggestion berisiko tetap di-normalisasi sebelum masuk EEM/DCF.",
+  },
+  {
+    value: "raw",
+    label: "Raw calculated WACC",
+    shortLabel: "Raw",
+    summary: "Sensitivitas review. Memakai hasil kalkulasi komponen tanpa beta floor/governance WACC.",
+  },
+  {
+    value: "manual",
+    label: "Manual WACC",
+    shortLabel: "Manual",
+    summary: "Override reviewer. Aktif hanya jika field WACC manual diisi dan didukung alasan.",
+  },
+];
+
+const activeWaccBasisLabels = Object.fromEntries(activeWaccBasisOptions.map((option) => [option.value, option])) as Record<
+  WaccBasis,
+  (typeof activeWaccBasisOptions)[number]
+>;
 
 const workflowTabRegistry = {
   periods: { id: "periods", label: "Data Awal", methods: allValuationMethods },
@@ -686,6 +722,7 @@ export function ValuationWorkbench() {
   const [isFixedAssetScheduleEnabled, setIsFixedAssetScheduleEnabled] = useState(false);
   const [fixedAssetScheduleRows, setFixedAssetScheduleRows] = useState<FixedAssetScheduleRow[]>([]);
   const [fixedAssetProjectionMode, setFixedAssetProjectionMode] = useState<FixedAssetProjectionMode>(defaultFixedAssetProjectionMode);
+  const [activeWaccBasis, setActiveWaccBasis] = useState<WaccBasis>(defaultActiveWaccBasis);
   const [activeDcfBasis, setActiveDcfBasis] = useState<ActiveDcfBasis>(defaultActiveDcfBasis);
   const [aamAdjustments, setAamAdjustments] = useState<AamAdjustmentState>({});
   const [assumptions, setAssumptions] = useState<AssumptionState>(emptyAssumptions);
@@ -737,7 +774,15 @@ export function ValuationWorkbench() {
     () => resolveAutoWaccCapitalValues(assumptions, autoWaccCapitalValues),
     [assumptions, autoWaccCapitalValues],
   );
-  const waccCalculation = useMemo(() => calculateWaccAssumption(waccResolvedAssumptions), [waccResolvedAssumptions]);
+  const rawWaccCalculation = useMemo(() => calculateWaccAssumption(waccResolvedAssumptions), [waccResolvedAssumptions]);
+  const effectiveActiveWaccBasis = useMemo(
+    () => resolveEffectiveWaccBasis(waccResolvedAssumptions, activeWaccBasis),
+    [activeWaccBasis, waccResolvedAssumptions],
+  );
+  const waccCalculation = useMemo(
+    () => resolveWaccCalculationForBasis(waccResolvedAssumptions, effectiveActiveWaccBasis, rawWaccCalculation),
+    [effectiveActiveWaccBasis, rawWaccCalculation, waccResolvedAssumptions],
+  );
   const waccComparableBeta = useMemo(() => calculateWaccComparableBetaAssumption(waccResolvedAssumptions), [waccResolvedAssumptions]);
   const requiredReturnSuggestion = useMemo(
     () =>
@@ -746,14 +791,14 @@ export function ValuationWorkbench() {
         employeeReceivable: accountingSnapshot.employeeReceivable,
         inventory: accountingSnapshot.inventory,
         fixedAssetsNet: accountingSnapshot.fixedAssetsNet,
-        waccCalculation,
+        waccCalculation: rawWaccCalculation,
       }),
     [
       accountingSnapshot.accountReceivable,
       accountingSnapshot.employeeReceivable,
       accountingSnapshot.fixedAssetsNet,
       accountingSnapshot.inventory,
-      waccCalculation,
+      rawWaccCalculation,
     ],
   );
   const resolvedAssumptions = useMemo(
@@ -761,8 +806,8 @@ export function ValuationWorkbench() {
     [requiredReturnSuggestion, waccResolvedAssumptions],
   );
   const snapshot = useMemo(
-    () => buildSnapshot(periods, activePeriodId, rows, resolvedAssumptions, fixedAssetScheduleRows),
-    [periods, activePeriodId, rows, resolvedAssumptions, fixedAssetScheduleRows],
+    () => buildSnapshot(periods, activePeriodId, rows, resolvedAssumptions, fixedAssetScheduleRows, { waccBasis: effectiveActiveWaccBasis }),
+    [periods, activePeriodId, rows, resolvedAssumptions, fixedAssetScheduleRows, effectiveActiveWaccBasis],
   );
   const aamAdjustmentModel = useMemo(() => buildAamAdjustmentModel(snapshot, aamAdjustments), [aamAdjustments, snapshot]);
   const baseDcfForecast = useMemo(() => buildDcfForecast(snapshot), [snapshot]);
@@ -882,12 +927,12 @@ export function ValuationWorkbench() {
     () =>
       buildAssumptionGovernance({
         snapshot,
-        waccCalculation,
+        waccCalculation: rawWaccCalculation,
         requiredReturnCalculation,
         dcfTraces: activeDcf.traces,
         hasRevenueGrowthOverride: assumptions.revenueGrowth.trim() !== "",
       }),
-    [activeDcf.traces, assumptions.revenueGrowth, requiredReturnCalculation, snapshot, waccCalculation],
+    [activeDcf.traces, assumptions.revenueGrowth, rawWaccCalculation, requiredReturnCalculation, snapshot],
   );
   const eemAssumptionGovernance = useMemo(
     () => scopeAssumptionGovernance(assumptionGovernance, (item) => item.target !== "valuationDcf", "EEM"),
@@ -910,7 +955,7 @@ export function ValuationWorkbench() {
       snapshot,
     ],
   );
-  const rawWaccValue = waccCalculation?.wacc ?? readRateInput(assumptions.wacc);
+  const rawWaccValue = rawWaccCalculation?.wacc ?? readRateInput(assumptions.wacc);
   const rawTerminalGrowthValue = readRateInput(assumptions.terminalGrowth);
   const rawRequiredReturnValue = requiredReturnCalculation?.requiredReturn ?? readRateInput(assumptions.requiredReturnOnNta);
   const isGovernedWacc = rawWaccValue !== null && Math.abs(rawWaccValue - snapshot.wacc) > 0.0001;
@@ -921,7 +966,7 @@ export function ValuationWorkbench() {
     buildCalculatedDriverSummary(
       "WACC",
       snapshot.wacc,
-      isGovernedWacc ? "Basis governed dari input pasar" : waccCalculation ? "Dihitung dari input WACC" : sourceLabelFromManual(assumptions.wacc),
+      formatWaccBasisSourceLabel(activeWaccBasis, effectiveActiveWaccBasis, isGovernedWacc, rawWaccCalculation, assumptions.wacc),
     ),
     buildCalculatedDriverSummary(
       "Terminal growth",
@@ -973,6 +1018,7 @@ export function ValuationWorkbench() {
     Object.values(assumptions).some((value) => value.trim() !== "") ||
     hasCashFlowOverrideInput(cashFlowOverrides) ||
     hasIncomeProjectionControlInput(incomeProjectionControls) ||
+    activeWaccBasis !== defaultActiveWaccBasis ||
     activeDcfBasis !== defaultActiveDcfBasis ||
     hasDlomInput(dlom) ||
     hasDlocPfcInput(dlocPfc) ||
@@ -1003,6 +1049,7 @@ export function ValuationWorkbench() {
       isFixedAssetScheduleEnabled,
       fixedAssetScheduleRows,
       fixedAssetProjectionMode,
+      activeWaccBasis,
       activeDcfBasis,
       aamAdjustments,
       assumptions,
@@ -1022,6 +1069,7 @@ export function ValuationWorkbench() {
     setIsFixedAssetScheduleEnabled(state.isFixedAssetScheduleEnabled);
     setFixedAssetScheduleRows(state.fixedAssetScheduleRows);
     setFixedAssetProjectionMode(state.fixedAssetProjectionMode);
+    setActiveWaccBasis(state.activeWaccBasis);
     setActiveDcfBasis(state.activeDcfBasis);
     setAamAdjustments(state.aamAdjustments);
     setAssumptions(state.assumptions);
@@ -1098,6 +1146,7 @@ export function ValuationWorkbench() {
       setIsFixedAssetScheduleEnabled(storedState.isFixedAssetScheduleEnabled || storedState.fixedAssetScheduleRows.length > 0);
       setFixedAssetScheduleRows(storedState.fixedAssetScheduleRows);
       setFixedAssetProjectionMode(storedState.fixedAssetProjectionMode);
+      setActiveWaccBasis(storedState.activeWaccBasis);
       setActiveDcfBasis(storedState.activeDcfBasis);
       setAamAdjustments(storedState.aamAdjustments);
       setAssumptions(storedState.assumptions);
@@ -1129,6 +1178,7 @@ export function ValuationWorkbench() {
       isFixedAssetScheduleEnabled,
       fixedAssetScheduleRows,
       fixedAssetProjectionMode,
+      activeWaccBasis,
       activeDcfBasis,
       aamAdjustments,
       assumptions,
@@ -1141,6 +1191,7 @@ export function ValuationWorkbench() {
     });
   }, [
     aamAdjustments,
+    activeWaccBasis,
     activeDcfBasis,
     activePeriodId,
     assumptions,
@@ -1803,8 +1854,10 @@ export function ValuationWorkbench() {
 
     commitCoreState((current) => ({
       ...current,
+      activeWaccBasis: "governed",
       assumptions: {
         ...current.assumptions,
+        wacc: "",
         waccRiskFreeRate: formatInputNumber(suggestion.metrics.riskFreeSun.value),
         waccEquityRiskPremium: formatInputNumber(suggestion.metrics.equityRiskPremium.value),
         waccRatingBasedDefaultSpread: formatInputNumber(suggestion.metrics.ratingBasedDefaultSpread.value),
@@ -1840,6 +1893,7 @@ export function ValuationWorkbench() {
   function loadSample() {
     const samplePeriods = buildSamplePeriods();
     const sampleFixedAssetScheduleRows = buildSampleFixedAssetScheduleRows();
+    const sampleAssumptions = buildSampleAssumptions();
     commitCoreState((current) => ({
       ...current,
       periods: samplePeriods,
@@ -1848,9 +1902,10 @@ export function ValuationWorkbench() {
       isFixedAssetScheduleEnabled: true,
       fixedAssetScheduleRows: sampleFixedAssetScheduleRows,
       fixedAssetProjectionMode: defaultFixedAssetProjectionMode,
+      activeWaccBasis: inferInitialWaccBasis(sampleAssumptions),
       activeDcfBasis: defaultActiveDcfBasis,
       aamAdjustments: {},
-      assumptions: buildSampleAssumptions(),
+      assumptions: sampleAssumptions,
       caseProfile: buildSampleCaseProfile(),
       dlom: buildSampleDlomState(),
       dlocPfc: buildSampleDlocPfcState(),
@@ -1890,6 +1945,9 @@ export function ValuationWorkbench() {
       aamAdjustmentModel,
       results: activeResults,
       baseResults: results,
+      activeWaccBasis: effectiveActiveWaccBasis,
+      activeWaccBasisLabel: activeWaccBasisLabels[effectiveActiveWaccBasis].label,
+      activeWaccBasisSummary: activeWaccBasisLabels[effectiveActiveWaccBasis].summary,
       activeDcfBasis,
       activeDcfBasisLabel: activeDcfSelection.label,
       activeDcfBasisSummary: activeDcfSelection.summary,
@@ -1937,6 +1995,7 @@ export function ValuationWorkbench() {
       isFixedAssetScheduleEnabled: false,
       fixedAssetScheduleRows: [],
       fixedAssetProjectionMode: defaultFixedAssetProjectionMode,
+      activeWaccBasis: defaultActiveWaccBasis,
       activeDcfBasis: defaultActiveDcfBasis,
       aamAdjustments: {},
       assumptions: emptyAssumptions,
@@ -2249,6 +2308,32 @@ export function ValuationWorkbench() {
             suggestion={marketSuggestion}
             valuationDate={effectiveValuationDate}
             onApply={applyWaccMarketSuggestion}
+          />
+          <WaccBasisControl
+            activeBasis={activeWaccBasis}
+            effectiveBasis={effectiveActiveWaccBasis}
+            activeWacc={snapshot.wacc}
+            rawCalculation={rawWaccCalculation}
+            governedCalculation={resolveWaccCalculationForBasis(waccResolvedAssumptions, "governed", rawWaccCalculation)}
+            manualWacc={readRateInput(assumptions.wacc)}
+            terminalGrowth={snapshot.terminalGrowth}
+            onBasisChange={(basis) =>
+              commitCoreState((current) => ({
+                ...current,
+                activeWaccBasis: basis,
+              }))
+            }
+            onManualWaccChange={(value) =>
+              commitCoreState((current) => ({
+                ...current,
+                activeWaccBasis: "manual",
+                assumptions: {
+                  ...current.assumptions,
+                  wacc: formatEditableNumber(value),
+                  waccSource: "manual-wacc",
+                },
+              }))
+            }
           />
           <WaccCalculatorPanel
             assumptions={assumptions}
@@ -2866,6 +2951,7 @@ export function ValuationWorkbench() {
               forecast={activeDcf.forecast}
               snapshot={snapshot}
               activeDcfSelection={activeDcfSelection}
+              activeWaccBasisLabel={activeWaccBasisLabels[effectiveActiveWaccBasis].shortLabel}
               incomeProjectionRelianceGovernance={results.incomeProjectionRelianceGovernance}
               incomeProjectionControls={incomeProjectionControls}
               incomeProjectionScenario={incomeProjectionScenario}
@@ -2884,7 +2970,13 @@ export function ValuationWorkbench() {
 
         {activeWorkflowTab === "projectedBalance" ? (
           readiness.projectedBalance.isReady ? (
-            <ProjectionStatementSection kind="balance" forecast={activeDcf.forecast} snapshot={snapshot} activeDcfSelection={activeDcfSelection} />
+            <ProjectionStatementSection
+              kind="balance"
+              forecast={activeDcf.forecast}
+              snapshot={snapshot}
+              activeDcfSelection={activeDcfSelection}
+              activeWaccBasisLabel={activeWaccBasisLabels[effectiveActiveWaccBasis].shortLabel}
+            />
           ) : (
             <ReadinessPanel status={readiness.projectedBalance} onNavigate={navigateToWorkflowTab} force />
           )
@@ -2897,6 +2989,7 @@ export function ValuationWorkbench() {
               forecast={activeDcf.forecast}
               snapshot={snapshot}
               activeDcfSelection={activeDcfSelection}
+              activeWaccBasisLabel={activeWaccBasisLabels[effectiveActiveWaccBasis].shortLabel}
               fixedAssetProjection={fixedAssetProjection}
               fixedAssetProjectionMode={fixedAssetProjectionMode}
               onFixedAssetProjectionModeChange={(mode) =>
@@ -2913,7 +3006,13 @@ export function ValuationWorkbench() {
 
         {activeWorkflowTab === "projectedCashFlow" ? (
           readiness.projectedCashFlow.isReady ? (
-            <ProjectionStatementSection kind="cashFlow" forecast={activeDcf.forecast} snapshot={snapshot} activeDcfSelection={activeDcfSelection} />
+            <ProjectionStatementSection
+              kind="cashFlow"
+              forecast={activeDcf.forecast}
+              snapshot={snapshot}
+              activeDcfSelection={activeDcfSelection}
+              activeWaccBasisLabel={activeWaccBasisLabels[effectiveActiveWaccBasis].shortLabel}
+            />
           ) : (
             <ReadinessPanel status={readiness.projectedCashFlow} onNavigate={navigateToWorkflowTab} force />
           )
@@ -5274,6 +5373,7 @@ function ProjectionStatementSection({
   forecast,
   snapshot,
   activeDcfSelection,
+  activeWaccBasisLabel,
   fixedAssetProjection,
   fixedAssetProjectionMode = defaultFixedAssetProjectionMode,
   onFixedAssetProjectionModeChange,
@@ -5292,6 +5392,7 @@ function ProjectionStatementSection({
   forecast: DcfForecastRow[];
   snapshot: FinancialStatementSnapshot;
   activeDcfSelection: ActiveDcfSelection;
+  activeWaccBasisLabel: string;
   fixedAssetProjection?: FixedAssetProjectionSummary;
   fixedAssetProjectionMode?: FixedAssetProjectionMode;
   onFixedAssetProjectionModeChange?: (mode: FixedAssetProjectionMode) => void;
@@ -5395,7 +5496,7 @@ function ProjectionStatementSection({
           <div>
             <span>WACC</span>
             <strong>{formatPercent(snapshot.wacc)}</strong>
-            <small>Discount factor dan nilai terminal</small>
+            <small>{activeWaccBasisLabel} basis untuk discount factor dan nilai terminal</small>
           </div>
           <div>
             <span>Terminal growth aktif</span>
@@ -6943,6 +7044,10 @@ function readPersistedWorkbenchState(): PersistedWorkbenchState | null {
     const incomeProjectionControls = sanitizeIncomeProjectionControls(parsed.incomeProjectionControls);
     const activePeriodId = typeof parsed.activePeriodId === "string" ? parsed.activePeriodId : "";
     const fixedAssetProjectionMode = sanitizeFixedAssetProjectionMode(parsed.fixedAssetProjectionMode);
+    const activeWaccBasis =
+      parsed.activeWaccBasis === undefined
+        ? inferInitialWaccBasis(assumptions)
+        : sanitizeWaccBasis(parsed.activeWaccBasis);
     const activeDcfBasis = sanitizeActiveDcfBasis(parsed.activeDcfBasis);
     const isFixedAssetScheduleEnabled =
       typeof parsed.isFixedAssetScheduleEnabled === "boolean" ? parsed.isFixedAssetScheduleEnabled : fixedAssetScheduleRows.length > 0;
@@ -6956,6 +7061,7 @@ function readPersistedWorkbenchState(): PersistedWorkbenchState | null {
       isFixedAssetScheduleEnabled,
       fixedAssetScheduleRows,
       fixedAssetProjectionMode,
+      activeWaccBasis,
       activeDcfBasis,
       aamAdjustments,
       assumptions,
@@ -7103,6 +7209,16 @@ function cloneCoreState(state: WorkbenchCoreState): WorkbenchCoreState {
 
 function sanitizeFixedAssetProjectionMode(value: unknown): FixedAssetProjectionMode {
   return value === "dcf-proxy" || value === "workbook-formula" ? value : defaultFixedAssetProjectionMode;
+}
+
+function sanitizeWaccBasis(value: unknown): WaccBasis {
+  return typeof value === "string" && value in activeWaccBasisLabels
+    ? (value as WaccBasis)
+    : defaultActiveWaccBasis;
+}
+
+function inferInitialWaccBasis(assumptions: AssumptionState): WaccBasis {
+  return assumptions.wacc.trim() ? "manual" : defaultActiveWaccBasis;
 }
 
 function sanitizeActiveDcfBasis(value: unknown): ActiveDcfBasis {
@@ -8554,6 +8670,84 @@ function WaccMarketSuggestionPanel({
         <CheckCircle2 size={18} />
         Terapkan Saran {suggestion.year}
       </button>
+    </article>
+  );
+}
+
+function WaccBasisControl({
+  activeBasis,
+  effectiveBasis,
+  activeWacc,
+  rawCalculation,
+  governedCalculation,
+  manualWacc,
+  terminalGrowth,
+  onBasisChange,
+  onManualWaccChange,
+}: {
+  activeBasis: WaccBasis;
+  effectiveBasis: WaccBasis;
+  activeWacc: number;
+  rawCalculation: WaccCalculation | null;
+  governedCalculation: WaccCalculation | null;
+  manualWacc: number | null;
+  terminalGrowth: number;
+  onBasisChange: (basis: WaccBasis) => void;
+  onManualWaccChange: (value: string) => void;
+}) {
+  const manualIsWaiting = activeBasis === "manual" && manualWacc === null;
+  const optionValue = (basis: WaccBasis) => {
+    if (basis === "raw") {
+      return rawCalculation ? formatPercent(rawCalculation.wacc) : "Belum dihitung";
+    }
+
+    if (basis === "manual") {
+      return manualWacc === null ? "Perlu input" : formatPercent(manualWacc);
+    }
+
+    return governedCalculation ? formatPercent(governedCalculation.wacc) : "Belum dihitung";
+  };
+
+  return (
+    <article className="assumption-calculator-card wide wacc-basis-card" data-testid="wacc-basis-control">
+      <AssumptionCalculatorHeader
+        label="Basis WACC aktif"
+        value={formatPercent(activeWacc)}
+        impact={`${activeWaccBasisLabels[effectiveBasis].label} mengalir ke EEM/DCF`}
+      />
+      <div className="wacc-basis-grid" role="radiogroup" aria-label="Basis WACC aktif">
+        {activeWaccBasisOptions.map((option) => (
+          <label className={activeBasis === option.value ? "wacc-basis-option active" : "wacc-basis-option"} key={option.value}>
+            <input
+              checked={activeBasis === option.value}
+              name="active-wacc-basis"
+              type="radio"
+              value={option.value}
+              onChange={() => onBasisChange(option.value)}
+            />
+            <span>{option.label}</span>
+            <strong>{optionValue(option.value)}</strong>
+            <small>{option.summary}</small>
+          </label>
+        ))}
+      </div>
+      <div className="wacc-basis-manual-row">
+        <AssumptionInput
+          label="Manual WACC reviewer"
+          value={manualWacc === null ? "" : formatInputNumber(manualWacc)}
+          note="Mengisi nilai ini otomatis memilih basis Manual WACC. Kosongkan atau pilih basis lain untuk kembali ke kalkulasi sistem."
+          onChange={onManualWaccChange}
+        />
+        <div className={manualIsWaiting ? "wacc-basis-status warning" : "wacc-basis-status"}>
+          <span>Spread kapitalisasi aktif</span>
+          <strong>{formatPercent(activeWacc - terminalGrowth)}</strong>
+          <small>
+            {manualIsWaiting
+              ? "Manual WACC belum diisi; sistem menjaga basis governed sampai angka tersedia."
+              : "EEM dan terminal DCF memakai WACC aktif dikurangi terminal growth aktif."}
+          </small>
+        </div>
+      </div>
     </article>
   );
 }
@@ -10170,6 +10364,28 @@ function buildCalculatedDriverSummary(
     valueLabel: value === null ? "Belum dipilih" : formatter(value),
     sourceLabel,
   };
+}
+
+function formatWaccBasisSourceLabel(
+  requestedBasis: WaccBasis,
+  effectiveBasis: WaccBasis,
+  isGovernedWacc: boolean,
+  rawCalculation: WaccCalculation | null,
+  manualWaccInput: string,
+): string {
+  if (requestedBasis === "manual" && effectiveBasis !== "manual") {
+    return "Manual WACC kosong; fallback governed aktif";
+  }
+
+  if (effectiveBasis === "manual") {
+    return "Manual WACC reviewer";
+  }
+
+  if (effectiveBasis === "raw") {
+    return rawCalculation ? "Raw calculated WACC aktif" : sourceLabelFromManual(manualWaccInput);
+  }
+
+  return isGovernedWacc ? "Governed WACC dari input pasar" : rawCalculation ? "Calculated WACC aktif" : sourceLabelFromManual(manualWaccInput);
 }
 
 function sourceLabel(candidate: AssumptionCandidate): string {

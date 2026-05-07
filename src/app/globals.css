@@ -1840,8 +1840,90 @@ select {
 }
 
 .wacc-suggestion-card,
+.wacc-basis-card,
 .wacc-model-table {
   margin-bottom: 10px;
+}
+
+.wacc-basis-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.wacc-basis-option {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.wacc-basis-option.active {
+  border-color: rgba(15, 118, 110, 0.42);
+  background: rgba(240, 253, 250, 0.72);
+}
+
+.wacc-basis-option input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
+.wacc-basis-option span {
+  color: var(--ink-soft);
+  font-size: 9.4px;
+  font-weight: 800;
+}
+
+.wacc-basis-option strong {
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+}
+
+.wacc-basis-option small {
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.wacc-basis-manual-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.75fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.wacc-basis-status {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.wacc-basis-status.warning {
+  border-color: rgba(180, 83, 9, 0.35);
+  background: rgba(255, 251, 235, 0.82);
+}
+
+.wacc-basis-status span {
+  color: var(--ink-soft);
+  font-size: 9.2px;
+  font-weight: 800;
+}
+
+.wacc-basis-status strong {
+  font-family: var(--font-mono), monospace;
+  font-size: 11.2px;
+}
+
+.wacc-basis-status small {
+  color: var(--muted);
+  line-height: 1.35;
 }
 
 .wacc-comparable-block {
@@ -3976,6 +4058,8 @@ td span {
   .assumption-calculator-heading,
   .assumption-form-grid,
   .calculator-input-grid,
+  .wacc-basis-grid,
+  .wacc-basis-manual-row,
   .metric-trace-grid,
   .driver-basis-strip,
   .bank-loan-rate-strip,

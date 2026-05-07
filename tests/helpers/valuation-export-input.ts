@@ -10,11 +10,13 @@ import {
   buildFixedAssetScheduleSummary,
   buildSnapshot,
   mapRow,
+  resolveEffectiveWaccBasis,
   type AccountRow,
   type AssumptionState,
   type CaseProfile,
   type FixedAssetScheduleRow,
   type Period,
+  type WaccBasis,
 } from "../../src/lib/valuation/case-model";
 import type { DlocPfcState } from "../../src/lib/valuation/dloc-pfc";
 import { calculateDlocPfc } from "../../src/lib/valuation/dloc-pfc";
@@ -36,6 +38,7 @@ export type WorkbenchFixtureState = {
   rows: AccountRow[];
   isFixedAssetScheduleEnabled: boolean;
   fixedAssetScheduleRows: FixedAssetScheduleRow[];
+  activeWaccBasis?: WaccBasis;
   aamAdjustments: AamAdjustmentState;
   assumptions: AssumptionState;
   caseProfile: CaseProfile;
@@ -57,6 +60,7 @@ export function buildExportInputFromWorkbenchFixture(
     debtMarketValue: accountingSnapshot.currentLiabilities + accountingSnapshot.nonCurrentLiabilities || accountingSnapshot.totalLiabilities,
     equityMarketValue: accountingSnapshot.bookEquity,
   });
+  const activeWaccBasis = resolveEffectiveWaccBasis(waccResolvedAssumptions, state.activeWaccBasis ?? inferInitialWaccBasis(assumptions));
   const waccCalculation = calculateWaccAssumption(waccResolvedAssumptions);
   const requiredReturnSuggestion = buildRequiredReturnOnNtaSuggestion({
     accountReceivable: accountingSnapshot.accountReceivable,
@@ -66,7 +70,7 @@ export function buildExportInputFromWorkbenchFixture(
     waccCalculation,
   });
   const resolvedAssumptions = resolveAutoRequiredReturnOnNtaValues(waccResolvedAssumptions, requiredReturnSuggestion);
-  const snapshot = buildSnapshot(state.periods, state.activePeriodId, state.rows, resolvedAssumptions, state.fixedAssetScheduleRows);
+  const snapshot = buildSnapshot(state.periods, state.activePeriodId, state.rows, resolvedAssumptions, state.fixedAssetScheduleRows, { waccBasis: activeWaccBasis });
   const aamAdjustmentModel = buildAamAdjustmentModel(snapshot, state.aamAdjustments);
   const results = calculateAllMethods(snapshot, {
     aam: {
@@ -129,6 +133,14 @@ export function buildExportInputFromWorkbenchFixture(
     aamAdjustmentModel,
     results,
     baseResults: results,
+    activeWaccBasis,
+    activeWaccBasisLabel: activeWaccBasis === "raw" ? "Raw calculated WACC" : activeWaccBasis === "manual" ? "Manual WACC" : "Governed WACC",
+    activeWaccBasisSummary:
+      activeWaccBasis === "raw"
+        ? "Sensitivitas review. Memakai hasil kalkulasi komponen tanpa beta floor/governance WACC."
+        : activeWaccBasis === "manual"
+        ? "Override reviewer. Aktif hanya jika field WACC manual diisi dan didukung alasan."
+        : "Default sistem. Smart suggestion berisiko tetap di-normalisasi sebelum masuk EEM/DCF.",
     activeDcfBasis: "base",
     activeDcfBasisLabel: "DCF - skenario dasar",
     activeDcfBasisSummary: "Skenario utama memakai WACC, terminal growth, modal kerja incremental, dan struktur utang aktif.",
@@ -179,6 +191,10 @@ function resolveAutoRequiredReturnOnNtaValues(
       [key]: formatInputNumber(field.value),
     };
   }, assumptions);
+}
+
+function inferInitialWaccBasis(assumptions: AssumptionState): WaccBasis {
+  return assumptions.wacc.trim() ? "manual" : "governed";
 }
 
 function formatAutoCapitalValue(value: number): string {

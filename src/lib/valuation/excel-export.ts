@@ -33,6 +33,9 @@ export type ValuationExcelExportInput = {
   aamAdjustmentModel: AamAdjustmentModel;
   results: CalculationResults;
   baseResults?: CalculationResults;
+  activeWaccBasis?: string;
+  activeWaccBasisLabel?: string;
+  activeWaccBasisSummary?: string;
   activeDcfBasis?: string;
   activeDcfBasisLabel?: string;
   activeDcfBasisSummary?: string;
@@ -460,7 +463,8 @@ function buildSnapshotSheet(input: ValuationExcelExportInput) {
   add("taxRate", "Tax rate", input.snapshot.taxRate, "Resolved assumption", "percent");
   add("terminalGrowth", "Terminal growth", input.snapshot.terminalGrowth, "Resolved assumption", "percent");
   add("revenueGrowth", "Revenue growth", input.snapshot.revenueGrowth, "Resolved assumption or historical driver", "percent");
-  add("wacc", "WACC", input.snapshot.wacc, "Resolved assumption", "percent");
+  add("wacc", "WACC", input.snapshot.wacc, input.activeWaccBasisLabel ? `Active basis: ${input.activeWaccBasisLabel}` : "Resolved assumption", "percent");
+  add("waccBasis", "Active WACC basis", input.activeWaccBasisLabel || "Governed WACC", input.activeWaccBasisSummary || "Default WACC governance");
   add("requiredReturnOnNta", "Required return on NTA", input.snapshot.requiredReturnOnNta, "Resolved assumption", "percent");
   add("cogsMargin", "COGS margin", input.snapshot.cogsMargin, "Historical average driver", "percent");
   add("gaMargin", "GA margin", input.snapshot.gaMargin, "Historical average driver", "percent");
@@ -1028,7 +1032,7 @@ function patchWaccTemplateSheet(workbook: XLSX.WorkBook, input: ValuationExcelEx
   writeTemplateRateIfPresent(workbook, patches, "WACC", "B27", input.resolvedAssumptions.waccBankPerseroInvestmentLoanRate, "Bank Persero investment loan rate");
   writeTemplateRateIfPresent(workbook, patches, "WACC", "B28", input.resolvedAssumptions.waccBankSwastaInvestmentLoanRate, "Bank Swasta investment loan rate");
   writeTemplateRateIfPresent(workbook, patches, "WACC", "B29", input.resolvedAssumptions.waccBankUmumInvestmentLoanRate, "Bank Umum investment loan rate");
-  writeTemplateCell(workbook, patches, "WACC", "E22", input.snapshot.wacc, "Weighted Average Cost of Capital", "Resolved WACC used by web valuation engine");
+  writeTemplateCell(workbook, patches, "WACC", "E22", input.snapshot.wacc, "Weighted Average Cost of Capital", input.activeWaccBasisLabel ? `Resolved ${input.activeWaccBasisLabel} used by web valuation engine` : "Resolved WACC used by web valuation engine");
 }
 
 function patchDiscountRateTemplateSheet(
