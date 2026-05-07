@@ -6,8 +6,8 @@ export function SiteFooter() {
   return (
     <footer className="site-footer" aria-label="Informasi situs">
       <div className="site-footer-content">
-        <p className="site-footer-brand">Penilaian Bisnis II: Workbench Digital Valuasi Bisnis AAM, EEM, dan DCF Indonesia</p>
-        <p>Dibangun untuk perhitungan yang terlacak, asumsi yang bisa diaudit, dan laporan yang siap direviu.</p>
+        <p className="site-footer-brand">Platform Digital Penilaian Bisnis II (AAM, EEM &amp; DCF)</p>
+        <p>100% Aman &amp; Privat karena Seluruh Proses Berjalan secara Lokal</p>
         <nav className="site-footer-links" aria-label="Tautan pendukung">
           <a href="https://persiapantubel.com/" target="_blank" rel="noreferrer">
             <GithubLogo />
