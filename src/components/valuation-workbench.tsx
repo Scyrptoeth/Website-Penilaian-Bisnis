@@ -1690,7 +1690,7 @@ export function ValuationWorkbench() {
 
   function applyWaccMarketSuggestion(suggestion: MarketAssumptionSuggestion) {
     const averageDebtRate = roundDiscountRateDebtRate(averageInvestmentLoanRate(suggestion));
-    const sourceNote = `Saran sistem tahunan ${suggestion.year}; ERP/default spread dari Damodaran, proxy SUN dari bukti pasar, dan debt rate dari rata-rata SBDK korporasi OJK.`;
+    const sourceNote = `Saran sistem tahunan ${suggestion.year}; ERP/default spread dari Damodaran, proxy SUN dari bukti pasar, dan debt rate dari rata-rata SBDK korporasi OJK untuk lima kelompok bank: Persero, Pemda/BPD, Swasta, Asing/KCBA, dan Campuran.`;
 
     commitCoreState((current) => ({
       ...current,
@@ -1703,10 +1703,10 @@ export function ValuationWorkbench() {
         waccSpecificRiskPremium: current.assumptions.waccSpecificRiskPremium.trim() || formatInputNumber(0),
         waccPreTaxCostOfDebt: formatInputNumber(averageDebtRate),
         waccBankPerseroInvestmentLoanRate: formatInputNumber(suggestion.metrics.bankPerseroInvestmentLoan.value),
-        waccBankPemdaInvestmentLoanRate: "",
+        waccBankPemdaInvestmentLoanRate: formatInputNumber(suggestion.metrics.bankPemdaInvestmentLoan.value),
         waccBankSwastaInvestmentLoanRate: formatInputNumber(suggestion.metrics.bankSwastaInvestmentLoan.value),
-        waccBankAsingInvestmentLoanRate: "",
-        waccBankCampuranInvestmentLoanRate: "",
+        waccBankAsingInvestmentLoanRate: formatInputNumber(suggestion.metrics.bankAsingInvestmentLoan.value),
+        waccBankCampuranInvestmentLoanRate: formatInputNumber(suggestion.metrics.bankCampuranInvestmentLoan.value),
         waccBankUmumInvestmentLoanRate: formatInputNumber(suggestion.metrics.bankUmumInvestmentLoan.value),
         waccSource: `market-suggestion-${suggestion.year}`,
         waccOverrideReason: sourceNote,
@@ -8232,7 +8232,7 @@ function WaccMarketSuggestionPanel({
         />
         <p className="assumption-empty-note">
           {valuationDate.trim()
-            ? "Tanggal penilaian berada di luar library tahunan 2018-2025."
+            ? "Tanggal penilaian berada di luar library tahunan 2020-2025."
             : "Isi Tahun Transaksi Pengalihan di Data Awal atau tanggal penilaian untuk memunculkan saran WACC tahunan."}
         </p>
       </article>
@@ -8373,6 +8373,7 @@ function WaccCalculatorPanel({
         <AssumptionInput
           label="Debt rate Bank Pemda"
           value={assumptions.waccBankPemdaInvestmentLoanRate}
+          note="Saran sistem memakai rata-rata tahunan SBDK korporasi OJK untuk Bank Pembangunan Daerah/BPD."
           onChange={(value) => onChange("waccBankPemdaInvestmentLoanRate", value)}
         />
         <AssumptionInput
@@ -8384,11 +8385,13 @@ function WaccCalculatorPanel({
         <AssumptionInput
           label="Debt rate Bank Asing"
           value={assumptions.waccBankAsingInvestmentLoanRate}
+          note="Saran sistem memakai rata-rata tahunan SBDK korporasi OJK untuk kantor cabang bank asing/KCBA."
           onChange={(value) => onChange("waccBankAsingInvestmentLoanRate", value)}
         />
         <AssumptionInput
           label="Debt rate Bank Campuran"
           value={assumptions.waccBankCampuranInvestmentLoanRate}
+          note="Saran sistem memakai rata-rata tahunan SBDK korporasi OJK untuk bank campuran/joint venture."
           onChange={(value) => onChange("waccBankCampuranInvestmentLoanRate", value)}
         />
         <AssumptionInput

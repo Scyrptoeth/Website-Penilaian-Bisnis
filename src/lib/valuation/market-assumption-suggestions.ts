@@ -3,7 +3,10 @@ export type MarketAssumptionMetricKey =
   | "ratingBasedDefaultSpread"
   | "riskFreeSun"
   | "bankPerseroInvestmentLoan"
+  | "bankPemdaInvestmentLoan"
   | "bankSwastaInvestmentLoan"
+  | "bankAsingInvestmentLoan"
+  | "bankCampuranInvestmentLoan"
   | "bankUmumInvestmentLoan";
 
 export type MarketAssumptionMetric = {
@@ -24,6 +27,7 @@ export type MarketAssumptionSuggestion = {
 const damodaranCountryRiskUrl = "https://pages.stern.nyu.edu/adamodar/New_Home_Page/datafile/ctryprem.html";
 const damodaranRiskFreeUrl = "https://pages.stern.nyu.edu/~adamodar/pc/datasets/";
 const ojkSbdkArchiveUrl = "https://www.ojk.go.id/id/kanal/perbankan/Documents/Pages/Suku-Bunga-Dasar/SBDK%20Juli%202018%20-%20Juni%202025.xlsx";
+const ojkSbdkArchiveSource = "OJK SBDK archive; subset sistem 2020-Juni 2025";
 
 const yearlyInputs: Array<{
   year: number;
@@ -31,34 +35,22 @@ const yearlyInputs: Array<{
   ratingBasedDefaultSpread: number;
   riskFreeSun: number;
   bankPerseroInvestmentLoan: number;
+  bankPemdaInvestmentLoan: number;
   bankSwastaInvestmentLoan: number;
+  bankAsingInvestmentLoan: number;
+  bankCampuranInvestmentLoan: number;
   bankUmumInvestmentLoan: number;
 }> = [
-  {
-    year: 2018,
-    equityRiskPremium: 0.08602049147476651,
-    ratingBasedDefaultSpread: 0.02147874895541842,
-    riskFreeSun: 0.0824,
-    bankPerseroInvestmentLoan: 0.102746,
-    bankSwastaInvestmentLoan: 0.104415,
-    bankUmumInvestmentLoan: 0.104319,
-  },
-  {
-    year: 2019,
-    equityRiskPremium: 0.07077356826750791,
-    ratingBasedDefaultSpread: 0.01591544012647888,
-    riskFreeSun: 0.0793,
-    bankPerseroInvestmentLoan: 0.102958,
-    bankSwastaInvestmentLoan: 0.104676,
-    bankUmumInvestmentLoan: 0.104578,
-  },
   {
     year: 2020,
     equityRiskPremium: 0.065635656450951,
     ratingBasedDefaultSpread: 0.016822031843274077,
     riskFreeSun: 0.0706,
     bankPerseroInvestmentLoan: 0.100312,
+    bankPemdaInvestmentLoan: 0.088967,
     bankSwastaInvestmentLoan: 0.096151,
+    bankAsingInvestmentLoan: 0.071066,
+    bankCampuranInvestmentLoan: 0.088044,
     bankUmumInvestmentLoan: 0.096399,
   },
   {
@@ -67,7 +59,10 @@ const yearlyInputs: Array<{
     ratingBasedDefaultSpread: 0.01619664677037467,
     riskFreeSun: 0.0606,
     bankPerseroInvestmentLoan: 0.081562,
+    bankPemdaInvestmentLoan: 0.084187,
     bankSwastaInvestmentLoan: 0.0861,
+    bankAsingInvestmentLoan: 0.054335,
+    bankCampuranInvestmentLoan: 0.079067,
     bankUmumInvestmentLoan: 0.08582,
   },
   {
@@ -76,7 +71,10 @@ const yearlyInputs: Array<{
     ratingBasedDefaultSpread: 0.023296788990825688,
     riskFreeSun: 0.0638,
     bankPerseroInvestmentLoan: 0.08001,
+    bankPemdaInvestmentLoan: 0.078389,
     bankSwastaInvestmentLoan: 0.081358,
+    bankAsingInvestmentLoan: 0.056708,
+    bankCampuranInvestmentLoan: 0.074654,
     bankUmumInvestmentLoan: 0.081276,
   },
   {
@@ -85,7 +83,10 @@ const yearlyInputs: Array<{
     ratingBasedDefaultSpread: 0.020743237044383835,
     riskFreeSun: 0.0692,
     bankPerseroInvestmentLoan: 0.080323,
+    bankPemdaInvestmentLoan: 0.081637,
     bankSwastaInvestmentLoan: 0.085205,
+    bankAsingInvestmentLoan: 0.067702,
+    bankCampuranInvestmentLoan: 0.079978,
     bankUmumInvestmentLoan: 0.084905,
   },
   {
@@ -94,7 +95,10 @@ const yearlyInputs: Array<{
     ratingBasedDefaultSpread: 0.01885748822216712,
     riskFreeSun: 0.0669,
     bankPerseroInvestmentLoan: 0.082196,
+    bankPemdaInvestmentLoan: 0.08459,
     bankSwastaInvestmentLoan: 0.085103,
+    bankAsingInvestmentLoan: 0.070092,
+    bankCampuranInvestmentLoan: 0.0794,
     bankUmumInvestmentLoan: 0.084923,
   },
   {
@@ -103,7 +107,10 @@ const yearlyInputs: Array<{
     ratingBasedDefaultSpread: 0.01885748822216712,
     riskFreeSun: 0.07041,
     bankPerseroInvestmentLoan: 0.085767,
+    bankPemdaInvestmentLoan: 0.08509,
     bankSwastaInvestmentLoan: 0.083734,
+    bankAsingInvestmentLoan: 0.065745,
+    bankCampuranInvestmentLoan: 0.080354,
     bankUmumInvestmentLoan: 0.083859,
   },
 ];
@@ -143,7 +150,16 @@ export const marketAssumptionSuggestions: MarketAssumptionSuggestion[] = yearlyI
       label: "Debt rate Bank Persero",
       value: item.bankPerseroInvestmentLoan,
       method: buildSbdkMethod(item.year, "bank Persero"),
-      source: "OJK SBDK archive Juli 2018-Juni 2025",
+      source: ojkSbdkArchiveSource,
+      sourceUrl: ojkSbdkArchiveUrl,
+      note: buildSbdkNote(item.year),
+    }),
+    bankPemdaInvestmentLoan: metric({
+      key: "bankPemdaInvestmentLoan",
+      label: "Debt rate Bank Pemda",
+      value: item.bankPemdaInvestmentLoan,
+      method: buildSbdkMethod(item.year, "Bank Pembangunan Daerah/BPD"),
+      source: ojkSbdkArchiveSource,
       sourceUrl: ojkSbdkArchiveUrl,
       note: buildSbdkNote(item.year),
     }),
@@ -152,7 +168,25 @@ export const marketAssumptionSuggestions: MarketAssumptionSuggestion[] = yearlyI
       label: "Debt rate Bank Swasta",
       value: item.bankSwastaInvestmentLoan,
       method: buildSbdkMethod(item.year, "bank swasta/non-Persero"),
-      source: "OJK SBDK archive Juli 2018-Juni 2025",
+      source: ojkSbdkArchiveSource,
+      sourceUrl: ojkSbdkArchiveUrl,
+      note: buildSbdkNote(item.year),
+    }),
+    bankAsingInvestmentLoan: metric({
+      key: "bankAsingInvestmentLoan",
+      label: "Debt rate Bank Asing",
+      value: item.bankAsingInvestmentLoan,
+      method: buildSbdkMethod(item.year, "kantor cabang bank asing/KCBA"),
+      source: ojkSbdkArchiveSource,
+      sourceUrl: ojkSbdkArchiveUrl,
+      note: buildSbdkNote(item.year),
+    }),
+    bankCampuranInvestmentLoan: metric({
+      key: "bankCampuranInvestmentLoan",
+      label: "Debt rate Bank Campuran",
+      value: item.bankCampuranInvestmentLoan,
+      method: buildSbdkMethod(item.year, "bank campuran/joint venture"),
+      source: ojkSbdkArchiveSource,
       sourceUrl: ojkSbdkArchiveUrl,
       note: buildSbdkNote(item.year),
     }),
@@ -161,7 +195,7 @@ export const marketAssumptionSuggestions: MarketAssumptionSuggestion[] = yearlyI
       label: "Debt rate Bank Umum",
       value: item.bankUmumInvestmentLoan,
       method: buildSbdkMethod(item.year, "seluruh bank umum dalam arsip"),
-      source: "OJK SBDK archive Juli 2018-Juni 2025",
+      source: ojkSbdkArchiveSource,
       sourceUrl: ojkSbdkArchiveUrl,
       note: buildSbdkNote(item.year),
     }),
@@ -185,11 +219,19 @@ export function getMarketAssumptionSuggestion(valuationDate: string): MarketAssu
 export function averageInvestmentLoanRate(suggestion: MarketAssumptionSuggestion): number {
   const {
     bankPerseroInvestmentLoan,
+    bankPemdaInvestmentLoan,
     bankSwastaInvestmentLoan,
-    bankUmumInvestmentLoan,
+    bankAsingInvestmentLoan,
+    bankCampuranInvestmentLoan,
   } = suggestion.metrics;
 
-  return (bankPerseroInvestmentLoan.value + bankSwastaInvestmentLoan.value + bankUmumInvestmentLoan.value) / 3;
+  return (
+    bankPerseroInvestmentLoan.value +
+    bankPemdaInvestmentLoan.value +
+    bankSwastaInvestmentLoan.value +
+    bankAsingInvestmentLoan.value +
+    bankCampuranInvestmentLoan.value
+  ) / 5;
 }
 
 function metric(metricInput: MarketAssumptionMetric): MarketAssumptionMetric {
@@ -197,7 +239,7 @@ function metric(metricInput: MarketAssumptionMetric): MarketAssumptionMetric {
 }
 
 function buildSbdkMethod(year: number, groupLabel: string): string {
-  const period = year === 2018 ? "Juli-Desember" : year === 2025 ? "Januari-Juni" : "Januari-Desember";
+  const period = year === 2025 ? "Januari-Juni" : "Januari-Desember";
 
   return `Rata-rata sederhana bulanan SBDK korporasi OJK ${period} ${year} untuk ${groupLabel}; nilai bulanan dirata-ratakan menjadi proxy tahunan.`;
 }
@@ -206,9 +248,7 @@ function buildSbdkNote(year: number): string {
   const periodNote =
     year === 2025
       ? "Data 2025 memakai periode Januari-Juni yang tersedia di arsip dan diperlakukan sebagai proxy tahunan."
-      : year === 2018
-        ? "Data 2018 memakai periode Juli-Desember karena arsip dimulai Juli 2018."
-        : "Data memakai 12 bulan penuh pada tahun terkait.";
+      : "Data memakai 12 bulan penuh pada tahun terkait.";
 
   return `${periodNote} SBDK belum memasukkan premi risiko spesifik debitur, sehingga tetap tampil sebagai saran sistem yang dapat dioverride penilai.`;
 }

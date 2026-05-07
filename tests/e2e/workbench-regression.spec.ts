@@ -721,8 +721,14 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await openWorkflowTab(page, "WACC");
   await expect(page.getByTestId("wacc-suggestion-card")).toContainText("2023");
   await expect(page.getByTestId("wacc-suggestion-card")).toContainText("Equity Risk Premium");
+  await expect(page.getByTestId("wacc-suggestion-card")).toContainText("Debt rate Bank Pemda");
+  await expect(page.getByTestId("wacc-suggestion-card")).toContainText("Debt rate Bank Asing");
+  await expect(page.getByTestId("wacc-suggestion-card")).toContainText("Debt rate Bank Campuran");
   await expect(page.getByTestId("wacc-suggestion-card")).not.toContainText("Input pasar tahunan");
   await page.getByRole("button", { name: /Terapkan Saran 2023/ }).click();
+  await expect(page.getByLabel("Debt rate Bank Pemda")).toHaveValue("0,081637");
+  await expect(page.getByLabel("Debt rate Bank Asing")).toHaveValue("0,067702");
+  await expect(page.getByLabel("Debt rate Bank Campuran")).toHaveValue("0,079978");
   await expect(page.getByTestId("wacc-calculator")).toContainText("Rating-based default spread (RBDS)");
   await expect(page.getByTestId("wacc-calculator")).toContainText("isi dengan beta manual yang memiliki sumber dan justifikasi penilai");
   await expect(page.getByTestId("wacc-calculator")).not.toContainText("DCF discount rate dan EEM capitalization rate");
@@ -746,7 +752,7 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await expect(page.getByTestId("required-return-suggestion-card")).toContainText("Perlu input");
   await expect(fixedAssetCapacityInput).toHaveValue("");
   await expect(page.getByRole("button", { name: "Gunakan nilai sistem untuk Kapasitas aset tetap" })).toHaveCount(0);
-  await expect(page.getByLabel("After-tax debt cost")).toHaveValue("0,06474");
+  await expect(page.getByLabel("After-tax debt cost")).toHaveValue("0,06162");
   await expect(page.getByTestId("required-return-on-nta-calculator")).not.toContainText("BORROWING CAP");
   await expect(page.getByTestId("required-return-on-nta-calculator")).not.toContainText("DISCOUNT RATE");
 
