@@ -75,6 +75,13 @@ describe("valuation XLSX export", () => {
     assert.ok(xml.includes('formatCode="0.00%;[Red](0.00%);0.00%"'));
     assert.ok(xml.includes(' s="2"'));
     assert.ok(xml.includes(' s="3"'));
+    assert.ok(xml.includes('cellXfs count="8"'));
+    assert.ok(xml.includes('wrapText="1"'));
+    assert.ok(xml.includes('vertical="top"'));
+    assert.ok(xml.includes('bestFit="1"'));
+    assert.ok(xml.includes('customHeight="1"'));
+    assert.ok(extractColumnWidths(xml).some((width) => width > 28));
+    assert.ok(extractColumnWidths(xml).every((width) => width <= 40));
     assert.doesNotMatch(xml, /(^|[^A-Z])IFS\(/);
     assert.doesNotMatch(xml, /(^|[^A-Z])SWITCH\(/);
     assert.doesNotMatch(xml, /(^|[^A-Z])FLOOR\(/);
@@ -83,6 +90,10 @@ describe("valuation XLSX export", () => {
 
 function countFormulaCells(rows: XlsxCellValue[][]): number {
   return rows.flat().filter((cell) => Boolean(cell && typeof cell === "object" && "formula" in cell)).length;
+}
+
+function extractColumnWidths(xml: string): number[] {
+  return Array.from(xml.matchAll(/<col [^>]*width="([^"]+)"/g), (match) => Number(match[1]));
 }
 
 function buildSampleExportInput(): ValuationPdfExportInput {

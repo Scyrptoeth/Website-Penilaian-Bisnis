@@ -897,14 +897,22 @@ test("exports method-scoped XLSX workbooks", async ({ page }) => {
   expect(bytes[2]).toBe(0x03);
   expect(bytes[3]).toBe(0x04);
   expect(bytes.length).toBeGreaterThan(10_000);
-  expect(bytes.toString("utf8")).toContain("<f>");
-  expect(bytes.toString("utf8")).toContain('name="DLOM"');
-  expect(bytes.toString("utf8")).toContain('name="DLOC PFC"');
-  expect(bytes.toString("utf8")).toContain('formatCode="#,##0;[Red](#,##0);0"');
-  expect(bytes.toString("utf8")).toContain('formatCode="0.00%;[Red](0.00%);0.00%"');
-  expect(bytes.toString("utf8")).not.toMatch(/(^|[^A-Z])IFS\(/);
-  expect(bytes.toString("utf8")).not.toMatch(/(^|[^A-Z])SWITCH\(/);
-  expect(bytes.toString("utf8")).not.toMatch(/(^|[^A-Z])FLOOR\(/);
+  const xlsxXml = bytes.toString("utf8");
+  const columnWidths = Array.from(xlsxXml.matchAll(/<col [^>]*width="([^"]+)"/g), (match) => Number(match[1]));
+
+  expect(xlsxXml).toContain("<f>");
+  expect(xlsxXml).toContain('name="DLOM"');
+  expect(xlsxXml).toContain('name="DLOC PFC"');
+  expect(xlsxXml).toContain('formatCode="#,##0;[Red](#,##0);0"');
+  expect(xlsxXml).toContain('formatCode="0.00%;[Red](0.00%);0.00%"');
+  expect(xlsxXml).toContain('wrapText="1"');
+  expect(xlsxXml).toContain('customHeight="1"');
+  expect(xlsxXml).toContain('bestFit="1"');
+  expect(columnWidths.some((width) => width > 28)).toBe(true);
+  expect(columnWidths.every((width) => width <= 40)).toBe(true);
+  expect(xlsxXml).not.toMatch(/(^|[^A-Z])IFS\(/);
+  expect(xlsxXml).not.toMatch(/(^|[^A-Z])SWITCH\(/);
+  expect(xlsxXml).not.toMatch(/(^|[^A-Z])FLOOR\(/);
 });
 
 test("company sector can be manually overridden after KLU suggestion", async ({ page }) => {

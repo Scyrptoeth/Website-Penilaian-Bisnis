@@ -67,6 +67,16 @@ const taxSimulationSheetName = "Tax Simulation";
 
 type XlsxNumberFormatKind = "comma" | "percent";
 
+type XlsxColumnLayout = {
+  width: number;
+};
+
+const defaultXlsxRowHeight = 15;
+const xlsxRowLineHeight = 15;
+const maxXlsxRowHeight = 150;
+const wrapTextThreshold = 28;
+const maxWrappedColumnWidth = 40;
+
 export function createValuationXlsxFile(
   input: ValuationPdfExportInput,
   scopeId: ValuationXlsxExportScopeId,
@@ -1171,22 +1181,26 @@ function buildWorksheetXml(
   sharedStrings: string[],
   sharedStringIndex: Map<string, number>,
 ): string {
+  const maxColumnCount = Math.max(1, ...rows.map((row) => row.length));
+  const columnLayouts = buildColumnLayouts(rows, maxColumnCount);
   const body = rows
     .map((row, rowIndex) => {
       const rowNumber = rowIndex + 1;
       const isHeader = isHeaderLikeRow(row, rowIndex, rows);
+      const rowHeight = buildRowHeightAttribute(row, columnLayouts);
       const cells = row
-        .map((value, columnIndex) => buildCellXml(value, sheetName, row, columnIndex + 1, rowNumber, isHeader, sharedStrings, sharedStringIndex))
+        .map((value, columnIndex) =>
+          buildCellXml(value, sheetName, row, columnIndex + 1, rowNumber, isHeader, columnLayouts[columnIndex], sharedStrings, sharedStringIndex),
+        )
         .join("");
 
-      return `<row r="${rowNumber}">${cells}</row>`;
+      return `<row r="${rowNumber}"${rowHeight}>${cells}</row>`;
     })
     .join("");
-  const maxColumnCount = Math.max(1, ...rows.map((row) => row.length));
   const dimension = `A1:${cellReference(maxColumnCount, Math.max(rows.length, 1))}`;
 
   return xmlDocument(
-    `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><dimension ref="${dimension}"/><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="15"/><cols>${buildColumnWidths(maxColumnCount)}</cols><sheetData>${body}</sheetData></worksheet>`,
+    `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><dimension ref="${dimension}"/><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="${defaultXlsxRowHeight}"/><cols>${buildColumnWidths(columnLayouts)}</cols><sheetData>${body}</sheetData></worksheet>`,
   );
 }
 
@@ -1197,6 +1211,7 @@ function buildCellXml(
   columnNumber: number,
   rowNumber: number,
   isHeader: boolean,
+  columnLayout: XlsxColumnLayout,
   sharedStrings: string[],
   sharedStringIndex: Map<string, number>,
 ): string {
@@ -1206,7 +1221,7 @@ function buildCellXml(
 
   const reference = cellReference(columnNumber, rowNumber);
   const formula = readFormulaCell(value);
-  const styleId = resolveCellStyleId(value, sheetName, rowValues, columnNumber, isHeader);
+  const styleId = resolveCellStyleId(value, sheetName, rowValues, columnNumber, isHeader, columnLayout);
   const style = styleId === 0 ? "" : ` s="${styleId}"`;
 
   if (formula) {
@@ -1260,23 +1275,25 @@ function resolveCellStyleId(
   rowValues: XlsxCellValue[],
   columnNumber: number,
   isHeader: boolean,
+  columnLayout: XlsxColumnLayout,
 ): number {
   if (isHeader) {
-    return 1;
+    return shouldWrapCell(value, columnLayout) ? 5 : 1;
   }
 
   const numericValue = getNumericCellValue(value);
   const formatKind = resolveNumberFormatKind(numericValue, sheetName, rowValues, columnNumber);
+  const shouldWrap = shouldWrapCell(value, columnLayout);
 
   if (formatKind === "comma") {
-    return 2;
+    return shouldWrap ? 6 : 2;
   }
 
   if (formatKind === "percent") {
-    return 3;
+    return shouldWrap ? 7 : 3;
   }
 
-  return 0;
+  return shouldWrap ? 4 : 0;
 }
 
 function resolveNumberFormatKind(
@@ -1338,11 +1355,141 @@ function isYearLikeNumber(value: number): boolean {
   return Number.isInteger(value) && value >= 1900 && value <= 2100;
 }
 
-function buildColumnWidths(columnCount: number): string {
-  return Array.from({ length: columnCount }, (_, index) => {
-    const width = index === 0 ? 24 : index === 1 ? 28 : 18;
-    return `<col min="${index + 1}" max="${index + 1}" width="${width}" customWidth="1"/>`;
-  }).join("");
+function buildColumnLayouts(rows: XlsxCellValue[][], columnCount: number): XlsxColumnLayout[] {
+  return Array.from({ length: columnCount }, (_, columnIndex) => {
+    const fallbackWidth = columnIndex === 0 ? 24 : columnIndex === 1 ? 28 : 12;
+    const minWidth = columnIndex === 0 ? 16 : 8;
+    let maxDisplayWidth = 0;
+    let maxTextWidth = 0;
+    let textCellCount = 0;
+    let numericCellCount = 0;
+    let hasMultilineText = false;
+
+    for (const row of rows) {
+      const value = row[columnIndex];
+      const displayValue = getCellDisplayPrimitive(value);
+
+      if (displayValue === null || displayValue === undefined || displayValue === "") {
+        continue;
+      }
+
+      const displayText = formatCellDisplayText(displayValue);
+      const displayWidth = measureMaxLineWidth(displayText);
+      maxDisplayWidth = Math.max(maxDisplayWidth, displayWidth);
+
+      if (typeof displayValue === "number") {
+        numericCellCount += 1;
+      } else {
+        textCellCount += 1;
+        maxTextWidth = Math.max(maxTextWidth, displayWidth);
+        hasMultilineText = hasMultilineText || displayText.includes("\n");
+      }
+    }
+
+    const hasLongText = maxTextWidth >= wrapTextThreshold || hasMultilineText;
+    const textHeavy = textCellCount > 0 && (hasLongText || textCellCount >= numericCellCount);
+    const maxWidth = textHeavy ? maxWrappedColumnWidth : numericCellCount > textCellCount ? 18 : 24;
+    const estimatedWidth = Math.ceil(maxDisplayWidth + 2);
+    const width = clampNumber(Math.max(minWidth, estimatedWidth, Math.min(fallbackWidth, maxWidth)), minWidth, maxWidth);
+
+    return {
+      width,
+    };
+  });
+}
+
+function buildColumnWidths(columnLayouts: XlsxColumnLayout[]): string {
+  return columnLayouts
+    .map((layout, index) => {
+      const width = formatXlsxDimension(layout.width);
+      return `<col min="${index + 1}" max="${index + 1}" width="${width}" customWidth="1" bestFit="1"/>`;
+    })
+    .join("");
+}
+
+function buildRowHeightAttribute(row: XlsxCellValue[], columnLayouts: XlsxColumnLayout[]): string {
+  const maxLineCount = row.reduce<number>((lineCount, value, columnIndex) => {
+    const columnLayout = columnLayouts[columnIndex];
+
+    if (!columnLayout || !shouldWrapCell(value, columnLayout)) {
+      return lineCount;
+    }
+
+    return Math.max(lineCount, estimateWrappedLineCount(formatCellDisplayText(getCellDisplayPrimitive(value)), columnLayout.width));
+  }, 1);
+
+  if (maxLineCount <= 1) {
+    return "";
+  }
+
+  const height = clampNumber(maxLineCount * xlsxRowLineHeight, defaultXlsxRowHeight, maxXlsxRowHeight);
+
+  return ` ht="${formatXlsxDimension(height)}" customHeight="1"`;
+}
+
+function shouldWrapCell(value: XlsxCellValue, columnLayout: XlsxColumnLayout): boolean {
+  const displayValue = getCellDisplayPrimitive(value);
+
+  if (typeof displayValue !== "string" || displayValue.trim() === "") {
+    return false;
+  }
+
+  const displayText = formatCellDisplayText(displayValue);
+  const displayWidth = measureMaxLineWidth(displayText);
+
+  return displayText.includes("\n") || displayWidth > Math.max(8, columnLayout.width - 1);
+}
+
+function estimateWrappedLineCount(text: string, columnWidth: number): number {
+  return text.split("\n").reduce((lineCount, line) => {
+    const availableWidth = Math.max(8, columnWidth - 1);
+    return lineCount + Math.max(1, Math.ceil(measureDisplayWidth(line) / availableWidth));
+  }, 0);
+}
+
+function measureMaxLineWidth(text: string): number {
+  return Math.max(0, ...text.split("\n").map(measureDisplayWidth));
+}
+
+function measureDisplayWidth(text: string): number {
+  return Array.from(text).reduce((width, character) => width + (character.charCodeAt(0) > 127 ? 1.25 : 1), 0);
+}
+
+function getCellDisplayPrimitive(value: XlsxCellValue): XlsxCellPrimitive {
+  const formula = readFormulaCell(value);
+
+  if (formula) {
+    return formula.value;
+  }
+
+  if (value && typeof value === "object") {
+    return undefined;
+  }
+
+  return value;
+}
+
+function formatCellDisplayText(value: XlsxCellPrimitive): string {
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  if (typeof value === "number" && Number.isFinite(value) && Math.abs(value) > 1000) {
+    const sign = value < 0 ? "-" : "";
+    const integerText = String(Math.trunc(Math.abs(value)));
+
+    return `${sign}${integerText.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+  }
+
+  return String(value);
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function formatXlsxDimension(value: number): string {
+  return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
 }
 
 function getSharedStringIndex(value: string, sharedStrings: string[], sharedStringIndex: Map<string, number>): number {
@@ -1407,8 +1554,19 @@ function buildSharedStringsXml(strings: string[]): string {
 }
 
 function buildStylesXml(): string {
+  const cellXfs = [
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>',
+    '<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/>',
+    '<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>',
+    '<xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>',
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf>',
+    '<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf>',
+    '<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf>',
+    '<xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf>',
+  ].join("");
+
   return xmlDocument(
-    `<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="2"><numFmt numFmtId="164" formatCode="#,##0;[Red](#,##0);0"/><numFmt numFmtId="165" formatCode="0.00%;[Red](0.00%);0.00%"/></numFmts><fonts count="2"><font><sz val="11"/><color theme="1"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF0F766E"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles><dxfs count="0"/><tableStyles count="0" defaultTableStyle="TableStyleMedium2" defaultPivotStyle="PivotStyleLight16"/></styleSheet>`,
+    `<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="2"><numFmt numFmtId="164" formatCode="#,##0;[Red](#,##0);0"/><numFmt numFmtId="165" formatCode="0.00%;[Red](0.00%);0.00%"/></numFmts><fonts count="2"><font><sz val="11"/><color theme="1"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF0F766E"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="8">${cellXfs}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles><dxfs count="0"/><tableStyles count="0" defaultTableStyle="TableStyleMedium2" defaultPivotStyle="PivotStyleLight16"/></styleSheet>`,
   );
 }
 
