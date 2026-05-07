@@ -595,12 +595,18 @@ const workflowNavigationGroups: WorkflowTabGroup[] = [
     tabs: [workflowTabRegistry.periods, workflowTabRegistry.balance, workflowTabRegistry.fixedAssets, workflowTabRegistry.income],
   },
   {
-    label: "Asumsi",
-    tabs: [workflowTabRegistry.wacc, workflowTabRegistry.eemDcfAssumptions],
+    label: "Analisis EEM/DCF",
+    tabs: [
+      workflowTabRegistry.cashFlowStatement,
+      workflowTabRegistry.payablesCashFlow,
+      workflowTabRegistry.noplatFcf,
+      workflowTabRegistry.financialRatio,
+      workflowTabRegistry.roic,
+    ],
   },
   {
-    label: "Valuasi Inti",
-    tabs: [workflowTabRegistry.valuationAam, workflowTabRegistry.valuationEem, workflowTabRegistry.valuationDcf],
+    label: "Asumsi",
+    tabs: [workflowTabRegistry.wacc, workflowTabRegistry.eemDcfAssumptions],
   },
   {
     label: "Proyeksi DCF",
@@ -612,14 +618,8 @@ const workflowNavigationGroups: WorkflowTabGroup[] = [
     ],
   },
   {
-    label: "Analisis EEM/DCF",
-    tabs: [
-      workflowTabRegistry.cashFlowStatement,
-      workflowTabRegistry.payablesCashFlow,
-      workflowTabRegistry.noplatFcf,
-      workflowTabRegistry.financialRatio,
-      workflowTabRegistry.roic,
-    ],
+    label: "Penilaian",
+    tabs: [workflowTabRegistry.valuationAam, workflowTabRegistry.valuationEem, workflowTabRegistry.valuationDcf],
   },
   {
     label: "Diskon & Pajak",

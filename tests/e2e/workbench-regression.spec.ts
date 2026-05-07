@@ -33,10 +33,15 @@ test("period workflow, scoped categories, and display-only balance sheet classif
   await expect(workflowNav(page).getByRole("button", { name: "Neraca", exact: true })).toBeVisible();
   await expect(workflowNav(page).getByRole("button", { name: "Aset Tetap", exact: true })).toBeVisible();
   await expect(workflowNav(page).getByText("Input Data", { exact: true })).toBeVisible();
-  await expect(workflowNav(page).getByText("Valuasi Inti", { exact: true })).toBeVisible();
+  await expect(workflowNav(page).getByText("Penilaian", { exact: true })).toBeVisible();
   await expect(workflowNav(page).getByText("Proyeksi DCF", { exact: true })).toBeVisible();
   await expect(workflowNav(page).getByText("Analisis EEM/DCF", { exact: true })).toBeVisible();
   await expect(workflowNav(page).getByText("Diskon & Pajak", { exact: true })).toBeVisible();
+  await expect(workflowNav(page).getByText("Review", { exact: true })).toBeVisible();
+  const sidebarGroupLabels = await workflowNav(page)
+    .locator(".nav-group-label")
+    .evaluateAll((labels) => labels.map((label) => label.textContent?.trim() ?? ""));
+  expect(sidebarGroupLabels).toEqual(["Input Data", "Analisis EEM/DCF", "Asumsi", "Proyeksi DCF", "Penilaian", "Diskon & Pajak", "Review"]);
   const sidebarTabLabels = await workflowNav(page)
     .getByRole("button")
     .evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label")));
@@ -45,20 +50,20 @@ test("period workflow, scoped categories, and display-only balance sheet classif
     "Neraca",
     "Aset Tetap",
     "Laba Rugi",
-    "WACC",
-    "Asumsi EEM/DCF",
-    "Penilaian AAM",
-    "Penilaian EEM",
-    "Penilaian DCF",
-    "Proyeksi Laba Rugi",
-    "Proyeksi Neraca",
-    "Proyeksi Aset Tetap",
-    "Proyeksi Cash Flow Statement",
     "Cash Flow Statement",
     "Jadwal Utang",
     "NOPLAT & FCF",
     "Financial Ratio",
     "ROIC",
+    "WACC",
+    "Asumsi EEM/DCF",
+    "Proyeksi Laba Rugi",
+    "Proyeksi Neraca",
+    "Proyeksi Aset Tetap",
+    "Proyeksi Cash Flow Statement",
+    "Penilaian AAM",
+    "Penilaian EEM",
+    "Penilaian DCF",
     "DLOM",
     "DLOC/PFC",
     "Simulasi Potensi Pajak",
@@ -960,6 +965,10 @@ test("localStorage persistence, fixed header, and root overflow checks remain st
   expect(headerBox?.y ?? 999).toBeLessThanOrEqual(2);
   const panelBox = await page.locator(".workspace > .panel").first().boundingBox();
   expect(Math.abs((headerBox?.x ?? 0) - (panelBox?.x ?? 0))).toBeLessThanOrEqual(1);
+  const sidebarBox = await page.locator(".sidebar").boundingBox();
+  expect(sidebarBox?.y ?? 999).toBeLessThanOrEqual(1);
+  await expect(page.locator(".brand-block")).toBeVisible();
+  await expect(workflowNav(page).getByRole("button", { name: "Audit", exact: true })).toBeVisible();
 
   expect(await hasNoRootHorizontalOverflow(page)).toBe(true);
   await page.setViewportSize({ width: 390, height: 844 });
