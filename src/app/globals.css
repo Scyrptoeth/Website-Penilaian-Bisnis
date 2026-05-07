@@ -4927,23 +4927,24 @@ td span {
 .site-footer {
   display: grid;
   justify-items: center;
-  gap: 14px;
-  padding: 44px 18px 32px;
+  gap: 8px;
+  padding: 24px 16px 18px;
   border-top: 1px solid var(--line);
   background: #ffffff;
   color: var(--muted);
   text-align: center;
-  font-size: 14px;
-  line-height: 1.55;
+  font-size: 11px;
+  line-height: 1.45;
 }
 
 .site-footer p {
   margin: 0;
-  max-width: min(840px, 100%);
+  max-width: min(680px, 100%);
 }
 
 .site-footer-brand {
   color: var(--ink-soft);
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -4951,14 +4952,14 @@ td span {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 10px 22px;
+  gap: 4px 16px;
 }
 
 .site-footer-links a {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  min-height: 44px;
+  gap: 6px;
+  min-height: 32px;
   border-radius: var(--radius);
   color: var(--muted);
   font-weight: 650;
@@ -4970,7 +4971,7 @@ td span {
 .site-footer-links a:hover,
 .site-footer-links a:focus-visible {
   outline: 2px solid rgba(15, 118, 110, 0.18);
-  outline-offset: 4px;
+  outline-offset: 3px;
   color: var(--accent-ink);
   transform: translateY(-1px);
 }
@@ -4981,23 +4982,23 @@ td span {
 
 .site-footer-copyright {
   font-family: var(--font-mono), monospace;
-  font-size: 12px;
+  font-size: 10px;
 }
 
 .scroll-top-button {
   position: fixed;
-  right: max(18px, env(safe-area-inset-right));
-  bottom: max(18px, env(safe-area-inset-bottom));
+  right: max(14px, env(safe-area-inset-right));
+  bottom: max(14px, env(safe-area-inset-bottom));
   z-index: 50;
   display: inline-grid;
-  width: 52px;
-  height: 52px;
-  min-height: 52px;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
   place-items: center;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius);
   background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 12px 34px rgba(21, 24, 22, 0.16);
+  box-shadow: 0 10px 24px rgba(21, 24, 22, 0.12);
   color: var(--ink-soft);
   cursor: pointer;
   opacity: 0;
@@ -5092,8 +5093,8 @@ td span {
 
 @media (max-width: 640px) {
   .site-footer {
-    padding: 36px 16px 28px;
-    font-size: 13px;
+    padding: 22px 14px 18px;
+    font-size: 10.5px;
   }
 
   .site-footer-links {
@@ -5102,15 +5103,14 @@ td span {
 
   .site-footer-links a {
     justify-content: center;
+    min-height: 40px;
     width: 100%;
   }
 
   .scroll-top-button {
-    right: max(14px, env(safe-area-inset-right));
-    bottom: max(14px, env(safe-area-inset-bottom));
-    width: 48px;
-    height: 48px;
-    min-height: 48px;
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
   }
 }
 

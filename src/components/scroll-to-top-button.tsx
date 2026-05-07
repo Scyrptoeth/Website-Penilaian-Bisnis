@@ -36,7 +36,7 @@ export function ScrollToTopButton() {
       tabIndex={isVisible ? 0 : -1}
       title="Kembali ke atas"
     >
-      <ArrowUp size={24} strokeWidth={1.9} aria-hidden="true" />
+      <ArrowUp size={18} strokeWidth={2} aria-hidden="true" />
     </button>
   );
 }
