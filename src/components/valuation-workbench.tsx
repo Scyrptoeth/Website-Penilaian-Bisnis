@@ -481,6 +481,14 @@ const eemOnlyMethods: ValuationMethod[] = ["EEM"];
 const dcfOnlyMethods: ValuationMethod[] = ["DCF"];
 const eemDcfMethods: ValuationMethod[] = ["EEM", "DCF"];
 const allValuationMethods: ValuationMethod[] = ["AAM", "EEM", "DCF"];
+const dcfSensitivityContext = {
+  base: "Skenario utama memakai WACC, terminal growth, modal kerja incremental, dan struktur utang aktif.",
+  terminalDownside: "Mengganti terminal growth ke downside; pembeda utama ada pada nilai terminal yang lebih konservatif.",
+  terminalUpside: "Mengganti terminal growth ke upside; pembeda utama ada pada nilai terminal yang lebih tinggi.",
+  noIncrementalWorkingCapital: "Menghilangkan perubahan modal kerja incremental untuk membaca dampak kebutuhan atau release working capital.",
+  taxPayableDebtLike: "Memperlakukan utang pajak sebagai kewajiban debt-like yang dikurangkan dari enterprise value.",
+  historicalDerivedProjection: "Menguji proyeksi neraca historis: kas, utang pajak, dan ekuitas di-roll-forward dari data historis user.",
+} as const;
 
 const workflowTabRegistry = {
   periods: { id: "periods", label: "Data Awal", methods: allValuationMethods },
@@ -2578,30 +2586,36 @@ export function ValuationWorkbench() {
               <h3>Cakupan skenario pengguna</h3>
             </div>
           </div>
-          <div className="sensitivity-grid">
-            <div>
+          <div className="sensitivity-grid" data-testid="dcf-sensitivity-grid">
+            <div data-testid="dcf-sensitivity-base">
               <span>DCF - skenario dasar</span>
               <strong data-testid="dcf-base-equity-value">{formatIdr(results.dcf.equityValue)}</strong>
+              <small>{dcfSensitivityContext.base}</small>
             </div>
-            <div>
+            <div data-testid="dcf-sensitivity-terminal-downside">
               <span>DCF - terminal downside</span>
               <strong>{formatIdr(results.sensitivities.dcfTerminalDownside.equityValue)}</strong>
+              <small>{dcfSensitivityContext.terminalDownside}</small>
             </div>
-            <div>
+            <div data-testid="dcf-sensitivity-terminal-upside">
               <span>DCF - terminal upside</span>
               <strong>{formatIdr(results.sensitivities.dcfTerminalUpside.equityValue)}</strong>
+              <small>{dcfSensitivityContext.terminalUpside}</small>
             </div>
-            <div>
+            <div data-testid="dcf-sensitivity-no-incremental-wc">
               <span>DCF tanpa WC incremental</span>
               <strong>{formatIdr(results.sensitivities.dcfNoIncrementalWorkingCapital.equityValue)}</strong>
+              <small>{dcfSensitivityContext.noIncrementalWorkingCapital}</small>
             </div>
-            <div>
+            <div data-testid="dcf-sensitivity-tax-payable-debt-like">
               <span>DCF utang pajak debt-like</span>
               <strong>{formatIdr(results.sensitivities.dcfTaxPayableDebtLike.equityValue)}</strong>
+              <small>{dcfSensitivityContext.taxPayableDebtLike}</small>
             </div>
-            <div>
+            <div data-testid="dcf-sensitivity-historical-projection">
               <span>DCF - proyeksi neraca berbasis historis</span>
               <strong>{formatIdr(results.sensitivities.dcfHistoricalDerivedProjection.equityValue)}</strong>
+              <small>{dcfSensitivityContext.historicalDerivedProjection}</small>
             </div>
           </div>
           <div className={`projection-governance-panel ${results.projectionGovernance.level}`} data-testid="dcf-projection-governance">
@@ -3356,13 +3370,10 @@ function TaxSimulationSection({
   const selectedBasisLabel = result.finalBasis === "manualScenario" ? "Skenario manual" : "Baseline otomatis";
   const reportedTransferFromDataAwal =
     caseProfileDerived.capitalBaseAmountStatus === "valid" ? caseProfileDerived.capitalBaseValuedAmount : null;
-  const reportedTransferInputValue =
-    state.reportedTransferValue.trim() ||
-    (reportedTransferFromDataAwal !== null && reportedTransferFromDataAwal !== undefined ? formatInputNumber(reportedTransferFromDataAwal) : "");
   const reportedTransferInputNote = state.reportedTransferValue.trim()
     ? "Override manual aktif; hapus isi untuk kembali mengikuti Data Awal."
     : reportedTransferFromDataAwal !== null && reportedTransferFromDataAwal !== undefined
-      ? "Otomatis dari Data Awal; edit bila nilai dilaporkan berbeda."
+      ? `Kosong berarti sistem memakai Data Awal: ${formatIdr(reportedTransferFromDataAwal)}.`
       : "Lengkapi Data Awal agar nilai otomatis tersedia.";
 
   return (
@@ -3432,17 +3443,7 @@ function TaxSimulationSection({
               <option value="manualScenario">Skenario manual</option>
             </select>
           </label>
-          <label className="field">
-            <span>Nilai pengalihan saham yang dilaporkan</span>
-            <input
-              inputMode="decimal"
-              value={reportedTransferInputValue}
-              onChange={(event) => onUpdate({ reportedTransferValue: event.target.value })}
-              placeholder="Otomatis dari Data Awal bila tersedia"
-            />
-            <small className="auto-source-note">{reportedTransferInputNote}</small>
-          </label>
-          <DerivedCaseField label="Tahun Pajak Legal" value={taxYearLabel} state={result.taxYearResolution.appliedYear === null ? "invalid" : "neutral"} />
+          <DerivedCaseField label="Tahun Cut Off" value={taxYearLabel} state={result.taxYearResolution.appliedYear === null ? "invalid" : "neutral"} />
           <DerivedCaseField label="DLOM baseline" value={dlom.isComplete ? formatPercent(dlom.dlomRate) : "Belum lengkap"} />
           <DerivedCaseField label="DLOC/PFC baseline" value={dlocPfc.isComplete ? `${dlocPfc.adjustmentType} ${formatPercent(dlocPfc.signedRate)}` : "Belum lengkap"} />
           <DerivedCaseField label={caseProfileDerived.capitalProportionLabel} value={formatCaseProfileProportion(caseProfileDerived)} />
@@ -3461,6 +3462,27 @@ function TaxSimulationSection({
             <input inputMode="decimal" value={state.scenarioDlocPfcRate} onChange={(event) => onUpdate({ scenarioDlocPfcRate: event.target.value })} placeholder="Input positif; sistem tentukan DLOC/PFC" />
           </label>
         </div>
+        <details className="audit-disclosure compact advanced-override-disclosure" data-testid="reported-transfer-override">
+          <summary>Advanced override nilai pengalihan</summary>
+          <div className="audit-disclosure-grid">
+            <label className="field">
+              <span>Nilai pengalihan dilaporkan (override)</span>
+              <input
+                aria-describedby="reported-transfer-override-note"
+                inputMode="decimal"
+                value={state.reportedTransferValue}
+                onChange={(event) => onUpdate({ reportedTransferValue: event.target.value })}
+                placeholder="Kosong = memakai nilai Data Awal"
+              />
+              <small id="reported-transfer-override-note" className="auto-source-note">{reportedTransferInputNote}</small>
+            </label>
+            <DerivedCaseField
+              label="Default dari Data Awal"
+              value={formatCaseProfileAmount(caseProfileDerived.capitalBaseValuedAmount, caseProfileDerived.capitalBaseAmountStatus)}
+              state={caseProfileDerived.capitalBaseAmountStatus === "invalid" ? "invalid" : "neutral"}
+            />
+          </div>
+        </details>
         <details className="audit-disclosure">
           <summary>Catatan audit skenario</summary>
           <div className="audit-disclosure-grid">

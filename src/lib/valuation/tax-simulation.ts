@@ -485,7 +485,7 @@ function buildWarnings({
   }
 
   if (reportedTransferValue <= 0) {
-    warnings.push("Nilai pengalihan saham yang dilaporkan belum tersedia.");
+    warnings.push("Nilai pengalihan belum tersedia dari Data Awal atau override manual.");
   }
 
   if (caseProfile.subjectTaxpayerType !== "Orang Pribadi" && caseProfile.subjectTaxpayerType !== "Badan") {

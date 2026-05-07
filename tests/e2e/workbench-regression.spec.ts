@@ -318,6 +318,12 @@ test("added analysis sections use readiness gates before sample data and render 
 
   await openWorkflowTab(page, "Penilaian DCF");
   await expect(page.getByText("DCF - proyeksi neraca berbasis historis")).toBeVisible();
+  await expect(page.getByTestId("dcf-sensitivity-base")).toContainText("Skenario utama memakai WACC");
+  await expect(page.getByTestId("dcf-sensitivity-terminal-downside")).toContainText("terminal growth ke downside");
+  await expect(page.getByTestId("dcf-sensitivity-terminal-upside")).toContainText("terminal growth ke upside");
+  await expect(page.getByTestId("dcf-sensitivity-no-incremental-wc")).toContainText("perubahan modal kerja incremental");
+  await expect(page.getByTestId("dcf-sensitivity-tax-payable-debt-like")).toContainText("utang pajak sebagai kewajiban debt-like");
+  await expect(page.getByTestId("dcf-sensitivity-historical-projection")).toContainText("di-roll-forward dari data historis user");
   await expect(page.getByTestId("dcf-projection-governance")).toContainText("Governance proyeksi DCF");
   await expect(page.getByTestId("dcf-projection-governance")).toContainText("Fallback");
   const historicalRollForwardDcfValue = await page.getByTestId("dcf-base-equity-value").textContent();
@@ -475,8 +481,13 @@ test("DLOM and tax simulation render workbook-derived scenario layer after loadi
   expect(await tableFitsWrapper(page, "dloc-pfc-factor-table")).toBe(true);
 
   await openWorkflowTab(page, "Simulasi Potensi Pajak");
-  await expect(page.getByLabel("Nilai pengalihan saham yang dilaporkan")).toHaveValue("1.600.000.000");
-  await expect(page.getByText("Otomatis dari Data Awal; edit bila nilai dilaporkan berbeda.")).toBeVisible();
+  await expect(page.getByText("Tahun Cut Off").locator("..")).toContainText("2021");
+  await expect(page.getByText("Tahun Pajak Legal")).toHaveCount(0);
+  await expect(page.getByText("Nilai pengalihan dari Data Awal").locator("..")).toContainText(/Rp\s*1\.600\.000\.000,00/);
+  await expect(page.getByText("Nilai pengalihan dilaporkan (override)")).not.toBeVisible();
+  await page.getByText("Advanced override nilai pengalihan").click();
+  await expect(page.getByLabel("Nilai pengalihan dilaporkan (override)")).toHaveValue("");
+  await expect(page.getByText(/Kosong berarti sistem memakai Data Awal:/)).toBeVisible();
   await expect(page.getByTestId("tax-simulation-summary")).toContainText("AAM");
   await expect(page.getByTestId("tax-simulation-summary")).toContainText("DLOM 25%");
   await expect(page.getByTestId("tax-simulation-summary")).toContainText("DLOC 34%");
@@ -522,9 +533,11 @@ test("share-transfer input keeps shares as quantity and passes derived rupiah va
   await expect(page.getByTestId("case-profile-panel")).toContainText("30,49%");
 
   await openWorkflowTab(page, "Simulasi Potensi Pajak");
-  await expect(page.getByLabel("Nilai pengalihan saham yang dilaporkan")).toHaveValue("1.610.000.000");
-  await expect(page.getByText("Otomatis dari Data Awal; edit bila nilai dilaporkan berbeda.")).toBeVisible();
+  await expect(page.getByText("Nilai pengalihan dilaporkan (override)")).not.toBeVisible();
   await expect(page.getByText("Nilai pengalihan dari Data Awal").locator("..")).toContainText(/Rp\s*1\.610\.000\.000,00/);
+  await page.getByText("Advanced override nilai pengalihan").click();
+  await expect(page.getByLabel("Nilai pengalihan dilaporkan (override)")).toHaveValue("");
+  await expect(page.getByText(/Kosong berarti sistem memakai Data Awal:/)).toBeVisible();
   await expect(page.getByTestId("tax-simulation-table")).toContainText(/Rp\s*1\.610\.000\.000,00/);
   await expect(page.getByTestId("tax-simulation-table")).not.toContainText("Rp1.610,00");
 });

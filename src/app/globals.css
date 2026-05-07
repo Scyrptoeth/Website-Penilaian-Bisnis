@@ -2672,6 +2672,13 @@ select {
   font-weight: 500;
 }
 
+.sensitivity-grid small {
+  max-width: 72ch;
+  color: var(--ink-soft);
+  font-size: 9.4px;
+  line-height: 1.38;
+}
+
 .projection-governance-panel {
   display: grid;
   gap: 10px;
@@ -3468,6 +3475,15 @@ td span {
 
 .audit-disclosure.compact {
   margin-top: 10px;
+}
+
+.advanced-override-disclosure {
+  border-color: rgba(15, 118, 110, 0.24);
+  background: #f8fbfa;
+}
+
+.audit-disclosure.advanced-override-disclosure summary {
+  color: var(--accent);
 }
 
 .audit-disclosure summary {
