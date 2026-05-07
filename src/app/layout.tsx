@@ -18,6 +18,10 @@ const dmMono = DM_Mono({
 export const metadata: Metadata = {
   title: "Penilaian Bisnis II",
   description: "Aplikasi web untuk AAM, EEM, DCF, account mapping, dan audit penilaian bisnis.",
+  icons: {
+    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
+    shortcut: ["/icon.svg"],
+  },
 };
 
 export default function RootLayout({

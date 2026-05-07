@@ -4924,6 +4924,108 @@ td span {
   overflow-wrap: anywhere;
 }
 
+.site-footer {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  padding: 44px 18px 32px;
+  border-top: 1px solid var(--line);
+  background: #ffffff;
+  color: var(--muted);
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.site-footer p {
+  margin: 0;
+  max-width: min(840px, 100%);
+}
+
+.site-footer-brand {
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+
+.site-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 22px;
+}
+
+.site-footer-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-weight: 650;
+  transition:
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.site-footer-links a:hover,
+.site-footer-links a:focus-visible {
+  outline: 2px solid rgba(15, 118, 110, 0.18);
+  outline-offset: 4px;
+  color: var(--accent-ink);
+  transform: translateY(-1px);
+}
+
+.site-footer-whatsapp-icon {
+  color: #16a34a;
+}
+
+.site-footer-copyright {
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+}
+
+.scroll-top-button {
+  position: fixed;
+  right: max(18px, env(safe-area-inset-right));
+  bottom: max(18px, env(safe-area-inset-bottom));
+  z-index: 50;
+  display: inline-grid;
+  width: 52px;
+  height: 52px;
+  min-height: 52px;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 12px 34px rgba(21, 24, 22, 0.16);
+  color: var(--ink-soft);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(8px);
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    background 160ms ease;
+}
+
+.scroll-top-button.visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.scroll-top-button:hover,
+.scroll-top-button:focus-visible {
+  border-color: var(--accent);
+  outline: 2px solid rgba(15, 118, 110, 0.18);
+  outline-offset: 3px;
+  background: var(--surface);
+  color: var(--accent-ink);
+}
+
 @media print {
   @page {
     size: A4;
@@ -4947,6 +5049,11 @@ td span {
   }
 
   .pdf-report-actions {
+    display: none;
+  }
+
+  .site-footer,
+  .scroll-top-button {
     display: none;
   }
 
@@ -4980,6 +5087,30 @@ td span {
 
   .pdf-report-table thead {
     display: table-header-group;
+  }
+}
+
+@media (max-width: 640px) {
+  .site-footer {
+    padding: 36px 16px 28px;
+    font-size: 13px;
+  }
+
+  .site-footer-links {
+    gap: 6px;
+  }
+
+  .site-footer-links a {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .scroll-top-button {
+    right: max(14px, env(safe-area-inset-right));
+    bottom: max(14px, env(safe-area-inset-bottom));
+    width: 48px;
+    height: 48px;
+    min-height: 48px;
   }
 }
 
