@@ -1,11 +1,61 @@
-import type { ValuationExcelExportInput } from "./excel-export";
-import type { ValuationMethod } from "./types";
+import type { AamAdjustmentModel } from "./aam-adjustments";
+import type { calculateAllMethods } from "./calculations";
+import type {
+  AccountRow,
+  AssumptionState,
+  CaseProfile,
+  CaseProfileDerived,
+  FixedAssetScheduleRow,
+  FixedAssetScheduleSummary,
+  MappedRow,
+  Period,
+} from "./case-model";
+import type { DlocPfcCalculation } from "./dloc-pfc";
+import type { DlomCalculation } from "./dlom";
+import type { WorkbenchReadiness } from "./readiness";
+import type { SectionAnalysis } from "./section-analysis";
+import type { TaxSimulationResult, TaxSimulationState } from "./tax-simulation";
+import type { FinancialStatementSnapshot, ValuationMethod } from "./types";
+import type { ValidationCheck } from "./validation-checks";
+
+type CalculationResults = ReturnType<typeof calculateAllMethods>;
+
+export type ValuationPdfExportInput = {
+  periods: Period[];
+  activePeriodId: string;
+  rows: AccountRow[];
+  mappedRows: MappedRow[];
+  fixedAssetScheduleRows: FixedAssetScheduleRow[];
+  fixedAssetSchedule: FixedAssetScheduleSummary;
+  assumptions: AssumptionState;
+  resolvedAssumptions: AssumptionState;
+  caseProfile: CaseProfile;
+  caseProfileDerived: CaseProfileDerived;
+  snapshot: FinancialStatementSnapshot;
+  aamAdjustmentModel: AamAdjustmentModel;
+  results: CalculationResults;
+  baseResults?: CalculationResults;
+  activeWaccBasis?: string;
+  activeWaccBasisLabel?: string;
+  activeWaccBasisSummary?: string;
+  activeDcfBasis?: string;
+  activeDcfBasisLabel?: string;
+  activeDcfBasisSummary?: string;
+  dlomCalculation: DlomCalculation;
+  dlocPfcCalculation: DlocPfcCalculation;
+  taxSimulation: TaxSimulationState;
+  taxSimulationResult: TaxSimulationResult;
+  sectionAnalysis: SectionAnalysis;
+  readiness: WorkbenchReadiness;
+  validationChecks: ValidationCheck[];
+  exportedAt?: Date;
+};
 
 export type ValuationPdfExportPayload = {
   schemaVersion: 2;
   generatedAt: string;
   scope: ValuationPdfExportScope;
-  input: ValuationExcelExportInput;
+  input: ValuationPdfExportInput;
 };
 
 export type ValuationPdfExportScopeId = "aam" | "eem" | "dcf" | "all";
@@ -54,7 +104,7 @@ export const valuationPdfExportScopes: ValuationPdfExportScope[] = [
 export const defaultValuationPdfExportScope = valuationPdfExportScopes.find((scope) => scope.id === "all") ?? valuationPdfExportScopes[0];
 
 export function saveValuationPdfExportPayload(
-  input: ValuationExcelExportInput,
+  input: ValuationPdfExportInput,
   scopeId: ValuationPdfExportScopeId = defaultValuationPdfExportScope.id,
 ): ValuationPdfExportPayload {
   const payload: ValuationPdfExportPayload = {

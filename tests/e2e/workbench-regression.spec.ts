@@ -1,7 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import * as XLSX from "xlsx";
-import { getCellFontRgbFromXlsx, getWorkbookCalcPrAttributesFromXlsx, hasXlsxEntry } from "../helpers/xlsx-style";
 
 const workbenchStorageKey = "penilaian-valuasi-bisnis.workbench.v1";
 const workspaceManifestStorageKey = "penilaian-valuasi-bisnis.workspaces.v1";
@@ -27,7 +25,7 @@ async function loadSampleWorkbook(page: Page) {
 }
 
 async function loadPersistedWorkbenchFixture(page: Page) {
-  const fixtureState = JSON.parse(readFileSync("tests/fixtures/export-xlsx-v2-workbench-state.json", "utf8")) as unknown;
+  const fixtureState = JSON.parse(readFileSync("tests/fixtures/report-workbench-state.json", "utf8")) as unknown;
 
   await page.addInitScript(
     ({ key, state }) => {
@@ -161,6 +159,8 @@ test("period workflow, scoped categories, and display-only balance sheet classif
   await expect(page.locator(".brand-mark")).toHaveText("B-2");
   await expect(page.getByRole("button", { name: "Muat contoh workbook" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Kosongkan" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Export XLSX" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Export PDF" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Reset" })).toBeDisabled();
   await expect(workflowNav(page).getByRole("button", { name: "Data Awal" })).toHaveAttribute("aria-current", "page");
   await expect(workflowNav(page).getByRole("button", { name: "Neraca", exact: true })).toBeVisible();
@@ -782,57 +782,6 @@ test("legacy workbook-like DLOM drafts migrate to workbook UPDATE basis without 
   await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(16);
 });
 
-test("exports the active workbench state through the primary template-clone XLSX workflow", async ({ page }) => {
-  await loadSampleWorkbook(page);
-  await expect(page.getByRole("button", { name: "Export XLSX" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Export PDF" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Export XLSX V1" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Export XLSX V2" })).toHaveCount(0);
-
-  const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Export XLSX" }).click();
-  const download = await downloadPromise;
-  const downloadPath = await download.path();
-
-  assertDownloadPath(downloadPath);
-  expect(download.suggestedFilename()).toMatch(/valuation-export-v2-template-clone-\d{4}-\d{2}-\d{2}\.xlsx$/);
-
-  const workbook = XLSX.readFile(downloadPath, { cellFormula: true });
-  expect(workbook.SheetNames).toHaveLength(69);
-  expect(workbook.SheetNames[0]).toBe("CATATAN FINAL");
-  expect(workbook.SheetNames).toContain("BALANCE SHEET");
-  expect(workbook.SheetNames).toContain("INCOME STATEMENT");
-  expect(workbook.SheetNames).toContain("AAM");
-  expect(workbook.SheetNames).toContain("DCF");
-  expect(workbook.SheetNames).toContain("SIMULASI POTENSI PAJAK");
-  expect(workbook.SheetNames.at(-1)).toBe("PVB_EXPORT_V2_AUDIT");
-  expect(workbook.Sheets.HOME.B4.v).toBe("Makmur Jaya Sejati Raya");
-  expect(workbook.Sheets["BALANCE SHEET"].E8.v).toBe(717848795);
-  expect(workbook.Sheets["INCOME STATEMENT"].E6.v).toBe(16663916100);
-  expect(workbook.Sheets.STAT_ASSUMPTIONS.B6.f).toBe("WACC!E22");
-  expect(workbook.Sheets.STAT_ASSUMPTIONS.B9.v).toBeCloseTo(0.22757714145120844);
-  expect(workbook.Sheets.AAM.E53.f).toBe("E51-E52");
-  expect(workbook.Sheets.EEM.D34.f).toBe("D31+D32+D33");
-  expect(workbook.Sheets.DCF.C33.f).toBe("SUM(C29:C32)");
-  expect(workbook.Sheets.DLOM.F34.f).toBe("LEFT(C32,3)+(F33/F31*F32)");
-  expect(workbook.Sheets["DLOC(PFC)"].B20.f).toBe('IF(LOWER(HOME!B7)="tertutup","DLOC Perusahaan tertutup ","DLOC Perusahaan terbuka ")');
-  expect(workbook.Sheets.PVB_EXPORT_V2_AUDIT.A1.v).toBe("Export XLSX V2 Audit");
-  expect(workbook.Sheets.PVB_EXPORT_V2_AUDIT.F9.v).toBe("Source Origin");
-  expect(workbook.Sheets.PVB_EXPORT_V2_AUDIT.G9.v).toBe("Status");
-  expect(workbook.Sheets.PVB_EXPORT_V2_AUDIT.H9.v).toBe("Font Mark");
-  expect(workbook.Sheets.PVB_EXPORT_V2_AUDIT.I9.v).toBe("Previous Formula");
-
-  const downloadedXlsx = readFileSync(downloadPath);
-  const calcPr = getWorkbookCalcPrAttributesFromXlsx(downloadedXlsx);
-  expect(getCellFontRgbFromXlsx(downloadedXlsx, "KEY DRIVERS", "E18")).toBe("FF0000FF");
-  expect(getCellFontRgbFromXlsx(downloadedXlsx, "DLOM", "F34")).toBe("FF0000FF");
-  expect(getCellFontRgbFromXlsx(downloadedXlsx, "SIMULASI POTENSI PAJAK", "C3")).toBe("FF0000FF");
-  expect(getCellFontRgbFromXlsx(downloadedXlsx, "HOME", "B4")).not.toBe("FF0000FF");
-  expect(calcPr.fullCalcOnLoad).toBe("1");
-  expect(calcPr.forceFullCalc).toBe("1");
-  expect(hasXlsxEntry(downloadedXlsx, "xl/calcChain.xml")).toBe(false);
-});
-
 test("exports the active workbench state to a print-ready PDF report view", async ({ page }) => {
   await loadPersistedWorkbenchFixture(page);
 
@@ -1067,7 +1016,7 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
 });
 
 test("terminal growth renders with two decimals across EEM/DCF and projection tabs", async ({ page }) => {
-  const fixtureState = JSON.parse(readFileSync("tests/fixtures/export-xlsx-v2-workbench-state.json", "utf8")) as unknown;
+  const fixtureState = JSON.parse(readFileSync("tests/fixtures/report-workbench-state.json", "utf8")) as unknown;
   await page.addInitScript(({ key, state }) => {
     window.localStorage.clear();
     window.localStorage.setItem(key, JSON.stringify(state));
@@ -1203,10 +1152,6 @@ async function hasNoRootHorizontalOverflow(page: Page) {
     const documentElement = document.documentElement;
     return documentElement.scrollWidth <= documentElement.clientWidth && document.body.scrollWidth <= document.body.clientWidth;
   });
-}
-
-function assertDownloadPath(path: string | null): asserts path is string {
-  expect(path).not.toBeNull();
 }
 
 async function tableFitsWrapper(page: Page, testId: string) {

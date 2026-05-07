@@ -151,7 +151,6 @@ import {
   type SectionAnalysis,
 } from "@/lib/valuation/section-analysis";
 import { buildValidationChecks } from "@/lib/valuation/validation-checks";
-import { downloadValuationTemplateWorkbook } from "@/lib/valuation/excel-export";
 import { saveValuationPdfExportPayload, valuationPdfExportScopes, type ValuationPdfExportScopeId } from "@/lib/valuation/pdf-export";
 import {
   buildFixedAssetProjection,
@@ -855,7 +854,6 @@ export function ValuationWorkbench() {
   const [activeWorkflowTab, setActiveWorkflowTab] = useState<WorkflowTabId>("periods");
   const [undoStack, setUndoStack] = useState<WorkbenchCoreState[]>([]);
   const [redoStack, setRedoStack] = useState<WorkbenchCoreState[]>([]);
-  const [isTemplateExporting, setIsTemplateExporting] = useState(false);
   const [isPdfExportMenuOpen, setIsPdfExportMenuOpen] = useState(false);
   const [isJsonImporting, setIsJsonImporting] = useState(false);
   const [pendingConfirmation, setPendingConfirmation] = useState<ConfirmationDialogState | null>(null);
@@ -2346,22 +2344,6 @@ export function ValuationWorkbench() {
     };
   }
 
-  async function exportWorkbook() {
-    if (isTemplateExporting) {
-      return;
-    }
-
-    setIsTemplateExporting(true);
-
-    try {
-      await downloadValuationTemplateWorkbook(getExportInput());
-    } catch (error) {
-      window.alert(error instanceof Error ? error.message : "Export XLSX gagal dijalankan.");
-    } finally {
-      setIsTemplateExporting(false);
-    }
-  }
-
   function exportPdfReport(scopeId: ValuationPdfExportScopeId) {
     try {
       saveValuationPdfExportPayload(getExportInput(), scopeId);
@@ -2675,10 +2657,6 @@ export function ValuationWorkbench() {
               </button>
               <button className="icon-button" type="button" onClick={redoCoreChange} disabled={redoStack.length === 0} title="Redo perubahan data">
                 <Redo2 size={18} />
-              </button>
-              <button className="button secondary" type="button" onClick={exportWorkbook} disabled={!isDraftRestored || isTemplateExporting} aria-busy={isTemplateExporting}>
-                <Download size={18} />
-                {isTemplateExporting ? "Menyiapkan XLSX" : "Export XLSX"}
               </button>
               <div className="export-menu" ref={pdfExportMenuRef}>
                 <button
