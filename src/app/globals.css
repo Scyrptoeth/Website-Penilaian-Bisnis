@@ -577,6 +577,10 @@ svg {
   line-height: 1.35;
 }
 
+.file-input-hidden {
+  display: none;
+}
+
 .button,
 .icon-button {
   border-radius: var(--radius);

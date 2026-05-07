@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import {
   AlertTriangle,
   ArrowRight,
@@ -21,6 +21,7 @@ import {
   TableProperties,
   Trash2,
   Undo2,
+  Upload,
 } from "lucide-react";
 import { accountMappingRules } from "@/lib/valuation/account-taxonomy";
 import {
@@ -417,6 +418,8 @@ const WORKBENCH_STORAGE_KEY = "penilaian-valuasi-bisnis.workbench.v1";
 const WORKBENCH_SCROLL_STORAGE_KEY = "penilaian-valuasi-bisnis.scroll.v1";
 const WORKBENCH_SIDEBAR_STORAGE_KEY = "penilaian-valuasi-bisnis.sidebar.v1";
 const WORKBENCH_STORAGE_VERSION = 16;
+const JSON_EXPORT_SCHEMA_ID = "penilaian-valuasi-bisnis.full-workbench-json";
+const JSON_EXPORT_SCHEMA_VERSION = 1;
 const defaultFixedAssetProjectionMode: FixedAssetProjectionMode = "workbook-formula";
 const defaultActiveWaccBasis: WaccBasis = "governed";
 
@@ -525,6 +528,32 @@ type PersistedWorkbenchState = {
   taxSimulation: TaxSimulationState;
   cashFlowOverrides: CashFlowOverrideState;
   incomeProjectionControls: IncomeProjectionControlState;
+};
+
+type ValuationJsonExportPayload = {
+  schema: typeof JSON_EXPORT_SCHEMA_ID;
+  schemaVersion: typeof JSON_EXPORT_SCHEMA_VERSION;
+  appStorageVersion: typeof WORKBENCH_STORAGE_VERSION;
+  exportedAt: string;
+  appName: "Penilaian Bisnis II";
+  data: PersistedWorkbenchState;
+};
+
+type ValuationJsonImportSummary = {
+  fileName: string;
+  caseName: string;
+  exportedAt: string;
+  periodCount: number;
+  accountRowCount: number;
+  fixedAssetClassCount: number;
+  cashFlowOverrideCount: number;
+  incomeProjectionAuditCount: number;
+  hasSensitiveData: boolean;
+};
+
+type ValuationJsonImportCandidate = {
+  state: PersistedWorkbenchState;
+  summary: ValuationJsonImportSummary;
 };
 
 type WorkbenchCoreState = Omit<PersistedWorkbenchState, "version" | "savedAt">;
@@ -792,8 +821,10 @@ export function ValuationWorkbench() {
   const [redoStack, setRedoStack] = useState<WorkbenchCoreState[]>([]);
   const [isTemplateExporting, setIsTemplateExporting] = useState(false);
   const [isPdfExportMenuOpen, setIsPdfExportMenuOpen] = useState(false);
+  const [isJsonImporting, setIsJsonImporting] = useState(false);
   const [pendingConfirmation, setPendingConfirmation] = useState<ConfirmationDialogState | null>(null);
   const pdfExportMenuRef = useRef<HTMLDivElement>(null);
+  const jsonImportInputRef = useRef<HTMLInputElement>(null);
 
   const activeWorkflowTabItem = workflowTabRegistry[activeWorkflowTab] ?? workflowTabRegistry.periods;
   const mappedRows = useMemo(() => rows.map((row) => mapRow(row)), [rows]);
@@ -1203,28 +1234,7 @@ export function ValuationWorkbench() {
     const storedState = readPersistedWorkbenchState();
 
     if (storedState) {
-      const nextPeriods = normalizePeriods(storedState.periods.length > 0 ? storedState.periods : initialPeriods);
-      const defaultActivePeriod = getDefaultActivePeriod(nextPeriods);
-      const nextActivePeriodId = nextPeriods.some((period) => period.id === storedState.activePeriodId)
-        ? storedState.activePeriodId
-        : (defaultActivePeriod?.id ?? nextPeriods[0].id);
-
-      setPeriods(nextPeriods);
-      setActivePeriodId(nextActivePeriodId);
-      setRows(storedState.rows);
-      setIsFixedAssetScheduleEnabled(storedState.isFixedAssetScheduleEnabled || storedState.fixedAssetScheduleRows.length > 0);
-      setFixedAssetScheduleRows(storedState.fixedAssetScheduleRows);
-      setFixedAssetProjectionMode(storedState.fixedAssetProjectionMode);
-      setActiveWaccBasis(storedState.activeWaccBasis);
-      setActiveDcfBasis(storedState.activeDcfBasis);
-      setAamAdjustments(storedState.aamAdjustments);
-      setAssumptions(storedState.assumptions);
-      setCaseProfile(storedState.caseProfile);
-      setDlom(storedState.dlom);
-      setDlocPfc(storedState.dlocPfc);
-      setTaxSimulation(storedState.taxSimulation);
-      setCashFlowOverrides(storedState.cashFlowOverrides);
-      setIncomeProjectionControls(storedState.incomeProjectionControls);
+      applyCoreState(buildRestoredCoreState(storedState));
       setUndoStack([]);
       setRedoStack([]);
     }
@@ -2098,6 +2108,62 @@ export function ValuationWorkbench() {
     }
   }
 
+  function exportJsonDraft() {
+    try {
+      downloadValuationJsonExport(getCurrentCoreState());
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Export JSON gagal dijalankan.");
+    }
+  }
+
+  function requestJsonImport() {
+    jsonImportInputRef.current?.click();
+  }
+
+  function handleJsonImportInputChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.currentTarget.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    void importJsonDraft(file);
+  }
+
+  async function importJsonDraft(file: File) {
+    setIsJsonImporting(true);
+
+    try {
+      const candidate = parseValuationJsonImport(await file.text(), file.name);
+
+      setPendingConfirmation({
+        title: "Import JSON dan ganti draft aktif?",
+        description: formatJsonImportConfirmationDescription(candidate.summary),
+        confirmLabel: "Import JSON",
+        onConfirm: () => executeJsonImport(candidate.state),
+      });
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Import JSON gagal dijalankan.");
+    } finally {
+      setIsJsonImporting(false);
+
+      if (jsonImportInputRef.current) {
+        jsonImportInputRef.current.value = "";
+      }
+    }
+  }
+
+  function executeJsonImport(state: PersistedWorkbenchState) {
+    const nextState = buildRestoredCoreState(state);
+
+    commitCoreState(() => nextState);
+    setActiveWorkflowTab("periods");
+
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0 });
+    }
+  }
+
   function resetForm() {
     setPendingConfirmation({
       title: "Reset seluruh model?",
@@ -2278,6 +2344,29 @@ export function ValuationWorkbench() {
                   </div>
                 ) : null}
               </div>
+              <button className="button secondary" type="button" onClick={exportJsonDraft} disabled={!isDraftRestored}>
+                <Download size={18} />
+                Export JSON
+              </button>
+              <input
+                ref={jsonImportInputRef}
+                data-testid="json-import-input"
+                type="file"
+                accept="application/json,.json"
+                onChange={handleJsonImportInputChange}
+                className="file-input-hidden"
+                aria-label="Import JSON workbench"
+              />
+              <button
+                className="button ghost"
+                type="button"
+                onClick={requestJsonImport}
+                disabled={!isDraftRestored || isJsonImporting}
+                aria-busy={isJsonImporting}
+              >
+                <Upload size={18} />
+                {isJsonImporting ? "Membaca JSON" : "Import JSON"}
+              </button>
               <button className="button ghost" type="button" onClick={resetForm} disabled={!isDraftRestored || !hasAnyInput}>
                 <Eraser size={18} />
                 Reset
@@ -7213,59 +7302,63 @@ function readPersistedWorkbenchState(): PersistedWorkbenchState | null {
 
     const parsed: unknown = JSON.parse(raw);
 
-    if (!isRecord(parsed) || typeof parsed.version !== "number" || parsed.version < 1 || parsed.version > WORKBENCH_STORAGE_VERSION) {
-      return null;
-    }
-
-    const periods = normalizePeriods(sanitizePeriods(parsed.periods));
-    const rows = parsed.version < 2 ? migrateLegacyIncomeStatementSigns(sanitizeRows(parsed.rows)) : sanitizeRows(parsed.rows);
-    const fixedAssetScheduleRows = ensureFixedAssetSchedulePeriods(sanitizeFixedAssetScheduleRows(parsed.fixedAssetScheduleRows), periods);
-    const aamAdjustments = sanitizeAamAdjustments(parsed.aamAdjustments);
-    const assumptions = sanitizeAssumptions(parsed.assumptions);
-    const caseProfile = sanitizeCaseProfile(parsed.caseProfile);
-    const dlom = migrateWorkbookUpdateDlomBasisIfNeeded({
-      version: parsed.version,
-      dlom: sanitizeDlomState(parsed.dlom),
-      caseProfile,
-      rows,
-    });
-    const dlocPfc = sanitizeDlocPfcState(parsed.dlocPfc);
-    const taxSimulation = sanitizeTaxSimulationState(parsed.taxSimulation);
-    const cashFlowOverrides = sanitizeCashFlowOverrides(parsed.cashFlowOverrides);
-    const incomeProjectionControls = sanitizeIncomeProjectionControls(parsed.incomeProjectionControls);
-    const activePeriodId = typeof parsed.activePeriodId === "string" ? parsed.activePeriodId : "";
-    const fixedAssetProjectionMode = sanitizeFixedAssetProjectionMode(parsed.fixedAssetProjectionMode);
-    const activeWaccBasis =
-      parsed.activeWaccBasis === undefined
-        ? inferInitialWaccBasis(assumptions)
-        : sanitizeWaccBasis(parsed.activeWaccBasis);
-    const activeDcfBasis = sanitizeActiveDcfBasis(parsed.activeDcfBasis);
-    const isFixedAssetScheduleEnabled =
-      typeof parsed.isFixedAssetScheduleEnabled === "boolean" ? parsed.isFixedAssetScheduleEnabled : fixedAssetScheduleRows.length > 0;
-
-    return {
-      version: WORKBENCH_STORAGE_VERSION,
-      savedAt: typeof parsed.savedAt === "string" ? parsed.savedAt : "",
-      periods,
-      activePeriodId,
-      rows,
-      isFixedAssetScheduleEnabled,
-      fixedAssetScheduleRows,
-      fixedAssetProjectionMode,
-      activeWaccBasis,
-      activeDcfBasis,
-      aamAdjustments,
-      assumptions,
-      caseProfile,
-      dlom,
-      dlocPfc,
-      taxSimulation,
-      cashFlowOverrides,
-      incomeProjectionControls,
-    };
+    return normalizeWorkbenchStatePayload(parsed);
   } catch {
     return null;
   }
+}
+
+function normalizeWorkbenchStatePayload(value: unknown): PersistedWorkbenchState | null {
+  if (!isRecord(value) || typeof value.version !== "number" || value.version < 1 || value.version > WORKBENCH_STORAGE_VERSION) {
+    return null;
+  }
+
+  const periods = normalizePeriods(sanitizePeriods(value.periods));
+  const rows = value.version < 2 ? migrateLegacyIncomeStatementSigns(sanitizeRows(value.rows)) : sanitizeRows(value.rows);
+  const fixedAssetScheduleRows = ensureFixedAssetSchedulePeriods(sanitizeFixedAssetScheduleRows(value.fixedAssetScheduleRows), periods);
+  const aamAdjustments = sanitizeAamAdjustments(value.aamAdjustments);
+  const assumptions = sanitizeAssumptions(value.assumptions);
+  const caseProfile = sanitizeCaseProfile(value.caseProfile);
+  const dlom = migrateWorkbookUpdateDlomBasisIfNeeded({
+    version: value.version,
+    dlom: sanitizeDlomState(value.dlom),
+    caseProfile,
+    rows,
+  });
+  const dlocPfc = sanitizeDlocPfcState(value.dlocPfc);
+  const taxSimulation = sanitizeTaxSimulationState(value.taxSimulation);
+  const cashFlowOverrides = sanitizeCashFlowOverrides(value.cashFlowOverrides);
+  const incomeProjectionControls = sanitizeIncomeProjectionControls(value.incomeProjectionControls);
+  const activePeriodId = typeof value.activePeriodId === "string" ? value.activePeriodId : "";
+  const fixedAssetProjectionMode = sanitizeFixedAssetProjectionMode(value.fixedAssetProjectionMode);
+  const activeWaccBasis =
+    value.activeWaccBasis === undefined
+      ? inferInitialWaccBasis(assumptions)
+      : sanitizeWaccBasis(value.activeWaccBasis);
+  const activeDcfBasis = sanitizeActiveDcfBasis(value.activeDcfBasis);
+  const isFixedAssetScheduleEnabled =
+    typeof value.isFixedAssetScheduleEnabled === "boolean" ? value.isFixedAssetScheduleEnabled : fixedAssetScheduleRows.length > 0;
+
+  return {
+    version: WORKBENCH_STORAGE_VERSION,
+    savedAt: typeof value.savedAt === "string" ? value.savedAt : "",
+    periods,
+    activePeriodId,
+    rows,
+    isFixedAssetScheduleEnabled,
+    fixedAssetScheduleRows,
+    fixedAssetProjectionMode,
+    activeWaccBasis,
+    activeDcfBasis,
+    aamAdjustments,
+    assumptions,
+    caseProfile,
+    dlom,
+    dlocPfc,
+    taxSimulation,
+    cashFlowOverrides,
+    incomeProjectionControls,
+  };
 }
 
 function migrateLegacyIncomeStatementSigns(rows: AccountRow[]): AccountRow[] {
@@ -7338,6 +7431,167 @@ function readStoredSidebarState(): boolean {
   } catch {
     return false;
   }
+}
+
+function buildRestoredCoreState(state: PersistedWorkbenchState): WorkbenchCoreState {
+  const nextPeriods = normalizePeriods(state.periods.length > 0 ? state.periods : initialPeriods);
+  const defaultActivePeriod = getDefaultActivePeriod(nextPeriods);
+  const activePeriodId = nextPeriods.some((period) => period.id === state.activePeriodId)
+    ? state.activePeriodId
+    : (defaultActivePeriod?.id ?? nextPeriods[0].id);
+
+  return {
+    periods: nextPeriods,
+    activePeriodId,
+    rows: state.rows,
+    isFixedAssetScheduleEnabled: state.isFixedAssetScheduleEnabled || state.fixedAssetScheduleRows.length > 0,
+    fixedAssetScheduleRows: state.fixedAssetScheduleRows,
+    fixedAssetProjectionMode: state.fixedAssetProjectionMode,
+    activeWaccBasis: state.activeWaccBasis,
+    activeDcfBasis: state.activeDcfBasis,
+    aamAdjustments: state.aamAdjustments,
+    assumptions: state.assumptions,
+    caseProfile: state.caseProfile,
+    dlom: state.dlom,
+    dlocPfc: state.dlocPfc,
+    taxSimulation: state.taxSimulation,
+    cashFlowOverrides: state.cashFlowOverrides,
+    incomeProjectionControls: state.incomeProjectionControls,
+  };
+}
+
+function buildValuationJsonExportPayload(coreState: WorkbenchCoreState, exportedAt = new Date()): ValuationJsonExportPayload {
+  const exportedAtIso = exportedAt.toISOString();
+
+  return {
+    schema: JSON_EXPORT_SCHEMA_ID,
+    schemaVersion: JSON_EXPORT_SCHEMA_VERSION,
+    appStorageVersion: WORKBENCH_STORAGE_VERSION,
+    exportedAt: exportedAtIso,
+    appName: "Penilaian Bisnis II",
+    data: {
+      version: WORKBENCH_STORAGE_VERSION,
+      savedAt: exportedAtIso,
+      ...cloneCoreState(coreState),
+    },
+  };
+}
+
+function downloadValuationJsonExport(coreState: WorkbenchCoreState) {
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    return;
+  }
+
+  const payload = buildValuationJsonExportPayload(coreState);
+  const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], { type: "application/json;charset=utf-8" });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = buildJsonExportFilename(payload.data.caseProfile.objectTaxpayerName, payload.exportedAt);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
+
+function parseValuationJsonImport(raw: string, fileName: string): ValuationJsonImportCandidate {
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("File JSON tidak valid atau rusak.");
+  }
+
+  const source = readValuationJsonImportSource(parsed);
+  const sourceVersion = readImportedWorkbenchVersion(source.data);
+
+  if (sourceVersion > WORKBENCH_STORAGE_VERSION) {
+    throw new Error("File JSON dibuat dari versi aplikasi yang lebih baru dan belum bisa diimpor di versi ini.");
+  }
+
+  const state = normalizeWorkbenchStatePayload(source.data);
+
+  if (!state) {
+    throw new Error("Struktur JSON tidak sesuai dengan format workbench Penilaian Bisnis II.");
+  }
+
+  return {
+    state,
+    summary: buildJsonImportSummary(state, source.exportedAt, fileName),
+  };
+}
+
+function readValuationJsonImportSource(value: unknown): { data: unknown; exportedAt: string } {
+  if (!isRecord(value)) {
+    throw new Error("File JSON tidak berisi payload workbench yang valid.");
+  }
+
+  if (value.schema === JSON_EXPORT_SCHEMA_ID) {
+    if (value.schemaVersion !== JSON_EXPORT_SCHEMA_VERSION || !("data" in value)) {
+      throw new Error("Schema JSON tidak didukung oleh versi aplikasi ini.");
+    }
+
+    return {
+      data: value.data,
+      exportedAt: typeof value.exportedAt === "string" ? value.exportedAt : "",
+    };
+  }
+
+  if (typeof value.version === "number") {
+    return {
+      data: value,
+      exportedAt: typeof value.savedAt === "string" ? value.savedAt : "",
+    };
+  }
+
+  throw new Error("File JSON bukan export workbench Penilaian Bisnis II.");
+}
+
+function readImportedWorkbenchVersion(value: unknown): number {
+  return isRecord(value) && typeof value.version === "number" ? value.version : Number.NaN;
+}
+
+function buildJsonImportSummary(state: PersistedWorkbenchState, exportedAt: string, fileName: string): ValuationJsonImportSummary {
+  const caseName = state.caseProfile.objectTaxpayerName.trim() || "Tanpa nama objek";
+  const cashFlowOverrideCount = Object.values(state.cashFlowOverrides).reduce(
+    (total, periodEntries) => total + Object.keys(periodEntries).length,
+    0,
+  );
+
+  return {
+    fileName,
+    caseName,
+    exportedAt,
+    periodCount: state.periods.length,
+    accountRowCount: state.rows.length,
+    fixedAssetClassCount: state.fixedAssetScheduleRows.length,
+    cashFlowOverrideCount,
+    incomeProjectionAuditCount: state.incomeProjectionControls.auditEvents.length,
+    hasSensitiveData: Boolean(state.caseProfile.objectTaxpayerNpwp.trim() || state.caseProfile.subjectTaxpayerNpwp.trim()),
+  };
+}
+
+function formatJsonImportConfirmationDescription(summary: ValuationJsonImportSummary): string {
+  const exportedAt = summary.exportedAt ? ` Export dibuat ${formatDisplayDate(summary.exportedAt.slice(0, 10)) || summary.exportedAt}.` : "";
+  const sensitiveDataNote = summary.hasSensitiveData
+    ? " File ini memuat data lengkap termasuk NPWP bila tersedia."
+    : " File ini tetap memuat seluruh data angka dan asumsi model.";
+
+  return `File ${summary.fileName} berisi ${summary.accountRowCount} akun, ${summary.periodCount} periode, ${summary.fixedAssetClassCount} kelas aset tetap, ${summary.cashFlowOverrideCount} override cash-flow, dan ${summary.incomeProjectionAuditCount} audit proyeksi untuk ${summary.caseName}.${exportedAt} Draft aktif akan diganti seluruhnya.${sensitiveDataNote}`;
+}
+
+function buildJsonExportFilename(caseName: string, exportedAt: string): string {
+  const datePart = exportedAt.slice(0, 10) || "export";
+  const normalizedCaseName = caseName
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64);
+
+  return `penilaian-bisnis-${normalizedCaseName || "workbench"}-${datePart}.json`;
 }
 
 function sanitizePeriods(value: unknown): Period[] {

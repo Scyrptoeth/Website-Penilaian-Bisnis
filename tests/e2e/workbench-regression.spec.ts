@@ -47,6 +47,63 @@ async function loadPersistedWorkbenchFixture(page: Page) {
   await expect(page.getByLabel("Nama Objek Pajak")).toHaveValue("Makmur Jaya Sejati Raya");
 }
 
+test("JSON export and import round-trip the full workbench draft", async ({ page }) => {
+  await loadSampleWorkbook(page);
+  await expect(page.getByLabel("Nama Objek Pajak")).toHaveValue("Makmur Jaya Sejati Raya");
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export JSON" }).click();
+  const download = await downloadPromise;
+  const downloadPath = await download.path();
+
+  expect(download.suggestedFilename()).toMatch(/^penilaian-bisnis-makmur-jaya-sejati-raya-\d{4}-\d{2}-\d{2}\.json$/);
+  expect(downloadPath).toBeTruthy();
+
+  const payload = JSON.parse(readFileSync(downloadPath ?? "", "utf8")) as {
+    schema?: string;
+    schemaVersion?: number;
+    data?: {
+      version?: number;
+      activeDcfBasis?: string;
+      fixedAssetProjectionMode?: string;
+      cashFlowOverrides?: unknown;
+      incomeProjectionControls?: unknown;
+      caseProfile?: { objectTaxpayerName?: string };
+      rows?: unknown[];
+    };
+  };
+
+  expect(payload.schema).toBe("penilaian-valuasi-bisnis.full-workbench-json");
+  expect(payload.schemaVersion).toBe(1);
+  expect(payload.data?.version).toBe(16);
+  expect(payload.data?.caseProfile?.objectTaxpayerName).toBe("Makmur Jaya Sejati Raya");
+  expect(payload.data?.rows?.length).toBeGreaterThan(0);
+  expect(payload.data?.fixedAssetProjectionMode).toBe("workbook-formula");
+  expect(payload.data?.activeDcfBasis).toBe("base");
+  expect(payload.data).toHaveProperty("cashFlowOverrides");
+  expect(payload.data).toHaveProperty("incomeProjectionControls");
+
+  await page.locator(".toolbar").getByRole("button", { name: "Reset" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Reset" }).click();
+  await expect(page.getByLabel("Nama Objek Pajak")).toHaveValue("");
+
+  await page.getByTestId("json-import-input").setInputFiles(downloadPath ?? "");
+  await expect(page.getByRole("dialog", { name: "Import JSON dan ganti draft aktif?" })).toBeVisible();
+  await expect(page.getByRole("dialog")).toContainText("Makmur Jaya Sejati Raya");
+  await page.getByRole("dialog").getByRole("button", { name: "Import JSON" }).click();
+
+  await expect(page.getByLabel("Nama Objek Pajak")).toHaveValue("Makmur Jaya Sejati Raya");
+  await expect(page.locator(".toolbar").getByRole("button", { name: "Reset" })).toBeEnabled();
+  await expect
+    .poll(() =>
+      page.evaluate((key) => {
+        const raw = window.localStorage.getItem(key);
+        return raw ? JSON.parse(raw).caseProfile.objectTaxpayerName : "";
+      }, workbenchStorageKey),
+    )
+    .toBe("Makmur Jaya Sejati Raya");
+});
+
 test("period workflow, scoped categories, and display-only balance sheet classification", async ({ page }) => {
   await expect(page.locator(".mobile-workflow-tabs")).toBeHidden();
   await expect(page.locator(".brand-mark")).toHaveText("B-2");
