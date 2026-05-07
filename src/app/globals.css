@@ -91,10 +91,10 @@ svg {
   top: 0;
   display: grid;
   grid-template-rows: auto 1fr;
-  gap: 18px;
+  gap: 10px;
   height: 100dvh;
   min-width: 0;
-  padding: 12px 10px;
+  padding: 10px 8px;
   border-right: 1px solid var(--line);
   background: rgba(251, 251, 248, 0.92);
   backdrop-filter: blur(18px);
@@ -118,7 +118,7 @@ svg {
   gap: 8px;
   align-items: center;
   min-width: 0;
-  padding: 4px 2px 12px;
+  padding: 4px 2px 8px;
   border-bottom: 1px solid var(--line);
 }
 
@@ -204,7 +204,7 @@ svg {
 .nav-list {
   display: grid;
   align-content: start;
-  gap: 8px;
+  gap: 5px;
   min-height: 0;
   overflow-y: auto;
   padding-right: 2px;
@@ -217,7 +217,7 @@ svg {
 }
 
 .nav-group + .nav-group {
-  padding-top: 7px;
+  padding-top: 5px;
   border-top: 1px solid var(--line);
 }
 
@@ -241,15 +241,15 @@ svg {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
-  min-height: 34px;
-  padding: 4px 7px;
+  min-height: 28px;
+  padding: 3px 6px;
   border: 1px solid transparent;
   border-radius: var(--radius);
   background: transparent;
   color: var(--ink-soft);
-  font-size: 9.6px;
+  font-size: 9.2px;
   font-weight: 650;
   line-height: 1.2;
   text-align: left;
@@ -296,6 +296,16 @@ svg {
 
 .workflow-tab-label {
   min-width: 0;
+}
+
+.nav-list .workflow-tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-list .method-badge-list {
+  flex-wrap: nowrap;
 }
 
 .method-badge-list {
@@ -1472,7 +1482,7 @@ select {
 }
 
 .account-entry-table.balance-entry-table.no-source-entry-table {
-  min-width: 1240px;
+  min-width: 1074px;
 }
 
 .account-entry-table.no-source-entry-table:not(.balance-entry-table) {
@@ -1524,28 +1534,32 @@ select {
 }
 
 .account-entry-table .action-column {
-  width: 44px;
+  width: 52px;
   text-align: center;
 }
 
 .account-entry-table.balance-entry-table .balance-classification-column {
-  width: 176px;
+  width: 140px;
 }
 
 .account-entry-table.balance-entry-table .account-name-column {
-  width: 260px;
+  width: 240px;
 }
 
 .account-entry-table.balance-entry-table.no-source-entry-table .account-name-column {
-  width: 300px;
+  width: 240px;
 }
 
 .account-entry-table.balance-entry-table .category-column {
-  width: 220px;
+  width: 150px;
 }
 
 .account-entry-table.balance-entry-table .label-impact-column {
-  width: 320px;
+  width: 252px;
+}
+
+.account-entry-table.balance-entry-table .period-entry-column {
+  width: 80px;
 }
 
 .account-entry-table .label-impact-column input[type="checkbox"] {
