@@ -156,7 +156,7 @@ export function calculateWaccBankLoanRateAssumption(assumptions: AssumptionState
 
   return {
     basis: hasWorkbookGranularInput ? "workbook-five-bank" : "system-three-bank",
-    basisLabel: hasWorkbookGranularInput ? "Workbook DISCOUNT RATE L6:L10" : "Saran SBDK OJK / input bank tersedia",
+    basisLabel: hasWorkbookGranularInput ? "Rata-rata debt rate lima kelompok bank" : "Saran SBDK OJK / input bank tersedia",
     rows,
     rawAverageRate,
     roundedRate: roundDiscountRateDebtRate(rawAverageRate),

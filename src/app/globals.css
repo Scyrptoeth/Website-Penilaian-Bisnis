@@ -1856,7 +1856,12 @@ select {
 }
 
 .wacc-source-table table {
-  min-width: 860px;
+  min-width: 1040px;
+}
+
+.wacc-source-table th,
+.wacc-source-table td {
+  vertical-align: top;
 }
 
 .source-status-pill {
@@ -1952,27 +1957,27 @@ select {
 }
 
 .discount-rate-trace-table table {
-  min-width: 980px;
+  min-width: 1040px;
 }
 
 .discount-rate-trace-table th:nth-child(1),
 .discount-rate-trace-table td:nth-child(1) {
-  width: 190px;
+  width: 21%;
 }
 
 .discount-rate-trace-table th:nth-child(2),
 .discount-rate-trace-table td:nth-child(2) {
-  width: 430px;
+  width: 45%;
 }
 
 .discount-rate-trace-table th:nth-child(3),
 .discount-rate-trace-table td:nth-child(3) {
-  width: 130px;
+  width: 10%;
 }
 
 .discount-rate-trace-table th:nth-child(4),
 .discount-rate-trace-table td:nth-child(4) {
-  width: 180px;
+  width: 24%;
 }
 
 .discount-rate-trace-table td strong {
@@ -2022,23 +2027,37 @@ select {
 
 .wacc-source-table th:nth-child(1),
 .wacc-source-table td:nth-child(1) {
-  width: 190px;
+  width: 18%;
 }
 
 .wacc-source-table th:nth-child(2),
 .wacc-source-table td:nth-child(2) {
-  width: 110px;
+  width: 8%;
   text-align: right;
+}
+
+.wacc-source-table th:nth-child(3),
+.wacc-source-table td:nth-child(3) {
+  width: 10%;
 }
 
 .wacc-source-table th:nth-child(4),
 .wacc-source-table td:nth-child(4) {
-  width: 320px;
+  width: 44%;
 }
 
 .wacc-source-table th:nth-child(5),
 .wacc-source-table td:nth-child(5) {
-  width: 210px;
+  width: 20%;
+}
+
+.wacc-source-table td:nth-child(4) span {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 8.8px;
+  font-weight: 650;
+  line-height: 1.35;
 }
 
 .wacc-model-table table {
@@ -2046,11 +2065,26 @@ select {
 }
 
 .wacc-model-table .field {
+  align-content: start;
   margin: 0;
 }
 
-.wacc-model-table .field span {
+.wacc-model-table .field span,
+.wacc-model-table .assumption-input-heading label {
   font-size: 7.8px;
+  line-height: 1.2;
+}
+
+.wacc-model-table .field > span {
+  display: flex;
+  align-items: start;
+  min-height: 18px;
+  margin-top: 0;
+}
+
+.wacc-model-table .assumption-input-heading {
+  min-height: 18px;
+  align-items: start;
 }
 
 .wacc-model-table .comparable-selected-label {
@@ -2070,7 +2104,7 @@ select {
 }
 
 .wacc-model-table td {
-  vertical-align: middle;
+  vertical-align: top;
 }
 
 .assumption-calculator-heading {
@@ -2109,6 +2143,19 @@ select {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+}
+
+.wacc-primary-input-grid {
+  align-items: start;
+}
+
+.wacc-primary-input-grid .assumption-input-heading {
+  min-height: 28px;
+  align-items: start;
+}
+
+.wacc-primary-input-grid .assumption-input-field {
+  align-content: start;
 }
 
 .metric-trace-grid,

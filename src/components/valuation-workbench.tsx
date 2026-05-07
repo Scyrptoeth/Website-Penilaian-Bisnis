@@ -8319,7 +8319,7 @@ function WaccCalculatorPanel({
         value={calculation ? formatPercent(calculation.wacc) : formatRateInput(assumptions.wacc)}
       />
       <InlineGovernanceList title="Tata kelola WACC" items={waccGovernanceItems} />
-      <div className="calculator-input-grid">
+      <div className="calculator-input-grid wacc-primary-input-grid">
         <AssumptionInput label="Risk-free rate (tingkat bebas risiko)" value={assumptions.waccRiskFreeRate} onChange={(value) => onChange("waccRiskFreeRate", value)} />
         <AssumptionInput
           label="Equity risk premium (premi risiko ekuitas)"
@@ -8410,7 +8410,7 @@ function WaccCalculatorPanel({
           ["Cost of equity", calculation ? formatPercent(calculation.costOfEquity) : "Belum dihitung"],
           ["Pre-tax cost of debt", calculation ? formatPercent(calculation.preTaxCostOfDebt) : "Belum dihitung"],
           ["After-tax cost of debt", calculation ? formatPercent(calculation.afterTaxCostOfDebt) : "Belum dihitung"],
-          ["Formula", "E/(D+E) x Ke + D/(D+E) x Kd(1-t)"],
+          ["Basis WACC", "Bobot utang dan ekuitas dikalikan dengan biaya modal aktif masing-masing."],
         ]}
       />
       <ReferenceList references={waccInputReferences} />
@@ -8646,7 +8646,7 @@ function DiscountRateAnalysisPanel({
   const debtRateNote = explicitDebtRate !== null && !isMarketSuggestionApplied
     ? "Override pre-tax cost of debt aktif; bank average tetap ditampilkan sebagai cross-check."
     : bankLoanRate
-      ? `${bankLoanRate.basisLabel}: rata-rata mentah ${formatPrecisePercent(bankLoanRate.rawAverageRate, 3)} dan nilai WACC ${formatPercent(bankLoanRate.roundedRate)}.`
+      ? `${bankLoanRate.basisLabel}: rata-rata mentah ${formatPrecisePercent(bankLoanRate.rawAverageRate, 3)} dan nilai untuk WACC ${formatPercent(bankLoanRate.roundedRate)}.`
       : "Lengkapi debt rate atau input pinjaman investasi bank.";
   const debtRateSource =
     explicitDebtRate !== null && !isMarketSuggestionApplied
@@ -8680,7 +8680,7 @@ function DiscountRateAnalysisPanel({
       method: "Beta aktif berasal dari pembanding sektor yang dire-lever sesuai struktur kapital; fallback manual hanya dipakai bila data pembanding belum lengkap.",
       value: formatOptionalNumber(betaInput),
       source: "Hasil pembanding / input manual",
-      note: "Nama formula teknis disimpan di detail audit.",
+      note: "Detail teknis disimpan di audit.",
     },
     {
       component: "Equity risk premium",
@@ -8715,7 +8715,7 @@ function DiscountRateAnalysisPanel({
       workbookFormula: "D/E = debt weight / equity weight",
       method: "Rasio utang terhadap ekuitas diturunkan dari bobot struktur modal aktif.",
       value: formatOptionalNumber(debtToEquity),
-      source: "Hasil formula",
+      source: "Hasil perhitungan",
       note: "Mengikuti bobot pasar WACC yang sedang aktif.",
     },
     {
@@ -8724,7 +8724,7 @@ function DiscountRateAnalysisPanel({
       workbookFormula: "BU = BL / (1 + (1 - t) x DER)",
       method: "Beta tidak berutang dihitung ulang dari beta aktif, pajak, dan struktur kapital.",
       value: formatOptionalNumber(unleveredBeta),
-      source: "Hasil formula",
+      source: "Hasil perhitungan",
       note: "Ditampilkan untuk rekonsiliasi teknis.",
     },
     {
@@ -8733,7 +8733,7 @@ function DiscountRateAnalysisPanel({
       workbookFormula: "Ke = C3 + (H2 x C5) - C6",
       method: "Return ekuitas dihitung dari risk-free rate, beta, ERP, dan penyesuaian default spread.",
       value: formatOptionalRate(calculation?.costOfEquity ?? null),
-      source: "Hasil formula",
+      source: "Hasil perhitungan",
       note: "Nilai ini juga menjadi basis return ekuitas NTA bila disarankan.",
     },
     {
@@ -8742,7 +8742,7 @@ function DiscountRateAnalysisPanel({
       workbookFormula: "Kd = debt rate x (1 - tax rate)",
       method: "Biaya utang setelah pajak dihitung dari debt rate aktif setelah efek tax shield.",
       value: formatOptionalRate(calculation?.afterTaxCostOfDebt ?? null),
-      source: "Hasil formula",
+      source: "Hasil perhitungan",
       note: "Konsisten dengan EEM/DCF dan required return on NTA.",
     },
     {
@@ -8751,7 +8751,7 @@ function DiscountRateAnalysisPanel({
       workbookFormula: "DER / (1 + DER)",
       method: "Bobot utang memakai struktur kapital pasar atau fallback penilai.",
       value: formatOptionalRate(calculation?.debtWeight ?? null),
-      source: "Hasil formula / input manual",
+      source: "Hasil perhitungan / input manual",
       note: "Dipakai untuk kontribusi WACC sisi utang.",
     },
     {
@@ -8760,7 +8760,7 @@ function DiscountRateAnalysisPanel({
       workbookFormula: "1 - debt weight",
       method: "Bobot ekuitas adalah sisa struktur kapital setelah bobot utang.",
       value: formatOptionalRate(calculation?.equityWeight ?? null),
-      source: "Hasil formula / input manual",
+      source: "Hasil perhitungan / input manual",
       note: "Dipakai untuk kontribusi WACC sisi ekuitas.",
     },
     {
@@ -8769,7 +8769,7 @@ function DiscountRateAnalysisPanel({
       workbookFormula: "F7 x G7",
       method: "Kontribusi utang dihitung dari bobot utang dikali after-tax cost of debt.",
       value: formatOptionalRate(debtComponent),
-      source: "Hasil formula",
+      source: "Hasil perhitungan",
       note: "Komponen pembentuk WACC final.",
     },
     {
@@ -8778,7 +8778,7 @@ function DiscountRateAnalysisPanel({
       workbookFormula: "F8 x G8",
       method: "Kontribusi ekuitas dihitung dari bobot ekuitas dikali cost of equity.",
       value: formatOptionalRate(equityComponent),
-      source: "Hasil formula",
+      source: "Hasil perhitungan",
       note: "Komponen pembentuk WACC final.",
     },
     {
@@ -8787,7 +8787,7 @@ function DiscountRateAnalysisPanel({
       workbookFormula: "Debt WACC + Equity WACC",
       method: "WACC adalah penjumlahan kontribusi biaya modal utang dan ekuitas.",
       value: formatOptionalRate(calculation?.wacc ?? parseRateInput(assumptions.wacc)),
-      source: "Hasil formula / override WACC",
+      source: "Hasil perhitungan / override WACC",
       note: "Mengalir ke EEM capitalization rate dan DCF discount rate.",
     },
     {
@@ -8808,7 +8808,7 @@ function DiscountRateAnalysisPanel({
           <span>Discount Rate Analysis (CAPM)</span>
           <strong>Ringkasan perhitungan WACC berbasis CAPM</strong>
         </div>
-        <small>Formula teknis tersedia di audit dan dihitung ulang dari input aktif.</small>
+        <small>Detail audit tersedia untuk rekonsiliasi teknis dan dihitung ulang dari input aktif.</small>
       </div>
       <div className="bank-loan-rate-strip" aria-label="Ringkasan debt rate pinjaman investasi">
         {bankLoanRate ? (
@@ -8839,7 +8839,7 @@ function DiscountRateAnalysisPanel({
             <tr>
               <th>Komponen</th>
               <th>Metode</th>
-              <th>Nilai aktif</th>
+              <th className="numeric-cell">Nilai Aktif</th>
               <th>Status & sumber</th>
             </tr>
           </thead>
