@@ -107,7 +107,13 @@ test("period workflow, scoped categories, and display-only balance sheet classif
 
   await openWorkflowTab(page, "Neraca");
   await page.getByRole("button", { name: "Tambah akun neraca" }).first().click();
+  const balanceHeaders = await page.getByTestId("balance-account-table").locator("thead th").evaluateAll((headers) =>
+    headers.map((header) => header.textContent?.trim() ?? ""),
+  );
+  expect(balanceHeaders.slice(0, 4)).toEqual(["Nama akun dari laporan", "Klasifikasi neraca", "Kategori utama", "Label & dampak"]);
+  expect(balanceHeaders).not.toContain("Sumber");
   const balanceRow = page.getByTestId("balance-account-table-row").last();
+  await expect(balanceRow.getByLabel("Sumber laporan")).toHaveCount(0);
   await expect(balanceRow.getByLabel("Klasifikasi neraca").locator("option", { hasText: "Ekuitas" })).toHaveCount(1);
   await balanceRow.getByLabel("Nama akun").fill("Kas");
   await balanceRow.getByLabel("Tahun Y amount").fill("1000");

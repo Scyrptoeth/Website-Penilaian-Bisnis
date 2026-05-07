@@ -2022,12 +2022,6 @@ export function ValuationWorkbench() {
 
         {activeWorkflowTab === "balance" ? (
         <section id="balance" className="panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Langkah 2A</p>
-              <h3>Neraca</h3>
-            </div>
-          </div>
           <ReadinessPanel status={readiness.balance} onNavigate={navigateToWorkflowTab} />
 
           <div className="subpanel-heading account-input-heading">
@@ -2043,6 +2037,7 @@ export function ValuationWorkbench() {
 
           <AccountInputTable
             emptyMessage="Belum ada akun neraca. Tambahkan baris dari tombol Tambah akun neraca di atas."
+            hideStatementColumn
             mappedRows={balanceSheetRows}
             periods={periods}
             testId="balance-account-table"
@@ -7561,6 +7556,7 @@ function IncomeStatementReportTable({ periods, view }: { periods: Period[]; view
 
 function AccountInputTable({
   emptyMessage,
+  hideStatementColumn = false,
   mappedRows,
   periods,
   testId,
@@ -7570,6 +7566,7 @@ function AccountInputTable({
   onUpdateRowValue,
 }: {
   emptyMessage: string;
+  hideStatementColumn?: boolean;
   mappedRows: MappedRow[];
   periods: Period[];
   testId: string;
@@ -7583,21 +7580,30 @@ function AccountInputTable({
   }
 
   const hasBalanceSheetClassificationColumn = mappedRows.some((item) => item.row.statement === "balance_sheet");
+  const showStatementColumn = !hideStatementColumn;
+  const tableClassName = [
+    "account-entry-table",
+    hasBalanceSheetClassificationColumn ? "balance-entry-table" : "",
+    showStatementColumn ? "" : "no-source-entry-table",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <div className="table-wrap" data-testid={`${testId}-wrap`}>
-      <table className={hasBalanceSheetClassificationColumn ? "account-entry-table balance-entry-table" : "account-entry-table"} data-testid={testId}>
+      <table className={tableClassName} data-testid={testId}>
         <thead>
           <tr>
-            <th>Sumber</th>
+            {showStatementColumn ? <th className="source-column">Sumber</th> : null}
+            {!showStatementColumn ? <th className="account-name-column">Nama akun dari laporan</th> : null}
             {hasBalanceSheetClassificationColumn ? <th className="balance-classification-column">Klasifikasi neraca</th> : null}
-            <th>Nama akun dari laporan</th>
-            <th>Kategori utama</th>
-            <th>Label & dampak</th>
+            {showStatementColumn ? <th className="account-name-column">Nama akun dari laporan</th> : null}
+            <th className="category-column">Kategori utama</th>
+            <th className="label-impact-column">Label & dampak</th>
             {periods.map((period) => (
-              <th key={period.id}>{period.label || "Periode"}</th>
+              <th className="period-entry-column" key={period.id}>{period.label || "Periode"}</th>
             ))}
-            <th>Aksi</th>
+            <th className="action-column">Aksi</th>
           </tr>
         </thead>
         <tbody>
@@ -7605,70 +7611,78 @@ function AccountInputTable({
             const { row, mapping, effectiveCategory } = item;
             const balanceSheetClassification = getEffectiveBalanceSheetClassification(item);
             const balanceSheetClassificationOptionsForRow = getBalanceSheetClassificationOptions(effectiveCategory);
+            const statementCell = showStatementColumn ? (
+              <td className="source-column">
+                <select
+                  aria-label="Sumber laporan"
+                  value={row.statement}
+                  onChange={(event) =>
+                    onUpdateRow(row.id, {
+                      statement: event.target.value as StatementType,
+                      categoryOverride: "",
+                      balanceSheetClassification: "",
+                    })
+                  }
+                >
+                  {Object.entries(statementLabels).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </td>
+            ) : null;
+            const accountNameCell = (
+              <td className="account-name-column">
+                <input
+                  className="account-name-input"
+                  aria-label="Nama akun"
+                  placeholder="Ketik nama akun sesuai laporan"
+                  value={row.accountName}
+                  onChange={(event) => onUpdateRow(row.id, { accountName: event.target.value })}
+                />
+                <span className={mapping.needsReview || effectiveCategory === "UNMAPPED" ? "row-hint warning-text" : "row-hint ok-text"}>
+                  Saran: {mapping.displayName} · {formatScore(mapping.confidence)}
+                </span>
+              </td>
+            );
+            const balanceSheetClassificationCell = hasBalanceSheetClassificationColumn ? (
+              <td className="balance-classification-column">
+                {row.statement === "balance_sheet" ? (
+                  <div className="balance-classification-cell">
+                    <select
+                      aria-label="Klasifikasi neraca"
+                      value={balanceSheetClassification}
+                      onChange={(event) =>
+                        onUpdateRow(row.id, { balanceSheetClassification: event.target.value as BalanceSheetClassification | "" })
+                      }
+                    >
+                      <option value="">Pilih detail neraca</option>
+                      {balanceSheetClassificationOptionsForRow.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="row-hint">
+                      {balanceSheetClassification
+                        ? `Detail: ${balanceSheetClassificationLabelMap.get(balanceSheetClassification)}`
+                        : "Khusus neraca"}
+                    </span>
+                  </div>
+                ) : (
+                  <span className="row-hint">Tidak berlaku</span>
+                )}
+              </td>
+            ) : null;
 
             return (
               <tr data-testid={`${testId}-row`} key={row.id}>
-                <td>
-                  <select
-                    aria-label="Sumber laporan"
-                    value={row.statement}
-                    onChange={(event) =>
-                      onUpdateRow(row.id, {
-                        statement: event.target.value as StatementType,
-                        categoryOverride: "",
-                        balanceSheetClassification: "",
-                      })
-                    }
-                  >
-                    {Object.entries(statementLabels).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                {hasBalanceSheetClassificationColumn ? (
-                  <td className="balance-classification-column">
-                    {row.statement === "balance_sheet" ? (
-                      <div className="balance-classification-cell">
-                        <select
-                          aria-label="Klasifikasi neraca"
-                          value={balanceSheetClassification}
-                          onChange={(event) =>
-                            onUpdateRow(row.id, { balanceSheetClassification: event.target.value as BalanceSheetClassification | "" })
-                          }
-                        >
-                          <option value="">Pilih detail neraca</option>
-                          {balanceSheetClassificationOptionsForRow.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                        <span className="row-hint">
-                          {balanceSheetClassification
-                            ? `Detail: ${balanceSheetClassificationLabelMap.get(balanceSheetClassification)}`
-                            : "Khusus neraca"}
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="row-hint">Tidak berlaku</span>
-                    )}
-                  </td>
-                ) : null}
-                <td>
-                  <input
-                    className="account-name-input"
-                    aria-label="Nama akun"
-                    placeholder="Ketik nama akun sesuai laporan"
-                    value={row.accountName}
-                    onChange={(event) => onUpdateRow(row.id, { accountName: event.target.value })}
-                  />
-                  <span className={mapping.needsReview || effectiveCategory === "UNMAPPED" ? "row-hint warning-text" : "row-hint ok-text"}>
-                    Saran: {mapping.displayName} · {formatScore(mapping.confidence)}
-                  </span>
-                </td>
-                <td>
+                {statementCell}
+                {!showStatementColumn ? accountNameCell : null}
+                {balanceSheetClassificationCell}
+                {showStatementColumn ? accountNameCell : null}
+                <td className="category-column">
                   <select
                     aria-label="Kategori utama"
                     value={row.categoryOverride || effectiveCategory}
@@ -7692,11 +7706,11 @@ function AccountInputTable({
                     <span className="row-hint warning-text">Belum auto-apply karena perlu ditinjau.</span>
                   ) : null}
                 </td>
-                <td>
+                <td className="label-impact-column">
                   <AccountLabelImpactCell item={item} onToggleLabel={onToggleLabel} />
                 </td>
                 {periods.map((period) => (
-                  <td key={period.id}>
+                  <td className="period-entry-column" key={period.id}>
                     <input
                       aria-label={`${period.label || "Periode"} amount`}
                       inputMode="decimal"
@@ -7706,7 +7720,7 @@ function AccountInputTable({
                     />
                   </td>
                 ))}
-                <td>
+                <td className="action-column">
                   <button className="icon-button danger" type="button" onClick={() => onRemoveRow(row.id)} title="Hapus akun">
                     <Trash2 size={18} />
                   </button>

@@ -1462,84 +1462,71 @@ select {
   min-width: 1220px;
 }
 
+.account-entry-table.balance-entry-table.no-source-entry-table {
+  min-width: 1240px;
+}
+
 .account-entry-table th,
 .account-entry-table td {
   min-width: 0;
 }
 
-.account-entry-table th:first-child,
-.account-entry-table td:first-child {
+.account-entry-table .source-column {
   width: 118px;
 }
 
-.account-entry-table th:nth-child(2),
-.account-entry-table td:nth-child(2) {
+.account-entry-table .account-name-column {
   width: 220px;
 }
 
-.account-entry-table th:nth-child(3),
-.account-entry-table td:nth-child(3) {
+.account-entry-table .category-column {
   width: 210px;
 }
 
-.account-entry-table th:nth-child(4),
-.account-entry-table td:nth-child(4) {
+.account-entry-table .label-impact-column {
   width: 280px;
 }
 
-.account-entry-table th:not(:nth-child(-n + 4)):not(:last-child),
-.account-entry-table td:not(:nth-child(-n + 4)):not(:last-child) {
+.account-entry-table .period-entry-column {
   width: 102px;
 }
 
-.account-entry-table td:not(:nth-child(-n + 4)):not(:last-child) input {
+.account-entry-table td.period-entry-column input {
   padding-inline: 3px;
   font-family: var(--font-mono), monospace;
   font-size: 8.4px;
   text-align: right;
 }
 
-.account-entry-table th:last-child,
-.account-entry-table td:last-child {
+.account-entry-table .action-column {
   width: 44px;
   text-align: center;
 }
 
-.account-entry-table.balance-entry-table th.balance-classification-column,
-.account-entry-table.balance-entry-table td.balance-classification-column {
-  width: 164px;
+.account-entry-table.balance-entry-table .balance-classification-column {
+  width: 176px;
 }
 
-.account-entry-table.balance-entry-table th:nth-child(3),
-.account-entry-table.balance-entry-table td:nth-child(3) {
+.account-entry-table.balance-entry-table .account-name-column {
+  width: 260px;
+}
+
+.account-entry-table.balance-entry-table.no-source-entry-table .account-name-column {
+  width: 300px;
+}
+
+.account-entry-table.balance-entry-table .category-column {
   width: 220px;
 }
 
-.account-entry-table.balance-entry-table th:nth-child(4),
-.account-entry-table.balance-entry-table td:nth-child(4) {
-  width: 210px;
+.account-entry-table.balance-entry-table .label-impact-column {
+  width: 320px;
 }
 
-.account-entry-table.balance-entry-table th:nth-child(5),
-.account-entry-table.balance-entry-table td:nth-child(5) {
-  width: 280px;
-}
-
-.account-entry-table.balance-entry-table th:not(:nth-child(-n + 5)):not(:last-child),
-.account-entry-table.balance-entry-table td:not(:nth-child(-n + 5)):not(:last-child) {
-  width: 102px;
-}
-
-.account-entry-table.balance-entry-table td:not(:nth-child(-n + 5)):not(:last-child) input {
-  padding-inline: 3px;
-  font-family: var(--font-mono), monospace;
-  font-size: 8.4px;
-  text-align: right;
-}
-
-.account-entry-table.balance-entry-table td:nth-child(5) input {
+.account-entry-table .label-impact-column input[type="checkbox"] {
+  width: auto;
+  height: auto;
   padding: 0;
-  text-align: left;
 }
 
 .balance-classification-cell {
