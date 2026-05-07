@@ -114,7 +114,7 @@ import {
   type StatementType,
 } from "@/lib/valuation/case-model";
 import { categoryLabelMap, categoryOptions, categoryOptionsByStatement } from "@/lib/valuation/category-options";
-import { formatDisplayDate, formatEditableNumber, formatIdr, formatInputNumber, formatPercent, formatScore } from "@/lib/valuation/format";
+import { formatDisplayDate, formatEditableNumber, formatIdr, formatInputNumber, formatPercent, formatPercentFixed, formatScore } from "@/lib/valuation/format";
 import {
   formatKluOptionLabel,
   getKluSectorRecord,
@@ -838,6 +838,7 @@ export function ValuationWorkbench() {
         : assumptions.terminalGrowthSource === terminalGrowthSuggestion?.sourceId
         ? "Saran terkalibrasi sektor dengan band downside/upside"
         : assumptions.terminalGrowth.trim() ? "Base case pengguna dengan input sensitivitas" : "Belum dipilih",
+      formatTerminalGrowthPercent,
     ),
     buildCalculatedDriverSummary(
       "Required return on NTA",
@@ -3353,6 +3354,16 @@ function TaxSimulationSection({
         ? `${result.taxYearResolution.requestedYear} -> ${result.taxYearResolution.appliedYear}`
         : `${result.taxYearResolution.appliedYear}`;
   const selectedBasisLabel = result.finalBasis === "manualScenario" ? "Skenario manual" : "Baseline otomatis";
+  const reportedTransferFromDataAwal =
+    caseProfileDerived.capitalBaseAmountStatus === "valid" ? caseProfileDerived.capitalBaseValuedAmount : null;
+  const reportedTransferInputValue =
+    state.reportedTransferValue.trim() ||
+    (reportedTransferFromDataAwal !== null && reportedTransferFromDataAwal !== undefined ? formatInputNumber(reportedTransferFromDataAwal) : "");
+  const reportedTransferInputNote = state.reportedTransferValue.trim()
+    ? "Override manual aktif; hapus isi untuk kembali mengikuti Data Awal."
+    : reportedTransferFromDataAwal !== null && reportedTransferFromDataAwal !== undefined
+      ? "Otomatis dari Data Awal; edit bila nilai dilaporkan berbeda."
+      : "Lengkapi Data Awal agar nilai otomatis tersedia.";
 
   return (
     <>
@@ -3425,10 +3436,11 @@ function TaxSimulationSection({
             <span>Nilai pengalihan saham yang dilaporkan</span>
             <input
               inputMode="decimal"
-              value={state.reportedTransferValue}
+              value={reportedTransferInputValue}
               onChange={(event) => onUpdate({ reportedTransferValue: event.target.value })}
-              placeholder="Fallback dari Data Awal bila kosong"
+              placeholder="Otomatis dari Data Awal bila tersedia"
             />
+            <small className="auto-source-note">{reportedTransferInputNote}</small>
           </label>
           <DerivedCaseField label="Tahun Pajak Legal" value={taxYearLabel} state={result.taxYearResolution.appliedYear === null ? "invalid" : "neutral"} />
           <DerivedCaseField label="DLOM baseline" value={dlom.isComplete ? formatPercent(dlom.dlomRate) : "Belum lengkap"} />
@@ -3441,11 +3453,11 @@ function TaxSimulationSection({
           />
           <DerivedCaseField label="Resistensi keseluruhan" value={result.overallResistance} state={result.overallResistance === "Belum lengkap" ? "invalid" : "neutral"} />
           <label className="field">
-            <span>Skenario DLOM</span>
+            <span>DLOM Skenario Manual</span>
             <input inputMode="decimal" value={state.scenarioDlomRate} onChange={(event) => onUpdate({ scenarioDlomRate: event.target.value })} placeholder="Default baseline" />
           </label>
           <label className="field">
-            <span>Skenario DLOC/PFC</span>
+            <span>DLOC/PFC Skenario Manual</span>
             <input inputMode="decimal" value={state.scenarioDlocPfcRate} onChange={(event) => onUpdate({ scenarioDlocPfcRate: event.target.value })} placeholder="Input positif; sistem tentukan DLOC/PFC" />
           </label>
         </div>
@@ -3512,8 +3524,8 @@ function TaxSimulationSection({
           <MetricTraceGrid
             metrics={[
               ["Potensi pajak", scenarioPrimaryRow ? formatIdr(scenarioPrimaryRow.potentialTax) : "Pilih Primary Method"],
-              ["DLOM skenario", scenarioPrimaryRow ? formatPercent(scenarioPrimaryRow.dlomRate) : "Default baseline"],
-              ["DLOC/PFC skenario", scenarioPrimaryRow ? formatPercent(scenarioPrimaryRow.dlocPfcRate) : "Default baseline"],
+              ["DLOM Skenario Manual", scenarioPrimaryRow ? formatPercent(scenarioPrimaryRow.dlomRate) : "Default baseline"],
+              ["DLOC/PFC Skenario Manual", scenarioPrimaryRow ? formatPercent(scenarioPrimaryRow.dlocPfcRate) : "Default baseline"],
               ["Basis final", result.finalBasis === "manualScenario" ? "Dipakai untuk summary" : "Pembanding saja"],
             ]}
           />
@@ -5192,7 +5204,7 @@ function ProjectionStatementSection({
           </div>
           <div>
             <span>Terminal growth</span>
-            <strong>{formatPercent(snapshot.terminalGrowth)}</strong>
+            <strong>{formatTerminalGrowthPercent(snapshot.terminalGrowth)}</strong>
             <small>Dipakai di nilai terminal DCF</small>
           </div>
         </section>
@@ -7858,7 +7870,7 @@ function AssumptionDriverMatrix({
   drivers: Array<{ label: string; valueLabel: string; sourceLabel: string }>;
 }) {
   return (
-    <section className="assumption-driver-matrix" aria-label="Ringkasan driver penilaian">
+    <section className="assumption-driver-matrix" aria-label="Ringkasan driver penilaian" data-testid="assumption-driver-matrix">
       {drivers.map((driver) => (
         <div key={driver.label}>
           <span>{driver.label}</span>
@@ -8795,7 +8807,7 @@ function DiscountRateAnalysisPanel({
       workbookRef: "C12",
       workbookFormula: "Linked growth reference",
       method: "Terminal growth ditampilkan sebagai referensi interoperabilitas untuk DCF, bukan input pembentuk WACC.",
-      value: formatOptionalRate(terminalGrowth),
+      value: formatOptionalTerminalGrowthRate(terminalGrowth),
       source: "Input DCF / saran sektor",
       note: "Tetap dipantau karena WACC harus lebih besar dari terminal growth.",
     },
@@ -8962,7 +8974,7 @@ function TerminalGrowthPanel({
     <article className="assumption-calculator-card wide" data-testid="terminal-growth-calculator">
       <AssumptionCalculatorHeader
         label="Tata kelola terminal growth"
-        value={formatRateInput(assumptions.terminalGrowth)}
+        value={formatTerminalGrowthRateInput(assumptions.terminalGrowth)}
         impact="DCF terminal value dan EEM capitalization spread"
       />
       <InlineGovernanceList title="Tata kelola asumsi EEM/DCF" items={assumptionGovernanceItems} />
@@ -9038,17 +9050,17 @@ function TerminalGrowthSuggestionBlock({
       <div className="terminal-growth-suggestion-grid" aria-label="Bukti sektor terminal growth">
         <div>
           <span>Base</span>
-          <strong>{formatPercent(suggestion.baseGrowth)}</strong>
+          <strong>{formatTerminalGrowthPercent(suggestion.baseGrowth)}</strong>
           <small>{suggestion.quality} kasus sektor</small>
         </div>
         <div>
           <span>Downside</span>
-          <strong>{formatPercent(suggestion.downsideGrowth)}</strong>
+          <strong>{formatTerminalGrowthPercent(suggestion.downsideGrowth)}</strong>
           <small>Band stres</small>
         </div>
         <div>
           <span>Upside</span>
-          <strong>{formatPercent(suggestion.upsideGrowth)}</strong>
+          <strong>{formatTerminalGrowthPercent(suggestion.upsideGrowth)}</strong>
           <small>Dibatasi di bawah WACC</small>
         </div>
         <div>
@@ -9883,10 +9895,15 @@ function buildAssumptionDriverSummary(label: string, value: string, sourceId: st
   };
 }
 
-function buildCalculatedDriverSummary(label: string, value: number | null, sourceLabel: string) {
+function buildCalculatedDriverSummary(
+  label: string,
+  value: number | null,
+  sourceLabel: string,
+  formatter: (value: number) => string = formatPercent,
+) {
   return {
     label,
-    valueLabel: value === null ? "Belum dipilih" : formatPercent(value),
+    valueLabel: value === null ? "Belum dipilih" : formatter(value),
     sourceLabel,
   };
 }
@@ -9905,8 +9922,17 @@ function formatRateInput(input: string): string {
   return rate === null ? "Belum dipilih" : formatPercent(rate);
 }
 
+function formatTerminalGrowthRateInput(input: string): string {
+  const rate = parseRateInput(input);
+  return rate === null ? "Belum dipilih" : formatTerminalGrowthPercent(rate);
+}
+
 function formatOptionalRate(value: number | null | undefined): string {
   return value === null || value === undefined || !Number.isFinite(value) ? "Belum tersedia" : formatPercent(value);
+}
+
+function formatOptionalTerminalGrowthRate(value: number | null | undefined): string {
+  return value === null || value === undefined || !Number.isFinite(value) ? "Belum tersedia" : formatTerminalGrowthPercent(value);
 }
 
 function formatPrecisePercent(value: number, maximumFractionDigits: number): string {
@@ -9914,6 +9940,10 @@ function formatPrecisePercent(value: number, maximumFractionDigits: number): str
     style: "percent",
     maximumFractionDigits,
   }).format(value);
+}
+
+function formatTerminalGrowthPercent(value: number): string {
+  return formatPercentFixed(value, 2);
 }
 
 function formatOptionalNumber(value: number | null | undefined): string {

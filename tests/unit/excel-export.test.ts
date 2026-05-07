@@ -171,7 +171,7 @@ describe("valuation Excel export", () => {
     assert.equal(input.caseProfile.objectBusinessKlu, "07102");
     assert.equal(input.caseProfile.subjectTaxpayerName, "Erick Kurniawan");
     assert.equal(input.resolvedAssumptions.terminalGrowth, "0,005");
-    assert.equal(input.snapshot.terminalGrowth, 0);
+    assert.equal(input.snapshot.terminalGrowth, 0.005);
     assert.equal(input.dlomCalculation.interestBasis, "Mayoritas");
     assert.equal(workbook.Sheets.HOME.B4.v, "Makmur Jaya Sejati Raya");
     assert.equal(workbook.Sheets.HOME.B5.v, "07102 - PERTAMBANGAN BIJIH BESI");
@@ -191,7 +191,7 @@ describe("valuation Excel export", () => {
     assert.equal(workbook.Sheets["DISCOUNT RATE"].H10.v, input.snapshot.wacc);
     assert.equal(workbook.Sheets["DISCOUNT RATE"].C11.v, input.snapshot.wacc);
     assert.equal(workbook.Sheets["DISCOUNT RATE"].C12.v, input.snapshot.terminalGrowth);
-    assert.equal(workbook.Sheets.STAT_ASSUMPTIONS.B8.v, 0);
+    assert.equal(workbook.Sheets.STAT_ASSUMPTIONS.B8.v, input.snapshot.terminalGrowth);
     assert.equal(workbook.Sheets.AAM.E51.v, input.results.aam.equityValue);
     assert.equal(workbook.Sheets.AAM.E52.v, 0);
     assert.equal(workbook.Sheets.AAM.E60.v, input.results.aam.equityValue / 5280000000);

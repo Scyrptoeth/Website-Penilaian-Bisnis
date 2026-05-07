@@ -475,6 +475,8 @@ test("DLOM and tax simulation render workbook-derived scenario layer after loadi
   expect(await tableFitsWrapper(page, "dloc-pfc-factor-table")).toBe(true);
 
   await openWorkflowTab(page, "Simulasi Potensi Pajak");
+  await expect(page.getByLabel("Nilai pengalihan saham yang dilaporkan")).toHaveValue("1.600.000.000");
+  await expect(page.getByText("Otomatis dari Data Awal; edit bila nilai dilaporkan berbeda.")).toBeVisible();
   await expect(page.getByTestId("tax-simulation-summary")).toContainText("AAM");
   await expect(page.getByTestId("tax-simulation-summary")).toContainText("DLOM 25%");
   await expect(page.getByTestId("tax-simulation-summary")).toContainText("DLOC 34%");
@@ -493,13 +495,14 @@ test("DLOM and tax simulation render workbook-derived scenario layer after loadi
   await expect(page.getByText("Effective rate")).not.toBeVisible();
 
   await page.getByLabel("Basis final").selectOption("manualScenario");
-  await page.getByLabel("Skenario DLOM").fill("0,1");
-  await page.getByLabel("Skenario DLOC/PFC").fill("0,2");
+  await page.getByLabel("DLOM Skenario Manual").fill("0,1");
+  await page.getByLabel("DLOC/PFC Skenario Manual").fill("0,2");
   await page.getByText("Catatan audit skenario").click();
   await page.getByLabel("Catatan skenario manual").fill("Reviewer what-if");
   await expect(page.getByTestId("tax-simulation-summary")).toContainText("Final memakai Skenario manual");
   await expect(page.getByTestId("tax-simulation-table")).toContainText("Skenario manual");
-  await expect(page.getByText("DLOM skenario")).toBeVisible();
+  await expect(page.locator("dt").filter({ hasText: "DLOM Skenario Manual" })).toBeVisible();
+  await expect(page.locator("dt").filter({ hasText: "DLOC/PFC Skenario Manual" })).toBeVisible();
   await page.getByText("Detail sumber tarif dan dasar hukum").click();
   await expect(page.getByText("Effective rate")).toBeVisible();
 });
@@ -519,6 +522,8 @@ test("share-transfer input keeps shares as quantity and passes derived rupiah va
   await expect(page.getByTestId("case-profile-panel")).toContainText("30,49%");
 
   await openWorkflowTab(page, "Simulasi Potensi Pajak");
+  await expect(page.getByLabel("Nilai pengalihan saham yang dilaporkan")).toHaveValue("1.610.000.000");
+  await expect(page.getByText("Otomatis dari Data Awal; edit bila nilai dilaporkan berbeda.")).toBeVisible();
   await expect(page.getByText("Nilai pengalihan dari Data Awal").locator("..")).toContainText(/Rp\s*1\.610\.000\.000,00/);
   await expect(page.getByTestId("tax-simulation-table")).toContainText(/Rp\s*1\.610\.000\.000,00/);
   await expect(page.getByTestId("tax-simulation-table")).not.toContainText("Rp1.610,00");
@@ -818,6 +823,33 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await openWorkflowTab(page, "Penilaian DCF");
   await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Dihitung dari input WACC");
   await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Proxy kapasitas aset berwujud yang di-govern");
+});
+
+test("terminal growth renders with two decimals across EEM/DCF and projection tabs", async ({ page }) => {
+  const fixtureState = JSON.parse(readFileSync("tests/fixtures/export-xlsx-v2-workbench-state.json", "utf8")) as unknown;
+  await page.addInitScript(({ key, state }) => {
+    window.localStorage.setItem(key, JSON.stringify(state));
+  }, {
+    key: "penilaian-valuasi-bisnis.workbench.v1",
+    state: fixtureState,
+  });
+  await page.reload();
+  await expect(page.getByTestId("valuation-workbench")).toBeVisible();
+
+  await openWorkflowTab(page, "Asumsi EEM/DCF");
+  await expect(page.getByTestId("terminal-growth-calculator")).toContainText("0,50%");
+  await expect(page.getByTestId("assumption-driver-matrix")).toContainText("0,50%");
+  await page.locator("#assumption-hari-piutang-ar-days-override-opsional").fill("4");
+  await openWorkflowTab(page, "Penilaian EEM");
+  await expect(page.getByLabel("Driver aktif penilaian")).toContainText("0,50%");
+  await openWorkflowTab(page, "Penilaian DCF");
+  await expect(page.getByLabel("Driver aktif penilaian")).toContainText("0,50%");
+  await openWorkflowTab(page, "Proyeksi Laba Rugi");
+  await expect(page.getByLabel("Driver aktif Proyeksi Laba Rugi")).toContainText("0,50%");
+  await openWorkflowTab(page, "Proyeksi Neraca");
+  await expect(page.getByLabel("Driver aktif Proyeksi Neraca")).toContainText("0,50%");
+  await openWorkflowTab(page, "Proyeksi Cash Flow Statement");
+  await expect(page.getByLabel("Driver aktif Proyeksi Cash Flow Statement")).toContainText("0,50%");
 });
 
 test("legacy positive income-statement expense drafts migrate once and remain user-editable", async ({ page }) => {

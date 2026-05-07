@@ -926,7 +926,7 @@ export function buildSnapshot(
   const explicitWacc = readRateInput(assumptions.wacc);
   const explicitRevenueGrowth = readRateInput(assumptions.revenueGrowth);
   const baseWacc = explicitWacc ?? governedWaccCalculation?.wacc ?? waccCalculation?.wacc ?? 0;
-  const baseTerminalGrowth = resolveGovernedTerminalGrowth(assumptions, waccCalculation?.wacc ?? explicitWacc ?? baseWacc);
+  const baseTerminalGrowth = resolveGovernedTerminalGrowth(assumptions, baseWacc);
   const baseRequiredReturnOnNta = resolveGovernedRequiredReturnOnNta({
     assumptions,
     calculation: requiredReturnCalculation,

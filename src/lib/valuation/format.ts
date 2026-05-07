@@ -13,6 +13,14 @@ export function formatPercent(value: number): string {
   }).format(value);
 }
 
+export function formatPercentFixed(value: number, fractionDigits = 2): string {
+  return new Intl.NumberFormat("id-ID", {
+    style: "percent",
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  }).format(value);
+}
+
 export function formatScore(value: number): string {
   return `${Math.round(value * 100)}%`;
 }

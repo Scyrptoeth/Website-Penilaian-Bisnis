@@ -5,7 +5,7 @@ import { Banknote, Calculator, FileSearch, Printer, type LucideIcon } from "luci
 import { buildBalanceSheetView, groupBalanceSheetLines, type BalanceSheetLine } from "@/lib/valuation/balance-sheet-view";
 import { categoryLabelMap } from "@/lib/valuation/category-options";
 import { parseInputNumber, type CaseProfileDerived, type MappedRow, type Period } from "@/lib/valuation/case-model";
-import { formatDisplayDate, formatIdr, formatPercent } from "@/lib/valuation/format";
+import { formatDisplayDate, formatIdr, formatPercent, formatPercentFixed } from "@/lib/valuation/format";
 import { formatKluOptionLabel, getKluSectorRecord } from "@/lib/valuation/klu-sector";
 import { readValuationPdfExportPayload, type ValuationPdfExportPayload } from "@/lib/valuation/pdf-export";
 import type { TaxSimulationMethodRow } from "@/lib/valuation/tax-simulation";
@@ -65,7 +65,7 @@ export function ValuationPdfReport() {
   const driverMetrics: ReportMetric[] = [
     { label: "Tax rate", value: formatPercent(input.snapshot.taxRate), note: input.resolvedAssumptions.taxRateSource || input.assumptions.taxRateSource },
     { label: "WACC", value: formatPercent(input.snapshot.wacc), note: input.resolvedAssumptions.waccSource || input.assumptions.waccSource },
-    { label: "Terminal growth", value: formatPercent(input.snapshot.terminalGrowth), note: input.resolvedAssumptions.terminalGrowthSource || input.assumptions.terminalGrowthSource },
+    { label: "Terminal growth", value: formatPercentFixed(input.snapshot.terminalGrowth), note: input.resolvedAssumptions.terminalGrowthSource || input.assumptions.terminalGrowthSource },
     { label: "Revenue growth", value: formatPercent(input.snapshot.revenueGrowth) },
     { label: "Required return on NTA", value: formatPercent(input.snapshot.requiredReturnOnNta) },
     { label: "Operating working capital", value: formatIdr(input.results.operatingWorkingCapital) },

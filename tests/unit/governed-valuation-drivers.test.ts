@@ -23,7 +23,7 @@ const correctedTargets = {
 };
 
 describe("governed valuation drivers", () => {
-  it("normalizes high-risk smart suggestions before they become base EEM/DCF outputs", () => {
+  it("normalizes high-risk smart suggestions against governed WACC before they become base EEM/DCF outputs", () => {
     const snapshot = buildSnapshot(browserStatePeriods, "p1", buildBrowserStateRows(), buildHighRiskSmartSuggestionAssumptions(), buildBrowserStateFixedAssetRows());
     const results = calculateAllMethods(snapshot);
 
@@ -32,7 +32,7 @@ describe("governed valuation drivers", () => {
     assertWithinSpread(results.dcf.equityValue, correctedTargets.dcf, 0.2);
 
     assert.ok(snapshot.wacc >= 0.08);
-    assert.equal(snapshot.terminalGrowth, 0);
+    assertAlmostEqual(snapshot.terminalGrowth, 0.005, 1e-12);
     assertAlmostEqual(snapshot.revenueGrowth, 0.22185417359762538, 1e-12);
     assert.ok(snapshot.requiredReturnOnNta > 0.08);
   });
