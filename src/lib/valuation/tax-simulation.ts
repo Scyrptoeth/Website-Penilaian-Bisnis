@@ -2,6 +2,7 @@ import type { CaseProfile, CaseProfileDerived } from "./case-model";
 import { parseInputNumber } from "./case-model";
 import type { DlocPfcCalculation } from "./dloc-pfc";
 import type { DlomCalculation } from "./dlom";
+import { combineTaxpayerResistanceByMatrix, type TaxpayerResistanceLevel } from "./resistance";
 import {
   calculateTaxByRegime,
   resolveTaxRateRegime,
@@ -12,7 +13,7 @@ import {
 import type { FinancialStatementSnapshot, FormulaTrace, MethodOutput, ValuationMethod } from "./types";
 
 export type TaxSimulationFinalBasis = "baseline" | "manualScenario";
-export type TaxpayerResistance = "Tinggi" | "Moderat" | "Rendah" | "Belum lengkap";
+export type TaxpayerResistance = TaxpayerResistanceLevel;
 
 export type TaxSimulationState = {
   primaryMethod: ValuationMethod | "";
@@ -237,27 +238,7 @@ export function resolveDlocPfcRate(
 }
 
 export function combineTaxpayerResistance(dlomResistance: TaxpayerResistance, dlocPfcResistance: TaxpayerResistance): TaxpayerResistance {
-  if (dlomResistance === "Belum lengkap" || dlocPfcResistance === "Belum lengkap") {
-    return "Belum lengkap";
-  }
-
-  if (dlomResistance === "Tinggi" && dlocPfcResistance === "Rendah") {
-    return "Moderat";
-  }
-
-  if (dlomResistance === "Rendah" && dlocPfcResistance === "Tinggi") {
-    return "Moderat";
-  }
-
-  if (dlomResistance === "Tinggi" || dlocPfcResistance === "Tinggi") {
-    return "Tinggi";
-  }
-
-  if (dlomResistance === "Moderat" || dlocPfcResistance === "Moderat") {
-    return "Moderat";
-  }
-
-  return "Rendah";
+  return combineTaxpayerResistanceByMatrix(dlomResistance, dlocPfcResistance);
 }
 
 function buildRows({

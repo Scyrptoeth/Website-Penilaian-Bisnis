@@ -80,7 +80,7 @@ export function ValuationPdfReport() {
   const incomeStatementRows = scopedMappedRows.filter((item) => item.row.statement === "income_statement");
   const balanceSheetView = buildBalanceSheetView(periods, scopedMappedRows, input.fixedAssetSchedule);
   const driverMetrics = buildDriverMetrics(payload, scope);
-  const taxMetrics = primaryTaxRow ? buildTaxMetrics(primaryTaxRow) : [];
+  const taxMetrics = primaryTaxRow ? buildTaxMetrics(primaryTaxRow, input.taxSimulationResult.overallResistance) : [];
   const isCombinedScope = scope.id === "all";
 
   return (
@@ -242,9 +242,9 @@ export function ValuationPdfReport() {
           <MetricGrid
             metrics={[
               { label: "DLOM Basis", value: input.dlomCalculation.companyMarketability || "-", note: input.dlomCalculation.interestBasis || "-" },
-              { label: "DLOM Rate", value: formatPercent(input.dlomCalculation.dlomRate), note: input.dlomCalculation.status },
+              { label: "DLOM Rate", value: formatPercent(input.dlomCalculation.dlomRate), note: `Resistensi WP: ${input.dlomCalculation.taxpayerResistance}; posisi: ${input.dlomCalculation.status}` },
               { label: "DLOC/PFC Basis", value: input.dlocPfcCalculation.adjustmentType || "-", note: input.dlocPfcCalculation.companyBasis || "-" },
-              { label: "DLOC/PFC Rate", value: formatPercent(input.dlocPfcCalculation.signedRate), note: input.dlocPfcCalculation.status },
+              { label: "DLOC/PFC Rate", value: formatPercent(input.dlocPfcCalculation.signedRate), note: `Resistensi WP: ${input.dlocPfcCalculation.taxpayerResistance}; posisi: ${input.dlocPfcCalculation.status}` },
             ]}
           />
         </ReportSection>
@@ -898,10 +898,11 @@ function formatDerivedDate(value: string): string {
   return value ? formatDisplayDate(value) : "Belum dihitung";
 }
 
-function buildTaxMetrics(row: TaxSimulationMethodRow): ReportMetric[] {
+function buildTaxMetrics(row: TaxSimulationMethodRow, overallResistance: string): ReportMetric[] {
   return [
     { label: "Primary method", value: row.method },
     { label: "Basis final", value: row.basisLabel },
+    { label: "Resistensi keseluruhan", value: overallResistance },
     { label: "Market value interest", value: formatIdr(row.marketValueOfTransferredInterest) },
     { label: "Nilai dilaporkan", value: formatIdr(row.reportedTransferValue) },
     { label: "Selisih nilai", value: formatIdr(row.transferValueDifference) },

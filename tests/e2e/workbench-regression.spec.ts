@@ -618,7 +618,8 @@ test("DLOM and tax simulation render workbook-derived scenario layer after loadi
   ).toBeLessThanOrEqual(1);
   await expect(page.getByRole("heading", { name: "DLOM trace" })).toHaveCount(0);
   await expect(page.getByTestId("dlom-summary")).toContainText("25%");
-  await expect(page.getByTestId("dlom-summary")).toContainText("Rendah");
+  await expect(page.getByTestId("dlom-summary")).toContainText("Tinggi");
+  await expect(page.getByTestId("dlom-summary")).toContainText("Posisi DLOM dalam rentang: Rendah");
   await expect(page.getByTestId("dlom-factor-table")).toContainText("Keterangan Tambahan");
   await expect(page.getByTestId("dlom-factor-table")).not.toContainText("Alasan override");
   await expect(page.getByTestId("dlom-factor-table")).toContainText("Entry Barrier Perijinan Usaha");
@@ -628,7 +629,8 @@ test("DLOM and tax simulation render workbook-derived scenario layer after loadi
   await page.setViewportSize({ width: 2430, height: 1350 });
   await openWorkflowTab(page, "DLOC/PFC");
   await expect(page.getByTestId("dloc-pfc-summary")).toContainText("34%");
-  await expect(page.getByTestId("dloc-pfc-summary")).toContainText("Rendah");
+  await expect(page.getByTestId("dloc-pfc-summary")).toContainText("Tinggi");
+  await expect(page.getByTestId("dloc-pfc-summary")).toContainText("Posisi DLOC/PFC dalam rentang: Rendah");
   await expect(page.getByTestId("dloc-pfc-basis-grid")).toContainText("Rentang DLOC/PFC");
   await expect(page.getByTestId("dloc-pfc-basis-grid")).toContainText("30% - 70%");
   await expect(page.getByTestId("dloc-pfc-basis-grid")).not.toContainText("Rentang workbook");
@@ -873,6 +875,8 @@ test("exports the active workbench state to a print-ready PDF report view", asyn
   await expect(reportPage.getByRole("heading", { name: "DLOM dan DLOC/PFC" })).toBeVisible();
   await expect(reportPage.getByText("DLOM Basis")).toBeVisible();
   await expect(reportPage.getByText("DLOC/PFC Rate")).toBeVisible();
+  await expect(reportPage.getByText("Resistensi keseluruhan")).toBeVisible();
+  await expect(reportPage.getByText("Resistensi WP: Tinggi").first()).toBeVisible();
   await expect(reportPage.getByRole("heading", { name: "Simulasi Potensi Pajak" })).toBeVisible();
   await expect(reportPage.getByRole("heading", { name: "Audit dan Catatan Review" })).toHaveCount(0);
   await expect(reportPage.getByRole("button", { name: "Cetak / Simpan PDF" })).toBeVisible();

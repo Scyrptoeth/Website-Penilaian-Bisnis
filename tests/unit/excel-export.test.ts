@@ -53,7 +53,16 @@ describe("valuation Excel export", () => {
     assert.match(findFormulaByLabel(workbook.Sheets["06_AAM"], "AAM equity value"), /-/);
     assert.match(findFormulaByLabel(workbook.Sheets["07_EEM"], "EEM equity value"), /\+/);
     assert.match(findFormulaByLabel(workbook.Sheets["08_DCF"], "DCF equity value"), /\+/);
+    assert.equal(findFormulaByLabel(workbook.Sheets["00_Summary"], "DLOC/PFC signed rate"), "'09_DLOM_DLOC'!$C$34");
+    assert.equal(workbook.Sheets["09_DLOM_DLOC"].C30.f, "C29-C28");
+    assert.equal(workbook.Sheets["09_DLOM_DLOC"].C33.f, "IF(C32>0,C28+(C31/C32)*C30,0)");
+    assert.equal(workbook.Sheets["09_DLOM_DLOC"].C34.f, 'IF(C27="PFC",-C33,C33)');
+    assert.equal(workbook.Sheets["09_DLOM_DLOC"].C35.f, "-C34");
     assert.equal(workbook.Sheets["10_Tax_Simulation"]["Q2"].f, "P2*R2");
+    assert.equal(findValueByLabel(workbook.Sheets["00_Summary"], "Overall taxpayer resistance", 2), input.taxSimulationResult.overallResistance);
+    assert.equal(findValueByLabel(workbook.Sheets["09_DLOM_DLOC"], "Status & resistensi WP", 2), input.dlomCalculation.taxpayerResistance);
+    assert.equal(workbook.Sheets["09_DLOM_DLOC"].C36.v, input.dlocPfcCalculation.taxpayerResistance);
+    assert.equal(workbook.Sheets["10_Tax_Simulation"].U2.v, input.taxSimulationResult.overallResistance);
   });
 
   it("exports the selected active DCF basis into DCF and tax outputs", () => {

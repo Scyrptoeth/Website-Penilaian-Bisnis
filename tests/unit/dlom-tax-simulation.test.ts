@@ -95,6 +95,7 @@ describe("DLOM and tax simulation scenario layer", () => {
 
     assert.equal(majorityPfc.adjustmentType, "PFC");
     assertAlmostEqual(majorityPfc.signedRate, -0.34, 1e-12);
+    assert.equal(majorityPfc.taxpayerResistance, "Tinggi");
     assert.ok(aam.dlocPfcAdjustment > 0);
     assert.ok(aam.marketValueOfEquity100 > aam.valueAfterDlom);
   });

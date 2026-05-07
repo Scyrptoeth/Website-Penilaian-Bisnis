@@ -1,4 +1,5 @@
 import type { FinancialStatementSnapshot, FormulaTrace } from "./types";
+import { classifyRangePositionStatus, classifyTaxpayerResistanceByRangePosition } from "./resistance";
 
 export type DlomCompanyMarketability = "" | "DLOM Perusahaan tertutup" | "DLOM Perusahaan terbuka";
 export type DlomInterestBasis = "" | "Minoritas" | "Mayoritas";
@@ -270,8 +271,8 @@ export function calculateDlom(state: DlomState, snapshot: FinancialStatementSnap
   const rangeMax = range?.max ?? 0;
   const rangeSpread = Math.max(rangeMax - rangeMin, 0);
   const dlomRate = isComplete ? rangeMin + (totalScore / maxScore) * rangeSpread : 0;
-  const status = isComplete ? classifyDlomStatus(dlomRate, rangeMin, rangeMax) : "Belum lengkap";
-  const taxpayerResistance = status === "Rendah" ? "Tinggi" : status === "Moderat" ? "Moderat" : status === "Tinggi" ? "Rendah" : "Belum lengkap";
+  const status = isComplete ? classifyRangePositionStatus(dlomRate, rangeMin, rangeMax) : "Belum lengkap";
+  const taxpayerResistance = isComplete ? classifyTaxpayerResistanceByRangePosition(dlomRate, rangeMin, rangeMax) : "Belum lengkap";
 
   return {
     companyMarketability,
@@ -379,26 +380,6 @@ function resolveDlomRange(
   }
 
   return { min: 0, max: 0.2 };
-}
-
-function classifyDlomStatus(rate: number, min: number, max: number): "Rendah" | "Moderat" | "Tinggi" {
-  const spread = max - min;
-
-  if (spread <= 0) {
-    return rate <= min ? "Rendah" : "Tinggi";
-  }
-
-  const relative = (rate - min) / spread;
-
-  if (relative <= 1 / 3) {
-    return "Rendah";
-  }
-
-  if (relative <= 2 / 3) {
-    return "Moderat";
-  }
-
-  return "Tinggi";
 }
 
 function buildRecommendation(id: DlomFactorId, snapshot: FinancialStatementSnapshot): DlomRecommendation {

@@ -311,8 +311,9 @@ function buildSummarySheet(input: ValuationExcelExportInput, methodRefs: MethodR
     ["DCF equity value", methodRefs.DCF, formulaCell(methodRefs.DCF, input.results.dcf.equityValue, "currency"), `Active basis: ${activeDcfBasisLabel(input)}. DCF before DLOM/DLOC/PFC.`],
     [],
     ["Discount / tax simulation", "Formula", "Value", "Note"],
-    ["DLOM rate", "'09_DLOM_DLOC'!$C$11", formulaCell("'09_DLOM_DLOC'!$C$11", input.dlomCalculation.dlomRate, "percent"), input.dlomCalculation.status],
-    ["DLOC/PFC signed rate", "'09_DLOM_DLOC'!$C$31", formulaCell("'09_DLOM_DLOC'!$C$31", input.dlocPfcCalculation.signedRate, "percent"), input.dlocPfcCalculation.status],
+    ["DLOM rate", "'09_DLOM_DLOC'!$C$11", formulaCell("'09_DLOM_DLOC'!$C$11", input.dlomCalculation.dlomRate, "percent"), `Resistensi WP: ${input.dlomCalculation.taxpayerResistance}; posisi rentang: ${input.dlomCalculation.status}.`],
+    ["DLOC/PFC signed rate", "'09_DLOM_DLOC'!$C$34", formulaCell("'09_DLOM_DLOC'!$C$34", input.dlocPfcCalculation.signedRate, "percent"), `Resistensi WP: ${input.dlocPfcCalculation.taxpayerResistance}; posisi rentang: ${input.dlocPfcCalculation.status}.`],
+    ["Overall taxpayer resistance", "", input.taxSimulationResult.overallResistance, "Matrix from DLOM and DLOC/PFC taxpayer resistance."],
     [
       "Primary potential tax",
       taxRefs.primaryPotentialTax || "",
@@ -663,7 +664,7 @@ function buildDlomDlocSheet(input: ValuationExcelExportInput) {
     ["Total score", "SUM factor scores", numberCell(input.dlomCalculation.totalScore, "number"), ""],
     ["Max score", "Number of factors", input.dlomCalculation.maxScore, ""],
     ["Answered count", 'COUNTIF factor status = "answered"', input.dlomCalculation.factors.filter((factor) => factor.status === "answered").length, ""],
-    ["Status", "Derived completeness", input.dlomCalculation.status, input.dlomCalculation.taxpayerResistance],
+    ["Status & resistensi WP", "Range-position matrix", input.dlomCalculation.taxpayerResistance, `Posisi dalam rentang: ${input.dlomCalculation.status}.`],
     ["DLOM rate", "IF(answered count = max score, range min + total score / max score x range spread, 0)", formulaCell("IF(C9=C8,C4+(C7/C8)*C6,0)", input.dlomCalculation.dlomRate, "percent"), "Base valuation methods are before DLOM."],
     [],
     ["DLOM Factors", "Answer", "Score", "Status", "Recommendation", "Evidence / Override"],
@@ -681,12 +682,13 @@ function buildDlomDlocSheet(input: ValuationExcelExportInput) {
     ["Adjustment type", "Minoritas = DLOC; Mayoritas = PFC", input.dlocPfcCalculation.adjustmentType || "-", ""],
     ["Range min", "DLOC/PFC range", numberCell(input.dlocPfcCalculation.rangeMin, "percent"), input.dlocPfcCalculation.rangeLabel],
     ["Range max", "DLOC/PFC range", numberCell(input.dlocPfcCalculation.rangeMax, "percent"), input.dlocPfcCalculation.rangeLabel],
-    ["Range spread", "Range max - range min", formulaCell("C25-C24", input.dlocPfcCalculation.rangeSpread, "percent"), ""],
+    ["Range spread", "Range max - range min", formulaCell("C29-C28", input.dlocPfcCalculation.rangeSpread, "percent"), ""],
     ["Total score", "SUM factor scores", numberCell(input.dlocPfcCalculation.totalScore, "number"), ""],
     ["Max score", "Number of factors", input.dlocPfcCalculation.maxScore, ""],
-    ["Unsigned rate", "IF(complete, range min + total score / max score x range spread, 0)", formulaCell("IF(C28>0,C24+(C27/C28)*C26,0)", input.dlocPfcCalculation.unsignedRate, "percent"), input.dlocPfcCalculation.status],
-    ["Signed rate", 'IF(adjustment type = "PFC", -unsigned rate, unsigned rate)', formulaCell('IF(C23="PFC",-C29,C29)', input.dlocPfcCalculation.signedRate, "percent"), "Signed rate used in tax simulation."],
-    ["Adjustment multiplier", "-Signed rate", formulaCell("-C30", input.dlocPfcCalculation.adjustmentMultiplier, "percent"), input.dlocPfcCalculation.taxpayerResistance],
+    ["Unsigned rate", "IF(complete, range min + total score / max score x range spread, 0)", formulaCell("IF(C32>0,C28+(C31/C32)*C30,0)", input.dlocPfcCalculation.unsignedRate, "percent"), input.dlocPfcCalculation.status],
+    ["Signed rate", 'IF(adjustment type = "PFC", -unsigned rate, unsigned rate)', formulaCell('IF(C27="PFC",-C33,C33)', input.dlocPfcCalculation.signedRate, "percent"), "Signed rate used in tax simulation."],
+    ["Adjustment multiplier", "-Signed rate", formulaCell("-C34", input.dlocPfcCalculation.adjustmentMultiplier, "percent"), input.dlocPfcCalculation.taxpayerResistance],
+    ["Status & resistensi WP", "Range-position matrix", input.dlocPfcCalculation.taxpayerResistance, `Posisi dalam rentang: ${input.dlocPfcCalculation.status}.`],
     [],
     ["DLOC/PFC Factors", "Answer", "Score", "Status", "Override Reason", "Evidence Basis"],
     ...input.dlocPfcCalculation.factors.map((factor): SheetRow => [
@@ -704,7 +706,7 @@ function buildDlomDlocSheet(input: ValuationExcelExportInput) {
 
 function buildTaxSimulationSheet(input: ValuationExcelExportInput, methodRefs: MethodRefs) {
   const rows: SheetRow[] = [
-    ["Basis", "Method", "Primary", "Base Equity", "DLOM Rate", "DLOM Adjustment", "Value After DLOM", "DLOC/PFC Rate", "DLOC/PFC Adjustment", "Market Value 100%", "Share %", "Transferred Interest", "Reported Value", "Difference", "Taxable Difference", "Taxable Rounded", "Potential Tax", "Effective Tax Rate", "Tax Year", "Tax Source"],
+    ["Basis", "Method", "Primary", "Base Equity", "DLOM Rate", "DLOM Adjustment", "Value After DLOM", "DLOC/PFC Rate", "DLOC/PFC Adjustment", "Market Value 100%", "Share %", "Transferred Interest", "Reported Value", "Difference", "Taxable Difference", "Taxable Rounded", "Potential Tax", "Effective Tax Rate", "Tax Year", "Tax Source", "Overall Resistance"],
   ];
   const refs: SheetRefs = {};
   const allRows = [...input.taxSimulationResult.baselineRows, ...input.taxSimulationResult.scenarioRows];
@@ -753,6 +755,7 @@ function buildTaxSimulationSheet(input: ValuationExcelExportInput, methodRefs: M
       numberCell(row.effectiveTaxRate, "percent"),
       row.appliedTaxYear ?? "",
       row.taxSourceLegalBasis || row.taxBasisLabel,
+      input.taxSimulationResult.overallResistance,
     ]);
   });
 

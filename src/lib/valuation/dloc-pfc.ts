@@ -1,4 +1,5 @@
 import type { CaseProfile } from "./case-model";
+import { classifyRangePositionStatus, classifyTaxpayerResistanceByRangePosition } from "./resistance";
 import type { FormulaTrace } from "./types";
 
 export type DlocPfcAdjustmentType = "DLOC" | "PFC";
@@ -170,8 +171,8 @@ export function calculateDlocPfc(state: DlocPfcState, caseProfile: CaseProfile):
   const unsignedRate = isComplete ? rangeMin + (totalScore / maxScore) * rangeSpread : 0;
   const signedRate = adjustmentType === "PFC" ? -unsignedRate : unsignedRate;
   const adjustmentMultiplier = -signedRate;
-  const status = isComplete ? classifyStatus(unsignedRate, rangeMin, rangeMax) : "Belum lengkap";
-  const taxpayerResistance = classifyTaxpayerResistance(status, signedRate);
+  const status = isComplete ? classifyRangePositionStatus(unsignedRate, rangeMin, rangeMax) : "Belum lengkap";
+  const taxpayerResistance = isComplete ? classifyTaxpayerResistanceByRangePosition(unsignedRate, rangeMin, rangeMax) : "Belum lengkap";
 
   return {
     companyBasis,
@@ -264,45 +265,6 @@ function resolveRange(companyBasis: DlocPfcCompanyBasis | ""): { min: number; ma
   }
 
   return null;
-}
-
-function classifyStatus(rate: number, min: number, max: number): "Rendah" | "Moderat" | "Tinggi" {
-  const spread = max - min;
-
-  if (spread <= 0) {
-    return rate <= min ? "Rendah" : "Tinggi";
-  }
-
-  const relative = (rate - min) / spread;
-
-  if (relative <= 1 / 3) {
-    return "Rendah";
-  }
-
-  if (relative <= 2 / 3) {
-    return "Moderat";
-  }
-
-  return "Tinggi";
-}
-
-function classifyTaxpayerResistance(
-  status: DlocPfcCalculation["status"],
-  signedRate: number,
-): DlocPfcCalculation["taxpayerResistance"] {
-  if (status === "Belum lengkap" || signedRate === 0) {
-    return "Belum lengkap";
-  }
-
-  if (status === "Moderat") {
-    return "Moderat";
-  }
-
-  if (signedRate > 0) {
-    return status === "Rendah" ? "Tinggi" : "Rendah";
-  }
-
-  return status === "Rendah" ? "Rendah" : "Tinggi";
 }
 
 function formatRate(value: number): string {

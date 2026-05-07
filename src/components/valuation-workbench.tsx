@@ -3997,8 +3997,8 @@ function DlomSection({
             <AlertTriangle size={20} />
             <span>Status & resistensi WP</span>
           </div>
-          <strong>{calculation.status}</strong>
-          <p>Potensi resistensi wajib pajak: {calculation.taxpayerResistance}.</p>
+          <strong>{calculation.taxpayerResistance}</strong>
+          <p>Posisi DLOM dalam rentang: {calculation.status}.</p>
         </article>
       </section>
 
@@ -4141,8 +4141,8 @@ function DlocPfcSection({
             <AlertTriangle size={20} />
             <span>Status & resistensi WP</span>
           </div>
-          <strong>{calculation.status}</strong>
-          <p>Potensi resistensi wajib pajak: {calculation.taxpayerResistance}.</p>
+          <strong>{calculation.taxpayerResistance}</strong>
+          <p>Posisi DLOC/PFC dalam rentang: {calculation.status}.</p>
         </article>
       </section>
 
