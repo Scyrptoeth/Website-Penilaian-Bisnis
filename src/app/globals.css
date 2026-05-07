@@ -4925,26 +4925,33 @@ td span {
 }
 
 .site-footer {
-  display: grid;
-  justify-items: center;
-  gap: 8px;
-  padding: 24px 16px 18px;
+  display: flex;
+  justify-content: center;
+  padding: 19px 13px 14px;
   border-top: 1px solid var(--line);
   background: #ffffff;
   color: var(--muted);
   text-align: center;
-  font-size: 11px;
+  font-size: 8.8px;
   line-height: 1.45;
+}
+
+.site-footer-content {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  width: min(544px, 100%);
+  margin: 0 auto;
 }
 
 .site-footer p {
   margin: 0;
-  max-width: min(680px, 100%);
+  max-width: 100%;
 }
 
 .site-footer-brand {
   color: var(--ink-soft);
-  font-size: 12px;
+  font-size: 9.6px;
   font-weight: 700;
 }
 
@@ -4952,14 +4959,14 @@ td span {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 4px 16px;
+  gap: 3px 13px;
 }
 
 .site-footer-links a {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-height: 32px;
+  gap: 5px;
+  min-height: 26px;
   border-radius: var(--radius);
   color: var(--muted);
   font-weight: 650;
@@ -4982,23 +4989,33 @@ td span {
 
 .site-footer-copyright {
   font-family: var(--font-mono), monospace;
-  font-size: 10px;
+  font-size: 8px;
+}
+
+@media (min-width: 981px) {
+  .app-shell + .site-footer {
+    padding-left: calc(var(--sidebar-width) + 13px);
+  }
+
+  .app-shell.sidebar-collapsed + .site-footer {
+    padding-left: calc(var(--sidebar-collapsed-width) + 13px);
+  }
 }
 
 .scroll-top-button {
   position: fixed;
-  right: max(14px, env(safe-area-inset-right));
-  bottom: max(14px, env(safe-area-inset-bottom));
+  right: max(11px, env(safe-area-inset-right));
+  bottom: max(11px, env(safe-area-inset-bottom));
   z-index: 50;
   display: inline-grid;
-  width: 44px;
-  height: 44px;
-  min-height: 44px;
+  width: 35px;
+  height: 35px;
+  min-height: 35px;
   place-items: center;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius);
   background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 10px 24px rgba(21, 24, 22, 0.12);
+  box-shadow: 0 8px 19px rgba(21, 24, 22, 0.12);
   color: var(--ink-soft);
   cursor: pointer;
   opacity: 0;
@@ -5093,8 +5110,8 @@ td span {
 
 @media (max-width: 640px) {
   .site-footer {
-    padding: 22px 14px 18px;
-    font-size: 10.5px;
+    padding: 18px 11px 14px;
+    font-size: 8.4px;
   }
 
   .site-footer-links {
@@ -5103,14 +5120,14 @@ td span {
 
   .site-footer-links a {
     justify-content: center;
-    min-height: 40px;
+    min-height: 32px;
     width: 100%;
   }
 
   .scroll-top-button {
-    width: 44px;
-    height: 44px;
-    min-height: 44px;
+    width: 35px;
+    height: 35px;
+    min-height: 35px;
   }
 }
 
