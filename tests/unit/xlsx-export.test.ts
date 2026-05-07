@@ -75,6 +75,9 @@ describe("valuation XLSX export", () => {
     assert.ok(xml.includes('formatCode="0.00%;[Red](0.00%);0.00%"'));
     assert.ok(xml.includes(' s="2"'));
     assert.ok(xml.includes(' s="3"'));
+    assert.doesNotMatch(xml, /(^|[^A-Z])IFS\(/);
+    assert.doesNotMatch(xml, /(^|[^A-Z])SWITCH\(/);
+    assert.doesNotMatch(xml, /(^|[^A-Z])FLOOR\(/);
   });
 });
 

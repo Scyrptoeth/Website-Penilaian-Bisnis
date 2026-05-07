@@ -902,6 +902,9 @@ test("exports method-scoped XLSX workbooks", async ({ page }) => {
   expect(bytes.toString("utf8")).toContain('name="DLOC PFC"');
   expect(bytes.toString("utf8")).toContain('formatCode="#,##0;[Red](#,##0);0"');
   expect(bytes.toString("utf8")).toContain('formatCode="0.00%;[Red](0.00%);0.00%"');
+  expect(bytes.toString("utf8")).not.toMatch(/(^|[^A-Z])IFS\(/);
+  expect(bytes.toString("utf8")).not.toMatch(/(^|[^A-Z])SWITCH\(/);
+  expect(bytes.toString("utf8")).not.toMatch(/(^|[^A-Z])FLOOR\(/);
 });
 
 test("company sector can be manually overridden after KLU suggestion", async ({ page }) => {

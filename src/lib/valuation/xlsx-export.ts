@@ -859,8 +859,8 @@ function buildDlomRows(input: ValuationPdfExportInput): XlsxCellValue[][] {
       calculation.companyMarketabilitySource,
     ],
     ["Interest basis", interestBasisValue, interestBasisSourceType, calculation.interestBasisSource, ""],
-    ["Range min", formulaCell('IFS(AND(B2="DLOM Perusahaan tertutup",B3="Minoritas"),0.3,AND(B2="DLOM Perusahaan tertutup",B3="Mayoritas"),0.2,AND(B2="DLOM Perusahaan terbuka",B3="Minoritas"),0.1,AND(B2="DLOM Perusahaan terbuka",B3="Mayoritas"),0,TRUE,0)', calculation.rangeMin), "Formula", "DLOM range matrix.", ""],
-    ["Range max", formulaCell('IFS(AND(B2="DLOM Perusahaan tertutup",B3="Minoritas"),0.5,AND(B2="DLOM Perusahaan tertutup",B3="Mayoritas"),0.4,AND(B2="DLOM Perusahaan terbuka",B3="Minoritas"),0.3,AND(B2="DLOM Perusahaan terbuka",B3="Mayoritas"),0.2,TRUE,0)', calculation.rangeMax), "Formula", "DLOM range matrix.", ""],
+    ["Range min", formulaCell(buildDlomRangeFormula("min"), calculation.rangeMin), "Formula", "DLOM range matrix.", ""],
+    ["Range max", formulaCell(buildDlomRangeFormula("max"), calculation.rangeMax), "Formula", "DLOM range matrix.", ""],
     ["Range spread", formulaCell("B5-B4", calculation.rangeSpread), "Formula", "Range max - range min.", ""],
     ["Total score", formulaCell(`SUM(D${factorStartRow}:D${factorEndRow})`, calculation.totalScore), "Formula", "SUM factor score.", ""],
     ["Max score", formulaCell(`COUNTA(B${factorStartRow}:B${factorEndRow})`, calculation.maxScore), "Formula", "Count scored factors.", ""],
@@ -973,7 +973,7 @@ function buildTaxSimulationRows(
         formulaCell(refs.reportedTransferValue, row.reportedTransferValue),
         formulaCell(`K${rowNumber}-L${rowNumber}`, row.transferValueDifference),
         formulaCell(`MAX(0,M${rowNumber})`, row.potentialTaxableDifference),
-        formulaCell(`FLOOR(N${rowNumber},1000)`, row.taxableIncomeRounded),
+        formulaCell(`INT(N${rowNumber}/1000)*1000`, row.taxableIncomeRounded),
         formulaCell(buildPotentialTaxFormula(`O${rowNumber}`, row, resolveTaxpayerKindForExport(subjectTaxpayerType)), row.potentialTax),
         formulaCell(`IF(O${rowNumber}=0,0,P${rowNumber}/O${rowNumber})`, row.effectiveTaxRate),
         row.isPrimary ? "Yes" : "No",
@@ -984,8 +984,22 @@ function buildTaxSimulationRows(
 }
 
 function buildOptionScoreFormula(answerCell: string, options: { label: string; score: number }[]): string {
-  const cases = options.flatMap((option) => [excelString(option.label), String(option.score)]).join(",");
-  return `SWITCH(${answerCell},${cases},0)`;
+  return options
+    .reduceRight((fallback, option) => `IF(${answerCell}=${excelString(option.label)},${option.score},${fallback})`, "0");
+}
+
+function buildDlomRangeFormula(bound: "min" | "max"): string {
+  const values =
+    bound === "min"
+      ? { closedMinority: 0.3, closedMajority: 0.2, publicMinority: 0.1, publicMajority: 0 }
+      : { closedMinority: 0.5, closedMajority: 0.4, publicMinority: 0.3, publicMajority: 0.2 };
+
+  return [
+    `IF(AND(B2="DLOM Perusahaan tertutup",B3="Minoritas"),${values.closedMinority},`,
+    `IF(AND(B2="DLOM Perusahaan tertutup",B3="Mayoritas"),${values.closedMajority},`,
+    `IF(AND(B2="DLOM Perusahaan terbuka",B3="Minoritas"),${values.publicMinority},`,
+    `IF(AND(B2="DLOM Perusahaan terbuka",B3="Mayoritas"),${values.publicMajority},0))))`,
+  ].join("");
 }
 
 function buildPotentialTaxFormula(taxableIncomeCell: string, row: TaxSimulationMethodRow, taxpayerKind: TaxpayerKind): string {
