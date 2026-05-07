@@ -32,6 +32,10 @@ export type ValuationExcelExportInput = {
   snapshot: FinancialStatementSnapshot;
   aamAdjustmentModel: AamAdjustmentModel;
   results: CalculationResults;
+  baseResults?: CalculationResults;
+  activeDcfBasis?: string;
+  activeDcfBasisLabel?: string;
+  activeDcfBasisSummary?: string;
   dlomCalculation: DlomCalculation;
   dlocPfcCalculation: DlocPfcCalculation;
   taxSimulation: TaxSimulationState;
@@ -301,7 +305,7 @@ function buildSummarySheet(input: ValuationExcelExportInput, methodRefs: MethodR
     ["Base valuation", "Formula", "Value", "Note"],
     ["AAM equity value", methodRefs.AAM, formulaCell(methodRefs.AAM, input.results.aam.equityValue, "currency"), "Asset Accumulation Method before DLOM/DLOC/PFC."],
     ["EEM equity value", methodRefs.EEM, formulaCell(methodRefs.EEM, input.results.eem.equityValue, "currency"), "Excess Earnings Method before DLOM/DLOC/PFC."],
-    ["DCF equity value", methodRefs.DCF, formulaCell(methodRefs.DCF, input.results.dcf.equityValue, "currency"), "DCF before DLOM/DLOC/PFC."],
+    ["DCF equity value", methodRefs.DCF, formulaCell(methodRefs.DCF, input.results.dcf.equityValue, "currency"), `Active basis: ${activeDcfBasisLabel(input)}. DCF before DLOM/DLOC/PFC.`],
     [],
     ["Discount / tax simulation", "Formula", "Value", "Note"],
     ["DLOM rate", "'09_DLOM_DLOC'!$C$11", formulaCell("'09_DLOM_DLOC'!$C$11", input.dlomCalculation.dlomRate, "percent"), input.dlomCalculation.status],
@@ -565,6 +569,7 @@ function buildEemSheet(input: ValuationExcelExportInput, snapshotRefs: SheetRefs
 function buildDcfSheet(input: ValuationExcelExportInput, snapshotRefs: SheetRefs) {
   const rows: SheetRow[] = [
     ["Discounted Cash Flow (DCF)"],
+    ["Active DCF basis", activeDcfBasisLabel(input), input.activeDcfBasisSummary ?? ""],
     [],
     ["Forecast year", "Revenue", "COGS", "GA", "Depreciation", "EBIT", "NOPLAT", "AR", "Inventory", "AP", "Other payable", "Operating NWC", "Change in NWC", "FCFF", "Discount factor", "PV FCFF"],
   ];
@@ -604,7 +609,7 @@ function buildDcfSheet(input: ValuationExcelExportInput, snapshotRefs: SheetRefs
       formulaCell(`${cogsRef}*${snapshotRefs.apDays}/365`, (row.revenue * input.snapshot.cogsMargin * input.snapshot.apDays) / 365, "currency"),
       formulaCell(`${gaRef}*${snapshotRefs.otherPayableDays}/365`, (row.revenue * input.snapshot.gaMargin * input.snapshot.otherPayableDays) / 365, "currency"),
       formulaCell(`${arRef}+${inventoryRef}-${apRef}-${otherPayableRef}`, row.operatingNwc, "currency"),
-      formulaCell(`${nwcRef}-${previousNwc}`, row.changeInNwc, "currency"),
+      formulaCell(activeDcfUsesIncrementalWorkingCapital(input) ? `${nwcRef}-${previousNwc}` : "0", row.changeInNwc, "currency"),
       formulaCell(`${noplatRef}+${depreciationRef}-${depreciationRef}-${changeNwcRef}`, row.freeCashFlow, "currency"),
       formulaCell(`1/POWER(1+${snapshotRefs.wacc},${index + 1})`, row.discountFactor, "number"),
       formulaCell(`${fcfRef}*${discountFactorRef}`, row.presentValue, "currency"),
@@ -619,12 +624,16 @@ function buildDcfSheet(input: ValuationExcelExportInput, snapshotRefs: SheetRefs
   rows.push([]);
   rows.push(["DCF calculation", "Formula", "Value", "Note"]);
   appendMetricRow(rows, refs, "explicitPv", "PV explicit FCFF", `SUM(${pvRange})`, input.results.dcf.forecast.reduce((sum, row) => sum + row.presentValue, 0), "currency", "Sum of present value of explicit forecast FCFF.");
-  appendMetricRow(rows, refs, "terminalValue", "Terminal value", `IF(${snapshotRefs.wacc}>${snapshotRefs.terminalGrowth},${finalFcfRef}*(1+${snapshotRefs.terminalGrowth})/(${snapshotRefs.wacc}-${snapshotRefs.terminalGrowth}),0)`, terminalValue(input.snapshot, input.results.dcf.forecast.at(-1)?.freeCashFlow ?? 0), "currency", "Gordon growth model.");
-  appendMetricRow(rows, refs, "terminalPv", "PV terminal value", `${refs.terminalValue}/POWER(1+${snapshotRefs.wacc},5)`, terminalPv(input.snapshot, input.results.dcf.forecast.at(-1)?.freeCashFlow ?? 0), "currency", "Discounted terminal value.");
-  appendMetricRow(rows, refs, "enterpriseValue", "Enterprise value", `${refs.explicitPv}+${refs.terminalPv}`, input.results.dcf.equityValue - input.results.nonOperatingAssets + input.results.interestBearingDebt, "currency", "Explicit PV + terminal PV.");
+  const activeTerminalGrowth = activeDcfTerminalGrowth(input);
+  const activeTerminalGrowthRef = activeTerminalGrowth === input.snapshot.terminalGrowth ? snapshotRefs.terminalGrowth : String(activeTerminalGrowth);
+  const debtLikeTaxPayable = activeDcfDebtLikeTaxPayable(input);
+  appendMetricRow(rows, refs, "terminalValue", "Terminal value", `IF(${snapshotRefs.wacc}>${activeTerminalGrowthRef},${finalFcfRef}*(1+${activeTerminalGrowthRef})/(${snapshotRefs.wacc}-${activeTerminalGrowthRef}),0)`, terminalValue(input.snapshot, input.results.dcf.forecast.at(-1)?.freeCashFlow ?? 0, activeTerminalGrowth), "currency", "Gordon growth model using active DCF basis.");
+  appendMetricRow(rows, refs, "terminalPv", "PV terminal value", `${refs.terminalValue}/POWER(1+${snapshotRefs.wacc},5)`, terminalPv(input.snapshot, input.results.dcf.forecast.at(-1)?.freeCashFlow ?? 0, activeTerminalGrowth), "currency", "Discounted terminal value.");
+  appendMetricRow(rows, refs, "enterpriseValue", "Enterprise value", `${refs.explicitPv}+${refs.terminalPv}`, input.results.dcf.equityValue - input.results.nonOperatingAssets + input.results.interestBearingDebt + debtLikeTaxPayable, "currency", "Explicit PV + terminal PV.");
   appendMetricRow(rows, refs, "nonOperatingAssets", "Non-operating assets", snapshotRefs.nonOperatingAssets, input.results.nonOperatingAssets, "currency", "Added to equity bridge.");
   appendMetricRow(rows, refs, "interestBearingDebt", "Interest-bearing debt", snapshotRefs.interestBearingDebt, input.results.interestBearingDebt, "currency", "Deducted in EV-to-equity bridge.");
-  appendMetricRow(rows, refs, "equityValue", "DCF equity value", `${refs.enterpriseValue}+${refs.nonOperatingAssets}-${refs.interestBearingDebt}`, input.results.dcf.equityValue, "currency", "DLOM/DLOC/PFC are not applied in base DCF.");
+  appendMetricRow(rows, refs, "debtLikeTaxPayable", "Tax payable debt-like", snapshotRefs.taxPayable, debtLikeTaxPayable, "currency", "Deducted only when active DCF basis treats tax payable as debt-like.");
+  appendMetricRow(rows, refs, "equityValue", "DCF equity value", `${refs.enterpriseValue}+${refs.nonOperatingAssets}-${refs.interestBearingDebt}-${refs.debtLikeTaxPayable}`, input.results.dcf.equityValue, "currency", `Active basis: ${activeDcfBasisLabel(input)}. DLOM/DLOC/PFC are not applied in DCF.`);
 
   rows.push([]);
   rows.push(["Sensitivity", "Value", "Source"]);
@@ -807,7 +816,7 @@ function buildAuditTraceSheet(input: ValuationExcelExportInput) {
 
   input.results.aam.traces.forEach((trace) => appendTrace("AAM", trace));
   input.results.eem.traces.forEach((trace) => appendTrace("EEM", trace));
-  input.results.dcf.traces.forEach((trace) => appendTrace("DCF", trace));
+  input.results.dcf.traces.forEach((trace) => appendTrace(`DCF (${activeDcfBasisLabel(input)})`, trace));
   input.dlomCalculation.traces.forEach((trace) => appendTrace("DLOM", trace));
   input.dlocPfcCalculation.traces.forEach((trace) => appendTrace("DLOC/PFC", trace));
   input.taxSimulationResult.rows.forEach((row) => row.traces.forEach((trace) => appendTrace(`Tax Simulation ${row.basisLabel} ${row.method}`, trace)));
@@ -1208,9 +1217,9 @@ function patchTemplateFormulaCaches(workbook: XLSX.WorkBook, input: ValuationExc
   refreshTemplateFormulaCachedValue(workbook, patches, "AAM", "E59", input.results.aam.equityValue, "AAM market value of 100% equity", "Web AAM bridge cached while preserving template formula");
   refreshTemplateFormulaCachedValue(workbook, patches, "AAM", "E60", aamValuePerShare(input), "AAM value per share", "Web AAM bridge cached while preserving template formula");
   refreshTemplateFormulaCachedValue(workbook, patches, "EEM", "D34", input.results.eem.equityValue, "EEM equity value", "Web valuation engine result cached while preserving template formula");
-  refreshTemplateFormulaCachedValue(workbook, patches, "DCF", "C33", input.results.dcf.equityValue, "DCF equity value", "Web valuation engine result cached while preserving template formula");
+  refreshActiveDcfTemplateFormulaValue(workbook, patches, input, "DCF", "C33", "DCF equity value");
   refreshTemplateFormulaCachedValue(workbook, patches, "STAT_EEM", "B22", input.results.eem.equityValue, "STAT EEM equity value", "Web valuation engine result cached while preserving template formula");
-  refreshTemplateFormulaCachedValue(workbook, patches, "STAT_DCF", "B39", input.results.dcf.equityValue, "STAT DCF equity value", "Web valuation engine result cached while preserving template formula");
+  refreshActiveDcfTemplateFormulaValue(workbook, patches, input, "STAT_DCF", "B39", "STAT DCF equity value");
 
   const primaryTaxRow = input.taxSimulationResult.primaryRow;
 
@@ -1632,6 +1641,39 @@ function refreshTemplateFormulaCachedValue(
   });
 }
 
+function refreshActiveDcfTemplateFormulaValue(
+  workbook: XLSX.WorkBook,
+  patches: TemplatePatch[],
+  input: ValuationExcelExportInput,
+  sheet: string,
+  cellAddress: string,
+  label: string,
+) {
+  if (activeDcfIsBase(input)) {
+    refreshTemplateFormulaCachedValue(
+      workbook,
+      patches,
+      sheet,
+      cellAddress,
+      input.results.dcf.equityValue,
+      label,
+      "Web valuation engine result cached while preserving template formula",
+    );
+    return;
+  }
+
+  writeTemplateFormulaCell(
+    workbook,
+    patches,
+    sheet,
+    cellAddress,
+    String(finiteNumber(input.results.dcf.equityValue)),
+    input.results.dcf.equityValue,
+    label,
+    `Active DCF basis: ${activeDcfBasisLabel(input)}. Web-engine scenario is pinned so template recalculation does not revert to the base DCF formula.`,
+  );
+}
+
 function writeTemplateTextIfPresent(
   workbook: XLSX.WorkBook,
   patches: TemplatePatch[],
@@ -1825,14 +1867,42 @@ function currentSheetNameFromRows(rows: SheetRow[]): string {
   return "05_Snapshot";
 }
 
-function terminalValue(snapshot: FinancialStatementSnapshot, finalFcf: number): number {
-  const denominator = snapshot.wacc - snapshot.terminalGrowth;
+function terminalValue(snapshot: FinancialStatementSnapshot, finalFcf: number, terminalGrowth = snapshot.terminalGrowth): number {
+  const denominator = snapshot.wacc - terminalGrowth;
 
-  return denominator > 0 ? (finalFcf * (1 + snapshot.terminalGrowth)) / denominator : 0;
+  return denominator > 0 ? (finalFcf * (1 + terminalGrowth)) / denominator : 0;
 }
 
-function terminalPv(snapshot: FinancialStatementSnapshot, finalFcf: number): number {
-  return snapshot.wacc > -1 ? terminalValue(snapshot, finalFcf) / Math.pow(1 + snapshot.wacc, 5) : 0;
+function terminalPv(snapshot: FinancialStatementSnapshot, finalFcf: number, terminalGrowth = snapshot.terminalGrowth): number {
+  return snapshot.wacc > -1 ? terminalValue(snapshot, finalFcf, terminalGrowth) / Math.pow(1 + snapshot.wacc, 5) : 0;
+}
+
+function activeDcfBasisLabel(input: ValuationExcelExportInput): string {
+  return input.activeDcfBasisLabel || "DCF - skenario dasar";
+}
+
+function activeDcfIsBase(input: ValuationExcelExportInput): boolean {
+  return !input.activeDcfBasis || input.activeDcfBasis === "base";
+}
+
+function activeDcfTerminalGrowth(input: ValuationExcelExportInput): number {
+  if (input.activeDcfBasis === "terminalDownside") {
+    return input.snapshot.terminalGrowthDownside ?? input.snapshot.terminalGrowth;
+  }
+
+  if (input.activeDcfBasis === "terminalUpside") {
+    return input.snapshot.terminalGrowthUpside ?? input.snapshot.terminalGrowth;
+  }
+
+  return input.snapshot.terminalGrowth;
+}
+
+function activeDcfUsesIncrementalWorkingCapital(input: ValuationExcelExportInput): boolean {
+  return input.activeDcfBasis !== "noIncrementalWorkingCapital";
+}
+
+function activeDcfDebtLikeTaxPayable(input: ValuationExcelExportInput): number {
+  return input.activeDcfBasis === "taxPayableDebtLike" ? input.snapshot.taxPayable : 0;
 }
 
 function analysisValueCell(value: number | null, format: "currency" | "percent" | "number" = "currency"): SheetCell {

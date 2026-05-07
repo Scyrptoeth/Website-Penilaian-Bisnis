@@ -369,8 +369,30 @@ const requiredReturnSuggestionOrder: RequiredReturnOnNtaSuggestionKey[] = [
 const WORKBENCH_STORAGE_KEY = "penilaian-valuasi-bisnis.workbench.v1";
 const WORKBENCH_SCROLL_STORAGE_KEY = "penilaian-valuasi-bisnis.scroll.v1";
 const WORKBENCH_SIDEBAR_STORAGE_KEY = "penilaian-valuasi-bisnis.sidebar.v1";
-const WORKBENCH_STORAGE_VERSION = 15;
+const WORKBENCH_STORAGE_VERSION = 16;
 const defaultFixedAssetProjectionMode: FixedAssetProjectionMode = "workbook-formula";
+
+type ActiveDcfBasis =
+  | "base"
+  | "terminalDownside"
+  | "terminalUpside"
+  | "noIncrementalWorkingCapital"
+  | "taxPayableDebtLike"
+  | "historicalDerivedProjection";
+
+type DcfOutput = ReturnType<typeof calculateDcf>;
+type CalculationResults = ReturnType<typeof calculateAllMethods>;
+type ActiveDcfSelection = {
+  basis: ActiveDcfBasis;
+  label: string;
+  shortLabel: string;
+  summary: string;
+  dcf: DcfOutput;
+  terminalGrowth: number;
+  includeWorkingCapitalChange: boolean;
+  debtLikeTaxPayable: number;
+  projectionEngineLabel: string;
+};
 
 type IncomeProjectionOverrideField = "revenueGrowth" | "grossProfitMargin" | "operatingExpenseMargin" | "depreciationMargin";
 
@@ -445,6 +467,7 @@ type PersistedWorkbenchState = {
   isFixedAssetScheduleEnabled: boolean;
   fixedAssetScheduleRows: FixedAssetScheduleRow[];
   fixedAssetProjectionMode: FixedAssetProjectionMode;
+  activeDcfBasis: ActiveDcfBasis;
   aamAdjustments: AamAdjustmentState;
   assumptions: AssumptionState;
   caseProfile: CaseProfile;
@@ -489,6 +512,56 @@ const dcfSensitivityContext = {
   taxPayableDebtLike: "Memperlakukan utang pajak sebagai kewajiban debt-like yang dikurangkan dari enterprise value.",
   historicalDerivedProjection: "Menguji proyeksi neraca historis: kas, utang pajak, dan ekuitas di-roll-forward dari data historis user.",
 } as const;
+
+const activeDcfBasisOptions: Array<{
+  value: ActiveDcfBasis;
+  label: string;
+  shortLabel: string;
+  summary: string;
+}> = [
+  {
+    value: "base",
+    label: "DCF - skenario dasar",
+    shortLabel: "Skenario dasar",
+    summary: dcfSensitivityContext.base,
+  },
+  {
+    value: "terminalDownside",
+    label: "DCF - terminal downside",
+    shortLabel: "Terminal downside",
+    summary: dcfSensitivityContext.terminalDownside,
+  },
+  {
+    value: "terminalUpside",
+    label: "DCF - terminal upside",
+    shortLabel: "Terminal upside",
+    summary: dcfSensitivityContext.terminalUpside,
+  },
+  {
+    value: "noIncrementalWorkingCapital",
+    label: "DCF tanpa WC incremental",
+    shortLabel: "Tanpa WC incremental",
+    summary: dcfSensitivityContext.noIncrementalWorkingCapital,
+  },
+  {
+    value: "taxPayableDebtLike",
+    label: "DCF utang pajak debt-like",
+    shortLabel: "Utang pajak debt-like",
+    summary: dcfSensitivityContext.taxPayableDebtLike,
+  },
+  {
+    value: "historicalDerivedProjection",
+    label: "DCF - proyeksi neraca berbasis historis",
+    shortLabel: "Proyeksi historis",
+    summary: dcfSensitivityContext.historicalDerivedProjection,
+  },
+];
+
+const activeDcfBasisLabels = Object.fromEntries(activeDcfBasisOptions.map((option) => [option.value, option])) as Record<
+  ActiveDcfBasis,
+  (typeof activeDcfBasisOptions)[number]
+>;
+const defaultActiveDcfBasis: ActiveDcfBasis = "base";
 
 const workflowTabRegistry = {
   periods: { id: "periods", label: "Data Awal", methods: allValuationMethods },
@@ -613,6 +686,7 @@ export function ValuationWorkbench() {
   const [isFixedAssetScheduleEnabled, setIsFixedAssetScheduleEnabled] = useState(false);
   const [fixedAssetScheduleRows, setFixedAssetScheduleRows] = useState<FixedAssetScheduleRow[]>([]);
   const [fixedAssetProjectionMode, setFixedAssetProjectionMode] = useState<FixedAssetProjectionMode>(defaultFixedAssetProjectionMode);
+  const [activeDcfBasis, setActiveDcfBasis] = useState<ActiveDcfBasis>(defaultActiveDcfBasis);
   const [aamAdjustments, setAamAdjustments] = useState<AamAdjustmentState>({});
   const [assumptions, setAssumptions] = useState<AssumptionState>(emptyAssumptions);
   const [caseProfile, setCaseProfile] = useState<CaseProfile>(emptyCaseProfile);
@@ -724,20 +798,29 @@ export function ValuationWorkbench() {
       snapshot,
     ],
   );
+  const activeDcfSelection = useMemo(
+    () => buildActiveDcfSelection(results, activeDcfBasis, snapshot),
+    [activeDcfBasis, results, snapshot],
+  );
+  const activeDcf = activeDcfSelection.dcf;
+  const activeResults = useMemo(
+    () => ({ ...results, dcf: activeDcf }),
+    [activeDcf, results],
+  );
   const incomeProjectionScenario = useMemo(
     () =>
       buildIncomeProjectionScenario({
         snapshot,
-        baselineEquityValue: results.dcf.equityValue,
+        baselineEquityValue: activeDcf.equityValue,
         controls: incomeProjectionControls,
         fixedAssetProjection: dcfFixedAssetProjection,
         fixedAssetProjectionSource: dcfFixedAssetProjection ? fixedAssetProjection.source : undefined,
       }),
     [
       dcfFixedAssetProjection,
+      activeDcf.equityValue,
       fixedAssetProjection.source,
       incomeProjectionControls,
-      results.dcf.equityValue,
       snapshot,
     ],
   );
@@ -746,7 +829,7 @@ export function ValuationWorkbench() {
   const taxSimulationResult = useMemo(
     () =>
       calculateTaxSimulation({
-        methods: [results.aam, results.eem, results.dcf],
+        methods: [results.aam, results.eem, activeDcf],
         dlom: dlomCalculation,
         dlocPfc: dlocPfcCalculation,
         state: taxSimulation,
@@ -754,7 +837,7 @@ export function ValuationWorkbench() {
         caseProfileDerived,
         snapshot,
       }),
-    [caseProfile, caseProfileDerived, dlocPfcCalculation, dlomCalculation, results.aam, results.dcf, results.eem, snapshot, taxSimulation],
+    [activeDcf, caseProfile, caseProfileDerived, dlocPfcCalculation, dlomCalculation, results.aam, results.eem, snapshot, taxSimulation],
   );
   const sectionAnalysis = useMemo(
     () => buildSectionAnalysis(periods, rows, assumptions, fixedAssetScheduleRows, cashFlowOverrides),
@@ -776,9 +859,11 @@ export function ValuationWorkbench() {
   const eemCapitalizationRate = snapshot.wacc - snapshot.terminalGrowth;
   const eemCapitalizedExcess = eemCapitalizationRate > 0 ? eemExcessEarnings / eemCapitalizationRate : 0;
   const eemEnterpriseValue = eemNetOperatingTangibleAssets + eemCapitalizedExcess;
-  const dcfExplicitPv = findTraceValue(results.dcf.traces, "PV eksplisit FCFF");
-  const dcfTerminalPv = findTraceValue(results.dcf.traces, "PV nilai terminal");
+  const dcfExplicitPv = findTraceValue(activeDcf.traces, "PV eksplisit FCFF");
+  const dcfTerminalPv = findTraceValue(activeDcf.traces, "PV nilai terminal");
   const dcfEnterpriseValue = dcfExplicitPv + dcfTerminalPv;
+  const activeDcfVariance = activeDcf.equityValue - results.dcf.equityValue;
+  const activeDcfRelativeVariance = safeAbsoluteRatio(activeDcfVariance, results.dcf.equityValue);
   const taxRateCandidates = useMemo(() => buildTaxRateCandidates(effectiveValuationDate), [effectiveValuationDate]);
   const marketSuggestion = useMemo(
     () => getMarketAssumptionSuggestion(effectiveValuationDate),
@@ -799,10 +884,10 @@ export function ValuationWorkbench() {
         snapshot,
         waccCalculation,
         requiredReturnCalculation,
-        dcfTraces: results.dcf.traces,
+        dcfTraces: activeDcf.traces,
         hasRevenueGrowthOverride: assumptions.revenueGrowth.trim() !== "",
       }),
-    [assumptions.revenueGrowth, requiredReturnCalculation, results.dcf.traces, snapshot, waccCalculation],
+    [activeDcf.traces, assumptions.revenueGrowth, requiredReturnCalculation, snapshot, waccCalculation],
   );
   const eemAssumptionGovernance = useMemo(
     () => scopeAssumptionGovernance(assumptionGovernance, (item) => item.target !== "valuationDcf", "EEM"),
@@ -853,9 +938,18 @@ export function ValuationWorkbench() {
       snapshot.requiredReturnOnNta,
       isGovernedRequiredReturn
         ? "Proxy kapasitas aset berwujud yang di-govern"
-        : requiredReturnCalculation ? requiredReturnCalculation.basisLabel : sourceLabelFromManual(assumptions.requiredReturnOnNta),
+      : requiredReturnCalculation ? requiredReturnCalculation.basisLabel : sourceLabelFromManual(assumptions.requiredReturnOnNta),
     ),
   ];
+  const dcfDriverSummaries = assumptionDriverSummaries.map((driver) =>
+    driver.label === "Terminal growth"
+      ? {
+          ...driver,
+          valueLabel: formatTerminalGrowthPercent(activeDcfSelection.terminalGrowth),
+          sourceLabel: activeDcfBasis === "base" ? driver.sourceLabel : activeDcfSelection.label,
+        }
+      : driver,
+  );
   const nextHistoricalPeriodLabel = getPeriodLabel(getNextHistoricalPeriodOffset(periods)).replace("Tahun ", "");
   const equityBookComponents =
     snapshot.paidUpCapital +
@@ -879,6 +973,7 @@ export function ValuationWorkbench() {
     Object.values(assumptions).some((value) => value.trim() !== "") ||
     hasCashFlowOverrideInput(cashFlowOverrides) ||
     hasIncomeProjectionControlInput(incomeProjectionControls) ||
+    activeDcfBasis !== defaultActiveDcfBasis ||
     hasDlomInput(dlom) ||
     hasDlocPfcInput(dlocPfc) ||
     hasTaxSimulationInput(taxSimulation);
@@ -908,6 +1003,7 @@ export function ValuationWorkbench() {
       isFixedAssetScheduleEnabled,
       fixedAssetScheduleRows,
       fixedAssetProjectionMode,
+      activeDcfBasis,
       aamAdjustments,
       assumptions,
       caseProfile,
@@ -926,6 +1022,7 @@ export function ValuationWorkbench() {
     setIsFixedAssetScheduleEnabled(state.isFixedAssetScheduleEnabled);
     setFixedAssetScheduleRows(state.fixedAssetScheduleRows);
     setFixedAssetProjectionMode(state.fixedAssetProjectionMode);
+    setActiveDcfBasis(state.activeDcfBasis);
     setAamAdjustments(state.aamAdjustments);
     setAssumptions(state.assumptions);
     setCaseProfile(state.caseProfile);
@@ -1001,6 +1098,7 @@ export function ValuationWorkbench() {
       setIsFixedAssetScheduleEnabled(storedState.isFixedAssetScheduleEnabled || storedState.fixedAssetScheduleRows.length > 0);
       setFixedAssetScheduleRows(storedState.fixedAssetScheduleRows);
       setFixedAssetProjectionMode(storedState.fixedAssetProjectionMode);
+      setActiveDcfBasis(storedState.activeDcfBasis);
       setAamAdjustments(storedState.aamAdjustments);
       setAssumptions(storedState.assumptions);
       setCaseProfile(storedState.caseProfile);
@@ -1031,6 +1129,7 @@ export function ValuationWorkbench() {
       isFixedAssetScheduleEnabled,
       fixedAssetScheduleRows,
       fixedAssetProjectionMode,
+      activeDcfBasis,
       aamAdjustments,
       assumptions,
       caseProfile,
@@ -1042,6 +1141,7 @@ export function ValuationWorkbench() {
     });
   }, [
     aamAdjustments,
+    activeDcfBasis,
     activePeriodId,
     assumptions,
     cashFlowOverrides,
@@ -1607,7 +1707,7 @@ export function ValuationWorkbench() {
   }
 
   function applyIncomeProjectionSmartSuggestions() {
-    const forecast = results.dcf.forecast;
+    const forecast = activeDcf.forecast;
     const now = new Date().toISOString();
     const suggestedReason = "Auto smart suggestion dari baseline forecast, snapshot, dan input interoperabel.";
 
@@ -1748,6 +1848,7 @@ export function ValuationWorkbench() {
       isFixedAssetScheduleEnabled: true,
       fixedAssetScheduleRows: sampleFixedAssetScheduleRows,
       fixedAssetProjectionMode: defaultFixedAssetProjectionMode,
+      activeDcfBasis: defaultActiveDcfBasis,
       aamAdjustments: {},
       assumptions: buildSampleAssumptions(),
       caseProfile: buildSampleCaseProfile(),
@@ -1787,7 +1888,11 @@ export function ValuationWorkbench() {
       caseProfileDerived,
       snapshot,
       aamAdjustmentModel,
-      results,
+      results: activeResults,
+      baseResults: results,
+      activeDcfBasis,
+      activeDcfBasisLabel: activeDcfSelection.label,
+      activeDcfBasisSummary: activeDcfSelection.summary,
       dlomCalculation,
       dlocPfcCalculation,
       taxSimulation,
@@ -1832,6 +1937,7 @@ export function ValuationWorkbench() {
       isFixedAssetScheduleEnabled: false,
       fixedAssetScheduleRows: [],
       fixedAssetProjectionMode: defaultFixedAssetProjectionMode,
+      activeDcfBasis: defaultActiveDcfBasis,
       aamAdjustments: {},
       assumptions: emptyAssumptions,
       caseProfile: emptyCaseProfile,
@@ -2527,8 +2633,8 @@ export function ValuationWorkbench() {
               <Calculator size={20} />
               <span>DCF</span>
             </div>
-            <strong>{formatIdr(results.dcf.equityValue)}</strong>
-            <p>{activePeriod?.label || "Periode aktif"} · Nilai Ekuitas 100%</p>
+            <strong data-testid="dcf-active-equity-value">{formatIdr(activeDcf.equityValue)}</strong>
+            <p>{activePeriod?.label || "Periode aktif"} · {activeDcfSelection.label}</p>
           </article>
           <article className="metric-card">
             <div className="card-title">
@@ -2549,7 +2655,12 @@ export function ValuationWorkbench() {
         </section>
 
         <section className="active-driver-strip" aria-label="Driver aktif penilaian">
-          {assumptionDriverSummaries.map((driver) => (
+          <div>
+            <span>Basis DCF aktif</span>
+            <strong data-testid="dcf-active-basis-label">{activeDcfSelection.shortLabel}</strong>
+            <small>{activeDcfBasis === "base" ? "Default sistem dipertahankan" : "Skenario terpilih user menjadi basis aktif"}</small>
+          </div>
+          {dcfDriverSummaries.map((driver) => (
             <div key={driver.label}>
               <span>{driver.label}</span>
               <strong>{driver.valueLabel}</strong>
@@ -2586,35 +2697,65 @@ export function ValuationWorkbench() {
               <h3>Cakupan skenario pengguna</h3>
             </div>
           </div>
+          <div className="dcf-active-basis-control" data-testid="dcf-active-basis-control">
+            <label className="field">
+              <span>Basis DCF aktif</span>
+              <select
+                value={activeDcfBasis}
+                onChange={(event) =>
+                  commitCoreState((current) => ({
+                    ...current,
+                    activeDcfBasis: sanitizeActiveDcfBasis(event.target.value),
+                  }))
+                }
+              >
+                {activeDcfBasisOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div>
+              <span>Nilai aktif</span>
+              <strong>{formatIdr(activeDcf.equityValue)}</strong>
+              <small>{activeDcfSelection.summary}</small>
+            </div>
+            <div>
+              <span>Selisih vs skenario dasar</span>
+              <strong>{formatIdr(activeDcfVariance)}</strong>
+              <small>{formatPercent(activeDcfRelativeVariance)}</small>
+            </div>
+          </div>
           <div className="sensitivity-grid" data-testid="dcf-sensitivity-grid">
-            <div data-testid="dcf-sensitivity-base">
+            <div className={activeDcfBasis === "base" ? "active-sensitivity" : ""} data-testid="dcf-sensitivity-base">
               <span>DCF - skenario dasar</span>
               <strong data-testid="dcf-base-equity-value">{formatIdr(results.dcf.equityValue)}</strong>
               <small>{dcfSensitivityContext.base}</small>
             </div>
-            <div data-testid="dcf-sensitivity-terminal-downside">
+            <div className={activeDcfBasis === "terminalDownside" ? "active-sensitivity" : ""} data-testid="dcf-sensitivity-terminal-downside">
               <span>DCF - terminal downside</span>
-              <strong>{formatIdr(results.sensitivities.dcfTerminalDownside.equityValue)}</strong>
+              <strong data-testid="dcf-terminal-downside-equity-value">{formatIdr(results.sensitivities.dcfTerminalDownside.equityValue)}</strong>
               <small>{dcfSensitivityContext.terminalDownside}</small>
             </div>
-            <div data-testid="dcf-sensitivity-terminal-upside">
+            <div className={activeDcfBasis === "terminalUpside" ? "active-sensitivity" : ""} data-testid="dcf-sensitivity-terminal-upside">
               <span>DCF - terminal upside</span>
-              <strong>{formatIdr(results.sensitivities.dcfTerminalUpside.equityValue)}</strong>
+              <strong data-testid="dcf-terminal-upside-equity-value">{formatIdr(results.sensitivities.dcfTerminalUpside.equityValue)}</strong>
               <small>{dcfSensitivityContext.terminalUpside}</small>
             </div>
-            <div data-testid="dcf-sensitivity-no-incremental-wc">
+            <div className={activeDcfBasis === "noIncrementalWorkingCapital" ? "active-sensitivity" : ""} data-testid="dcf-sensitivity-no-incremental-wc">
               <span>DCF tanpa WC incremental</span>
-              <strong>{formatIdr(results.sensitivities.dcfNoIncrementalWorkingCapital.equityValue)}</strong>
+              <strong data-testid="dcf-no-incremental-wc-equity-value">{formatIdr(results.sensitivities.dcfNoIncrementalWorkingCapital.equityValue)}</strong>
               <small>{dcfSensitivityContext.noIncrementalWorkingCapital}</small>
             </div>
-            <div data-testid="dcf-sensitivity-tax-payable-debt-like">
+            <div className={activeDcfBasis === "taxPayableDebtLike" ? "active-sensitivity" : ""} data-testid="dcf-sensitivity-tax-payable-debt-like">
               <span>DCF utang pajak debt-like</span>
-              <strong>{formatIdr(results.sensitivities.dcfTaxPayableDebtLike.equityValue)}</strong>
+              <strong data-testid="dcf-tax-payable-debt-like-equity-value">{formatIdr(results.sensitivities.dcfTaxPayableDebtLike.equityValue)}</strong>
               <small>{dcfSensitivityContext.taxPayableDebtLike}</small>
             </div>
-            <div data-testid="dcf-sensitivity-historical-projection">
+            <div className={activeDcfBasis === "historicalDerivedProjection" ? "active-sensitivity" : ""} data-testid="dcf-sensitivity-historical-projection">
               <span>DCF - proyeksi neraca berbasis historis</span>
-              <strong>{formatIdr(results.sensitivities.dcfHistoricalDerivedProjection.equityValue)}</strong>
+              <strong data-testid="dcf-historical-projection-equity-value">{formatIdr(results.sensitivities.dcfHistoricalDerivedProjection.equityValue)}</strong>
               <small>{dcfSensitivityContext.historicalDerivedProjection}</small>
             </div>
           </div>
@@ -2631,7 +2772,7 @@ export function ValuationWorkbench() {
             </div>
             <div className="projection-governance-grid">
               <div>
-                <span>Nilai aktif</span>
+                <span>Nilai baseline governance</span>
                 <strong>{formatIdr(results.projectionGovernance.governedEquityValue)}</strong>
               </div>
               <div>
@@ -2640,9 +2781,9 @@ export function ValuationWorkbench() {
                 <small>{formatPercent(results.projectionGovernance.relativeVariance)}</small>
               </div>
               <div>
-                <span>Fallback</span>
-                <strong>DCF baseline</strong>
-                <small>Dipertahankan sampai approval reviewer</small>
+                <span>Basis aktif user</span>
+                <strong>{activeDcfSelection.shortLabel}</strong>
+                <small>{activeDcfBasis === "base" ? "Mengikuti fallback default" : "Override eksplisit di selector basis DCF"}</small>
               </div>
             </div>
             <div className="projection-governance-checks">
@@ -2678,7 +2819,7 @@ export function ValuationWorkbench() {
               </div>
               <TableProperties size={22} />
             </div>
-            <FormulaList traces={results.dcf.traces} />
+            <FormulaList traces={activeDcf.traces} />
           </article>
           <article className="panel">
             <div className="panel-heading">
@@ -2688,7 +2829,7 @@ export function ValuationWorkbench() {
               </div>
             </div>
             <div className="compact-table">
-              {results.dcf.forecast.map((row) => (
+              {activeDcf.forecast.map((row) => (
                 <div className="forecast-row" key={row.year}>
                   <span>{row.year}</span>
                   <strong>{formatIdr(row.freeCashFlow)}</strong>
@@ -2701,7 +2842,13 @@ export function ValuationWorkbench() {
                 ["Enterprise value", formatIdr(dcfEnterpriseValue)],
                 ["Aset non-operasional", formatIdr(nonOperatingAssets(snapshot))],
                 ["Utang berbunga", formatIdr(interestBearingDebt(snapshot))],
-                ["Formula equity", "EV + aset non-operasional - utang berbunga"],
+                ["Utang pajak debt-like", formatIdr(activeDcfSelection.debtLikeTaxPayable)],
+                [
+                  "Formula equity",
+                  activeDcfSelection.debtLikeTaxPayable > 0
+                    ? "EV + aset non-operasional - utang berbunga - utang pajak debt-like"
+                    : "EV + aset non-operasional - utang berbunga",
+                ],
               ]}
             />
           </article>
@@ -2716,8 +2863,9 @@ export function ValuationWorkbench() {
           readiness.projectedIncome.isReady ? (
             <ProjectionStatementSection
               kind="income"
-              forecast={results.dcf.forecast}
+              forecast={activeDcf.forecast}
               snapshot={snapshot}
+              activeDcfSelection={activeDcfSelection}
               incomeProjectionRelianceGovernance={results.incomeProjectionRelianceGovernance}
               incomeProjectionControls={incomeProjectionControls}
               incomeProjectionScenario={incomeProjectionScenario}
@@ -2736,7 +2884,7 @@ export function ValuationWorkbench() {
 
         {activeWorkflowTab === "projectedBalance" ? (
           readiness.projectedBalance.isReady ? (
-            <ProjectionStatementSection kind="balance" forecast={results.dcf.forecast} snapshot={snapshot} />
+            <ProjectionStatementSection kind="balance" forecast={activeDcf.forecast} snapshot={snapshot} activeDcfSelection={activeDcfSelection} />
           ) : (
             <ReadinessPanel status={readiness.projectedBalance} onNavigate={navigateToWorkflowTab} force />
           )
@@ -2746,8 +2894,9 @@ export function ValuationWorkbench() {
           readiness.projectedFixedAssets.isReady ? (
             <ProjectionStatementSection
               kind="fixedAssets"
-              forecast={results.dcf.forecast}
+              forecast={activeDcf.forecast}
               snapshot={snapshot}
+              activeDcfSelection={activeDcfSelection}
               fixedAssetProjection={fixedAssetProjection}
               fixedAssetProjectionMode={fixedAssetProjectionMode}
               onFixedAssetProjectionModeChange={(mode) =>
@@ -2764,7 +2913,7 @@ export function ValuationWorkbench() {
 
         {activeWorkflowTab === "projectedCashFlow" ? (
           readiness.projectedCashFlow.isReady ? (
-            <ProjectionStatementSection kind="cashFlow" forecast={results.dcf.forecast} snapshot={snapshot} />
+            <ProjectionStatementSection kind="cashFlow" forecast={activeDcf.forecast} snapshot={snapshot} activeDcfSelection={activeDcfSelection} />
           ) : (
             <ReadinessPanel status={readiness.projectedCashFlow} onNavigate={navigateToWorkflowTab} force />
           )
@@ -5124,6 +5273,7 @@ function ProjectionStatementSection({
   kind,
   forecast,
   snapshot,
+  activeDcfSelection,
   fixedAssetProjection,
   fixedAssetProjectionMode = defaultFixedAssetProjectionMode,
   onFixedAssetProjectionModeChange,
@@ -5141,6 +5291,7 @@ function ProjectionStatementSection({
   kind: ProjectionStatementKind;
   forecast: DcfForecastRow[];
   snapshot: FinancialStatementSnapshot;
+  activeDcfSelection: ActiveDcfSelection;
   fixedAssetProjection?: FixedAssetProjectionSummary;
   fixedAssetProjectionMode?: FixedAssetProjectionMode;
   onFixedAssetProjectionModeChange?: (mode: FixedAssetProjectionMode) => void;
@@ -5200,6 +5351,23 @@ function ProjectionStatementSection({
 
       {kind === "fixedAssets" ? (
         <>
+          <section className="active-driver-strip" aria-label={`Basis aktif ${config.title}`}>
+            <div>
+              <span>Basis DCF aktif</span>
+              <strong>{activeDcfSelection.shortLabel}</strong>
+              <small>{activeDcfSelection.projectionEngineLabel}</small>
+            </div>
+            <div>
+              <span>Terminal growth aktif</span>
+              <strong>{formatTerminalGrowthPercent(activeDcfSelection.terminalGrowth)}</strong>
+              <small>Dipakai di nilai terminal DCF</small>
+            </div>
+            <div>
+              <span>Working capital</span>
+              <strong>{activeDcfSelection.includeWorkingCapitalChange ? "Incremental" : "Diabaikan"}</strong>
+              <small>Perlakuan perubahan modal kerja pada FCFF</small>
+            </div>
+          </section>
           <FixedAssetProjectionModeSelector
             mode={fixedAssetProjectionMode}
             onChange={onFixedAssetProjectionModeChange}
@@ -5209,6 +5377,11 @@ function ProjectionStatementSection({
         </>
       ) : (
         <section className="active-driver-strip" aria-label={`Driver aktif ${config.title}`}>
+          <div>
+            <span>Basis DCF aktif</span>
+            <strong>{activeDcfSelection.shortLabel}</strong>
+            <small>{activeDcfSelection.projectionEngineLabel}</small>
+          </div>
           <div>
             <span>Revenue growth</span>
             <strong>{formatPercent(snapshot.revenueGrowth)}</strong>
@@ -5225,9 +5398,14 @@ function ProjectionStatementSection({
             <small>Discount factor dan nilai terminal</small>
           </div>
           <div>
-            <span>Terminal growth</span>
-            <strong>{formatTerminalGrowthPercent(snapshot.terminalGrowth)}</strong>
+            <span>Terminal growth aktif</span>
+            <strong>{formatTerminalGrowthPercent(activeDcfSelection.terminalGrowth)}</strong>
             <small>Dipakai di nilai terminal DCF</small>
+          </div>
+          <div>
+            <span>Working capital</span>
+            <strong>{activeDcfSelection.includeWorkingCapitalChange ? "Incremental" : "Diabaikan"}</strong>
+            <small>Perlakuan perubahan modal kerja pada FCFF</small>
           </div>
         </section>
       )}
@@ -5820,6 +5998,62 @@ function buildIncomeProjectionScenario({
     activeBasis,
     summary,
   };
+}
+
+function buildActiveDcfSelection(
+  results: CalculationResults,
+  basis: ActiveDcfBasis,
+  snapshot: FinancialStatementSnapshot,
+): ActiveDcfSelection {
+  const option = activeDcfBasisLabels[basis] ?? activeDcfBasisLabels[defaultActiveDcfBasis];
+  const dcf = resolveActiveDcf(results, basis);
+  const terminalGrowth =
+    basis === "terminalDownside"
+      ? snapshot.terminalGrowthDownside ?? snapshot.terminalGrowth
+      : basis === "terminalUpside"
+        ? snapshot.terminalGrowthUpside ?? snapshot.terminalGrowth
+        : snapshot.terminalGrowth;
+  const includeWorkingCapitalChange = basis !== "noIncrementalWorkingCapital";
+  const projectionEngineLabel =
+    basis === "historicalDerivedProjection"
+      ? "Projection engine historis-terturunkan"
+      : "Projection engine balance-reconciled";
+
+  return {
+    basis,
+    label: option.label,
+    shortLabel: option.shortLabel,
+    summary: option.summary,
+    dcf,
+    terminalGrowth,
+    includeWorkingCapitalChange,
+    debtLikeTaxPayable: basis === "taxPayableDebtLike" ? snapshot.taxPayable : 0,
+    projectionEngineLabel,
+  };
+}
+
+function resolveActiveDcf(results: CalculationResults, basis: ActiveDcfBasis): DcfOutput {
+  if (basis === "terminalDownside") {
+    return results.sensitivities.dcfTerminalDownside;
+  }
+
+  if (basis === "terminalUpside") {
+    return results.sensitivities.dcfTerminalUpside;
+  }
+
+  if (basis === "noIncrementalWorkingCapital") {
+    return results.sensitivities.dcfNoIncrementalWorkingCapital;
+  }
+
+  if (basis === "taxPayableDebtLike") {
+    return results.sensitivities.dcfTaxPayableDebtLike;
+  }
+
+  if (basis === "historicalDerivedProjection") {
+    return results.sensitivities.dcfHistoricalDerivedProjection;
+  }
+
+  return results.dcf;
 }
 
 function buildIncomeProjectionControlDcfOptions(controls: IncomeProjectionControlState): Pick<
@@ -6709,6 +6943,7 @@ function readPersistedWorkbenchState(): PersistedWorkbenchState | null {
     const incomeProjectionControls = sanitizeIncomeProjectionControls(parsed.incomeProjectionControls);
     const activePeriodId = typeof parsed.activePeriodId === "string" ? parsed.activePeriodId : "";
     const fixedAssetProjectionMode = sanitizeFixedAssetProjectionMode(parsed.fixedAssetProjectionMode);
+    const activeDcfBasis = sanitizeActiveDcfBasis(parsed.activeDcfBasis);
     const isFixedAssetScheduleEnabled =
       typeof parsed.isFixedAssetScheduleEnabled === "boolean" ? parsed.isFixedAssetScheduleEnabled : fixedAssetScheduleRows.length > 0;
 
@@ -6721,6 +6956,7 @@ function readPersistedWorkbenchState(): PersistedWorkbenchState | null {
       isFixedAssetScheduleEnabled,
       fixedAssetScheduleRows,
       fixedAssetProjectionMode,
+      activeDcfBasis,
       aamAdjustments,
       assumptions,
       caseProfile,
@@ -6867,6 +7103,12 @@ function cloneCoreState(state: WorkbenchCoreState): WorkbenchCoreState {
 
 function sanitizeFixedAssetProjectionMode(value: unknown): FixedAssetProjectionMode {
   return value === "dcf-proxy" || value === "workbook-formula" ? value : defaultFixedAssetProjectionMode;
+}
+
+function sanitizeActiveDcfBasis(value: unknown): ActiveDcfBasis {
+  return typeof value === "string" && value in activeDcfBasisLabels
+    ? (value as ActiveDcfBasis)
+    : defaultActiveDcfBasis;
 }
 
 function sanitizeFixedAssetScheduleRows(value: unknown): FixedAssetScheduleRow[] {

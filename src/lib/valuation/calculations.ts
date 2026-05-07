@@ -642,7 +642,9 @@ export function calculateDcf(
       label: "PV nilai terminal",
       formula: "[FCFF final x (1 + g) / (WACC - g)] / (1 + WACC)^5",
       value: terminalPv,
-      note: "Terminal growth berasal dari input skenario dasar pengguna dan wajib lebih rendah dari WACC.",
+      note: options.terminalGrowth === undefined
+        ? "Terminal growth berasal dari input skenario dasar pengguna dan wajib lebih rendah dari WACC."
+        : "Terminal growth berasal dari skenario DCF aktif dan wajib lebih rendah dari WACC.",
     },
     {
       label: "Aset non-operasional",
@@ -652,9 +654,13 @@ export function calculateDcf(
     },
     {
       label: "Nilai Ekuitas 100% - DCF",
-      formula: "Enterprise value + aset non-operasional - utang berbunga",
+      formula: options.debtLikeTaxPayable
+        ? "Enterprise value + aset non-operasional - utang berbunga - utang pajak debt-like"
+        : "Enterprise value + aset non-operasional - utang berbunga",
       value: equityValue,
-      note: "DLOM/DLOC tidak diterapkan.",
+      note: options.debtLikeTaxPayable
+        ? "DLOM/DLOC tidak diterapkan; utang pajak diperlakukan sebagai kewajiban debt-like dalam skenario aktif."
+        : "DLOM/DLOC tidak diterapkan.",
     },
   ];
 

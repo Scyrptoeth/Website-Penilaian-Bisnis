@@ -317,13 +317,31 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByTestId("dcf-balance-projection-table")).not.toContainText(/belum dimodelkan/i);
 
   await openWorkflowTab(page, "Penilaian DCF");
-  await expect(page.getByText("DCF - proyeksi neraca berbasis historis")).toBeVisible();
+  await expect(page.getByTestId("dcf-sensitivity-historical-projection")).toContainText("DCF - proyeksi neraca berbasis historis");
   await expect(page.getByTestId("dcf-sensitivity-base")).toContainText("Skenario utama memakai WACC");
   await expect(page.getByTestId("dcf-sensitivity-terminal-downside")).toContainText("terminal growth ke downside");
   await expect(page.getByTestId("dcf-sensitivity-terminal-upside")).toContainText("terminal growth ke upside");
   await expect(page.getByTestId("dcf-sensitivity-no-incremental-wc")).toContainText("perubahan modal kerja incremental");
   await expect(page.getByTestId("dcf-sensitivity-tax-payable-debt-like")).toContainText("utang pajak sebagai kewajiban debt-like");
   await expect(page.getByTestId("dcf-sensitivity-historical-projection")).toContainText("di-roll-forward dari data historis user");
+  const baseDcfValue = await page.getByTestId("dcf-base-equity-value").textContent();
+  const noIncrementalWcValue = await page.getByTestId("dcf-no-incremental-wc-equity-value").textContent();
+  await expect(page.getByTestId("dcf-active-equity-value")).toHaveText(baseDcfValue ?? "");
+  await page.getByLabel("Basis DCF aktif").selectOption("noIncrementalWorkingCapital");
+  await expect(page.getByTestId("dcf-active-basis-label")).toContainText("Tanpa WC incremental");
+  await expect(page.getByTestId("dcf-active-equity-value")).toHaveText(noIncrementalWcValue ?? "");
+  await expect(page.getByTestId("dcf-sensitivity-no-incremental-wc")).toHaveClass(/active-sensitivity/);
+  await openWorkflowTab(page, "Proyeksi Cash Flow Statement");
+  const projectionDriverStrip = page.locator(".active-driver-strip").filter({ hasText: "Basis DCF aktif" }).first();
+  await expect(projectionDriverStrip).toContainText("Tanpa WC incremental");
+  await expect(projectionDriverStrip).toContainText("Working capital");
+  await expect(projectionDriverStrip).toContainText("Diabaikan");
+  await openWorkflowTab(page, "Simulasi Potensi Pajak");
+  await page.locator(".tax-control-grid").getByLabel("Primary Method").selectOption("DCF");
+  await expect(page.getByTestId("tax-simulation-table")).toContainText(noIncrementalWcValue ?? "");
+  await openWorkflowTab(page, "Penilaian DCF");
+  await page.getByLabel("Basis DCF aktif").selectOption("base");
+  await expect(page.getByTestId("dcf-active-equity-value")).toHaveText(baseDcfValue ?? "");
   await expect(page.getByTestId("dcf-projection-governance")).toContainText("Governance proyeksi DCF");
   await expect(page.getByTestId("dcf-projection-governance")).toContainText("Fallback");
   const historicalRollForwardDcfValue = await page.getByTestId("dcf-base-equity-value").textContent();
@@ -604,7 +622,7 @@ test("legacy workbook-like DLOM drafts migrate to workbook UPDATE basis without 
   await expect(page.getByTestId("dlom-basis-grid")).not.toContainText("Workbook UPDATE DLOM!C31");
   await expect(page.getByTestId("dlom-basis-grid")).not.toContainText("Formula");
   await expect(page.getByTestId("dlom-summary")).toContainText("25%");
-  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(15);
+  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(16);
 });
 
 test("exports the active workbench state through the primary template-clone XLSX workflow", async ({ page }) => {
@@ -914,7 +932,7 @@ test("legacy positive income-statement expense drafts migrate once and remain us
   await amountInput.press("Home");
   await amountInput.press("Delete");
   await expect(amountInput).toHaveValue("100");
-  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(15);
+  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(16);
 
   await page.reload();
   await openWorkflowTab(page, "Laba Rugi");

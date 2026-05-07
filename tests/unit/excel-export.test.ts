@@ -54,6 +54,48 @@ describe("valuation Excel export", () => {
     assert.equal(workbook.Sheets["10_Tax_Simulation"]["Q2"].f, "P2*R2");
   });
 
+  it("exports the selected active DCF basis into DCF and tax outputs", () => {
+    const input = buildSampleExportInput();
+    const activeResults = {
+      ...input.results,
+      dcf: input.results.sensitivities.dcfNoIncrementalWorkingCapital,
+    };
+    const activeTaxSimulationResult = calculateTaxSimulation({
+      methods: [activeResults.aam, activeResults.eem, activeResults.dcf],
+      dlom: input.dlomCalculation,
+      dlocPfc: input.dlocPfcCalculation,
+      state: input.taxSimulation,
+      caseProfile: input.caseProfile,
+      caseProfileDerived: input.caseProfileDerived,
+      snapshot: input.snapshot,
+    });
+    const activeInput: ValuationExcelExportInput = {
+      ...input,
+      results: activeResults,
+      baseResults: input.results,
+      activeDcfBasis: "noIncrementalWorkingCapital",
+      activeDcfBasisLabel: "DCF tanpa WC incremental",
+      activeDcfBasisSummary: "Menghilangkan perubahan modal kerja incremental untuk membaca dampak kebutuhan atau release working capital.",
+      taxSimulationResult: activeTaxSimulationResult,
+    };
+    const { workbook } = buildValuationWorkbook(activeInput);
+
+    assert.equal(findValueByLabel(workbook.Sheets["08_DCF"], "Active DCF basis", 1), "DCF tanpa WC incremental");
+    assert.equal(findValueByLabel(workbook.Sheets["08_DCF"], "DCF equity value", 2), activeResults.dcf.equityValue);
+    assert.equal(findForecastFormula(workbook.Sheets["08_DCF"], 2022, 12), "0");
+    assert.equal(activeTaxSimulationResult.baselineRows.find((row) => row.method === "DCF")?.baseEquityValue, activeResults.dcf.equityValue);
+
+    const templateData = readFileSync("public/templates/kkp-saham-final-account-category-review-update.xlsx");
+    const templateBuild = buildValuationTemplateWorkbook(activeInput, templateData);
+
+    assert.equal(templateBuild.workbook.Sheets.DCF.C33.v, activeResults.dcf.equityValue);
+    assert.equal(templateBuild.workbook.Sheets.DCF.C33.f, String(activeResults.dcf.equityValue));
+    assert.equal(templateBuild.workbook.Sheets.STAT_DCF.B39.v, activeResults.dcf.equityValue);
+    assert.equal(templateBuild.workbook.Sheets.STAT_DCF.B39.f, String(activeResults.dcf.equityValue));
+    assert.equal(templateBuild.workbook.Sheets["SIMULASI POTENSI PAJAK"].E1.v, activeTaxSimulationResult.primaryRow?.baseEquityValue);
+    assertAuditContains(templateBuild.workbook.Sheets.PVB_EXPORT_V2_AUDIT, "DCF", "C33", "formula-corrected", "web-derived", "default");
+  });
+
   it("builds the primary template-clone XLSX workbook while preserving formulas and recording mapping status", () => {
     const templateData = readFileSync("public/templates/kkp-saham-final-account-category-review-update.xlsx");
     const input = buildSampleExportInput();
@@ -286,6 +328,10 @@ function buildSampleExportInput(): ValuationExcelExportInput {
       snapshot,
       aamAdjustmentModel,
       results,
+      baseResults: results,
+      activeDcfBasis: "base",
+      activeDcfBasisLabel: "DCF - skenario dasar",
+      activeDcfBasisSummary: "Skenario utama memakai WACC, terminal growth, modal kerja incremental, dan struktur utang aktif.",
       dlomCalculation,
       dlocPfcCalculation,
       taxSimulation,
@@ -314,6 +360,37 @@ function findFormulaByLabel(sheet: WorkSheet, label: string): string {
   }
 
   assert.fail(`Formula row not found for ${label}`);
+}
+
+function findValueByLabel(sheet: WorkSheet, label: string, columnIndex: number): unknown {
+  const rangeText = sheet["!ref"];
+  assert.ok(rangeText);
+  const range = decodeRange(rangeText);
+
+  for (let row = range.s.r; row <= range.e.r; row += 1) {
+    if (sheet[encodeCell(row, 0)]?.v === label) {
+      return sheet[encodeCell(row, columnIndex)]?.v;
+    }
+  }
+
+  assert.fail(`Value row not found for ${label}`);
+}
+
+function findForecastFormula(sheet: WorkSheet, year: number, columnIndex: number): string {
+  const rangeText = sheet["!ref"];
+  assert.ok(rangeText);
+  const range = decodeRange(rangeText);
+
+  for (let row = range.s.r; row <= range.e.r; row += 1) {
+    if (sheet[encodeCell(row, 0)]?.v === year) {
+      const cell = sheet[encodeCell(row, columnIndex)];
+      assert.equal(typeof cell?.f, "string");
+
+      return cell.f;
+    }
+  }
+
+  assert.fail(`Forecast row not found for ${year}`);
 }
 
 function assertAuditContains(sheet: WorkSheet, sheetName: string, cellAddress: string, status: string, sourceOrigin?: string, fontMark?: string) {

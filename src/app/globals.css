@@ -2655,6 +2655,11 @@ select {
   background: var(--surface);
 }
 
+.sensitivity-grid .active-sensitivity {
+  box-shadow: inset 3px 0 0 var(--accent);
+  background: #f8fbfa;
+}
+
 .sensitivity-grid span,
 .sensitivity-grid strong {
   min-width: 0;
@@ -2677,6 +2682,40 @@ select {
   color: var(--ink-soft);
   font-size: 9.4px;
   line-height: 1.38;
+}
+
+.dcf-active-basis-control {
+  display: grid;
+  grid-template-columns: 1.35fr repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.dcf-active-basis-control > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-raised);
+}
+
+.dcf-active-basis-control span {
+  color: var(--ink-soft);
+  font-size: 9.2px;
+  font-weight: 700;
+}
+
+.dcf-active-basis-control strong {
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono), monospace;
+  font-size: 10.4px;
+}
+
+.dcf-active-basis-control small {
+  color: var(--muted);
+  line-height: 1.35;
 }
 
 .projection-governance-panel {
@@ -3866,6 +3905,7 @@ td span {
   .bank-loan-rate-strip,
   .assumption-reference-list,
   .terminal-growth-suggestion-grid,
+  .dcf-active-basis-control,
   .sensitivity-grid,
   .projection-governance-grid,
   .projection-governance-checks,
