@@ -2,7 +2,7 @@
 
 import { FormEvent, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, BadgeCheck, ShieldCheck } from "lucide-react";
+import { ArrowRight, BadgeCheck, KeyRound, LockKeyhole, MessageCircle, RefreshCw, ShieldCheck } from "lucide-react";
 import { PasswordVisibilityInput } from "./password-visibility-input";
 
 type LoginStatus = {
@@ -48,30 +48,40 @@ export function AuthLoginPanel() {
           <div className="auth-login-brand">
             <span className="brand-mark">B-2</span>
             <div>
-              <p className="eyebrow">Akses Terbatas Penilai Pajak</p>
-              <h1 id="auth-login-title">Penilaian Bisnis II</h1>
+              <p className="eyebrow">Akses Terbatas</p>
+              <strong>Penilai Pajak</strong>
             </div>
           </div>
-          <p className="auth-login-lede">
-            Masuk menggunakan NIP Pendek dan Password Pengguna yang sudah terdaftar untuk membuka aplikasi.
-          </p>
+          <h1 id="auth-login-title">Penilaian Bisnis II</h1>
           <div className="auth-info-list" aria-label="Informasi login">
             <div>
               <BadgeCheck size={16} />
-              <p>ID Pengguna memakai NIP Pendek Pegawai. Password awal memakai 8 digit angka dari NIP Panjang Pegawai.</p>
+              <p>Tidak perlu membuat Akun Baru untuk login, sebab Akun telah disediakan dan bisa langsung login.</p>
+            </div>
+            <div>
+              <KeyRound size={16} />
+              <p>Gunakan 8 digit angka dari NIP Panjang sebagai Password ketika pertama kali login.</p>
+            </div>
+            <div>
+              <RefreshCw size={16} />
+              <p>Bapak/Ibu dapat mengganti Password setelah berhasil login.</p>
             </div>
             <div>
               <ShieldCheck size={16} />
-              <p>
-                Login hanya memverifikasi akses Penilai Pajak. Data penilaian tetap aman dan privat karena proses kerja
-                tersimpan lokal di perangkat Bapak/Ibu.
-              </p>
+              <p>Proses login hanya bertujuan untuk memverifikasi bahwa Bapak/Ibu adalah Penilai Pajak aktif.</p>
             </div>
             <div>
-              <ShieldCheck size={16} />
+              <LockKeyhole size={16} />
+              <p>Data Penilaian tetap 100% aman dan privat karena seluruh proses tersimpan secara lokal di perangkat Bapak/Ibu.</p>
+            </div>
+            <div>
+              <MessageCircle size={16} />
               <p>
-                Password dapat diganti setelah berhasil login. Jika lupa password, hubungi 0822-9411-6001
-                (Goradok Pande Raja Sinabutar).
+                Klik nomor WA berikut{" "}
+                <a href="https://wa.me/6282294116001" target="_blank" rel="noreferrer">
+                  0822-9411-6001
+                </a>{" "}
+                (Goradok Pande Raja Sinabutar) apabila lupa password.
               </p>
             </div>
           </div>
