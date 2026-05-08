@@ -11,9 +11,11 @@
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "node --test --import tsx tests/unit/*.test.ts",
     "test:e2e": "playwright test",
-    "test:e2e:prod": "PVB_BASE_URL=https://penilaian-bisnis-2.vercel.app playwright test"
+    "test:e2e:prod": "PVB_BASE_URL=https://penilaian-bisnis-2.vercel.app playwright test",
+    "auth:seed": "tsx scripts/seed-auth-users.ts"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
     "lucide-react": "1.14.0",
     "next": "16.2.4",
     "react": "19.2.5",
@@ -26,6 +28,7 @@
     "@types/react-dom": "^19.0.0",
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.4",
+    "read-excel-file": "^9.0.9",
     "tsx": "^4.21.0",
     "typescript": "^5.9.0"
   }

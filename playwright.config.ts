@@ -21,7 +21,7 @@ export default defineConfig({
   webServer: useExternalServer
     ? undefined
     : {
-        command: "npm run dev -- --hostname 127.0.0.1 --port 3100",
+        command: "PVB_AUTH_BYPASS=1 npm run dev -- --hostname 127.0.0.1 --port 3100",
         url: baseURL,
         reuseExistingServer: !process.env.CI,
         timeout: 120_000,

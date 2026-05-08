@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { ValuationPdfReport } from "@/components/valuation-pdf-report";
+import { getCurrentAuthSession } from "@/lib/auth/session";
 
 type ExportPdfPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -7,6 +9,8 @@ type ExportPdfPageProps = {
 
 const defaultTitle = "Export PDF | Penilaian Bisnis II";
 const description = "Laporan PDF penilaian valuasi bisnis dari state website aktif.";
+
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ searchParams }: ExportPdfPageProps): Promise<Metadata> {
   const params = await searchParams;
@@ -18,7 +22,13 @@ export async function generateMetadata({ searchParams }: ExportPdfPageProps): Pr
   };
 }
 
-export default function ExportPdfPage() {
+export default async function ExportPdfPage() {
+  const session = await getCurrentAuthSession();
+
+  if (!session) {
+    redirect("/");
+  }
+
   return <ValuationPdfReport />;
 }
 

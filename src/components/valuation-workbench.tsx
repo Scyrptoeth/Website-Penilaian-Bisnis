@@ -23,6 +23,7 @@ import {
   Trash2,
   Undo2,
 } from "lucide-react";
+import { AuthSidebarActions } from "@/components/auth-sidebar-actions";
 import { accountMappingRules } from "@/lib/valuation/account-taxonomy";
 import {
   applyBalanceSheetClassificationToDisplayLabels,
@@ -829,7 +830,11 @@ type ConfirmationDialogState = {
   onConfirm: () => void;
 };
 
-export function ValuationWorkbench() {
+type ValuationWorkbenchProps = {
+  authUserId?: string;
+};
+
+export function ValuationWorkbench({ authUserId }: ValuationWorkbenchProps) {
   const [periods, setPeriods] = useState<Period[]>(initialPeriods);
   const [activePeriodId, setActivePeriodId] = useState(initialPeriods[0].id);
   const [rows, setRows] = useState<AccountRow[]>([]);
@@ -2585,6 +2590,7 @@ export function ValuationWorkbench() {
                       <WorkflowMethodBadges methods={item.methods} />
                     </button>
                   ))}
+                  {group.label === "Review" && authUserId ? <AuthSidebarActions userId={authUserId} /> : null}
                 </div>
               </div>
             ))}
@@ -2702,6 +2708,11 @@ export function ValuationWorkbench() {
                 <WorkflowMethodBadges methods={activeWorkflowTabItem.methods} />
               </div>
             </div>
+            {authUserId ? (
+              <div className="mobile-auth-actions" aria-label="Aksi akun">
+                <AuthSidebarActions userId={authUserId} />
+              </div>
+            ) : null}
             <div className="toolbar">
               <button className="icon-button" type="button" onClick={undoCoreChange} disabled={undoStack.length === 0} title="Undo perubahan data">
                 <Undo2 size={18} />
