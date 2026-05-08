@@ -832,9 +832,10 @@ type ConfirmationDialogState = {
 
 type ValuationWorkbenchProps = {
   authUserId?: string;
+  isSuperAdmin?: boolean;
 };
 
-export function ValuationWorkbench({ authUserId }: ValuationWorkbenchProps) {
+export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: ValuationWorkbenchProps) {
   const [periods, setPeriods] = useState<Period[]>(initialPeriods);
   const [activePeriodId, setActivePeriodId] = useState(initialPeriods[0].id);
   const [rows, setRows] = useState<AccountRow[]>([]);
@@ -2590,7 +2591,7 @@ export function ValuationWorkbench({ authUserId }: ValuationWorkbenchProps) {
                       <WorkflowMethodBadges methods={item.methods} />
                     </button>
                   ))}
-                  {group.label === "Review" && authUserId ? <AuthSidebarActions userId={authUserId} /> : null}
+                  {group.label === "Review" && authUserId ? <AuthSidebarActions userId={authUserId} isSuperAdmin={isSuperAdmin} /> : null}
                 </div>
               </div>
             ))}
@@ -2710,7 +2711,7 @@ export function ValuationWorkbench({ authUserId }: ValuationWorkbenchProps) {
             </div>
             {authUserId ? (
               <div className="mobile-auth-actions" aria-label="Aksi akun">
-                <AuthSidebarActions userId={authUserId} />
+                <AuthSidebarActions userId={authUserId} isSuperAdmin={isSuperAdmin} />
               </div>
             ) : null}
             <div className="toolbar">

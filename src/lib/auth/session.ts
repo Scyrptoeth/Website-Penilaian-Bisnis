@@ -2,18 +2,21 @@ import { createHash, randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import { type NextResponse } from "next/server";
 import { ensureAuthSchema, getAuthSql, isAuthDatabaseConfigured } from "./database";
+import { type AuthRole, normalizeAuthRole } from "./roles";
 
 export const AUTH_SESSION_COOKIE_NAME = "pvb_session";
 export const AUTH_SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
 
 export type AuthSession = {
   userId: string;
+  role: AuthRole;
   tokenHash: string;
   expiresAt: Date;
 };
 
 type AuthSessionRow = {
   user_id: string;
+  role: string | null;
   expires_at: Date | string;
 };
 
@@ -21,6 +24,7 @@ export async function getCurrentAuthSession(): Promise<AuthSession | null> {
   if (isLocalAuthBypassEnabled()) {
     return {
       userId: "E2E-LOCAL",
+      role: "user",
       tokenHash: "local-auth-bypass",
       expiresAt: new Date(Date.now() + AUTH_SESSION_MAX_AGE_SECONDS * 1000),
     };
@@ -51,7 +55,7 @@ export async function getAuthSessionByToken(token: string): Promise<AuthSession 
 
   const sql = getAuthSql();
   const rows = (await sql`
-    SELECT sessions.user_id, sessions.expires_at
+    SELECT sessions.user_id, users.role, sessions.expires_at
     FROM pvb_auth_sessions sessions
     INNER JOIN pvb_auth_users users ON users.user_id = sessions.user_id
     WHERE sessions.token_hash = ${tokenHash}
@@ -68,9 +72,21 @@ export async function getAuthSessionByToken(token: string): Promise<AuthSession 
 
   return {
     userId: session.user_id,
+    role: normalizeAuthRole(session.role),
     tokenHash,
     expiresAt: new Date(session.expires_at),
   };
+}
+
+export async function deleteUserSessions(userId: string): Promise<void> {
+  await ensureAuthSchema();
+
+  const sql = getAuthSql();
+
+  await sql`
+    DELETE FROM pvb_auth_sessions
+    WHERE user_id = ${userId}
+  `;
 }
 
 export async function createAuthSession(userId: string): Promise<{ token: string; expiresAt: Date }> {

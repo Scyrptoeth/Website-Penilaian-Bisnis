@@ -2,6 +2,7 @@ import { loadEnvConfig } from "@next/env";
 import { readSheet } from "read-excel-file/node";
 import { ensureAuthSchema, getAuthSql } from "../src/lib/auth/database";
 import { hashPassword } from "../src/lib/auth/password";
+import { SUPER_ADMIN_USER_ID } from "../src/lib/auth/roles";
 
 type SeedUser = {
   userId: string;
@@ -29,20 +30,27 @@ async function main() {
 
   for (const [index, user] of users.entries()) {
     const passwordHash = await hashPassword(user.password);
+    const role = user.userId === SUPER_ADMIN_USER_ID ? "super_admin" : "user";
     seededUserIds.add(user.userId);
 
     await sql`
-      INSERT INTO pvb_auth_users (user_id, password_hash, is_active, password_seeded_at, password_updated_at)
-      VALUES (${user.userId}, ${passwordHash}, TRUE, NOW(), NOW())
+      INSERT INTO pvb_auth_users (user_id, password_hash, default_password_hash, role, is_active, password_seeded_at, password_updated_at)
+      VALUES (${user.userId}, ${passwordHash}, ${passwordHash}, ${role}, TRUE, NOW(), NOW())
       ON CONFLICT (user_id) DO UPDATE
       SET password_hash = CASE
             WHEN pvb_auth_users.password_changed_at IS NULL THEN EXCLUDED.password_hash
             ELSE pvb_auth_users.password_hash
           END,
+          default_password_hash = EXCLUDED.default_password_hash,
+          role = CASE
+            WHEN EXCLUDED.user_id = ${SUPER_ADMIN_USER_ID} THEN 'super_admin'
+            ELSE pvb_auth_users.role
+          END,
           is_active = TRUE,
           password_seeded_at = NOW(),
           password_updated_at = CASE
-            WHEN pvb_auth_users.password_changed_at IS NULL THEN NOW()
+            WHEN pvb_auth_users.password_changed_at IS NULL
+              OR pvb_auth_users.default_password_hash IS DISTINCT FROM EXCLUDED.default_password_hash THEN NOW()
             ELSE pvb_auth_users.password_updated_at
           END
     `;

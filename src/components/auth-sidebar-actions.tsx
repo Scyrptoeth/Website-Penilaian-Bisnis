@@ -5,9 +5,11 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { KeyRound, LogOut, X } from "lucide-react";
 import { PasswordVisibilityInput } from "./password-visibility-input";
+import { SuperAdminUserManagement } from "./super-admin-user-management";
 
 type AuthSidebarActionsProps = {
   userId: string;
+  isSuperAdmin?: boolean;
 };
 
 type ActionStatus = {
@@ -15,7 +17,7 @@ type ActionStatus = {
   message: string;
 } | null;
 
-export function AuthSidebarActions({ userId }: AuthSidebarActionsProps) {
+export function AuthSidebarActions({ userId, isSuperAdmin = false }: AuthSidebarActionsProps) {
   const router = useRouter();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -86,6 +88,7 @@ export function AuthSidebarActions({ userId }: AuthSidebarActionsProps) {
         <KeyRound size={14} />
         <span>Ganti Password</span>
       </button>
+      {isSuperAdmin ? <SuperAdminUserManagement currentUserId={userId} /> : null}
       <button className="auth-nav-action danger" type="button" onClick={handleLogout} disabled={isPending} aria-label="Keluar">
         <LogOut size={14} />
         <span>{isPending ? "Keluar..." : "Keluar"}</span>

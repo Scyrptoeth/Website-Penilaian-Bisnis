@@ -1,4 +1,5 @@
 import { neon } from "@neondatabase/serverless";
+import { SUPER_ADMIN_USER_ID } from "./roles";
 
 let sqlClient: ReturnType<typeof neon> | null = null;
 let schemaPromise: Promise<void> | null = null;
@@ -40,10 +41,36 @@ async function createAuthSchema(): Promise<void> {
       user_id TEXT PRIMARY KEY,
       password_hash TEXT NOT NULL,
       is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      role TEXT NOT NULL DEFAULT 'user',
+      default_password_hash TEXT,
       password_seeded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       password_changed_at TIMESTAMPTZ,
       password_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
+  `;
+
+  await sql`
+    ALTER TABLE pvb_auth_users
+    ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'user'
+  `;
+
+  await sql`
+    ALTER TABLE pvb_auth_users
+    ADD COLUMN IF NOT EXISTS default_password_hash TEXT
+  `;
+
+  await sql`
+    UPDATE pvb_auth_users
+    SET role = 'super_admin'
+    WHERE user_id = ${SUPER_ADMIN_USER_ID}
+      AND role <> 'super_admin'
+  `;
+
+  await sql`
+    UPDATE pvb_auth_users
+    SET default_password_hash = password_hash
+    WHERE default_password_hash IS NULL
+      AND password_changed_at IS NULL
   `;
 
   await sql`
