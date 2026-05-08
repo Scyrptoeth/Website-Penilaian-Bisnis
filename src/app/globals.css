@@ -440,11 +440,15 @@ svg {
 }
 
 .auth-login-copy h1 {
-  max-width: 9.5ch;
+  max-width: 14ch;
   color: #ffffff;
-  font-size: clamp(64px, 8.3vw, 126px);
+  font-size: clamp(48px, 4.5vw, 88px);
   font-weight: 800;
   line-height: 0.96;
+}
+
+.auth-login-copy h1 span {
+  display: block;
 }
 
 .auth-login-lede {
@@ -457,10 +461,10 @@ svg {
 }
 
 .auth-info-list {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
   gap: 10px;
-  max-width: 760px;
+  width: min(100%, 1360px);
+  max-width: 100%;
 }
 
 .auth-info-list div {
@@ -468,8 +472,8 @@ svg {
   grid-template-columns: auto minmax(0, 1fr);
   gap: 9px;
   align-items: center;
-  width: fit-content;
-  max-width: min(100%, 520px);
+  width: 100%;
+  max-width: none;
   min-height: 44px;
   padding: 8px 13px;
   border: 1px solid rgba(255, 255, 255, 0.14);
@@ -4827,8 +4831,8 @@ td span {
   }
 
   .auth-login-copy h1 {
-    max-width: 12ch;
-    font-size: clamp(44px, 11vw, 80px);
+    max-width: 14ch;
+    font-size: clamp(42px, 8vw, 68px);
   }
 
   .auth-login-form {
@@ -4915,7 +4919,7 @@ td span {
   }
 
   .auth-login-copy h1 {
-    font-size: 40px;
+    font-size: clamp(29px, 8.7vw, 36px);
   }
 
   .auth-login-lede {

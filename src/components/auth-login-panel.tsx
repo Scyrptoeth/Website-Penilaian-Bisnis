@@ -52,7 +52,10 @@ export function AuthLoginPanel() {
               <strong>Penilai Pajak</strong>
             </div>
           </div>
-          <h1 id="auth-login-title">Penilaian Bisnis II</h1>
+          <h1 id="auth-login-title" aria-label="Platform Digital Penilaian Bisnis II">
+            <span>Platform Digital</span>
+            <span>Penilaian Bisnis II</span>
+          </h1>
           <div className="auth-info-list" aria-label="Informasi login">
             <div>
               <BadgeCheck size={16} />
