@@ -138,7 +138,13 @@ import {
   searchKluSectorRecords,
   type KluSectorRecord,
 } from "@/lib/valuation/klu-sector";
-import { buildWorkbenchReadiness, type SectionReadiness, type WorkbenchReadiness, type WorkbenchSectionId } from "@/lib/valuation/readiness";
+import {
+  buildWorkbenchReadiness,
+  type ReadinessItem,
+  type SectionReadiness,
+  type WorkbenchReadiness,
+  type WorkbenchSectionId,
+} from "@/lib/valuation/readiness";
 import {
   buildSectionAnalysis,
   type AnalysisRow,
@@ -1467,6 +1473,28 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
 
   function navigateToGovernanceTarget(target: AssumptionGovernanceTarget) {
     navigateToWorkflowTab(target);
+  }
+
+  function handleReadinessAction(item: ReadinessItem): boolean {
+    if (item.targetTab === "balance" && item.targetLabel === "Isi Neraca") {
+      navigateToWorkflowTab("balance");
+      addRow("balance_sheet");
+      return true;
+    }
+
+    if (item.targetTab === "fixedAssets" && item.targetLabel === "Isi Aset Tetap") {
+      navigateToWorkflowTab("fixedAssets");
+      addFixedAssetScheduleRow();
+      return true;
+    }
+
+    if (item.targetTab === "income" && item.targetLabel === "Isi Laba Rugi") {
+      navigateToWorkflowTab("income");
+      addRow("income_statement");
+      return true;
+    }
+
+    return false;
   }
 
   useEffect(() => {
@@ -2872,7 +2900,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
 
         {activeWorkflowTab === "periods" ? (
         <section id="periods" className="panel">
-          <ReadinessPanel status={readiness.periods} onNavigate={navigateToWorkflowTab} />
+          <ReadinessPanel status={readiness.periods} onNavigate={navigateToWorkflowTab} onAction={handleReadinessAction} />
           <CaseProfilePanel
             profile={caseProfile}
             derived={caseProfileDerived}
@@ -2945,7 +2973,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
 
         {activeWorkflowTab === "balance" ? (
         <section id="balance" className="panel">
-          <ReadinessPanel status={readiness.balance} onNavigate={navigateToWorkflowTab} />
+          <ReadinessPanel status={readiness.balance} onNavigate={navigateToWorkflowTab} onAction={handleReadinessAction} />
 
           <div className="subpanel-heading account-input-heading">
             <div>
@@ -2983,7 +3011,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
 
         {activeWorkflowTab === "fixedAssets" ? (
         <section id="fixedAssets" className="panel">
-          <ReadinessPanel status={readiness.fixedAssets} onNavigate={navigateToWorkflowTab} />
+          <ReadinessPanel status={readiness.fixedAssets} onNavigate={navigateToWorkflowTab} onAction={handleReadinessAction} />
 
           <FixedAssetScheduleEditor
             periods={periods}
@@ -3007,7 +3035,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               Tambah akun laba rugi
             </button>
           </div>
-          <ReadinessPanel status={readiness.income} onNavigate={navigateToWorkflowTab} />
+          <ReadinessPanel status={readiness.income} onNavigate={navigateToWorkflowTab} onAction={handleReadinessAction} />
           <AccountInputTable
             emptyMessage="Belum ada akun laba rugi. Tambahkan baris akun laba rugi."
             hideStatementColumn
@@ -3042,7 +3070,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
                 {accountMappingRules.length} aturan
               </div>
             </div>
-            <ReadinessPanel status={readiness.mapping} onNavigate={navigateToWorkflowTab} />
+            <ReadinessPanel status={readiness.mapping} onNavigate={navigateToWorkflowTab} onAction={handleReadinessAction} />
             <MappingTable mappedRows={mappedRows} />
           </article>
         </section>
@@ -3056,7 +3084,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               <h3>Biaya modal rata-rata tertimbang (WACC)</h3>
             </div>
           </div>
-          <ReadinessPanel status={readiness.wacc} onNavigate={navigateToWorkflowTab} />
+          <ReadinessPanel status={readiness.wacc} onNavigate={navigateToWorkflowTab} onAction={handleReadinessAction} />
           <WaccMarketSuggestionPanel
             suggestion={marketSuggestion}
             valuationDate={effectiveValuationDate}
@@ -3113,7 +3141,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               <h3>Driver kapitalisasi dan proyeksi</h3>
             </div>
           </div>
-          <ReadinessPanel status={readiness.eemDcfAssumptions} onNavigate={navigateToWorkflowTab} />
+          <ReadinessPanel status={readiness.eemDcfAssumptions} onNavigate={navigateToWorkflowTab} onAction={handleReadinessAction} />
           <AssumptionDriverMatrix drivers={assumptionDriverSummaries} />
           <div className="assumption-tax-row">
             <AssumptionDriverCard
@@ -3342,7 +3370,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         </section>
         </>
         ) : (
-          <ReadinessPanel status={readiness.valuationAam} onNavigate={navigateToWorkflowTab} force />
+          <ReadinessPanel status={readiness.valuationAam} onNavigate={navigateToWorkflowTab} onAction={handleReadinessAction} force />
         )
         ) : null}
 
@@ -3462,7 +3490,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         </section>
         </>
         ) : (
-          <ReadinessPanel status={readiness.valuationEem} onNavigate={navigateToWorkflowTab} force />
+          <ReadinessPanel status={readiness.valuationEem} onNavigate={navigateToWorkflowTab} onAction={handleReadinessAction} force />
         )
         ) : null}
 
@@ -3697,7 +3725,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         </section>
         </>
         ) : (
-          <ReadinessPanel status={readiness.valuationDcf} onNavigate={navigateToWorkflowTab} force />
+          <ReadinessPanel status={readiness.valuationDcf} onNavigate={navigateToWorkflowTab} onAction={handleReadinessAction} force />
         )
         ) : null}
 
@@ -3721,7 +3749,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               onApplyIncomeProjectionSmartSuggestions={applyIncomeProjectionSmartSuggestions}
             />
           ) : (
-            <ReadinessPanel status={readiness.projectedIncome} onNavigate={navigateToWorkflowTab} force />
+            <ReadinessPanel status={readiness.projectedIncome} onNavigate={navigateToWorkflowTab} onAction={handleReadinessAction} force />
           )
         ) : null}
 
@@ -3735,7 +3763,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               activeWaccBasisLabel={activeWaccBasisLabels[effectiveActiveWaccBasis].shortLabel}
             />
           ) : (
-            <ReadinessPanel status={readiness.projectedBalance} onNavigate={navigateToWorkflowTab} force />
+            <ReadinessPanel status={readiness.projectedBalance} onNavigate={navigateToWorkflowTab} onAction={handleReadinessAction} force />
           )
         ) : null}
 
@@ -3757,7 +3785,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               }
             />
           ) : (
-            <ReadinessPanel status={readiness.projectedFixedAssets} onNavigate={navigateToWorkflowTab} force />
+            <ReadinessPanel status={readiness.projectedFixedAssets} onNavigate={navigateToWorkflowTab} onAction={handleReadinessAction} force />
           )
         ) : null}
 
@@ -3771,7 +3799,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               activeWaccBasisLabel={activeWaccBasisLabels[effectiveActiveWaccBasis].shortLabel}
             />
           ) : (
-            <ReadinessPanel status={readiness.projectedCashFlow} onNavigate={navigateToWorkflowTab} force />
+            <ReadinessPanel status={readiness.projectedCashFlow} onNavigate={navigateToWorkflowTab} onAction={handleReadinessAction} force />
           )
         ) : null}
 
@@ -3816,7 +3844,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               onUpdateOverride={updateCashFlowOverride}
             />
           ) : (
-            <ReadinessPanel status={readiness.cashFlowStatement} onNavigate={navigateToWorkflowTab} force />
+            <ReadinessPanel status={readiness.cashFlowStatement} onNavigate={navigateToWorkflowTab} onAction={handleReadinessAction} force />
           )
         ) : null}
 
@@ -3824,7 +3852,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
           readiness.payablesCashFlow.isReady ? (
             <DebtScheduleSection analysis={sectionAnalysis} />
           ) : (
-            <ReadinessPanel status={readiness.payablesCashFlow} onNavigate={navigateToWorkflowTab} force />
+            <ReadinessPanel status={readiness.payablesCashFlow} onNavigate={navigateToWorkflowTab} onAction={handleReadinessAction} force />
           )
         ) : null}
 
@@ -3832,7 +3860,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
           readiness.noplatFcf.isReady ? (
             <NoplatFcfSection analysis={sectionAnalysis} />
           ) : (
-            <ReadinessPanel status={readiness.noplatFcf} onNavigate={navigateToWorkflowTab} force />
+            <ReadinessPanel status={readiness.noplatFcf} onNavigate={navigateToWorkflowTab} onAction={handleReadinessAction} force />
           )
         ) : null}
 
@@ -3840,7 +3868,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
           readiness.financialRatio.isReady ? (
             <FinancialRatioSection analysis={sectionAnalysis} readiness={readiness.financialRatio} onNavigate={navigateToWorkflowTab} />
           ) : (
-            <ReadinessPanel status={readiness.financialRatio} onNavigate={navigateToWorkflowTab} force />
+            <ReadinessPanel status={readiness.financialRatio} onNavigate={navigateToWorkflowTab} onAction={handleReadinessAction} force />
           )
         ) : null}
 
@@ -3848,7 +3876,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
           readiness.roic.isReady ? (
             <RoicSection analysis={sectionAnalysis} readiness={readiness.roic} onNavigate={navigateToWorkflowTab} />
           ) : (
-            <ReadinessPanel status={readiness.roic} onNavigate={navigateToWorkflowTab} force />
+            <ReadinessPanel status={readiness.roic} onNavigate={navigateToWorkflowTab} onAction={handleReadinessAction} force />
           )
         ) : null}
 
@@ -3937,10 +3965,12 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
 function ReadinessPanel({
   status,
   onNavigate,
+  onAction,
   force = false,
 }: {
   status: SectionReadiness;
   onNavigate: (tabId: WorkflowTabId) => void;
+  onAction?: (item: ReadinessItem) => boolean;
   force?: boolean;
 }) {
   if (!force && status.isReady && status.warnings.length === 0) {
@@ -3958,8 +3988,15 @@ function ReadinessPanel({
     : hasWarningItems
       ? `${status.title} perlu direview`
       : `${status.title} siap diproses`;
-  const badgeClassName = hasBlockingItems || hasWarningItems ? "badge warning" : "badge ok";
+  const badgeClassName = hasBlockingItems ? "badge danger" : hasWarningItems ? "badge warning" : "badge ok";
   const badgeLabel = hasBlockingItems ? "Perlu dilengkapi" : hasWarningItems ? "Perlu direview" : "Siap";
+  const activateReadinessItem = (item: ReadinessItem) => {
+    if (onAction?.(item)) {
+      return;
+    }
+
+    onNavigate(item.targetTab);
+  };
 
   return (
     <section className={panelClassName} data-testid={`readiness-${status.id}`}>
@@ -3980,7 +4017,7 @@ function ReadinessPanel({
               className="readiness-link"
               onClick={(event) => {
                 event.preventDefault();
-                onNavigate(item.targetTab);
+                activateReadinessItem(item);
               }}
               key={`${item.label}-${item.targetTab}`}
             >
@@ -4006,7 +4043,7 @@ function ReadinessPanel({
               className="readiness-link"
               onClick={(event) => {
                 event.preventDefault();
-                onNavigate(item.targetTab);
+                activateReadinessItem(item);
               }}
               key={`${item.label}-${item.targetTab}`}
             >
@@ -6395,7 +6432,8 @@ function IncomeProjectionControlsPanel({
           <h3>Income projection reviewer controls</h3>
         </div>
         <div className="panel-heading-actions">
-          <button className="button ghost compact-button" onClick={onApplySmartSuggestions} type="button">
+          <SmartSuggestionBadge label="Smart suggestion editable" state="available" />
+          <button className="button secondary compact-button" onClick={onApplySmartSuggestions} type="button">
             <CheckCircle2 size={14} />
             Terapkan semua smart suggestion
           </button>
@@ -9742,6 +9780,11 @@ function KluSectorField({
         <small className="field-help" role="alert">
           KLU tidak ditemukan dalam daftar KBLI 2020.
         </small>
+      ) : selectedRecord ? (
+        <SmartSuggestionBadge
+          label={isManualOverride ? "Saran KLU tersedia, sektor diedit manual" : "Saran KLU otomatis, dapat diedit"}
+          state={isManualOverride ? "available" : "auto"}
+        />
       ) : null}
     </label>
   );
@@ -9835,6 +9878,7 @@ function WaccMarketSuggestionPanel({
         label="Saran otomatis"
         value={`${suggestion.year}`}
       />
+      <SmartSuggestionBadge label="Saran pasar otomatis, dapat diedit setelah diterapkan" state="available" />
       <div className="table-wrap wacc-source-table">
         <table>
           <thead>
@@ -9852,7 +9896,7 @@ function WaccMarketSuggestionPanel({
                 <td>{metric.label}</td>
                 <td className="numeric-cell">{formatPercent(metric.value)}</td>
                 <td>
-                  <span className="source-status-pill">Saran sistem</span>
+                  <span className="source-status-pill smart">Saran sistem</span>
                 </td>
                 <td>
                   {metric.method}
@@ -9983,6 +10027,9 @@ function WaccCalculatorPanel({
 }) {
   const waccGovernanceItems = governance.items.filter((item) => item.target === "wacc");
   const bankLoanRate = calculateWaccBankLoanRateAssumption(assumptions);
+  const hasMarketSuggestionApplied = assumptions.waccSource.startsWith("market-suggestion");
+  const marketSuggestionLabel = hasMarketSuggestionApplied ? "Saran pasar otomatis, dapat diedit" : undefined;
+  const marketSuggestionState = hasMarketSuggestionApplied ? "applied" : undefined;
 
   return (
     <article className="assumption-calculator-card wide" data-testid="wacc-calculator">
@@ -9992,21 +10039,33 @@ function WaccCalculatorPanel({
       />
       <InlineGovernanceList title="Tata kelola WACC" items={waccGovernanceItems} />
       <div className="calculator-input-grid wacc-primary-input-grid">
-        <AssumptionInput label="Risk-free rate (tingkat bebas risiko)" value={assumptions.waccRiskFreeRate} onChange={(value) => onChange("waccRiskFreeRate", value)} />
+        <AssumptionInput
+          label="Risk-free rate (tingkat bebas risiko)"
+          value={assumptions.waccRiskFreeRate}
+          smartSuggestionLabel={marketSuggestionLabel}
+          smartSuggestionState={marketSuggestionState}
+          onChange={(value) => onChange("waccRiskFreeRate", value)}
+        />
         <AssumptionInput
           label="Equity risk premium (premi risiko ekuitas)"
           value={assumptions.waccEquityRiskPremium}
+          smartSuggestionLabel={marketSuggestionLabel}
+          smartSuggestionState={marketSuggestionState}
           onChange={(value) => onChange("waccEquityRiskPremium", value)}
         />
         <AssumptionInput
           label="Rating-based default spread (RBDS)"
           value={assumptions.waccRatingBasedDefaultSpread}
+          smartSuggestionLabel={marketSuggestionLabel}
+          smartSuggestionState={marketSuggestionState}
           onChange={(value) => onChange("waccRatingBasedDefaultSpread", value)}
         />
         <AssumptionInput
           label="Penyesuaian RBDS pada Ke"
           value={assumptions.waccCountryRiskPremium}
           note="Untuk konsistensi model: Ke = Rf + Beta x ERP - RBDS, sehingga RBDS disimpan sebagai adjustment negatif."
+          smartSuggestionLabel={marketSuggestionLabel}
+          smartSuggestionState={marketSuggestionState}
           onChange={(value) => onChange("waccCountryRiskPremium", value)}
         />
         <AssumptionInput
@@ -10036,36 +10095,48 @@ function WaccCalculatorPanel({
           label="Debt rate Bank Persero"
           value={assumptions.waccBankPerseroInvestmentLoanRate}
           note="Saran sistem memakai rata-rata tahunan SBDK korporasi OJK sebagai proxy pre-tax debt rate."
+          smartSuggestionLabel={marketSuggestionLabel}
+          smartSuggestionState={marketSuggestionState}
           onChange={(value) => onChange("waccBankPerseroInvestmentLoanRate", value)}
         />
         <AssumptionInput
           label="Debt rate Bank Pemda"
           value={assumptions.waccBankPemdaInvestmentLoanRate}
           note="Saran sistem memakai rata-rata tahunan SBDK korporasi OJK untuk Bank Pembangunan Daerah/BPD."
+          smartSuggestionLabel={marketSuggestionLabel}
+          smartSuggestionState={marketSuggestionState}
           onChange={(value) => onChange("waccBankPemdaInvestmentLoanRate", value)}
         />
         <AssumptionInput
           label="Debt rate Bank Swasta"
           value={assumptions.waccBankSwastaInvestmentLoanRate}
           note="Saran sistem memakai rata-rata tahunan SBDK korporasi OJK untuk bank non-Persero."
+          smartSuggestionLabel={marketSuggestionLabel}
+          smartSuggestionState={marketSuggestionState}
           onChange={(value) => onChange("waccBankSwastaInvestmentLoanRate", value)}
         />
         <AssumptionInput
           label="Debt rate Bank Asing"
           value={assumptions.waccBankAsingInvestmentLoanRate}
           note="Saran sistem memakai rata-rata tahunan SBDK korporasi OJK untuk kantor cabang bank asing/KCBA."
+          smartSuggestionLabel={marketSuggestionLabel}
+          smartSuggestionState={marketSuggestionState}
           onChange={(value) => onChange("waccBankAsingInvestmentLoanRate", value)}
         />
         <AssumptionInput
           label="Debt rate Bank Campuran"
           value={assumptions.waccBankCampuranInvestmentLoanRate}
           note="Saran sistem memakai rata-rata tahunan SBDK korporasi OJK untuk bank campuran/joint venture."
+          smartSuggestionLabel={marketSuggestionLabel}
+          smartSuggestionState={marketSuggestionState}
           onChange={(value) => onChange("waccBankCampuranInvestmentLoanRate", value)}
         />
         <AssumptionInput
           label="Debt rate Bank Umum / proxy"
           value={assumptions.waccBankUmumInvestmentLoanRate}
           note="Dipakai untuk smart suggestion tiga-rate bila input granular lima bank belum tersedia."
+          smartSuggestionLabel={marketSuggestionLabel}
+          smartSuggestionState={marketSuggestionState}
           onChange={(value) => onChange("waccBankUmumInvestmentLoanRate", value)}
         />
         <AssumptionInput
@@ -10127,7 +10198,7 @@ function WaccComparableTable({
               : "Isi KLU sesuai Appportal di Data Awal"}
           </span>
         </div>
-        <button className="button ghost compact-button" type="button" onClick={onApplyComparableSuggestions} disabled={comparableSuggestions.length === 0}>
+        <button className="button secondary compact-button" type="button" onClick={onApplyComparableSuggestions} disabled={comparableSuggestions.length === 0}>
           Terapkan Saran
         </button>
       </div>
@@ -10243,6 +10314,8 @@ function WaccCapitalStructureTable({
   const equityWeightInput = assumptions.waccEquityWeight.trim() || formatAutoCapitalWeight(calculation?.equityWeight);
   const isDebtAuto = !assumptions.waccDebtMarketValue.trim() && autoCapitalValues.debtMarketValue > 0;
   const isEquityAuto = !assumptions.waccEquityMarketValue.trim() && autoCapitalValues.equityMarketValue > 0;
+  const isDebtWeightAuto = !assumptions.waccDebtWeight.trim() && calculation?.debtWeight !== null && calculation?.debtWeight !== undefined;
+  const isEquityWeightAuto = !assumptions.waccEquityWeight.trim() && calculation?.equityWeight !== null && calculation?.equityWeight !== undefined;
   const debtWeightNote = buildAutoCapitalWeightNote(assumptions.waccDebtWeight, calculation?.debtWeight);
   const equityWeightNote = buildAutoCapitalWeightNote(assumptions.waccEquityWeight, calculation?.equityWeight);
 
@@ -10262,11 +10335,43 @@ function WaccCapitalStructureTable({
           <tr>
             <td>Hutang</td>
             <td>
-              <AssumptionInput label="Nilai pasar utang" value={debtMarketValue} inputMode="numeric" onChange={(value) => onChange("waccDebtMarketValue", value)} />
+              <AssumptionInput
+                label="Nilai pasar utang"
+                value={debtMarketValue}
+                suggestion={
+                  isDebtAuto
+                    ? {
+                        value: formatInputNumber(autoCapitalValues.debtMarketValue),
+                        displayValue: formatIdr(autoCapitalValues.debtMarketValue),
+                        kind: "number",
+                      }
+                    : undefined
+                }
+                smartSuggestionLabel={isDebtAuto ? "Auto Neraca, dapat diedit" : undefined}
+                smartSuggestionState={isDebtAuto ? "auto" : undefined}
+                inputMode="numeric"
+                onChange={(value) => onChange("waccDebtMarketValue", value)}
+              />
               {isDebtAuto ? <small className="auto-source-note">Auto Neraca: liabilitas lancar + liabilitas tidak lancar.</small> : null}
             </td>
             <td>
-              <AssumptionInput label="Fallback bobot utang" value={debtWeightInput} note={debtWeightNote} onChange={(value) => onChange("waccDebtWeight", value)} />
+              <AssumptionInput
+                label="Fallback bobot utang"
+                value={debtWeightInput}
+                suggestion={
+                  isDebtWeightAuto && calculation
+                    ? {
+                        value: formatOptionalDriverSuggestionInput(calculation.debtWeight, "rate"),
+                        displayValue: formatPercent(calculation.debtWeight),
+                        kind: "rate",
+                      }
+                    : undefined
+                }
+                smartSuggestionLabel={isDebtWeightAuto ? "Bobot otomatis, dapat diedit" : undefined}
+                smartSuggestionState={isDebtWeightAuto ? "auto" : undefined}
+                note={debtWeightNote}
+                onChange={(value) => onChange("waccDebtWeight", value)}
+              />
             </td>
             <td>{calculation ? formatPercent(calculation.afterTaxCostOfDebt) : "Belum dihitung"}</td>
             <td>{calculation ? formatPercent(calculation.debtWeight * calculation.afterTaxCostOfDebt) : "Belum dihitung"}</td>
@@ -10274,11 +10379,43 @@ function WaccCapitalStructureTable({
           <tr>
             <td>Ekuitas</td>
             <td>
-              <AssumptionInput label="Nilai pasar ekuitas" value={equityMarketValue} inputMode="numeric" onChange={(value) => onChange("waccEquityMarketValue", value)} />
+              <AssumptionInput
+                label="Nilai pasar ekuitas"
+                value={equityMarketValue}
+                suggestion={
+                  isEquityAuto
+                    ? {
+                        value: formatInputNumber(autoCapitalValues.equityMarketValue),
+                        displayValue: formatIdr(autoCapitalValues.equityMarketValue),
+                        kind: "number",
+                      }
+                    : undefined
+                }
+                smartSuggestionLabel={isEquityAuto ? "Auto Neraca, dapat diedit" : undefined}
+                smartSuggestionState={isEquityAuto ? "auto" : undefined}
+                inputMode="numeric"
+                onChange={(value) => onChange("waccEquityMarketValue", value)}
+              />
               {isEquityAuto ? <small className="auto-source-note">Auto Neraca: book equity aktif.</small> : null}
             </td>
             <td>
-              <AssumptionInput label="Fallback bobot ekuitas" value={equityWeightInput} note={equityWeightNote} onChange={(value) => onChange("waccEquityWeight", value)} />
+              <AssumptionInput
+                label="Fallback bobot ekuitas"
+                value={equityWeightInput}
+                suggestion={
+                  isEquityWeightAuto && calculation
+                    ? {
+                        value: formatOptionalDriverSuggestionInput(calculation.equityWeight, "rate"),
+                        displayValue: formatPercent(calculation.equityWeight),
+                        kind: "rate",
+                      }
+                    : undefined
+                }
+                smartSuggestionLabel={isEquityWeightAuto ? "Bobot otomatis, dapat diedit" : undefined}
+                smartSuggestionState={isEquityWeightAuto ? "auto" : undefined}
+                note={equityWeightNote}
+                onChange={(value) => onChange("waccEquityWeight", value)}
+              />
             </td>
             <td>{calculation ? formatPercent(calculation.costOfEquity) : "Belum dihitung"}</td>
             <td>{calculation ? formatPercent(calculation.equityWeight * calculation.costOfEquity) : "Belum dihitung"}</td>
@@ -10630,6 +10767,9 @@ function TerminalGrowthPanel({
   const baseGrowth = readRateInput(assumptions.terminalGrowth);
   const hasInvalidSpread = baseGrowth !== null && wacc > 0 && baseGrowth >= wacc;
   const assumptionGovernanceItems = governance.items.filter((item) => item.target === "eemDcfAssumptions");
+  const hasTerminalGrowthSuggestionApplied = Boolean(assumptions.terminalGrowthSource.trim());
+  const terminalGrowthSmartLabel = hasTerminalGrowthSuggestionApplied ? "Saran sektor otomatis, dapat diedit" : undefined;
+  const terminalGrowthSmartState = hasTerminalGrowthSuggestionApplied ? "applied" : undefined;
 
   return (
     <article className="assumption-calculator-card wide" data-testid="terminal-growth-calculator">
@@ -10641,15 +10781,25 @@ function TerminalGrowthPanel({
       <InlineGovernanceList title="Tata kelola asumsi EEM/DCF" items={assumptionGovernanceItems} />
       <TerminalGrowthSuggestionBlock suggestion={suggestion} onApply={onApplySuggestion} />
       <div className="calculator-input-grid">
-        <AssumptionInput label="Terminal growth dasar" value={assumptions.terminalGrowth} onChange={(value) => onChange("terminalGrowth", value)} />
+        <AssumptionInput
+          label="Terminal growth dasar"
+          value={assumptions.terminalGrowth}
+          smartSuggestionLabel={terminalGrowthSmartLabel}
+          smartSuggestionState={terminalGrowthSmartState}
+          onChange={(value) => onChange("terminalGrowth", value)}
+        />
         <AssumptionInput
           label="Terminal growth skenario bawah"
           value={assumptions.terminalGrowthDownside}
+          smartSuggestionLabel={terminalGrowthSmartLabel}
+          smartSuggestionState={terminalGrowthSmartState}
           onChange={(value) => onChange("terminalGrowthDownside", value)}
         />
         <AssumptionInput
           label="Terminal growth skenario atas"
           value={assumptions.terminalGrowthUpside}
+          smartSuggestionLabel={terminalGrowthSmartLabel}
+          smartSuggestionState={terminalGrowthSmartState}
           onChange={(value) => onChange("terminalGrowthUpside", value)}
         />
       </div>
@@ -10685,7 +10835,7 @@ function TerminalGrowthSuggestionBlock({
       <div className="terminal-growth-suggestion" data-testid="terminal-growth-suggestion-card">
         <div className="terminal-growth-suggestion-heading">
           <div>
-        <span>Saran otomatis</span>
+            <span>Saran otomatis</span>
             <strong>Bukti sektor belum tersedia</strong>
           </div>
           <em className="source-badge manual">Menunggu sektor</em>
@@ -10704,7 +10854,7 @@ function TerminalGrowthSuggestionBlock({
           <span>Saran otomatis</span>
           <strong>{evidence.sector}</strong>
         </div>
-        <em className="source-badge sensitivity">
+        <em className="source-badge smart">
           {suggestion.confidence} evidence
         </em>
       </div>
@@ -10781,6 +10931,10 @@ function RequiredReturnOnNtaPanel({
 }) {
   const suggestedValue = (key: RequiredReturnOnNtaSuggestionKey) => formatRequiredReturnSuggestionInput(suggestion.fields[key]);
   const ntaGovernanceItems = governance.items.filter((item) => item.id === "nta-return-fallback");
+  const afterTaxDebtCostSuggestion = buildRequiredReturnInputSuggestion(suggestion.fields.requiredReturnAfterTaxDebtCost, "rate");
+  const equityCostSuggestion = buildRequiredReturnInputSuggestion(suggestion.fields.requiredReturnEquityCost, "rate");
+  const afterTaxDebtCostIsAuto = Boolean(!assumptions.requiredReturnAfterTaxDebtCost.trim() && afterTaxDebtCostSuggestion?.value.trim());
+  const equityCostIsAuto = Boolean(!assumptions.requiredReturnEquityCost.trim() && equityCostSuggestion?.value.trim());
 
   return (
     <article className="assumption-calculator-card wide" data-testid="required-return-on-nta-calculator">
@@ -10842,12 +10996,18 @@ function RequiredReturnOnNtaPanel({
         <AssumptionInput
           label="After-tax debt cost"
           value={assumptions.requiredReturnAfterTaxDebtCost || suggestedValue("requiredReturnAfterTaxDebtCost")}
+          suggestion={afterTaxDebtCostSuggestion}
+          smartSuggestionLabel={afterTaxDebtCostIsAuto ? "Nilai otomatis dari WACC, dapat diedit" : undefined}
+          smartSuggestionState={afterTaxDebtCostIsAuto ? "auto" : undefined}
           note={buildSuggestionInputNote(assumptions.requiredReturnAfterTaxDebtCost, suggestion.fields.requiredReturnAfterTaxDebtCost)}
           onChange={(value) => onChange("requiredReturnAfterTaxDebtCost", value)}
         />
         <AssumptionInput
           label="Return ekuitas aset berwujud"
           value={assumptions.requiredReturnEquityCost || suggestedValue("requiredReturnEquityCost")}
+          suggestion={equityCostSuggestion}
+          smartSuggestionLabel={equityCostIsAuto ? "Nilai otomatis dari WACC, dapat diedit" : undefined}
+          smartSuggestionState={equityCostIsAuto ? "auto" : undefined}
           note={buildSuggestionInputNote(assumptions.requiredReturnEquityCost, suggestion.fields.requiredReturnEquityCost)}
           onChange={(value) => onChange("requiredReturnEquityCost", value)}
         />
@@ -10885,7 +11045,7 @@ function RequiredReturnOnNtaSuggestionBlock({ suggestion }: { suggestion: Requir
           <span>Panduan input</span>
           <strong>Basis required return on NTA</strong>
         </div>
-        <em className={`source-badge ${suggestion.waitingFor.length === 0 ? "manual" : "sensitivity"}`}>
+        <em className={`source-badge ${suggestion.waitingFor.length === 0 ? "smart" : "sensitivity"}`}>
           {suggestion.waitingFor.length === 0 ? "saran sistem" : "butuh input"}
         </em>
       </div>
@@ -11209,7 +11369,13 @@ function AssumptionDriverCard({
         {candidates.length > 0 ? (
           candidates.map((candidate) => (
             <button
-              className={candidate.id === sourceId ? "candidate-button active" : "candidate-button"}
+              className={[
+                "candidate-button",
+                candidate.status === "recommended" ? "recommended" : "",
+                candidate.id === sourceId ? "active" : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
               key={candidate.id}
               type="button"
               onClick={() => onSelect(candidate)}
@@ -11283,11 +11449,19 @@ type OptionalDriverSuggestion = {
   kind: OptionalDriverSuggestionKind;
 };
 
+type SmartSuggestionState = "available" | "applied" | "auto";
+
+function SmartSuggestionBadge({ label, state = "available" }: { label: string; state?: SmartSuggestionState }) {
+  return <span className={`smart-suggestion-badge ${state}`}>{label}</span>;
+}
+
 function AssumptionInput({
   label,
   value,
   note,
   suggestion,
+  smartSuggestionLabel,
+  smartSuggestionState,
   inputMode = "decimal",
   onChange,
   onApplySuggestion,
@@ -11296,20 +11470,40 @@ function AssumptionInput({
   value: string;
   note?: string;
   suggestion?: OptionalDriverSuggestion;
+  smartSuggestionLabel?: string;
+  smartSuggestionState?: SmartSuggestionState;
   inputMode?: "decimal" | "numeric";
   onChange: (value: string) => void;
   onApplySuggestion?: (value: string) => void;
 }) {
   const inputId = `assumption-${slugifyLabel(label)}`;
-  const hasSuggestion = Boolean(suggestion?.value.trim() && onApplySuggestion);
+  const hasSuggestionSource = Boolean(suggestion?.value.trim());
+  const canApplySuggestion = Boolean(hasSuggestionSource && onApplySuggestion);
   const isSuggestionApplied =
-    hasSuggestion && suggestion ? isOptionalDriverSuggestionApplied(value, suggestion.value, suggestion.kind) : false;
+    canApplySuggestion && suggestion ? isOptionalDriverSuggestionApplied(value, suggestion.value, suggestion.kind) : false;
+  const resolvedSmartState = smartSuggestionState ?? (hasSuggestionSource ? (isSuggestionApplied ? "applied" : "available") : undefined);
+  const resolvedSmartLabel =
+    smartSuggestionLabel ??
+    (resolvedSmartState === "applied"
+      ? "Saran otomatis dipakai, dapat diedit"
+      : resolvedSmartState === "auto"
+        ? "Nilai otomatis, dapat diedit"
+        : resolvedSmartState
+          ? "Saran otomatis tersedia"
+          : "");
+  const fieldClassName = [
+    "field assumption-input-field",
+    resolvedSmartState ? `smart-suggestion-field ${resolvedSmartState}` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
-    <div className="field assumption-input-field">
+    <div className={fieldClassName}>
       <div className="assumption-input-heading">
         <label htmlFor={inputId}>{label}</label>
-        {hasSuggestion && suggestion && onApplySuggestion ? (
+        {resolvedSmartState ? <SmartSuggestionBadge label={resolvedSmartLabel} state={resolvedSmartState} /> : null}
+        {canApplySuggestion && suggestion && onApplySuggestion ? (
           <button
             className="suggestion-apply-button"
             type="button"
@@ -11323,7 +11517,14 @@ function AssumptionInput({
           </button>
         ) : null}
       </div>
-      <input id={inputId} inputMode={inputMode} placeholder="Opsional" value={value} onChange={(event) => onChange(event.target.value)} />
+      <input
+        className={resolvedSmartState ? "smart-suggestion-input" : undefined}
+        id={inputId}
+        inputMode={inputMode}
+        placeholder="Opsional"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
       {note ? <small className="auto-source-note">{note}</small> : null}
     </div>
   );
