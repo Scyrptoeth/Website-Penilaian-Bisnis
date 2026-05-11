@@ -1706,6 +1706,22 @@ select {
   position: relative;
 }
 
+.derived-sector-field {
+  position: relative;
+}
+
+.derived-sector-field .smart-suggestion-badge {
+  position: absolute;
+  top: -1px;
+  right: 0;
+  max-width: min(72%, 270px);
+  min-height: 18px;
+  padding: 0 6px;
+  font-size: 7.8px;
+  line-height: 1.1;
+  box-shadow: 0 0 0 2px rgba(29, 78, 216, 0.07);
+}
+
 .klu-field.invalid input,
 .derived-sector-field.invalid select {
   border-color: rgba(180, 35, 24, 0.42);
@@ -3554,6 +3570,77 @@ select {
   color: #ffffff;
 }
 
+.action-guidance {
+  border-color: rgba(180, 35, 24, 0.62) !important;
+  background: var(--danger-soft) !important;
+  color: var(--danger) !important;
+  box-shadow: 0 0 0 3px rgba(180, 35, 24, 0.12) !important;
+  animation: actionGuidanceShake 640ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.candidate-button.action-guidance,
+.candidate-button.recommended:not(.active).action-guidance {
+  color: var(--ink) !important;
+}
+
+.candidate-button.action-guidance:hover,
+.candidate-button.action-guidance:focus-visible,
+.candidate-button.recommended:not(.active).action-guidance:hover,
+.candidate-button.recommended:not(.active).action-guidance:focus-visible {
+  border-color: var(--danger) !important;
+  background: rgba(254, 226, 226, 0.96) !important;
+}
+
+.candidate-button.action-guidance small,
+.candidate-button.action-guidance strong,
+.candidate-button.recommended:not(.active).action-guidance small,
+.candidate-button.recommended:not(.active).action-guidance strong {
+  color: var(--danger) !important;
+}
+
+.action-guidance-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 20px;
+  padding: 0 7px;
+  border: 1px solid rgba(180, 35, 24, 0.32);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--danger);
+  font-family: var(--font-mono), monospace;
+  font-size: 7.8px;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.candidate-button .action-guidance-badge {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+@keyframes actionGuidanceShake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  20% {
+    transform: translateX(-3px);
+  }
+
+  45% {
+    transform: translateX(3px);
+  }
+
+  70% {
+    transform: translateX(-1px);
+  }
+}
+
 .driver-trace {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -5187,6 +5274,12 @@ td span {
 
   .auth-login-copy h1 {
     font-size: clamp(29px, 8.7vw, 36px);
+  }
+
+  .derived-sector-field .smart-suggestion-badge {
+    position: static;
+    justify-self: start;
+    max-width: 100%;
   }
 
   .auth-login-lede {

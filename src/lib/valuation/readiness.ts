@@ -137,7 +137,12 @@ export function buildWorkbenchReadiness({
   const period = criterion(hasPeriod, "Periode aktif tersedia", "periods", "Isi Data Awal");
   const comparativePeriod = criterion(hasComparativePeriod, "Minimal dua periode untuk movement dan cash-flow bridge", "periods", "Tambah Periode");
   const balanceTabInput = criterion(hasManualBalanceInput, "Data neraca tersedia", "balance", "Isi Neraca");
-  const fixedAssetTabInput = criterion(fixedAssetSchedule.hasInput || hasFixedAssetOrDepreciationBasis, "Data aset tetap tersedia", "fixedAssets", "Isi Aset Tetap");
+  const fixedAssetTabInput = criterion(
+    fixedAssetSchedule.rows.length > 0 || fixedAssetSchedule.hasInput || hasFixedAssetOrDepreciationBasis,
+    "Data aset tetap tersedia",
+    "fixedAssets",
+    "Isi Aset Tetap",
+  );
   const balance = criterion(hasBalanceInput, "Data neraca atau aset tetap tersedia", "balance", "Isi Neraca");
   const income = criterion(hasIncomeInput, "Data laba rugi tersedia", "income", "Isi Laba Rugi");
   const mapped = criterion(
@@ -281,26 +286,20 @@ export function buildWorkbenchReadiness({
       comparativePeriod,
       balance,
       income,
-      operatingWorkingCapital,
       fixedAssetOrDepreciation,
-      mapped,
     ]),
     payablesCashFlow: status("payablesCashFlow", "Jadwal Utang", [
       period,
       comparativePeriod,
       balance,
       income,
-      operatingWorkingCapital,
-      mapped,
     ]),
     noplatFcf: status("noplatFcf", "NOPLAT & FCF", [
       period,
       comparativePeriod,
       income,
       taxRateForEemDcf,
-      operatingWorkingCapital,
       fixedAssetOrDepreciation,
-      mapped,
     ]),
     financialRatio: status("financialRatio", "Financial Ratio", [period, balance, income, mapped], [comparativePeriod]),
     roic: status("roic", "ROIC", [period, balance, income, mapped], [comparativePeriod]),

@@ -600,6 +600,7 @@ type WorkspaceStorageSnapshot = {
 };
 
 type WorkflowTabId = WorkbenchSectionId;
+type GuidanceTarget = "add-period" | "tax-rate-statutory";
 type WorkflowTab = {
   id: WorkflowTabId;
   label: string;
@@ -882,6 +883,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   const [isJsonMenuOpen, setIsJsonMenuOpen] = useState(false);
   const [isJsonImporting, setIsJsonImporting] = useState(false);
   const [pendingConfirmation, setPendingConfirmation] = useState<ConfirmationDialogState | null>(null);
+  const [guidanceTarget, setGuidanceTarget] = useState<GuidanceTarget | null>(null);
   const workspaceMenuRef = useRef<HTMLDivElement>(null);
   const pdfExportMenuRef = useRef<HTMLDivElement>(null);
   const xlsxExportMenuRef = useRef<HTMLDivElement>(null);
@@ -1463,8 +1465,11 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     });
   }
 
-  function navigateToWorkflowTab(tabId: WorkflowTabId) {
+  function navigateToWorkflowTab(tabId: WorkflowTabId, options: { preserveGuidance?: boolean } = {}) {
     setActiveWorkflowTab(tabId);
+    if (!options.preserveGuidance) {
+      setGuidanceTarget(null);
+    }
 
     if (typeof window !== "undefined") {
       window.scrollTo({ top: 0 });
@@ -1476,6 +1481,18 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   }
 
   function handleReadinessAction(item: ReadinessItem): boolean {
+    if (item.targetTab === "periods" && item.targetLabel === "Tambah Periode") {
+      navigateToWorkflowTab("periods", { preserveGuidance: true });
+      setGuidanceTarget("add-period");
+      return true;
+    }
+
+    if (item.targetTab === "eemDcfAssumptions" && item.label === "Tarif pajak tersedia") {
+      navigateToWorkflowTab("eemDcfAssumptions", { preserveGuidance: true });
+      setGuidanceTarget("tax-rate-statutory");
+      return true;
+    }
+
     if (item.targetTab === "balance" && item.targetLabel === "Isi Neraca") {
       navigateToWorkflowTab("balance");
       addRow("balance_sheet");
@@ -1496,6 +1513,23 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
 
     return false;
   }
+
+  useEffect(() => {
+    if (!guidanceTarget || typeof document === "undefined") {
+      return;
+    }
+
+    const target = document.querySelector<HTMLElement>(`[data-guidance-target="${guidanceTarget}"]`);
+    if (!target) {
+      return;
+    }
+
+    const prefersReducedMotion =
+      typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.setTimeout(() => {
+      target.scrollIntoView({ block: "center", behavior: prefersReducedMotion ? "auto" : "smooth" });
+    }, 80);
+  }, [activeWorkflowTab, guidanceTarget]);
 
   useEffect(() => {
     const storedWorkspace = readPersistedWorkspaceSnapshot();
@@ -1692,6 +1726,10 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   }, [isPdfExportMenuOpen, isXlsxExportMenuOpen, isJsonMenuOpen]);
 
   function addPeriod() {
+    if (guidanceTarget === "add-period") {
+      setGuidanceTarget(null);
+    }
+
     commitCoreState((current) => {
       const period = createHistoricalPeriod(current.periods);
       const nextPeriods = normalizePeriods([...current.periods, period]);
@@ -2277,6 +2315,10 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   }
 
   function applyAssumptionCandidate(key: DriverAssumptionKey, candidate: AssumptionCandidate) {
+    if (key === "taxRate" && candidate.id === "statutory-general" && guidanceTarget === "tax-rate-statutory") {
+      setGuidanceTarget(null);
+    }
+
     const sourceKey = assumptionSourceKeyByDriver[key];
     const reasonKey = assumptionReasonKeyByDriver[key];
 
@@ -2915,9 +2957,15 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               {caseProfileDerived.cutOffDate ? (
                 <span className="status-pill">Cut off {formatDisplayDate(caseProfileDerived.cutOffDate)}</span>
               ) : null}
-              <button className="button secondary" type="button" onClick={addPeriod}>
+              <button
+                className={`button secondary ${guidanceTarget === "add-period" ? "action-guidance" : ""}`}
+                data-guidance-target={guidanceTarget === "add-period" ? "add-period" : undefined}
+                type="button"
+                onClick={addPeriod}
+              >
                 <Plus size={18} />
                 Tambah {nextHistoricalPeriodLabel}
+                {guidanceTarget === "add-period" ? <span className="action-guidance-badge">Aksi dibutuhkan</span> : null}
               </button>
             </div>
           </div>
@@ -3156,6 +3204,8 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               onSelect={(candidate) => applyAssumptionCandidate("taxRate", candidate)}
               onValueChange={(value) => updateAssumption("taxRate", value)}
               onReasonChange={(value) => updateAssumptionText("taxRateOverrideReason", value)}
+              guidanceCandidateId="statutory-general"
+              guidanceTarget={guidanceTarget === "tax-rate-statutory" ? "tax-rate-statutory" : undefined}
             />
           </div>
           <div className="assumption-calculator-grid">
@@ -11334,6 +11384,8 @@ function AssumptionDriverCard({
   onSelect,
   onValueChange,
   onReasonChange,
+  guidanceCandidateId,
+  guidanceTarget,
 }: {
   label: string;
   value: string;
@@ -11346,6 +11398,8 @@ function AssumptionDriverCard({
   onSelect: (candidate: AssumptionCandidate) => void;
   onValueChange: (value: string) => void;
   onReasonChange: (value: string) => void;
+  guidanceCandidateId?: string;
+  guidanceTarget?: GuidanceTarget;
 }) {
   const activeCandidate = candidates.find((candidate) => candidate.id === sourceId);
   const isManual = sourceId.startsWith("manual-") || (value.trim() !== "" && !activeCandidate);
@@ -11367,26 +11421,33 @@ function AssumptionDriverCard({
       <p className="assumption-source-line">{activeCandidate ? sourceLabel(activeCandidate) : sourceLabelFromManual(value)}</p>
       <div className="candidate-list" aria-label={`Kandidat ${label}`}>
         {candidates.length > 0 ? (
-          candidates.map((candidate) => (
-            <button
-              className={[
-                "candidate-button",
-                candidate.status === "recommended" ? "recommended" : "",
-                candidate.id === sourceId ? "active" : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-              key={candidate.id}
-              type="button"
-              onClick={() => onSelect(candidate)}
-            >
-              <span>
-                {candidate.label}
-                {candidate.sourceCell ? <small>{candidate.sourceCell}</small> : null}
-              </span>
-              <strong>{formatPercent(candidate.value)}</strong>
-            </button>
-          ))
+          candidates.map((candidate) => {
+            const isGuidanceTarget = Boolean(guidanceTarget && candidate.id === guidanceCandidateId);
+
+            return (
+              <button
+                className={[
+                  "candidate-button",
+                  candidate.status === "recommended" ? "recommended" : "",
+                  candidate.id === sourceId ? "active" : "",
+                  isGuidanceTarget ? "action-guidance" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                data-guidance-target={isGuidanceTarget ? guidanceTarget : undefined}
+                key={candidate.id}
+                type="button"
+                onClick={() => onSelect(candidate)}
+              >
+                <span>
+                  {candidate.label}
+                  {candidate.sourceCell ? <small>{candidate.sourceCell}</small> : null}
+                </span>
+                <strong>{formatPercent(candidate.value)}</strong>
+                {isGuidanceTarget ? <em className="action-guidance-badge">Aksi dibutuhkan</em> : null}
+              </button>
+            );
+          })
         ) : (
           <p className="assumption-empty-note">{emptyCandidateText}</p>
         )}

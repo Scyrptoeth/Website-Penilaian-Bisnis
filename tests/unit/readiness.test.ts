@@ -8,6 +8,7 @@ import {
   buildSamplePeriods,
   buildSampleRows,
   buildSnapshot,
+  createFixedAssetScheduleRow,
   emptyAssumptions,
   emptyCaseProfile,
   initialPeriods,
@@ -69,10 +70,39 @@ describe("workbench readiness", () => {
     assert.ok(readiness.projectedCashFlow.missing.some((item) => item.targetTab === "eemDcfAssumptions"));
     assert.ok(readiness.dlom.missing.some((item) => item.targetTab === "periods"));
     assert.ok(readiness.noplatFcf.missing.some((item) => item.targetTab === "eemDcfAssumptions"));
+    assert.ok(readiness.cashFlowStatement.missing.every((item) => item.label !== "Basis operating working capital tersedia: AR/persediaan/AP/utang lain-lain"));
+    assert.ok(readiness.cashFlowStatement.missing.every((item) => item.label !== "Akun sudah dikategorikan atau siap ditinjau"));
+    assert.ok(readiness.payablesCashFlow.missing.every((item) => item.label !== "Basis operating working capital tersedia: AR/persediaan/AP/utang lain-lain"));
+    assert.ok(readiness.payablesCashFlow.missing.every((item) => item.label !== "Akun sudah dikategorikan atau siap ditinjau"));
+    assert.ok(readiness.noplatFcf.missing.every((item) => item.label !== "Basis operating working capital tersedia: AR/persediaan/AP/utang lain-lain"));
+    assert.ok(readiness.noplatFcf.missing.every((item) => item.label !== "Akun sudah dikategorikan atau siap ditinjau"));
     assert.ok(readiness.payablesCashFlow.fulfilled.some((item) => item.targetTab === "periods"));
     assert.ok(readiness.valuationAam.missing.every((item) => item.targetTab !== "mapping"));
     assert.ok(readiness.valuationEem.missing.every((item) => item.targetTab !== "mapping"));
     assert.ok(readiness.valuationDcf.missing.every((item) => item.targetTab !== "mapping"));
+  });
+
+  it("treats an empty fixed asset schedule row as enough to hide the fixed asset input reminder", () => {
+    const rows: AccountRow[] = [];
+    const mappedRows = rows.map(mapRow);
+    const fixedAssetSchedule = buildFixedAssetScheduleSummary(initialPeriods, [createFixedAssetScheduleRow(initialPeriods)]);
+    const snapshot = buildSnapshot(initialPeriods, initialPeriods[0].id, rows, emptyAssumptions);
+    const dlocPfc = calculateDlocPfc(createEmptyDlocPfcState(), emptyCaseProfile);
+    const readiness = buildWorkbenchReadiness({
+      periods: initialPeriods,
+      rows,
+      mappedRows,
+      assumptions: emptyAssumptions,
+      snapshot,
+      fixedAssetSchedule,
+      caseProfile: emptyCaseProfile,
+      caseProfileDerived: buildCaseProfileDerived(emptyCaseProfile),
+      dlocPfc,
+      taxSimulation: createEmptyTaxSimulationState(),
+    });
+
+    assert.equal(readiness.fixedAssets.isReady, true);
+    assert.equal(readiness.fixedAssets.missing.length, 0);
   });
 
   it("marks sample workbook-derived data ready for the added analysis sections", () => {
