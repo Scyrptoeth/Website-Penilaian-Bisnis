@@ -87,11 +87,9 @@ export function buildWorkbenchReadiness({
   const hasComparativePeriod = periods.length >= 2;
   const hasAnyAccountInput = rows.length > 0 || fixedAssetSchedule.hasInput;
   const hasMappedAccount = mappedRows.some((item) => item.effectiveCategory !== "UNMAPPED") || fixedAssetSchedule.hasInput;
-  const hasBalanceInput =
-    rows.some((row) => row.statement === "balance_sheet") ||
-    fixedAssetSchedule.hasInput ||
-    snapshot.totalAssets !== 0 ||
-    snapshot.totalLiabilities !== 0;
+  const hasManualBalanceInput =
+    rows.some((row) => row.statement === "balance_sheet") || snapshot.totalAssets !== 0 || snapshot.totalLiabilities !== 0;
+  const hasBalanceInput = hasManualBalanceInput || fixedAssetSchedule.hasInput;
   const hasIncomeInput =
     rows.some((row) => row.statement === "income_statement") || snapshot.revenue !== 0 || snapshot.ebit !== 0 || snapshot.commercialNpat !== 0;
   const hasBalanceRows = rows.some((row) => row.statement === "balance_sheet") || fixedAssetSchedule.hasInput;
@@ -138,6 +136,8 @@ export function buildWorkbenchReadiness({
 
   const period = criterion(hasPeriod, "Periode aktif tersedia", "periods", "Isi Data Awal");
   const comparativePeriod = criterion(hasComparativePeriod, "Minimal dua periode untuk movement dan cash-flow bridge", "periods", "Tambah Periode");
+  const balanceTabInput = criterion(hasManualBalanceInput, "Data neraca tersedia", "balance", "Isi Neraca");
+  const fixedAssetTabInput = criterion(fixedAssetSchedule.hasInput || hasFixedAssetOrDepreciationBasis, "Data aset tetap tersedia", "fixedAssets", "Isi Aset Tetap");
   const balance = criterion(hasBalanceInput, "Data neraca atau aset tetap tersedia", "balance", "Isi Neraca");
   const income = criterion(hasIncomeInput, "Data laba rugi tersedia", "income", "Isi Laba Rugi");
   const mapped = criterion(
@@ -202,8 +202,8 @@ export function buildWorkbenchReadiness({
 
   return {
     periods: status("periods", "Data Awal", [period]),
-    balance: status("balance", "Neraca", [period]),
-    fixedAssets: status("fixedAssets", "Aset Tetap", [period]),
+    balance: status("balance", "Neraca", [period, balanceTabInput]),
+    fixedAssets: status("fixedAssets", "Aset Tetap", [period, fixedAssetTabInput]),
     income: status("income", "Laba Rugi", [period, income]),
     mapping: status("mapping", "Kategorisasi Akun", [anyAccount, mapped]),
     wacc: status("wacc", "WACC", [period, taxRateForWacc, waccMarketInputs, wacc]),

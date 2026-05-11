@@ -262,7 +262,8 @@ export function calculateDlom(state: DlomState, snapshot: FinancialStatementSnap
     };
   });
   const companyMarketability = deriveDlomCompanyMarketability(basisInput.companyType);
-  const interestBasis = state.basisOverride?.interestBasis || deriveDlomInterestBasis(basisInput.shareOwnershipType);
+  const derivedInterestBasis = deriveDlomInterestBasis(basisInput.shareOwnershipType);
+  const interestBasis = derivedInterestBasis || state.basisOverride?.interestBasis || "";
   const range = resolveDlomRange(companyMarketability, interestBasis);
   const totalScore = factors.reduce((sum, factor) => sum + factor.score, 0);
   const maxScore = 10;
@@ -285,7 +286,7 @@ export function calculateDlom(state: DlomState, snapshot: FinancialStatementSnap
     maxScore,
     dlomRate,
     companyMarketabilitySource: "Terhubung dari Jenis Perusahaan",
-    interestBasisSource: state.basisOverride?.sourceLabel || "Terhubung dari Jenis Kepemilikan Saham",
+    interestBasisSource: derivedInterestBasis ? "Terhubung dari Jenis Kepemilikan Saham" : state.basisOverride?.sourceLabel || "Terhubung dari Jenis Kepemilikan Saham",
     status,
     taxpayerResistance,
     isComplete,

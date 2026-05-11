@@ -736,7 +736,7 @@ const workflowTabRegistry = {
 const workflowNavigationGroups: WorkflowTabGroup[] = [
   {
     label: "Input Data",
-    tabs: [workflowTabRegistry.periods, workflowTabRegistry.balance, workflowTabRegistry.fixedAssets, workflowTabRegistry.income],
+    tabs: [workflowTabRegistry.periods, workflowTabRegistry.fixedAssets, workflowTabRegistry.balance, workflowTabRegistry.income],
   },
   {
     label: "Analisis EEM/DCF",
@@ -755,9 +755,9 @@ const workflowNavigationGroups: WorkflowTabGroup[] = [
   {
     label: "Proyeksi DCF",
     tabs: [
-      workflowTabRegistry.projectedIncome,
-      workflowTabRegistry.projectedBalance,
       workflowTabRegistry.projectedFixedAssets,
+      workflowTabRegistry.projectedBalance,
+      workflowTabRegistry.projectedIncome,
       workflowTabRegistry.projectedCashFlow,
     ],
   },
@@ -3948,15 +3948,27 @@ function ReadinessPanel({
   }
 
   const hasBlockingItems = status.missing.length > 0;
+  const hasWarningItems = !hasBlockingItems && status.warnings.length > 0;
+  const panelClassName = ["readiness-panel", hasBlockingItems ? "blocking" : hasWarningItems ? "attention" : ""]
+    .filter(Boolean)
+    .join(" ");
+  const eyebrow = hasBlockingItems ? "Data belum lengkap" : hasWarningItems ? "Perlu direview" : "Kesiapan data";
+  const heading = hasBlockingItems
+    ? `${status.title} belum dapat ditampilkan penuh`
+    : hasWarningItems
+      ? `${status.title} perlu direview`
+      : `${status.title} siap diproses`;
+  const badgeClassName = hasBlockingItems || hasWarningItems ? "badge warning" : "badge ok";
+  const badgeLabel = hasBlockingItems ? "Perlu dilengkapi" : hasWarningItems ? "Perlu direview" : "Siap";
 
   return (
-    <section className={hasBlockingItems ? "readiness-panel blocking" : "readiness-panel"} data-testid={`readiness-${status.id}`}>
+    <section className={panelClassName} data-testid={`readiness-${status.id}`}>
       <div className="readiness-heading">
         <div>
-          <p className="eyebrow">{hasBlockingItems ? "Data belum lengkap" : "Kesiapan data"}</p>
-          <h3>{hasBlockingItems ? `${status.title} belum dapat ditampilkan penuh` : `${status.title} siap diproses`}</h3>
+          <p className="eyebrow">{eyebrow}</p>
+          <h3>{heading}</h3>
         </div>
-        <span className={hasBlockingItems ? "badge warning" : "badge ok"}>{hasBlockingItems ? "Perlu dilengkapi" : "Siap"}</span>
+        <span className={badgeClassName}>{badgeLabel}</span>
       </div>
 
       {hasBlockingItems ? (
@@ -11703,7 +11715,7 @@ function FixedAssetScheduleEditor({
         </div>
         <div className="toolbar">
           <span className="status-pill muted">Saldo akhir dan nilai neto otomatis</span>
-          <button className="button ghost compact-button" type="button" onClick={onAddRow}>
+          <button className="button secondary" type="button" onClick={onAddRow}>
             <Plus size={16} />
             Tambah kelas aset
           </button>

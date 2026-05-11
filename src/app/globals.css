@@ -4068,7 +4068,8 @@ select {
   background: var(--ok-soft);
 }
 
-.readiness-panel.blocking {
+.readiness-panel.blocking,
+.readiness-panel.attention {
   border-color: rgba(161, 98, 7, 0.28);
   background: var(--review-soft);
 }

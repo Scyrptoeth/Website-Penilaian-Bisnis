@@ -212,8 +212,8 @@ test("period workflow, scoped categories, and display-only balance sheet classif
     .evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label")));
   expect(sidebarTabLabels).toEqual([
     "Data Awal",
-    "Neraca",
     "Aset Tetap",
+    "Neraca",
     "Laba Rugi",
     "Cash Flow Statement",
     "Jadwal Utang",
@@ -222,9 +222,9 @@ test("period workflow, scoped categories, and display-only balance sheet classif
     "ROIC",
     "WACC",
     "Asumsi EEM/DCF",
-    "Proyeksi Laba Rugi",
-    "Proyeksi Neraca",
     "Proyeksi Aset Tetap",
+    "Proyeksi Neraca",
+    "Proyeksi Laba Rugi",
     "Proyeksi Cash Flow Statement",
     "Penilaian AAM",
     "Penilaian EEM",
@@ -346,7 +346,10 @@ test("fixed asset schedule remains empty until user adds a class and then rolls 
   await expect(fixedAssetsPanel.getByRole("heading", { name: "Aset Tetap", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Jadwal Aset Tetap" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "A. Biaya Perolehan · B. Penyusutan · Nilai Buku Neto" })).toHaveCount(0);
+  await expect(page.getByTestId("readiness-fixedAssets")).toBeVisible();
+  await expect(page.getByTestId("readiness-fixedAssets")).toContainText("Aset Tetap belum dapat ditampilkan penuh");
   await expect(page.getByTestId("fixed-asset-empty")).toBeVisible();
+  await expect(fixedAssetsPanel.getByRole("button", { name: "Tambah kelas aset" }).first()).toHaveCSS("background-color", "rgb(15, 118, 110)");
 
   await page.getByRole("button", { name: "Tambah kelas aset" }).click();
   await expect(page.getByTestId("fixed-asset-row")).toHaveCount(2);
@@ -626,8 +629,8 @@ test("DLOM and tax simulation render workbook-derived scenario layer after loadi
 
   await openWorkflowTab(page, "DLOM");
   await expect(page.getByTestId("dlom-basis-grid")).toContainText("DLOM Perusahaan tertutup");
-  await expect(page.getByTestId("dlom-basis-grid")).toContainText("Mayoritas");
-  await expect(page.getByTestId("dlom-basis-grid")).toContainText("20% - 40%");
+  await expect(page.getByTestId("dlom-basis-grid")).toContainText("Minoritas");
+  await expect(page.getByTestId("dlom-basis-grid")).toContainText("30% - 50%");
   await expect(page.getByTestId("dlom-basis-grid")).not.toContainText("Terhubung dari Jenis Perusahaan");
   await expect(page.getByTestId("dlom-basis-grid")).not.toContainText("Workbook UPDATE DLOM!C31");
   await expect(page.getByTestId("dlom-basis-grid")).not.toContainText("Formula");
@@ -651,7 +654,7 @@ test("DLOM and tax simulation render workbook-derived scenario layer after loadi
     Math.max(...dlomBasisLayout.map((field) => field.height)) - Math.min(...dlomBasisLayout.map((field) => field.height)),
   ).toBeLessThanOrEqual(1);
   await expect(page.getByRole("heading", { name: "DLOM trace" })).toHaveCount(0);
-  await expect(page.getByTestId("dlom-summary")).toContainText("25%");
+  await expect(page.getByTestId("dlom-summary")).toContainText("35%");
   await expect(page.getByTestId("dlom-summary")).toContainText("Tinggi");
   await expect(page.getByTestId("dlom-summary")).toContainText("Posisi DLOM dalam rentang: Rendah");
   await expect(page.getByTestId("dlom-factor-table")).toContainText("Keterangan Tambahan");
@@ -697,7 +700,7 @@ test("DLOM and tax simulation render workbook-derived scenario layer after loadi
   await expect(page.getByLabel("Nilai pengalihan dilaporkan (override)")).toHaveValue("");
   await expect(page.getByText(/Kosong berarti sistem memakai Data Awal:/)).toBeVisible();
   await expect(page.getByTestId("tax-simulation-summary")).toContainText("AAM");
-  await expect(page.getByTestId("tax-simulation-summary")).toContainText("DLOM 25%");
+  await expect(page.getByTestId("tax-simulation-summary")).toContainText("DLOM 35%");
   await expect(page.getByTestId("tax-simulation-summary")).toContainText("DLOC 34%");
   await expect(page.getByTestId("tax-simulation-table")).toContainText("AAM");
   await expect(page.getByTestId("tax-simulation-table")).toContainText("EEM");
@@ -808,11 +811,11 @@ test("legacy workbook-like DLOM drafts migrate to workbook UPDATE basis without 
   await expect(page.getByTestId("valuation-workbench")).toBeVisible();
 
   await openWorkflowTab(page, "DLOM");
-  await expect(page.getByTestId("dlom-basis-grid")).toContainText("Mayoritas");
-  await expect(page.getByTestId("dlom-basis-grid")).toContainText("20% - 40%");
+  await expect(page.getByTestId("dlom-basis-grid")).toContainText("Minoritas");
+  await expect(page.getByTestId("dlom-basis-grid")).toContainText("30% - 50%");
   await expect(page.getByTestId("dlom-basis-grid")).not.toContainText("Workbook UPDATE DLOM!C31");
   await expect(page.getByTestId("dlom-basis-grid")).not.toContainText("Formula");
-  await expect(page.getByTestId("dlom-summary")).toContainText("25%");
+  await expect(page.getByTestId("dlom-summary")).toContainText("35%");
   await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(16);
 });
 

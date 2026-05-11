@@ -28,13 +28,18 @@ const methods = calculateAllMethods(snapshot);
 const dlocPfc = calculateDlocPfc(buildSampleDlocPfcState(), caseProfile);
 
 describe("DLOM and tax simulation scenario layer", () => {
-  it("reproduces the workbook DLOM score and rate for the sample case", () => {
-    const dlom = calculateDlom(buildSampleDlomState(), snapshot, caseProfile);
+  it("uses Data Awal ownership as the DLOM interest basis when it is available", () => {
+    const majorityCaseProfile = { ...caseProfile, shareOwnershipType: "Mayoritas" };
+    const staleWorkbookOverride = normalizeDlomState({
+      ...buildSampleDlomState(),
+      basisOverride: { interestBasis: "Minoritas", sourceLabel: "Workbook UPDATE DLOM!C31" },
+    });
+    const dlom = calculateDlom(staleWorkbookOverride, snapshot, majorityCaseProfile);
 
     assert.equal(dlom.isComplete, true);
     assert.equal(dlom.companyMarketability, "DLOM Perusahaan tertutup");
     assert.equal(dlom.interestBasis, "Mayoritas");
-    assert.equal(dlom.interestBasisSource, "Workbook UPDATE DLOM!C31");
+    assert.equal(dlom.interestBasisSource, "Terhubung dari Jenis Kepemilikan Saham");
     assert.equal(dlom.rangeLabel, "20% - 40%");
     assert.equal(dlom.totalScore, 2.5);
     assertAlmostEqual(dlom.dlomRate, 0.25, 1e-12);
@@ -42,7 +47,7 @@ describe("DLOM and tax simulation scenario layer", () => {
     assert.equal(dlom.taxpayerResistance, "Tinggi");
   });
 
-  it("keeps manual DLOM cases tied to Data Awal when no workbook DLOM override is loaded", () => {
+  it("keeps DLOM cases tied to Data Awal when minority ownership is selected", () => {
     const manualDlomState = normalizeDlomState({ ...buildSampleDlomState(), basisOverride: null });
     const dlom = calculateDlom(manualDlomState, snapshot, caseProfile);
 
@@ -116,7 +121,7 @@ describe("DLOM and tax simulation scenario layer", () => {
     assert.ok(aam);
     assert.equal(simulation.primaryMethod, "AAM");
     assertAlmostEqual(aam.baseEquityValue, methods.aam.equityValue, 0.01);
-    assertAlmostEqual(aam.dlomRate, 0.25, 1e-12);
+    assertAlmostEqual(aam.dlomRate, 0.35, 1e-12);
     assertAlmostEqual(aam.valueAfterDlom, methods.aam.equityValue * (1 - dlom.dlomRate), 0.01);
     assertAlmostEqual(aam.dlocPfcRate, 0.34, 1e-12);
     assertAlmostEqual(aam.dlocPfcAdjustment, -(methods.aam.equityValue * (1 - dlom.dlomRate) * 0.34), 0.01);

@@ -39,7 +39,8 @@ describe("workbench readiness", () => {
     });
 
     assert.equal(readiness.valuationAam.isReady, false);
-    assert.equal(readiness.fixedAssets.isReady, true);
+    assert.equal(readiness.balance.isReady, false);
+    assert.equal(readiness.fixedAssets.isReady, false);
     assert.equal(readiness.valuationEem.isReady, false);
     assert.equal(readiness.valuationDcf.isReady, false);
     assert.equal(readiness.projectedIncome.isReady, false);
@@ -56,6 +57,8 @@ describe("workbench readiness", () => {
     assert.equal(readiness.financialRatio.isReady, false);
     assert.equal(readiness.roic.isReady, false);
     assert.ok(readiness.valuationAam.missing.some((item) => item.targetTab === "balance"));
+    assert.ok(readiness.balance.missing.some((item) => item.targetTab === "balance"));
+    assert.ok(readiness.fixedAssets.missing.some((item) => item.targetTab === "fixedAssets"));
     assert.ok(readiness.valuationAam.missing.every((item) => item.targetTab !== "wacc" && item.targetTab !== "eemDcfAssumptions"));
     assert.ok(readiness.valuationEem.missing.some((item) => item.targetTab === "income"));
     assert.ok(readiness.valuationDcf.missing.some((item) => item.targetTab === "income"));
