@@ -76,19 +76,50 @@ export function formatEditableInteger(input: string): string {
   const isNegative = value.startsWith("-");
   const withoutCurrency = value.replace(/\s/g, "").replace(/rp/gi, "");
   const normalizedSign = withoutCurrency.replace(/-/g, "");
-  const commaIndex = normalizedSign.indexOf(",");
   const dotCount = normalizedSign.split(".").length - 1;
-  const integerCandidate =
-    commaIndex >= 0
-      ? normalizedSign.slice(0, commaIndex)
-      : dotCount === 1 && normalizedSign.split(".")[1]?.length !== 3
-        ? normalizedSign.split(".")[0]
-        : normalizedSign;
+  const commaCount = normalizedSign.split(",").length - 1;
+  const integerCandidate = getIntegerCandidate(normalizedSign, commaCount, dotCount);
   const integerDigits = integerCandidate.replace(/\D/g, "");
   const groupedInteger = integerDigits ? formatIntegerNumber(Number(integerDigits)) : "";
   const sign = isNegative ? "-" : "";
 
   return groupedInteger ? `${sign}${groupedInteger}` : sign;
+}
+
+function getIntegerCandidate(input: string, commaCount: number, dotCount: number): string {
+  if (commaCount > 0 && dotCount > 0) {
+    const lastComma = input.lastIndexOf(",");
+    const lastDot = input.lastIndexOf(".");
+    return input.slice(0, Math.max(lastComma, lastDot));
+  }
+
+  if (commaCount > 1) {
+    return input.replace(/,/g, "");
+  }
+
+  if (commaCount === 1) {
+    return normalizeSingleSeparatorIntegerCandidate(input, ",");
+  }
+
+  if (dotCount > 1) {
+    return input.replace(/\./g, "");
+  }
+
+  if (dotCount === 1) {
+    return normalizeSingleSeparatorIntegerCandidate(input, ".");
+  }
+
+  return input;
+}
+
+function normalizeSingleSeparatorIntegerCandidate(input: string, separator: "." | ","): string {
+  const [integerPart = "", fractionalPart = ""] = input.split(separator);
+
+  if (fractionalPart.length === 3 || (integerPart.length <= 3 && fractionalPart.length > 3)) {
+    return input;
+  }
+
+  return integerPart;
 }
 
 export function formatDisplayDate(value: string): string {
