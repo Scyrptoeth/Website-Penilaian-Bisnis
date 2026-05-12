@@ -68,6 +68,12 @@ describe("workbench readiness", () => {
     assert.ok(readiness.projectedBalance.missing.some((item) => item.targetTab === "balance"));
     assert.ok(readiness.projectedFixedAssets.missing.some((item) => item.targetTab === "fixedAssets"));
     assert.ok(readiness.projectedCashFlow.missing.some((item) => item.targetTab === "eemDcfAssumptions"));
+    assert.ok(readiness.projectedIncome.missing.every((item) => item.label !== "Akun sudah dikategorikan atau siap ditinjau"));
+    assert.ok(readiness.projectedBalance.missing.every((item) => item.label !== "Basis operating working capital tersedia: AR/persediaan/AP/utang lain-lain"));
+    assert.ok(readiness.projectedBalance.missing.every((item) => item.label !== "Akun sudah dikategorikan atau siap ditinjau"));
+    assert.ok(readiness.projectedFixedAssets.missing.every((item) => item.label !== "Akun sudah dikategorikan atau siap ditinjau"));
+    assert.ok(readiness.projectedCashFlow.missing.every((item) => item.label !== "Basis operating working capital tersedia: AR/persediaan/AP/utang lain-lain"));
+    assert.ok(readiness.projectedCashFlow.missing.every((item) => item.label !== "Akun sudah dikategorikan atau siap ditinjau"));
     assert.ok(readiness.dlom.missing.some((item) => item.targetTab === "periods"));
     assert.ok(readiness.noplatFcf.missing.some((item) => item.targetTab === "eemDcfAssumptions"));
     assert.ok(readiness.cashFlowStatement.missing.every((item) => item.label !== "Basis operating working capital tersedia: AR/persediaan/AP/utang lain-lain"));

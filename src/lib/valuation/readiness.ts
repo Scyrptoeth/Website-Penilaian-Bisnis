@@ -123,12 +123,6 @@ export function buildWorkbenchReadiness({
     assumptions.inventoryDays.trim() !== "" ||
     assumptions.apDays.trim() !== "" ||
     assumptions.otherPayableDays.trim() !== "";
-  const hasOperatingWorkingCapitalBasis = hasAnyCategory(categorySet, [
-    "ACCOUNT_RECEIVABLE",
-    "INVENTORY",
-    "ACCOUNT_PAYABLE",
-    "OTHER_PAYABLE",
-  ]);
   const hasFixedAssetOrDepreciationBasis =
     fixedAssetSchedule.rows.length > 0 ||
     fixedAssetSchedule.hasInput ||
@@ -160,12 +154,6 @@ export function buildWorkbenchReadiness({
   const terminalGrowth = criterion(hasTerminalGrowth, "Terminal growth tersedia", "eemDcfAssumptions", "Isi Asumsi EEM/DCF");
   const requiredReturn = criterion(hasRequiredReturn, "Required return on NTA tersedia", "eemDcfAssumptions", "Isi Asumsi EEM/DCF");
   const workingCapitalDays = criterion(hasWorkingCapitalDays, "Driver hari modal kerja tersedia", "eemDcfAssumptions", "Isi Driver");
-  const operatingWorkingCapital = criterion(
-    hasOperatingWorkingCapitalBasis,
-    "Basis operating working capital tersedia: AR/persediaan/AP/utang lain-lain",
-    "balance",
-    "Isi Neraca",
-  );
   const fixedAssetOrDepreciation = criterion(
     hasFixedAssetOrDepreciationBasis,
     "Basis penyusutan/capex tersedia dari fixed asset atau beban penyusutan",
@@ -220,7 +208,7 @@ export function buildWorkbenchReadiness({
       requiredReturn,
       workingCapitalDays,
     ]),
-    valuationAam: status("valuationAam", "Penilaian AAM", [period, balance, mapped]),
+    valuationAam: status("valuationAam", "Penilaian AAM", [period, balance]),
     valuationEem: status("valuationEem", "Penilaian EEM", [
       period,
       balance,
@@ -229,7 +217,6 @@ export function buildWorkbenchReadiness({
       wacc,
       terminalGrowth,
       requiredReturn,
-      mapped,
     ]),
     valuationDcf: status("valuationDcf", "Penilaian DCF", [
       period,
@@ -239,28 +226,23 @@ export function buildWorkbenchReadiness({
       wacc,
       terminalGrowth,
       requiredReturn,
-      mapped,
     ]),
     projectedIncome: status("projectedIncome", "Proyeksi Laba Rugi", [
       period,
       income,
       taxRateForEemDcf,
-      mapped,
     ]),
     projectedBalance: status("projectedBalance", "Proyeksi Neraca", [
       period,
       balance,
       income,
       workingCapitalDays,
-      operatingWorkingCapital,
       fixedAssetOrDepreciation,
-      mapped,
     ]),
     projectedFixedAssets: status("projectedFixedAssets", "Proyeksi Aset Tetap", [
       period,
       balance,
       fixedAssetOrDepreciation,
-      mapped,
     ]),
     projectedCashFlow: status("projectedCashFlow", "Proyeksi Cash Flow Statement", [
       period,
@@ -268,9 +250,7 @@ export function buildWorkbenchReadiness({
       income,
       taxRateForEemDcf,
       workingCapitalDays,
-      operatingWorkingCapital,
       fixedAssetOrDepreciation,
-      mapped,
     ]),
     dlom: status("dlom", "DLOM", [period, hasCompanyType, hasShareOwnershipType], [balance, income]),
     dlocPfc: status("dlocPfc", "DLOC/PFC", [period, hasCompanyType, hasShareOwnershipType, hasDlocPfcAnswers]),

@@ -1506,6 +1506,12 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       return true;
     }
 
+    if (item.targetTab === "eemDcfAssumptions" && item.targetLabel === "Isi Tarif Pajak") {
+      navigateToWorkflowTab("eemDcfAssumptions", { preserveGuidance: true });
+      setGuidanceTarget("tax-rate-statutory");
+      return true;
+    }
+
     if (item.targetTab === "balance" && item.targetLabel === "Isi Neraca") {
       navigateToWorkflowTab("balance");
       addRow("balance_sheet");
@@ -1835,6 +1841,22 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   }
 
   function removePeriod(id: string) {
+    const periodToRemove = periods.find((period) => period.id === id);
+
+    if (!periodToRemove || periods.length === 1 || getPeriodYearOffset(periodToRemove) === 0) {
+      return;
+    }
+
+    setPendingConfirmation({
+      title: `Hapus periode ${periodToRemove.label || "ini"}?`,
+      description:
+        "Seluruh nilai akun, jadwal aset tetap, dan override cash-flow pada periode ini akan dihapus dari model aktif. Tindakan ini dapat dibatalkan melalui Undo.",
+      confirmLabel: "Hapus periode",
+      onConfirm: () => deletePeriod(id),
+    });
+  }
+
+  function deletePeriod(id: string) {
     commitCoreState((current) => {
       const periodToRemove = current.periods.find((period) => period.id === id);
 
@@ -1910,6 +1932,18 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   }
 
   function removeFixedAssetScheduleRow(id: string) {
+    const fixedAssetRow = fixedAssetScheduleRows.find((row) => row.id === id);
+    const assetName = fixedAssetRow?.assetName.trim() || "kelas aset ini";
+
+    setPendingConfirmation({
+      title: "Hapus kelas aset?",
+      description: `Kelas aset ${assetName} beserta biaya perolehan dan penyusutannya akan dihapus dari jadwal aset tetap aktif. Tindakan ini dapat dibatalkan melalui Undo.`,
+      confirmLabel: "Hapus kelas aset",
+      onConfirm: () => deleteFixedAssetScheduleRow(id),
+    });
+  }
+
+  function deleteFixedAssetScheduleRow(id: string) {
     commitCoreState((current) => ({
       ...current,
       fixedAssetScheduleRows: current.fixedAssetScheduleRows.filter((row) => row.id !== id),
@@ -4083,19 +4117,15 @@ function ReadinessPanel({
     return null;
   }
 
-  const hasBlockingItems = status.missing.length > 0;
-  const hasWarningItems = !hasBlockingItems && status.warnings.length > 0;
-  const panelClassName = ["readiness-panel", hasBlockingItems ? "blocking" : hasWarningItems ? "attention" : ""]
-    .filter(Boolean)
-    .join(" ");
-  const eyebrow = hasBlockingItems ? "Data belum lengkap" : hasWarningItems ? "Perlu direview" : "Kesiapan data";
-  const heading = hasBlockingItems
+  const requiredItems = [...status.missing, ...status.warnings];
+  const hasRequiredItems = requiredItems.length > 0;
+  const panelClassName = ["readiness-panel", hasRequiredItems ? "blocking" : ""].filter(Boolean).join(" ");
+  const eyebrow = hasRequiredItems ? "Data belum lengkap" : "Kesiapan data";
+  const heading = hasRequiredItems
     ? `${status.title} belum dapat ditampilkan penuh`
-    : hasWarningItems
-      ? `${status.title} perlu direview`
-      : `${status.title} siap diproses`;
-  const badgeClassName = hasBlockingItems ? "badge danger" : hasWarningItems ? "badge warning" : "badge ok";
-  const badgeLabel = hasBlockingItems ? "Perlu dilengkapi" : hasWarningItems ? "Perlu direview" : "Siap";
+    : `${status.title} siap diproses`;
+  const badgeClassName = hasRequiredItems ? "badge danger" : "badge ok";
+  const badgeLabel = hasRequiredItems ? "Perlu dilengkapi" : "Siap";
   const activateReadinessItem = (item: ReadinessItem) => {
     if (onAction?.(item)) {
       return;
@@ -4114,10 +4144,10 @@ function ReadinessPanel({
         <span className={badgeClassName}>{badgeLabel}</span>
       </div>
 
-      {hasBlockingItems ? (
+      {hasRequiredItems ? (
         <div className="readiness-list">
           <h4>Masih diperlukan</h4>
-          {status.missing.map((item) => (
+          {requiredItems.map((item) => (
             <a
               href={`#${item.targetTab}`}
               className="readiness-link"
@@ -4131,29 +4161,6 @@ function ReadinessPanel({
                 {item.label}
                 {item.detail ? <small>{item.detail}</small> : null}
               </span>
-              <strong>
-                {item.targetLabel}
-                <ArrowRight size={14} />
-              </strong>
-            </a>
-          ))}
-        </div>
-      ) : null}
-
-      {status.warnings.length > 0 ? (
-        <div className="readiness-list warning-list">
-          <h4>Peringatan</h4>
-          {status.warnings.map((item) => (
-            <a
-              href={`#${item.targetTab}`}
-              className="readiness-link"
-              onClick={(event) => {
-                event.preventDefault();
-                activateReadinessItem(item);
-              }}
-              key={`${item.label}-${item.targetTab}`}
-            >
-              <span>{item.label}</span>
               <strong>
                 {item.targetLabel}
                 <ArrowRight size={14} />

@@ -72,11 +72,42 @@ test("readiness links highlight the exact target action after navigation", async
   await expect(waccManualAction).toHaveClass(/action-guidance/);
   await expect(waccManualAction.locator(".action-guidance-badge")).toContainText("Aksi dibutuhkan");
 
+  await openWorkflowTab(page, "WACC");
+  await page.getByTestId("readiness-wacc").getByRole("link", { name: /Isi Tarif Pajak/ }).click();
+  const waccTaxRateAction = page.locator('[data-guidance-target="tax-rate-statutory"]');
+  await expect(waccTaxRateAction).toHaveClass(/action-guidance/);
+  await expect(waccTaxRateAction.locator(".action-guidance-badge")).toContainText("Aksi dibutuhkan");
+
   await openWorkflowTab(page, "Asumsi EEM/DCF");
   await page.getByTestId("readiness-eemDcfAssumptions").getByRole("link", { name: /Isi Driver/ }).click();
   const workingCapitalAction = page.locator('[data-guidance-target="working-capital-driver"]');
   await expect(workingCapitalAction).toHaveClass(/action-guidance/);
   await expect(workingCapitalAction.locator(".action-guidance-badge")).toContainText("Aksi dibutuhkan");
+});
+
+test("destructive Data Awal and Aset Tetap actions require confirmation", async ({ page }) => {
+  await page.getByRole("button", { name: /Tambah Y-1/ }).click();
+  await expect(page.getByTestId("period-card")).toHaveCount(2);
+
+  const historicalPeriod = page.locator('[data-testid="period-card"][data-year-offset="-1"]');
+  await historicalPeriod.getByTitle("Hapus periode").click();
+  await expect(page.getByRole("dialog", { name: /Hapus periode Tahun Y-1/ })).toBeVisible();
+  await page.getByRole("dialog").getByRole("button", { name: "Batal" }).click();
+  await expect(page.getByTestId("period-card")).toHaveCount(2);
+  await historicalPeriod.getByTitle("Hapus periode").click();
+  await page.getByRole("dialog").getByRole("button", { name: "Hapus periode" }).click();
+  await expect(page.getByTestId("period-card")).toHaveCount(1);
+
+  await openWorkflowTab(page, "Aset Tetap");
+  await page.getByRole("button", { name: "Tambah kelas aset" }).click();
+  await expect(page.getByTestId("fixed-asset-acquisition-table").getByTestId("fixed-asset-row")).toHaveCount(1);
+  await page.getByTitle("Hapus kelas aset").click();
+  await expect(page.getByRole("dialog", { name: "Hapus kelas aset?" })).toBeVisible();
+  await page.getByRole("dialog").getByRole("button", { name: "Batal" }).click();
+  await expect(page.getByTestId("fixed-asset-acquisition-table").getByTestId("fixed-asset-row")).toHaveCount(1);
+  await page.getByTitle("Hapus kelas aset").click();
+  await page.getByRole("dialog").getByRole("button", { name: "Hapus kelas aset" }).click();
+  await expect(page.getByTestId("fixed-asset-empty")).toBeVisible();
 });
 
 test("suggestion actions use accent styling instead of plain white buttons", async ({ page }) => {
