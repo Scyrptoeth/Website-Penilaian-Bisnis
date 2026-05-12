@@ -2,8 +2,10 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
+  await loginIfAuthGateVisible(page);
   await page.evaluate(() => window.localStorage.clear());
   await page.reload();
+  await loginIfAuthGateVisible(page);
   await expect(page.getByTestId("valuation-workbench")).toBeVisible();
 });
 
@@ -184,6 +186,27 @@ async function expectActionGuidance(locator: Locator) {
       );
     }),
   ).resolves.toBe(true);
+}
+
+async function loginIfAuthGateVisible(page: Page) {
+  const loginPanel = page.getByTestId("auth-login-panel");
+  const isLoginVisible = await loginPanel.isVisible({ timeout: 1_000 }).catch(() => false);
+
+  if (!isLoginVisible) {
+    return;
+  }
+
+  const userId = process.env.PVB_E2E_USER_ID;
+  const password = process.env.PVB_E2E_PASSWORD;
+
+  if (!userId || !password) {
+    throw new Error("PVB_E2E_USER_ID and PVB_E2E_PASSWORD are required when e2e tests target an auth-gated deployment.");
+  }
+
+  await page.getByLabel("NIP Pendek", { exact: true }).fill(userId);
+  await page.getByLabel("Password Pengguna", { exact: true }).fill(password);
+  await page.getByRole("button", { name: "Masuk" }).click();
+  await expect(page.getByTestId("valuation-workbench")).toBeVisible();
 }
 
 async function openWorkflowTab(page: Page, name: string) {

@@ -58,7 +58,7 @@ async function loginIfAuthGateVisible(page: Page) {
   }
 
   await page.getByLabel("NIP Pendek", { exact: true }).fill(userId);
-  await page.getByLabel("Password Pengguna").fill(password);
+  await page.getByLabel("Password Pengguna", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Masuk" }).click();
   await expect(page.getByTestId("valuation-workbench")).toBeVisible();
 }
