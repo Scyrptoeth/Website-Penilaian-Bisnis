@@ -143,6 +143,7 @@ function buildSampleExportInput(): ValuationPdfExportInput {
     fixedAssetSchedule,
     caseProfile,
     caseProfileDerived,
+    dlom: dlomCalculation,
     dlocPfc: dlocPfcCalculation,
     taxSimulation,
   });

@@ -8,6 +8,7 @@ import type {
   Period,
 } from "./case-model";
 import { calculateRequiredReturnOnNtaAssumption, calculateWaccAssumption } from "./assumption-calculators";
+import type { DlomCalculation } from "./dlom";
 import type { DlocPfcCalculation } from "./dloc-pfc";
 import type { TaxSimulationState } from "./tax-simulation";
 import type { AccountCategory, FinancialStatementSnapshot } from "./types";
@@ -68,6 +69,7 @@ export function buildWorkbenchReadiness({
   fixedAssetSchedule,
   caseProfile,
   caseProfileDerived,
+  dlom,
   dlocPfc,
   taxSimulation,
 }: {
@@ -79,6 +81,7 @@ export function buildWorkbenchReadiness({
   fixedAssetSchedule: FixedAssetScheduleSummary;
   caseProfile: CaseProfile;
   caseProfileDerived: CaseProfileDerived;
+  dlom: DlomCalculation;
   dlocPfc: DlocPfcCalculation;
   taxSimulation: TaxSimulationState;
 }): WorkbenchReadiness {
@@ -168,11 +171,12 @@ export function buildWorkbenchReadiness({
     "Isi Data Awal",
   );
   const hasDlocPfcAnswers = criterion(dlocPfc.factors.every((factor) => factor.status === "answered"), "Questionnaire DLOC/PFC lengkap", "dlocPfc", "Isi DLOC/PFC");
+  const hasDlomAnswers = criterion(dlom.factors.every((factor) => factor.status === "answered"), "Questionnaire DLOM lengkap", "dlom", "Isi DLOM");
   const primaryMethod = criterion(taxSimulation.primaryMethod !== "", "Primary Method simulasi pajak dipilih", "taxSimulation", "Pilih Primary Method");
   const reportedTransferValue = criterion(
     taxSimulation.reportedTransferValue.trim() !== "" || (caseProfileDerived.capitalBaseValuedAmount ?? 0) > 0,
     "Nilai pengalihan dilaporkan tersedia",
-    "taxSimulation",
+    "periods",
     "Isi Nilai Pengalihan",
   );
   const shareValuePerShare = criterion(
@@ -192,6 +196,12 @@ export function buildWorkbenchReadiness({
     "DLOC/PFC otomatis tersedia atau skenario manual memiliki rate pembanding",
     "dlocPfc",
     "Lengkapi DLOC/PFC",
+  );
+  const dlomReadyForTax = criterion(
+    dlom.isComplete || (taxSimulation.finalBasis === "manualScenario" && taxSimulation.scenarioDlomRate.trim() !== ""),
+    "DLOM otomatis tersedia atau skenario manual memiliki rate pembanding",
+    "dlom",
+    "Lengkapi DLOM",
   );
 
   return {
@@ -252,7 +262,7 @@ export function buildWorkbenchReadiness({
       workingCapitalDays,
       fixedAssetOrDepreciation,
     ]),
-    dlom: status("dlom", "DLOM", [period, hasCompanyType, hasShareOwnershipType], [balance, income]),
+    dlom: status("dlom", "DLOM", [period, hasCompanyType, hasShareOwnershipType, hasDlomAnswers]),
     dlocPfc: status("dlocPfc", "DLOC/PFC", [period, hasCompanyType, hasShareOwnershipType, hasDlocPfcAnswers]),
     taxSimulation: status("taxSimulation", "Simulasi Potensi Pajak", [period, shareValuePerShare], [
       balance,
@@ -260,6 +270,7 @@ export function buildWorkbenchReadiness({
       primaryMethod,
       reportedTransferValue,
       shareRatio,
+      dlomReadyForTax,
       dlocPfcReadyForTax,
     ]),
     cashFlowStatement: status("cashFlowStatement", "Cash Flow Statement", [

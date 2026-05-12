@@ -602,6 +602,13 @@ type WorkspaceStorageSnapshot = {
 type WorkflowTabId = WorkbenchSectionId;
 type GuidanceTarget =
   | "add-period"
+  | "case-capital-base-valued"
+  | "case-capital-proportion"
+  | "case-company-type"
+  | "case-share-ownership-type"
+  | "dlom-questionnaire"
+  | "dloc-pfc-questionnaire"
+  | "tax-primary-method"
   | "tax-rate-statutory"
   | "wacc-market-suggestion"
   | "wacc-active-basis"
@@ -1192,10 +1199,11 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         fixedAssetSchedule,
         caseProfile,
         caseProfileDerived,
+        dlom: dlomCalculation,
         dlocPfc: dlocPfcCalculation,
         taxSimulation,
       }),
-    [caseProfile, caseProfileDerived, dlocPfcCalculation, fixedAssetSchedule, mappedRows, periods, resolvedAssumptions, rows, snapshot, taxSimulation],
+    [caseProfile, caseProfileDerived, dlocPfcCalculation, dlomCalculation, fixedAssetSchedule, mappedRows, periods, resolvedAssumptions, rows, snapshot, taxSimulation],
   );
 
   useEffect(() => {
@@ -1497,6 +1505,48 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     if (item.targetTab === "periods" && item.targetLabel === "Tambah Periode") {
       navigateToWorkflowTab("periods", { preserveGuidance: true });
       setGuidanceTarget("add-period");
+      return true;
+    }
+
+    if (item.targetTab === "periods" && item.label === "Jenis Perusahaan tersedia untuk basis DLOM dan rentang DLOC/PFC") {
+      navigateToWorkflowTab("periods", { preserveGuidance: true });
+      setGuidanceTarget("case-company-type");
+      return true;
+    }
+
+    if (item.targetTab === "periods" && item.label === "Jenis Kepemilikan Saham tersedia untuk basis interest DLOM dan status DLOC/PFC") {
+      navigateToWorkflowTab("periods", { preserveGuidance: true });
+      setGuidanceTarget("case-share-ownership-type");
+      return true;
+    }
+
+    if (item.targetTab === "periods" && item.targetLabel === "Isi Nilai Pengalihan") {
+      navigateToWorkflowTab("periods", { preserveGuidance: true });
+      setGuidanceTarget("case-capital-base-valued");
+      return true;
+    }
+
+    if (item.targetTab === "periods" && item.label === "Porsi saham/modal yang dinilai valid") {
+      navigateToWorkflowTab("periods", { preserveGuidance: true });
+      setGuidanceTarget("case-capital-proportion");
+      return true;
+    }
+
+    if (item.targetTab === "taxSimulation" && item.targetLabel === "Pilih Primary Method") {
+      navigateToWorkflowTab("taxSimulation", { preserveGuidance: true });
+      setGuidanceTarget("tax-primary-method");
+      return true;
+    }
+
+    if (item.targetTab === "dlom" && (item.targetLabel === "Isi DLOM" || item.targetLabel === "Lengkapi DLOM")) {
+      navigateToWorkflowTab("dlom", { preserveGuidance: true });
+      setGuidanceTarget("dlom-questionnaire");
+      return true;
+    }
+
+    if (item.targetTab === "dlocPfc" && (item.targetLabel === "Isi DLOC/PFC" || item.targetLabel === "Lengkapi DLOC/PFC")) {
+      navigateToWorkflowTab("dlocPfc", { preserveGuidance: true });
+      setGuidanceTarget("dloc-pfc-questionnaire");
       return true;
     }
 
@@ -1803,6 +1853,15 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   }
 
   function updateCaseProfile(key: keyof CaseProfile, value: string) {
+    if (
+      (key === "companyType" && guidanceTarget === "case-company-type") ||
+      (key === "shareOwnershipType" && guidanceTarget === "case-share-ownership-type") ||
+      (key === "capitalBaseValued" && guidanceTarget === "case-capital-base-valued") ||
+      ((key === "capitalBaseFull" || key === "capitalBaseValued") && guidanceTarget === "case-capital-proportion")
+    ) {
+      setGuidanceTarget(null);
+    }
+
     commitCoreState((current) => {
       let nextCaseProfile = { ...current.caseProfile, [key]: formatCaseProfileValue(key, value) };
 
@@ -2049,6 +2108,10 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   }
 
   function updateDlomFactor(id: DlomFactorId, patch: Partial<DlomState["factors"][DlomFactorId]>) {
+    if (guidanceTarget === "dlom-questionnaire" && typeof patch.answer === "string" && patch.answer.trim() !== "") {
+      setGuidanceTarget(null);
+    }
+
     commitCoreState((current) => ({
       ...current,
       dlom: normalizeDlomState({
@@ -2065,6 +2128,10 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   }
 
   function updateDlocPfcFactor(id: DlocPfcFactorId, patch: Partial<DlocPfcState["factors"][DlocPfcFactorId]>) {
+    if (guidanceTarget === "dloc-pfc-questionnaire" && typeof patch.answer === "string" && patch.answer.trim() !== "") {
+      setGuidanceTarget(null);
+    }
+
     commitCoreState((current) => ({
       ...current,
       dlocPfc: normalizeDlocPfcState({
@@ -2081,6 +2148,10 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   }
 
   function updateTaxSimulation(patch: Partial<TaxSimulationState>) {
+    if (guidanceTarget === "tax-primary-method" && typeof patch.primaryMethod === "string" && patch.primaryMethod.trim() !== "") {
+      setGuidanceTarget(null);
+    }
+
     commitCoreState((current) => ({
       ...current,
       taxSimulation: normalizeTaxSimulationState({
@@ -3025,6 +3096,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
           <CaseProfilePanel
             profile={caseProfile}
             derived={caseProfileDerived}
+            guidanceTarget={guidanceTarget}
             onChange={updateCaseProfile}
           />
           <div className="period-section-heading">
@@ -3947,8 +4019,10 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
           <DlomSection
             dlom={dlom}
             calculation={dlomCalculation}
+            guidanceTarget={guidanceTarget === "dlom-questionnaire" ? "dlom-questionnaire" : undefined}
             readiness={readiness.dlom}
             onNavigate={navigateToWorkflowTab}
+            onAction={handleReadinessAction}
             onUpdateFactor={updateDlomFactor}
           />
         ) : null}
@@ -3956,8 +4030,10 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         {activeWorkflowTab === "dlocPfc" ? (
           <DlocPfcSection
             calculation={dlocPfcCalculation}
+            guidanceTarget={guidanceTarget === "dloc-pfc-questionnaire" ? "dloc-pfc-questionnaire" : undefined}
             readiness={readiness.dlocPfc}
             onNavigate={navigateToWorkflowTab}
+            onAction={handleReadinessAction}
             onUpdateFactor={updateDlocPfcFactor}
           />
         ) : null}
@@ -3969,8 +4045,10 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
             dlom={dlomCalculation}
             dlocPfc={dlocPfcCalculation}
             caseProfileDerived={caseProfileDerived}
+            guidanceTarget={guidanceTarget === "tax-primary-method" ? "tax-primary-method" : undefined}
             readiness={readiness.taxSimulation}
             onNavigate={navigateToWorkflowTab}
+            onAction={handleReadinessAction}
             onUpdate={updateTaxSimulation}
           />
         ) : null}
@@ -4233,16 +4311,23 @@ function formatMethodList(methods: ValuationMethod[]): string {
 function DlomSection({
   dlom,
   calculation,
+  guidanceTarget,
   readiness,
   onNavigate,
+  onAction,
   onUpdateFactor,
 }: {
   dlom: DlomState;
   calculation: DlomCalculation;
+  guidanceTarget?: GuidanceTarget;
   readiness: SectionReadiness;
   onNavigate: (tabId: WorkflowTabId) => void;
+  onAction: (item: ReadinessItem) => boolean;
   onUpdateFactor: (id: DlomFactorId, patch: Partial<DlomState["factors"][DlomFactorId]>) => void;
 }) {
+  const guidanceFactorId =
+    guidanceTarget === "dlom-questionnaire" ? calculation.factors.find((factor) => factor.status === "missing")?.id : undefined;
+
   return (
     <>
       <section className="section-grid dlom-summary-grid" data-testid="dlom-summary">
@@ -4282,7 +4367,7 @@ function DlomSection({
           </div>
           <FileSearch size={22} />
         </div>
-        <ReadinessPanel status={readiness} onNavigate={onNavigate} />
+        <ReadinessPanel status={readiness} onNavigate={onNavigate} onAction={onAction} />
         <div className="dlom-control-grid" data-testid="dlom-basis-grid">
           <DlomBasisField
             label="Basis marketability"
@@ -4338,6 +4423,8 @@ function DlomSection({
                     <td>
                       <select
                         aria-label={`Jawaban DLOM ${factor.factor}`}
+                        className={factor.id === guidanceFactorId ? "action-guidance" : undefined}
+                        data-guidance-target={factor.id === guidanceFactorId ? guidanceTarget : undefined}
                         value={input.answer}
                         onChange={(event) => onUpdateFactor(factor.id, { answer: event.target.value })}
                       >
@@ -4348,6 +4435,7 @@ function DlomSection({
                           </option>
                         ))}
                       </select>
+                      {factor.id === guidanceFactorId ? <span className="action-guidance-badge">Aksi dibutuhkan</span> : null}
                       {factor.status === "missing" ? <span className="badge warning">Belum lengkap</span> : <span className="badge ok">Terisi</span>}
                       {factor.isOverride ? <span className="badge warning">Override rekomendasi</span> : null}
                     </td>
@@ -4378,15 +4466,22 @@ function DlomSection({
 
 function DlocPfcSection({
   calculation,
+  guidanceTarget,
   readiness,
   onNavigate,
+  onAction,
   onUpdateFactor,
 }: {
   calculation: DlocPfcCalculation;
+  guidanceTarget?: GuidanceTarget;
   readiness: SectionReadiness;
   onNavigate: (tabId: WorkflowTabId) => void;
+  onAction: (item: ReadinessItem) => boolean;
   onUpdateFactor: (id: DlocPfcFactorId, patch: Partial<DlocPfcState["factors"][DlocPfcFactorId]>) => void;
 }) {
+  const guidanceFactorId =
+    guidanceTarget === "dloc-pfc-questionnaire" ? calculation.factors.find((factor) => factor.status === "missing")?.id : undefined;
+
   return (
     <>
       <section className="section-grid dlom-summary-grid" data-testid="dloc-pfc-summary">
@@ -4426,7 +4521,7 @@ function DlocPfcSection({
           </div>
           <GitBranch size={22} />
         </div>
-        <ReadinessPanel status={readiness} onNavigate={onNavigate} />
+        <ReadinessPanel status={readiness} onNavigate={onNavigate} onAction={onAction} />
         <div className="dlom-control-grid" data-testid="dloc-pfc-basis-grid">
           <DerivedCaseField label="Jenis Perusahaan" value={calculation.companyBasis || "Isi Data Awal"} />
           <DerivedCaseField label="Status adjustment" value={calculation.adjustmentType || "Isi Data Awal"} />
@@ -4472,6 +4567,8 @@ function DlocPfcSection({
                   <td>
                     <select
                       aria-label={`Jawaban DLOC/PFC ${factor.factor}`}
+                      className={factor.id === guidanceFactorId ? "action-guidance" : undefined}
+                      data-guidance-target={factor.id === guidanceFactorId ? guidanceTarget : undefined}
                       value={factor.answer}
                       onChange={(event) => onUpdateFactor(factor.id, { answer: event.target.value })}
                     >
@@ -4482,6 +4579,7 @@ function DlocPfcSection({
                         </option>
                       ))}
                     </select>
+                    {factor.id === guidanceFactorId ? <span className="action-guidance-badge">Aksi dibutuhkan</span> : null}
                     {factor.status === "missing" ? <span className="badge warning">Belum lengkap</span> : <span className="badge ok">Terisi</span>}
                   </td>
                   <td className="numeric-cell">{formatNumber(factor.score)}</td>
@@ -4512,8 +4610,10 @@ function TaxSimulationSection({
   dlom,
   dlocPfc,
   caseProfileDerived,
+  guidanceTarget,
   readiness,
   onNavigate,
+  onAction,
   onUpdate,
 }: {
   state: TaxSimulationState;
@@ -4521,8 +4621,10 @@ function TaxSimulationSection({
   dlom: DlomCalculation;
   dlocPfc: DlocPfcCalculation;
   caseProfileDerived: CaseProfileDerived;
+  guidanceTarget?: GuidanceTarget;
   readiness: SectionReadiness;
   onNavigate: (tabId: WorkflowTabId) => void;
+  onAction: (item: ReadinessItem) => boolean;
   onUpdate: (patch: Partial<TaxSimulationState>) => void;
 }) {
   const primaryRow = result.primaryRow;
@@ -4535,13 +4637,7 @@ function TaxSimulationSection({
         ? `${result.taxYearResolution.requestedYear} -> ${result.taxYearResolution.appliedYear}`
         : `${result.taxYearResolution.appliedYear}`;
   const selectedBasisLabel = result.finalBasis === "manualScenario" ? "Skenario manual" : "Baseline otomatis";
-  const reportedTransferFromDataAwal =
-    caseProfileDerived.capitalBaseAmountStatus === "valid" ? caseProfileDerived.capitalBaseValuedAmount : null;
-  const reportedTransferInputNote = state.reportedTransferValue.trim()
-    ? "Override manual aktif; hapus isi untuk kembali mengikuti Data Awal."
-    : reportedTransferFromDataAwal !== null && reportedTransferFromDataAwal !== undefined
-      ? `Kosong berarti sistem memakai Data Awal: ${formatIdr(reportedTransferFromDataAwal)}.`
-      : "Lengkapi Data Awal agar nilai otomatis tersedia.";
+  const isPrimaryMethodGuidance = guidanceTarget === "tax-primary-method";
 
   return (
     <>
@@ -4592,9 +4688,9 @@ function TaxSimulationSection({
           </div>
           <TableProperties size={22} />
         </div>
-        <ReadinessPanel status={readiness} onNavigate={onNavigate} />
+        <ReadinessPanel status={readiness} onNavigate={onNavigate} onAction={onAction} />
         <div className="tax-control-grid">
-          <label className="field">
+          <label className={["field", isPrimaryMethodGuidance ? "action-guidance" : ""].filter(Boolean).join(" ")} data-guidance-target={isPrimaryMethodGuidance ? guidanceTarget : undefined}>
             <span>Primary Method</span>
             <select value={state.primaryMethod} onChange={(event) => onUpdate({ primaryMethod: event.target.value as ValuationMethod | "" })}>
               <option value="">Not selected</option>
@@ -4602,6 +4698,7 @@ function TaxSimulationSection({
               <option value="EEM">EEM</option>
               <option value="DCF">DCF</option>
             </select>
+            {isPrimaryMethodGuidance ? <span className="action-guidance-badge">Aksi dibutuhkan</span> : null}
           </label>
           <label className="field">
             <span>Basis final</span>
@@ -4629,44 +4726,6 @@ function TaxSimulationSection({
             <input inputMode="decimal" value={state.scenarioDlocPfcRate} onChange={(event) => onUpdate({ scenarioDlocPfcRate: event.target.value })} placeholder="Input positif; sistem tentukan DLOC/PFC" />
           </label>
         </div>
-        <details className="audit-disclosure compact advanced-override-disclosure" data-testid="reported-transfer-override">
-          <summary>Advanced override nilai pengalihan</summary>
-          <div className="audit-disclosure-grid">
-            <label className="field">
-              <span>Nilai pengalihan dilaporkan (override)</span>
-              <input
-                aria-describedby="reported-transfer-override-note"
-                inputMode="numeric"
-                value={state.reportedTransferValue}
-                onChange={(event) => onUpdate({ reportedTransferValue: event.target.value })}
-                placeholder="Kosong = memakai nilai Data Awal"
-              />
-              <small id="reported-transfer-override-note" className="auto-source-note">{reportedTransferInputNote}</small>
-            </label>
-            <DerivedCaseField
-              label="Default dari Data Awal"
-              value={formatCaseProfileAmount(caseProfileDerived.capitalBaseValuedAmount, caseProfileDerived.capitalBaseAmountStatus)}
-              state={caseProfileDerived.capitalBaseAmountStatus === "invalid" ? "invalid" : "neutral"}
-            />
-          </div>
-        </details>
-        <details className="audit-disclosure">
-          <summary>Catatan audit skenario</summary>
-          <div className="audit-disclosure-grid">
-            <label className="field">
-              <span>Catatan skenario manual</span>
-              <textarea
-                value={state.scenarioReason}
-                onChange={(event) => onUpdate({ scenarioReason: event.target.value })}
-                placeholder="Isi bila skenario manual dipakai sebagai basis final; tidak mengubah tab DLOM atau DLOC/PFC."
-              />
-            </label>
-            <label className="field">
-              <span>Catatan simulasi</span>
-              <textarea value={state.note} onChange={(event) => onUpdate({ note: event.target.value })} placeholder="Dasar pemilihan metode, posisi DLOM, dan catatan review pajak." />
-            </label>
-          </div>
-        </details>
       </section>
 
       {result.warnings.length > 0 ? (
@@ -4796,17 +4855,6 @@ function TaxSimulationSection({
           </div>
         </div>
         {primaryRow ? <FormulaList traces={primaryRow.traces} /> : <div className="empty-state">Pilih Primary Method untuk melihat jejak formula final.</div>}
-        <details className="audit-disclosure compact">
-          <summary>Jejak audit basis perhitungan</summary>
-          <MetricTraceGrid
-            metrics={[
-              ["Base AAM/EEM/DCF", "Before DLOM dan before DLOC/PFC"],
-              ["Urutan adjustment", "Base -> DLOM -> DLOC/PFC -> porsi saham/modal -> selisih -> PKP"],
-              ["Basis final default", "Baseline otomatis"],
-              ["Skenario manual", "Tidak mengubah tab DLOM dan DLOC/PFC"],
-            ]}
-          />
-        </details>
       </section>
 
       {primaryRow?.taxBrackets.length ? (
@@ -9618,10 +9666,12 @@ function AssumptionDriverMatrix({
 function CaseProfilePanel({
   profile,
   derived,
+  guidanceTarget,
   onChange,
 }: {
   profile: CaseProfile;
   derived: CaseProfileDerived;
+  guidanceTarget: GuidanceTarget | null;
   onChange: (key: keyof CaseProfile, value: string) => void;
 }) {
   const kluRecord = getKluSectorRecord(profile.objectBusinessKlu);
@@ -9649,7 +9699,13 @@ function CaseProfilePanel({
             rawKlu={profile.objectBusinessKlu}
             onChange={(value) => onChange("companySector", value)}
           />
-          <CaseProfileSelect label="Jenis Perusahaan" value={profile.companyType} options={companyTypeOptions} onChange={(value) => onChange("companyType", value)} />
+          <CaseProfileSelect
+            label="Jenis Perusahaan"
+            value={profile.companyType}
+            options={companyTypeOptions}
+            guidanceTarget={guidanceTarget === "case-company-type" ? "case-company-type" : undefined}
+            onChange={(value) => onChange("companyType", value)}
+          />
         </div>
       </article>
 
@@ -9671,6 +9727,7 @@ function CaseProfilePanel({
             label="Jenis Kepemilikan Saham"
             value={profile.shareOwnershipType}
             options={shareOwnershipTypeOptions}
+            guidanceTarget={guidanceTarget === "case-share-ownership-type" ? "case-share-ownership-type" : undefined}
             onChange={(value) => onChange("shareOwnershipType", value)}
           />
         </div>
@@ -9692,12 +9749,18 @@ function CaseProfilePanel({
             label={derived.capitalBaseFullLabel}
             value={profile.capitalBaseFull}
             inputMode="numeric"
+            guidanceTarget={guidanceTarget === "case-capital-proportion" ? "case-capital-proportion" : undefined}
             onChange={(value) => onChange("capitalBaseFull", value)}
           />
           <CaseProfileInput
             label={derived.capitalBaseValuedLabel}
             value={profile.capitalBaseValued}
             inputMode="numeric"
+            guidanceTarget={
+              guidanceTarget === "case-capital-base-valued" || guidanceTarget === "case-capital-proportion"
+                ? guidanceTarget
+                : undefined
+            }
             onChange={(value) => onChange("capitalBaseValued", value)}
           />
           {isShareTransfer ? (
@@ -9750,6 +9813,7 @@ function CaseProfileInput({
   inputMode = "text",
   state = "neutral",
   help,
+  guidanceTarget,
   onChange,
 }: {
   label: string;
@@ -9757,12 +9821,18 @@ function CaseProfileInput({
   inputMode?: "text" | "decimal" | "numeric";
   state?: "neutral" | "invalid";
   help?: string;
+  guidanceTarget?: GuidanceTarget;
   onChange: (value: string) => void;
 }) {
   const inputId = `case-profile-${slugifyLabel(label)}`;
+  const isGuidanceTarget = Boolean(guidanceTarget);
 
   return (
-    <label className={state === "invalid" ? "field invalid" : "field"} htmlFor={inputId}>
+    <label
+      className={[state === "invalid" ? "field invalid" : "field", isGuidanceTarget ? "action-guidance" : ""].filter(Boolean).join(" ")}
+      data-guidance-target={guidanceTarget}
+      htmlFor={inputId}
+    >
       <span>{label}</span>
       <input
         aria-invalid={state === "invalid"}
@@ -9771,6 +9841,7 @@ function CaseProfileInput({
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />
+      {isGuidanceTarget ? <span className="action-guidance-badge">Aksi dibutuhkan</span> : null}
       {help ? (
         <small className="field-help" role={state === "invalid" ? "alert" : undefined}>
           {help}
@@ -9907,17 +9978,20 @@ function CaseProfileSelect({
   label,
   value,
   options,
+  guidanceTarget,
   onChange,
 }: {
   label: string;
   value: string;
   options: string[];
+  guidanceTarget?: GuidanceTarget;
   onChange: (value: string) => void;
 }) {
   const inputId = `case-profile-${slugifyLabel(label)}`;
+  const isGuidanceTarget = Boolean(guidanceTarget);
 
   return (
-    <label className="field" htmlFor={inputId}>
+    <label className={["field", isGuidanceTarget ? "action-guidance" : ""].filter(Boolean).join(" ")} data-guidance-target={guidanceTarget} htmlFor={inputId}>
       <span>{label}</span>
       <select id={inputId} value={value} onChange={(event) => onChange(event.target.value)}>
         <option value="">Pilih</option>
@@ -9927,6 +10001,7 @@ function CaseProfileSelect({
           </option>
         ))}
       </select>
+      {isGuidanceTarget ? <span className="action-guidance-badge">Aksi dibutuhkan</span> : null}
     </label>
   );
 }

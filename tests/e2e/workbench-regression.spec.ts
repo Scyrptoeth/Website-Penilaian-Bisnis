@@ -696,9 +696,7 @@ test("DLOM and tax simulation render workbook-derived scenario layer after loadi
   await expect(page.getByText("Tahun Pajak Legal")).toHaveCount(0);
   await expect(page.getByText("Nilai pengalihan dari Data Awal").locator("..")).toContainText(/Rp\s*1\.600\.000\.000/);
   await expect(page.getByText("Nilai pengalihan dilaporkan (override)")).not.toBeVisible();
-  await page.getByText("Advanced override nilai pengalihan").click();
-  await expect(page.getByLabel("Nilai pengalihan dilaporkan (override)")).toHaveValue("");
-  await expect(page.getByText(/Kosong berarti sistem memakai Data Awal:/)).toBeVisible();
+  await expect(page.getByText("Advanced override nilai pengalihan")).toHaveCount(0);
   await expect(page.getByTestId("tax-simulation-summary")).toContainText("AAM");
   await expect(page.getByTestId("tax-simulation-summary")).toContainText("DLOM 35%");
   await expect(page.getByTestId("tax-simulation-summary")).toContainText("DLOC 34%");
@@ -710,7 +708,7 @@ test("DLOM and tax simulation render workbook-derived scenario layer after loadi
   await expect(page.getByTestId("tax-simulation-table")).not.toContainText("Dibulatkan:");
   await expect(page.getByText("AAM primary method")).toBeVisible();
   await expect(page.getByLabel("Catatan skenario manual")).not.toBeVisible();
-  await expect(page.getByText("Jejak audit basis perhitungan")).toBeVisible();
+  await expect(page.getByText("Jejak audit basis perhitungan")).toHaveCount(0);
   await expect(page.getByText("Hubungan ke base valuation")).toHaveCount(0);
   await expect(page.getByText("Detail sumber tarif dan dasar hukum")).toBeVisible();
   await expect(page.getByTestId("tax-bracket-table")).toContainText("Total potensi pajak");
@@ -719,8 +717,7 @@ test("DLOM and tax simulation render workbook-derived scenario layer after loadi
   await page.getByLabel("Basis final").selectOption("manualScenario");
   await page.getByLabel("DLOM Skenario Manual").fill("0,1");
   await page.getByLabel("DLOC/PFC Skenario Manual").fill("0,2");
-  await page.getByText("Catatan audit skenario").click();
-  await page.getByLabel("Catatan skenario manual").fill("Reviewer what-if");
+  await expect(page.getByText("Catatan audit skenario")).toHaveCount(0);
   await expect(page.getByTestId("tax-simulation-summary")).toContainText("Final memakai Skenario manual");
   await expect(page.getByTestId("tax-simulation-table")).toContainText("Skenario manual");
   await expect(page.locator("dt").filter({ hasText: "DLOM Skenario Manual" })).toBeVisible();
@@ -746,9 +743,7 @@ test("share-transfer input keeps shares as quantity and passes derived rupiah va
   await openWorkflowTab(page, "Simulasi Potensi Pajak");
   await expect(page.getByText("Nilai pengalihan dilaporkan (override)")).not.toBeVisible();
   await expect(page.getByText("Nilai pengalihan dari Data Awal").locator("..")).toContainText(/Rp\s*1\.610\.000\.000/);
-  await page.getByText("Advanced override nilai pengalihan").click();
-  await expect(page.getByLabel("Nilai pengalihan dilaporkan (override)")).toHaveValue("");
-  await expect(page.getByText(/Kosong berarti sistem memakai Data Awal:/)).toBeVisible();
+  await expect(page.getByText("Advanced override nilai pengalihan")).toHaveCount(0);
   await expect(page.getByTestId("tax-simulation-table")).toContainText(/Rp\s*1\.610\.000\.000/);
   await expect(page.getByTestId("tax-simulation-table")).not.toContainText("Rp1.610,00");
 });

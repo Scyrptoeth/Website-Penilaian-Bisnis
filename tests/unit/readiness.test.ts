@@ -15,6 +15,7 @@ import {
   mapRow,
   type AccountRow,
 } from "../../src/lib/valuation/case-model";
+import { buildSampleDlomState, calculateDlom, createEmptyDlomState } from "../../src/lib/valuation/dlom";
 import { buildSampleDlocPfcState, calculateDlocPfc, createEmptyDlocPfcState } from "../../src/lib/valuation/dloc-pfc";
 import { buildWorkbenchReadiness } from "../../src/lib/valuation/readiness";
 import { buildSampleTaxSimulationState, createEmptyTaxSimulationState } from "../../src/lib/valuation/tax-simulation";
@@ -25,6 +26,7 @@ describe("workbench readiness", () => {
     const mappedRows = rows.map(mapRow);
     const fixedAssetSchedule = buildFixedAssetScheduleSummary(initialPeriods, []);
     const snapshot = buildSnapshot(initialPeriods, initialPeriods[0].id, rows, emptyAssumptions);
+    const dlom = calculateDlom(createEmptyDlomState(), snapshot, emptyCaseProfile);
     const dlocPfc = calculateDlocPfc(createEmptyDlocPfcState(), emptyCaseProfile);
     const readiness = buildWorkbenchReadiness({
       periods: initialPeriods,
@@ -35,6 +37,7 @@ describe("workbench readiness", () => {
       fixedAssetSchedule,
       caseProfile: emptyCaseProfile,
       caseProfileDerived: buildCaseProfileDerived(emptyCaseProfile),
+      dlom,
       dlocPfc,
       taxSimulation: createEmptyTaxSimulationState(),
     });
@@ -53,6 +56,20 @@ describe("workbench readiness", () => {
     assert.equal(readiness.dlocPfc.isReady, false);
     assert.equal(readiness.taxSimulation.isReady, true);
     assert.ok(readiness.taxSimulation.warnings.some((item) => item.targetTab === "taxSimulation"));
+    assert.ok(
+      readiness.taxSimulation.warnings.some((item) =>
+        item.label === "DLOC/PFC otomatis tersedia atau skenario manual memiliki rate pembanding" &&
+        item.targetTab === "dlocPfc" &&
+        item.targetLabel === "Lengkapi DLOC/PFC",
+      ),
+    );
+    assert.ok(
+      readiness.taxSimulation.warnings.some((item) =>
+        item.label === "DLOM otomatis tersedia atau skenario manual memiliki rate pembanding" &&
+        item.targetTab === "dlom" &&
+        item.targetLabel === "Lengkapi DLOM",
+      ),
+    );
     assert.equal(readiness.payablesCashFlow.isReady, false);
     assert.equal(readiness.noplatFcf.isReady, false);
     assert.equal(readiness.financialRatio.isReady, false);
@@ -74,7 +91,13 @@ describe("workbench readiness", () => {
     assert.ok(readiness.projectedFixedAssets.missing.every((item) => item.label !== "Akun sudah dikategorikan atau siap ditinjau"));
     assert.ok(readiness.projectedCashFlow.missing.every((item) => item.label !== "Basis operating working capital tersedia: AR/persediaan/AP/utang lain-lain"));
     assert.ok(readiness.projectedCashFlow.missing.every((item) => item.label !== "Akun sudah dikategorikan atau siap ditinjau"));
+    assert.ok(readiness.dlom.warnings.every((item) => item.targetTab !== "balance"));
+    assert.ok(readiness.dlom.warnings.every((item) => item.targetTab !== "income"));
     assert.ok(readiness.dlom.missing.some((item) => item.targetTab === "periods"));
+    assert.ok(readiness.dlom.missing.some((item) => item.label === "Questionnaire DLOM lengkap"));
+    assert.ok(
+      readiness.dlom.missing.some((item) => item.label === "Questionnaire DLOM lengkap" && item.targetTab === "dlom" && item.targetLabel === "Isi DLOM"),
+    );
     assert.ok(readiness.noplatFcf.missing.some((item) => item.targetTab === "eemDcfAssumptions"));
     assert.ok(readiness.cashFlowStatement.missing.every((item) => item.label !== "Basis operating working capital tersedia: AR/persediaan/AP/utang lain-lain"));
     assert.ok(readiness.cashFlowStatement.missing.every((item) => item.label !== "Akun sudah dikategorikan atau siap ditinjau"));
@@ -93,6 +116,7 @@ describe("workbench readiness", () => {
     const mappedRows = rows.map(mapRow);
     const fixedAssetSchedule = buildFixedAssetScheduleSummary(initialPeriods, [createFixedAssetScheduleRow(initialPeriods)]);
     const snapshot = buildSnapshot(initialPeriods, initialPeriods[0].id, rows, emptyAssumptions);
+    const dlom = calculateDlom(createEmptyDlomState(), snapshot, emptyCaseProfile);
     const dlocPfc = calculateDlocPfc(createEmptyDlocPfcState(), emptyCaseProfile);
     const readiness = buildWorkbenchReadiness({
       periods: initialPeriods,
@@ -103,6 +127,7 @@ describe("workbench readiness", () => {
       fixedAssetSchedule,
       caseProfile: emptyCaseProfile,
       caseProfileDerived: buildCaseProfileDerived(emptyCaseProfile),
+      dlom,
       dlocPfc,
       taxSimulation: createEmptyTaxSimulationState(),
     });
@@ -137,6 +162,7 @@ describe("workbench readiness", () => {
     const mappedRows = rows.map(mapRow);
     const fixedAssetSchedule = buildFixedAssetScheduleSummary(periods, [createFixedAssetScheduleRow(periods)]);
     const snapshot = buildSnapshot(periods, "p2021", rows, assumptions);
+    const dlom = calculateDlom(createEmptyDlomState(), snapshot, emptyCaseProfile);
     const dlocPfc = calculateDlocPfc(createEmptyDlocPfcState(), emptyCaseProfile);
     const readiness = buildWorkbenchReadiness({
       periods,
@@ -147,6 +173,7 @@ describe("workbench readiness", () => {
       fixedAssetSchedule,
       caseProfile: emptyCaseProfile,
       caseProfileDerived: buildCaseProfileDerived(emptyCaseProfile),
+      dlom,
       dlocPfc,
       taxSimulation: createEmptyTaxSimulationState(),
     });
@@ -180,6 +207,7 @@ describe("workbench readiness", () => {
     const mappedRows = rows.map(mapRow);
     const fixedAssetSchedule = buildFixedAssetScheduleSummary(periods, []);
     const snapshot = buildSnapshot(periods, "p2021", rows, emptyAssumptions);
+    const dlom = calculateDlom(createEmptyDlomState(), snapshot, emptyCaseProfile);
     const dlocPfc = calculateDlocPfc(createEmptyDlocPfcState(), emptyCaseProfile);
     const readiness = buildWorkbenchReadiness({
       periods,
@@ -190,6 +218,7 @@ describe("workbench readiness", () => {
       fixedAssetSchedule,
       caseProfile: emptyCaseProfile,
       caseProfileDerived: buildCaseProfileDerived(emptyCaseProfile),
+      dlom,
       dlocPfc,
       taxSimulation: createEmptyTaxSimulationState(),
     });
@@ -207,9 +236,10 @@ describe("workbench readiness", () => {
     const assumptions = buildSampleAssumptions();
     const caseProfile = buildSampleCaseProfile();
     const caseProfileDerived = buildCaseProfileDerived(caseProfile);
-    const dlocPfc = calculateDlocPfc(buildSampleDlocPfcState(), caseProfile);
     const fixedAssetSchedule = buildFixedAssetScheduleSummary(periods, []);
     const snapshot = buildSnapshot(periods, "p2021", rows, assumptions);
+    const dlom = calculateDlom(buildSampleDlomState(), snapshot, caseProfile);
+    const dlocPfc = calculateDlocPfc(buildSampleDlocPfcState(), caseProfile);
     const readiness = buildWorkbenchReadiness({
       periods,
       rows,
@@ -219,6 +249,7 @@ describe("workbench readiness", () => {
       fixedAssetSchedule,
       caseProfile,
       caseProfileDerived,
+      dlom,
       dlocPfc,
       taxSimulation: buildSampleTaxSimulationState(),
     });
@@ -255,9 +286,10 @@ describe("workbench readiness", () => {
       shareValuePerShare: "",
     };
     const caseProfileDerived = buildCaseProfileDerived(caseProfile);
-    const dlocPfc = calculateDlocPfc(buildSampleDlocPfcState(), caseProfile);
     const fixedAssetSchedule = buildFixedAssetScheduleSummary(periods, []);
     const snapshot = buildSnapshot(periods, "p2021", rows, assumptions);
+    const dlom = calculateDlom(buildSampleDlomState(), snapshot, caseProfile);
+    const dlocPfc = calculateDlocPfc(buildSampleDlocPfcState(), caseProfile);
     const readiness = buildWorkbenchReadiness({
       periods,
       rows,
@@ -267,6 +299,7 @@ describe("workbench readiness", () => {
       fixedAssetSchedule,
       caseProfile,
       caseProfileDerived,
+      dlom,
       dlocPfc,
       taxSimulation: { ...buildSampleTaxSimulationState(), reportedTransferValue: "" },
     });
@@ -301,6 +334,7 @@ describe("workbench readiness", () => {
     const fixedAssetSchedule = buildFixedAssetScheduleSummary(initialPeriods, []);
     const assumptions = { ...emptyAssumptions, taxRate: "22%" };
     const snapshot = buildSnapshot(initialPeriods, activePeriodId, rows, assumptions);
+    const dlom = calculateDlom(createEmptyDlomState(), snapshot, emptyCaseProfile);
     const dlocPfc = calculateDlocPfc(createEmptyDlocPfcState(), emptyCaseProfile);
     const readiness = buildWorkbenchReadiness({
       periods: initialPeriods,
@@ -311,6 +345,7 @@ describe("workbench readiness", () => {
       fixedAssetSchedule,
       caseProfile: emptyCaseProfile,
       caseProfileDerived: buildCaseProfileDerived(emptyCaseProfile),
+      dlom,
       dlocPfc,
       taxSimulation: createEmptyTaxSimulationState(),
     });

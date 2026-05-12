@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
@@ -122,6 +122,41 @@ test("suggestion actions use accent styling instead of plain white buttons", asy
   await expect(recommendedCandidate).toContainText("Tarif umum statutory 2021");
 });
 
+test("readiness actions guide exact targets for tax simulation, DLOM, and DLOC/PFC", async ({ page }) => {
+  await openWorkflowTab(page, "Simulasi Potensi Pajak");
+  const taxSimulationReadiness = page.getByTestId("readiness-taxSimulation");
+  await expect(taxSimulationReadiness).toHaveClass(/blocking/);
+
+  await taxSimulationReadiness.getByRole("link", { name: /Pilih Primary Method/ }).click();
+  await expectActionGuidance(page.getByRole("combobox", { name: "Primary Method" }));
+
+  await openWorkflowTab(page, "Simulasi Potensi Pajak");
+  await taxSimulationReadiness.getByRole("link", { name: /Isi Nilai Pengalihan/ }).click();
+  await expectActionGuidance(page.getByLabel(/Jumlah Modal Disetor yang Dinilai|Jumlah Saham yang Dinilai/));
+
+  await openWorkflowTab(page, "Simulasi Potensi Pajak");
+  await taxSimulationReadiness.getByRole("link", { name: /Isi Data Awal/ }).click();
+  await expectActionGuidance(page.getByLabel(/Jumlah Modal Disetor 100%|Jumlah Saham Beredar 100%/));
+
+  await openWorkflowTab(page, "DLOM");
+  const dlomReadiness = page.getByTestId("readiness-dlom");
+  await dlomReadiness.getByRole("link", { name: /Isi DLOM/ }).click();
+  await expectActionGuidance(page.getByRole("combobox", { name: /Jawaban DLOM/ }).first());
+
+  await openWorkflowTab(page, "DLOC/PFC");
+  const dlocPfcReadiness = page.getByTestId("readiness-dlocPfc");
+  await dlocPfcReadiness.getByRole("link", { name: /Isi DLOC\/PFC/ }).click();
+  await expectActionGuidance(page.getByRole("combobox", { name: /Jawaban DLOC\/PFC/ }).first());
+
+  await openWorkflowTab(page, "DLOC/PFC");
+  await dlocPfcReadiness.getByRole("link", { name: /Isi Data Awal/ }).first().click();
+  await expect(
+    page
+      .getByLabel("Jenis Perusahaan")
+      .evaluate((element) => Boolean(element.closest(".action-guidance")) || Boolean(element.closest("[data-guidance-target]"))),
+  ).resolves.toBe(true);
+});
+
 test("system suggestion badges do not push Data Awal controls out of alignment", async ({ page }) => {
   await page.getByLabel("KLU sesuai Appportal").fill("10110");
   await expect(page.getByTestId("company-sector-derived")).toHaveValue("Consumer Non-Cyclicals");
@@ -135,6 +170,20 @@ test("system suggestion badges do not push Data Awal controls out of alignment",
 
 function workflowNav(page: Page) {
   return page.getByRole("navigation", { name: "Bagian model" });
+}
+
+async function expectActionGuidance(locator: Locator) {
+  await expect(
+    locator.evaluate((element) => {
+      const current = element as Element;
+
+      return (
+        current.classList.contains("action-guidance") ||
+        current.closest(".action-guidance") !== null ||
+        current.querySelector(".action-guidance") !== null
+      );
+    }),
+  ).resolves.toBe(true);
 }
 
 async function openWorkflowTab(page: Page, name: string) {
