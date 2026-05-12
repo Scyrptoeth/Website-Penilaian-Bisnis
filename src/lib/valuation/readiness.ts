@@ -130,6 +130,7 @@ export function buildWorkbenchReadiness({
     "OTHER_PAYABLE",
   ]);
   const hasFixedAssetOrDepreciationBasis =
+    fixedAssetSchedule.rows.length > 0 ||
     fixedAssetSchedule.hasInput ||
     snapshot.fixedAssetsNet !== 0 ||
     hasAnyCategory(categorySet, ["FIXED_ASSET", "FIXED_ASSET_ACQUISITION", "ACCUMULATED_DEPRECIATION", "DEPRECIATION_EXPENSE"]);
@@ -301,8 +302,8 @@ export function buildWorkbenchReadiness({
       taxRateForEemDcf,
       fixedAssetOrDepreciation,
     ]),
-    financialRatio: status("financialRatio", "Financial Ratio", [period, balance, income, mapped], [comparativePeriod]),
-    roic: status("roic", "ROIC", [period, balance, income, mapped], [comparativePeriod]),
+    financialRatio: status("financialRatio", "Financial Ratio", [period, balance, income], [comparativePeriod]),
+    roic: status("roic", "ROIC", [period, balance, income], [comparativePeriod]),
     audit: status("audit", "Audit", []),
   };
 }

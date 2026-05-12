@@ -20,6 +20,10 @@ test("readiness action links add the expected editable input rows", async ({ pag
   await expect(page.getByTestId("fixed-asset-acquisition-table")).toBeVisible();
   await expect(page.getByTestId("fixed-asset-acquisition-table").getByTestId("fixed-asset-row")).toHaveCount(1);
   await expect(page.getByTestId("readiness-fixedAssets")).toHaveCount(0);
+  await openWorkflowTab(page, "Cash Flow Statement");
+  await expect(page.getByTestId("readiness-cashFlowStatement").locator(".readiness-list").first()).not.toContainText("Basis penyusutan/capex");
+  await openWorkflowTab(page, "NOPLAT & FCF");
+  await expect(page.getByTestId("readiness-noplatFcf").locator(".readiness-list").first()).not.toContainText("Basis penyusutan/capex");
 
   await openWorkflowTab(page, "Neraca");
   await page.getByTestId("readiness-balance").getByRole("link", { name: /Isi Neraca/ }).click();
@@ -55,6 +59,24 @@ test("readiness links highlight the exact target action after navigation", async
   await expect(statutoryCandidate).toHaveClass(/action-guidance/);
   await expect(statutoryCandidate).toContainText("Tarif umum statutory 2021");
   await expect(statutoryCandidate.locator(".action-guidance-badge")).toContainText("Aksi dibutuhkan");
+
+  await openWorkflowTab(page, "WACC");
+  const waccReadiness = page.getByTestId("readiness-wacc");
+  await waccReadiness.getByRole("link", { name: /Lengkapi WACC/ }).click();
+  const waccSuggestionAction = page.locator('[data-guidance-target="wacc-market-suggestion"]');
+  await expect(waccSuggestionAction).toHaveClass(/action-guidance/);
+  await expect(waccSuggestionAction.locator(".action-guidance-badge")).toContainText("Aksi dibutuhkan");
+
+  await waccReadiness.getByRole("link", { name: /Isi WACC/ }).click();
+  const waccManualAction = page.locator('[data-guidance-target="wacc-active-basis"]');
+  await expect(waccManualAction).toHaveClass(/action-guidance/);
+  await expect(waccManualAction.locator(".action-guidance-badge")).toContainText("Aksi dibutuhkan");
+
+  await openWorkflowTab(page, "Asumsi EEM/DCF");
+  await page.getByTestId("readiness-eemDcfAssumptions").getByRole("link", { name: /Isi Driver/ }).click();
+  const workingCapitalAction = page.locator('[data-guidance-target="working-capital-driver"]');
+  await expect(workingCapitalAction).toHaveClass(/action-guidance/);
+  await expect(workingCapitalAction.locator(".action-guidance-badge")).toContainText("Aksi dibutuhkan");
 });
 
 test("suggestion actions use accent styling instead of plain white buttons", async ({ page }) => {

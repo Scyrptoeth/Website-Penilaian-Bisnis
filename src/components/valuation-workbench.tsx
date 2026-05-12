@@ -600,7 +600,14 @@ type WorkspaceStorageSnapshot = {
 };
 
 type WorkflowTabId = WorkbenchSectionId;
-type GuidanceTarget = "add-period" | "tax-rate-statutory";
+type GuidanceTarget =
+  | "add-period"
+  | "tax-rate-statutory"
+  | "wacc-market-suggestion"
+  | "wacc-active-basis"
+  | "terminal-growth-suggestion"
+  | "required-return-on-nta"
+  | "working-capital-driver";
 type WorkflowTab = {
   id: WorkflowTabId;
   label: string;
@@ -1480,6 +1487,12 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     navigateToWorkflowTab(target);
   }
 
+  function clearGuidanceTarget(target: GuidanceTarget) {
+    if (guidanceTarget === target) {
+      setGuidanceTarget(null);
+    }
+  }
+
   function handleReadinessAction(item: ReadinessItem): boolean {
     if (item.targetTab === "periods" && item.targetLabel === "Tambah Periode") {
       navigateToWorkflowTab("periods", { preserveGuidance: true });
@@ -1502,6 +1515,36 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     if (item.targetTab === "fixedAssets" && item.targetLabel === "Isi Aset Tetap") {
       navigateToWorkflowTab("fixedAssets");
       addFixedAssetScheduleRow();
+      return true;
+    }
+
+    if (item.targetTab === "wacc" && item.label === "Input pasar WACC tersedia") {
+      navigateToWorkflowTab("wacc", { preserveGuidance: true });
+      setGuidanceTarget("wacc-market-suggestion");
+      return true;
+    }
+
+    if (item.targetTab === "wacc" && item.label === "WACC tersedia") {
+      navigateToWorkflowTab("wacc", { preserveGuidance: true });
+      setGuidanceTarget("wacc-active-basis");
+      return true;
+    }
+
+    if (item.targetTab === "eemDcfAssumptions" && item.label === "Terminal growth tersedia") {
+      navigateToWorkflowTab("eemDcfAssumptions", { preserveGuidance: true });
+      setGuidanceTarget("terminal-growth-suggestion");
+      return true;
+    }
+
+    if (item.targetTab === "eemDcfAssumptions" && item.label === "Required return on NTA tersedia") {
+      navigateToWorkflowTab("eemDcfAssumptions", { preserveGuidance: true });
+      setGuidanceTarget("required-return-on-nta");
+      return true;
+    }
+
+    if (item.targetTab === "eemDcfAssumptions" && item.label === "Driver hari modal kerja tersedia") {
+      navigateToWorkflowTab("eemDcfAssumptions", { preserveGuidance: true });
+      setGuidanceTarget("working-capital-driver");
       return true;
     }
 
@@ -2334,6 +2377,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   }
 
   function applyWaccMarketSuggestion(suggestion: MarketAssumptionSuggestion) {
+    clearGuidanceTarget("wacc-market-suggestion");
     const averageDebtRate = roundDiscountRateDebtRate(averageInvestmentLoanRate(suggestion));
     const sourceNote = `Saran sistem tahunan ${suggestion.year}; ERP/default spread dari Damodaran, proxy SUN dari bukti pasar, dan debt rate dari rata-rata SBDK korporasi OJK untuk lima kelompok bank: Persero, Pemda/BPD, Swasta, Asing/KCBA, dan Campuran.`;
 
@@ -2362,6 +2406,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   }
 
   function applyTerminalGrowthSuggestion(suggestion: TerminalGrowthSuggestion) {
+    clearGuidanceTarget("terminal-growth-suggestion");
     commitCoreState((current) => ({
       ...current,
       assumptions: {
@@ -3134,6 +3179,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
           </div>
           <ReadinessPanel status={readiness.wacc} onNavigate={navigateToWorkflowTab} onAction={handleReadinessAction} />
           <WaccMarketSuggestionPanel
+            guidanceTarget={guidanceTarget === "wacc-market-suggestion" ? "wacc-market-suggestion" : undefined}
             suggestion={marketSuggestion}
             valuationDate={effectiveValuationDate}
             onApply={applyWaccMarketSuggestion}
@@ -3142,17 +3188,20 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
             activeBasis={activeWaccBasis}
             effectiveBasis={effectiveActiveWaccBasis}
             activeWacc={snapshot.wacc}
+            guidanceTarget={guidanceTarget === "wacc-active-basis" ? "wacc-active-basis" : undefined}
             rawCalculation={rawWaccCalculation}
             governedCalculation={resolveWaccCalculationForBasis(waccResolvedAssumptions, "governed", rawWaccCalculation)}
             manualWacc={readRateInput(assumptions.wacc)}
             terminalGrowth={snapshot.terminalGrowth}
-            onBasisChange={(basis) =>
+            onBasisChange={(basis) => {
+              clearGuidanceTarget("wacc-active-basis");
               commitCoreState((current) => ({
                 ...current,
                 activeWaccBasis: basis,
-              }))
-            }
-            onManualWaccChange={(value) =>
+              }));
+            }}
+            onManualWaccChange={(value) => {
+              clearGuidanceTarget("wacc-active-basis");
               commitCoreState((current) => ({
                 ...current,
                 activeWaccBasis: "manual",
@@ -3161,8 +3210,8 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
                   wacc: formatEditableNumber(value),
                   waccSource: "manual-wacc",
                 },
-              }))
-            }
+              }));
+            }}
           />
           <WaccCalculatorPanel
             assumptions={assumptions}
@@ -3173,6 +3222,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
             comparableSuggestions={sectorComparableSuggestions}
             autoCapitalValues={autoWaccCapitalValues}
             governance={assumptionGovernance}
+            marketGuidanceTarget={!marketSuggestion && guidanceTarget === "wacc-market-suggestion" ? "wacc-market-suggestion" : undefined}
             onChange={updateAssumption}
             onComparableNameChange={updateWaccComparableName}
             onApplyComparableSuggestions={applySectorComparableSuggestions}
@@ -3214,9 +3264,11 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               wacc={snapshot.wacc}
               suggestion={terminalGrowthSuggestion}
               governance={assumptionGovernance}
+              guidanceTarget={guidanceTarget === "terminal-growth-suggestion" ? "terminal-growth-suggestion" : undefined}
               onChange={updateAssumption}
               onApplySuggestion={applyTerminalGrowthSuggestion}
               onReasonChange={(value) => updateAssumptionText("terminalGrowthOverrideReason", value)}
+              onGuidanceComplete={clearGuidanceTarget}
             />
             <RequiredReturnOnNtaPanel
               assumptions={assumptions}
@@ -3228,8 +3280,10 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
                 fixedAssetsNet: snapshot.fixedAssetsNet,
               }}
               governance={assumptionGovernance}
+              guidanceTarget={guidanceTarget === "required-return-on-nta" ? "required-return-on-nta" : undefined}
               onChange={updateAssumption}
               onReasonChange={(value) => updateAssumptionText("requiredReturnOnNtaOverrideReason", value)}
+              onGuidanceComplete={clearGuidanceTarget}
             />
           </div>
           <DriverOverrideGuidance />
@@ -3253,6 +3307,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
             <AssumptionInput
               label="Hari piutang / AR days (override opsional)"
               value={assumptions.arDays}
+              guidanceTarget={guidanceTarget === "working-capital-driver" ? "working-capital-driver" : undefined}
               suggestion={{
                 value: formatOptionalDriverSuggestionInput(snapshot.arDays, "number"),
                 displayValue: formatDays(snapshot.arDays),
@@ -3266,6 +3321,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               inputMode="numeric"
               onChange={(value) => updateAssumption("arDays", value)}
               onApplySuggestion={(value) => updateAssumption("arDays", value)}
+              onGuidanceComplete={clearGuidanceTarget}
             />
             <AssumptionInput
               label="Hari persediaan (override opsional)"
@@ -9895,19 +9951,26 @@ function DlomBasisField({ label, value }: { label: string; value: string }) {
 }
 
 function WaccMarketSuggestionPanel({
+  guidanceTarget,
   suggestion,
   valuationDate,
   onApply,
 }: {
+  guidanceTarget?: GuidanceTarget;
   suggestion: MarketAssumptionSuggestion | null;
   valuationDate: string;
   onApply: (suggestion: MarketAssumptionSuggestion) => void;
 }) {
   const supportedYears = getSupportedMarketSuggestionYears();
+  const isGuidanceTarget = guidanceTarget === "wacc-market-suggestion";
 
   if (!suggestion) {
     return (
-      <article className="assumption-calculator-card wacc-suggestion-card" data-testid="wacc-suggestion-card">
+      <article
+        className={`assumption-calculator-card wacc-suggestion-card ${isGuidanceTarget ? "action-guidance" : ""}`}
+        data-guidance-target={isGuidanceTarget ? guidanceTarget : undefined}
+        data-testid="wacc-suggestion-card"
+      >
         <AssumptionCalculatorHeader
           label="Saran otomatis"
           value="Belum tersedia"
@@ -9918,6 +9981,7 @@ function WaccMarketSuggestionPanel({
             ? "Tanggal penilaian berada di luar library tahunan 2020-2025."
             : "Isi Tahun Transaksi Pengalihan di Data Awal atau tanggal penilaian untuk memunculkan saran WACC tahunan."}
         </p>
+        {isGuidanceTarget ? <span className="action-guidance-badge">Aksi dibutuhkan</span> : null}
       </article>
     );
   }
@@ -9962,9 +10026,15 @@ function WaccMarketSuggestionPanel({
           </tbody>
         </table>
       </div>
-      <button className="button secondary" type="button" onClick={() => onApply(suggestion)}>
+      <button
+        className={`button secondary ${isGuidanceTarget ? "action-guidance" : ""}`}
+        data-guidance-target={isGuidanceTarget ? guidanceTarget : undefined}
+        type="button"
+        onClick={() => onApply(suggestion)}
+      >
         <CheckCircle2 size={18} />
         Terapkan Saran {suggestion.year}
+        {isGuidanceTarget ? <span className="action-guidance-badge">Aksi dibutuhkan</span> : null}
       </button>
     </article>
   );
@@ -9974,6 +10044,7 @@ function WaccBasisControl({
   activeBasis,
   effectiveBasis,
   activeWacc,
+  guidanceTarget,
   rawCalculation,
   governedCalculation,
   manualWacc,
@@ -9984,6 +10055,7 @@ function WaccBasisControl({
   activeBasis: WaccBasis;
   effectiveBasis: WaccBasis;
   activeWacc: number;
+  guidanceTarget?: GuidanceTarget;
   rawCalculation: WaccCalculation | null;
   governedCalculation: WaccCalculation | null;
   manualWacc: number | null;
@@ -10031,6 +10103,7 @@ function WaccBasisControl({
         <AssumptionInput
           label="Manual WACC reviewer"
           value={manualWacc === null ? "" : formatRateInputNumber(manualWacc)}
+          guidanceTarget={guidanceTarget}
           note="Mengisi nilai ini otomatis memilih basis Manual WACC. Kosongkan atau pilih basis lain untuk kembali ke kalkulasi sistem."
           onChange={onManualWaccChange}
         />
@@ -10057,6 +10130,7 @@ function WaccCalculatorPanel({
   comparableSuggestions,
   autoCapitalValues,
   governance,
+  marketGuidanceTarget,
   onChange,
   onComparableNameChange,
   onApplyComparableSuggestions,
@@ -10070,6 +10144,7 @@ function WaccCalculatorPanel({
   comparableSuggestions: IdxComparableCompany[];
   autoCapitalValues: AutoWaccCapitalValues;
   governance: AssumptionGovernanceResult;
+  marketGuidanceTarget?: GuidanceTarget;
   onChange: (key: keyof AssumptionState, value: string) => void;
   onComparableNameChange: (slot: WaccComparableSlot, value: string) => void;
   onApplyComparableSuggestions: () => void;
@@ -10092,6 +10167,7 @@ function WaccCalculatorPanel({
         <AssumptionInput
           label="Risk-free rate (tingkat bebas risiko)"
           value={assumptions.waccRiskFreeRate}
+          guidanceTarget={marketGuidanceTarget}
           smartSuggestionLabel={marketSuggestionLabel}
           smartSuggestionState={marketSuggestionState}
           onChange={(value) => onChange("waccRiskFreeRate", value)}
@@ -10370,7 +10446,7 @@ function WaccCapitalStructureTable({
   const equityWeightNote = buildAutoCapitalWeightNote(assumptions.waccEquityWeight, calculation?.equityWeight);
 
   return (
-    <div className="table-wrap wacc-model-table" data-testid="wacc-capital-structure-table">
+    <div className="table-wrap wacc-model-table wacc-capital-structure-table" data-testid="wacc-capital-structure-table">
       <table>
         <thead>
           <tr>
@@ -10802,17 +10878,21 @@ function TerminalGrowthPanel({
   wacc,
   suggestion,
   governance,
+  guidanceTarget,
   onChange,
   onApplySuggestion,
   onReasonChange,
+  onGuidanceComplete,
 }: {
   assumptions: AssumptionState;
   wacc: number;
   suggestion: TerminalGrowthSuggestion | null;
   governance: AssumptionGovernanceResult;
+  guidanceTarget?: GuidanceTarget;
   onChange: (key: keyof AssumptionState, value: string) => void;
   onApplySuggestion: (suggestion: TerminalGrowthSuggestion) => void;
   onReasonChange: (value: string) => void;
+  onGuidanceComplete?: (target: GuidanceTarget) => void;
 }) {
   const baseGrowth = readRateInput(assumptions.terminalGrowth);
   const hasInvalidSpread = baseGrowth !== null && wacc > 0 && baseGrowth >= wacc;
@@ -10829,14 +10909,16 @@ function TerminalGrowthPanel({
         impact="DCF terminal value dan EEM capitalization spread"
       />
       <InlineGovernanceList title="Tata kelola asumsi EEM/DCF" items={assumptionGovernanceItems} />
-      <TerminalGrowthSuggestionBlock suggestion={suggestion} onApply={onApplySuggestion} />
+      <TerminalGrowthSuggestionBlock guidanceTarget={guidanceTarget} suggestion={suggestion} onApply={onApplySuggestion} />
       <div className="calculator-input-grid">
         <AssumptionInput
           label="Terminal growth dasar"
           value={assumptions.terminalGrowth}
+          guidanceTarget={!suggestion ? guidanceTarget : undefined}
           smartSuggestionLabel={terminalGrowthSmartLabel}
           smartSuggestionState={terminalGrowthSmartState}
           onChange={(value) => onChange("terminalGrowth", value)}
+          onGuidanceComplete={onGuidanceComplete}
         />
         <AssumptionInput
           label="Terminal growth skenario bawah"
@@ -10874,15 +10956,23 @@ function TerminalGrowthPanel({
 }
 
 function TerminalGrowthSuggestionBlock({
+  guidanceTarget,
   suggestion,
   onApply,
 }: {
+  guidanceTarget?: GuidanceTarget;
   suggestion: TerminalGrowthSuggestion | null;
   onApply: (suggestion: TerminalGrowthSuggestion) => void;
 }) {
+  const isGuidanceTarget = guidanceTarget === "terminal-growth-suggestion";
+
   if (!suggestion) {
     return (
-      <div className="terminal-growth-suggestion" data-testid="terminal-growth-suggestion-card">
+      <div
+        className={`terminal-growth-suggestion ${isGuidanceTarget ? "action-guidance" : ""}`}
+        data-guidance-target={isGuidanceTarget ? guidanceTarget : undefined}
+        data-testid="terminal-growth-suggestion-card"
+      >
         <div className="terminal-growth-suggestion-heading">
           <div>
             <span>Saran otomatis</span>
@@ -10891,6 +10981,7 @@ function TerminalGrowthSuggestionBlock({
           <em className="source-badge manual">Menunggu sektor</em>
         </div>
         <p className="assumption-empty-note">Saran muncul setelah sektor perusahaan sesuai klasifikasi IDX tersedia di Data Awal.</p>
+        {isGuidanceTarget ? <span className="action-guidance-badge">Aksi dibutuhkan</span> : null}
       </div>
     );
   }
@@ -10954,9 +11045,15 @@ function TerminalGrowthSuggestionBlock({
           <dd>{suggestion.reason}</dd>
         </div>
       </dl>
-      <button className="button secondary" type="button" onClick={() => onApply(suggestion)}>
+      <button
+        className={`button secondary ${isGuidanceTarget ? "action-guidance" : ""}`}
+        data-guidance-target={isGuidanceTarget ? guidanceTarget : undefined}
+        type="button"
+        onClick={() => onApply(suggestion)}
+      >
         <CheckCircle2 size={18} />
         Gunakan saran sektor
+        {isGuidanceTarget ? <span className="action-guidance-badge">Aksi dibutuhkan</span> : null}
       </button>
     </div>
   );
@@ -10968,16 +11065,20 @@ function RequiredReturnOnNtaPanel({
   suggestion,
   balances,
   governance,
+  guidanceTarget,
   onChange,
   onReasonChange,
+  onGuidanceComplete,
 }: {
   assumptions: AssumptionState;
   calculation: RequiredReturnOnNtaCalculation | null;
   suggestion: RequiredReturnOnNtaSuggestion;
   balances: { accountReceivable: number; inventory: number; fixedAssetsNet: number };
   governance: AssumptionGovernanceResult;
+  guidanceTarget?: GuidanceTarget;
   onChange: (key: keyof AssumptionState, value: string) => void;
   onReasonChange: (value: string) => void;
+  onGuidanceComplete?: (target: GuidanceTarget) => void;
 }) {
   const suggestedValue = (key: RequiredReturnOnNtaSuggestionKey) => formatRequiredReturnSuggestionInput(suggestion.fields[key]);
   const ntaGovernanceItems = governance.items.filter((item) => item.id === "nta-return-fallback");
@@ -11013,10 +11114,12 @@ function RequiredReturnOnNtaPanel({
         <AssumptionInput
           label="Kapasitas piutang"
           value={assumptions.requiredReturnReceivablesCapacity}
+          guidanceTarget={guidanceTarget}
           suggestion={buildRequiredReturnInputSuggestion(suggestion.fields.requiredReturnReceivablesCapacity, "rate")}
           note={buildSuggestionInputNote(assumptions.requiredReturnReceivablesCapacity, suggestion.fields.requiredReturnReceivablesCapacity)}
           onChange={(value) => onChange("requiredReturnReceivablesCapacity", value)}
           onApplySuggestion={(value) => onChange("requiredReturnReceivablesCapacity", value)}
+          onGuidanceComplete={onGuidanceComplete}
         />
         <AssumptionInput
           label="Kapasitas persediaan"
@@ -11523,9 +11626,11 @@ function AssumptionInput({
   suggestion,
   smartSuggestionLabel,
   smartSuggestionState,
+  guidanceTarget,
   inputMode = "decimal",
   onChange,
   onApplySuggestion,
+  onGuidanceComplete,
 }: {
   label: string;
   value: string;
@@ -11533,13 +11638,16 @@ function AssumptionInput({
   suggestion?: OptionalDriverSuggestion;
   smartSuggestionLabel?: string;
   smartSuggestionState?: SmartSuggestionState;
+  guidanceTarget?: GuidanceTarget;
   inputMode?: "decimal" | "numeric";
   onChange: (value: string) => void;
   onApplySuggestion?: (value: string) => void;
+  onGuidanceComplete?: (target: GuidanceTarget) => void;
 }) {
   const inputId = `assumption-${slugifyLabel(label)}`;
   const hasSuggestionSource = Boolean(suggestion?.value.trim());
   const canApplySuggestion = Boolean(hasSuggestionSource && onApplySuggestion);
+  const isGuidanceTarget = Boolean(guidanceTarget);
   const isSuggestionApplied =
     canApplySuggestion && suggestion ? isOptionalDriverSuggestionApplied(value, suggestion.value, suggestion.kind) : false;
   const resolvedSmartState = smartSuggestionState ?? (hasSuggestionSource ? (isSuggestionApplied ? "applied" : "available") : undefined);
@@ -11555,28 +11663,37 @@ function AssumptionInput({
   const fieldClassName = [
     "field assumption-input-field",
     resolvedSmartState ? `smart-suggestion-field ${resolvedSmartState}` : "",
+    isGuidanceTarget && !canApplySuggestion ? "action-guidance" : "",
   ]
     .filter(Boolean)
     .join(" ");
 
   return (
-    <div className={fieldClassName}>
+    <div className={fieldClassName} data-guidance-target={isGuidanceTarget && !canApplySuggestion ? guidanceTarget : undefined}>
       <div className="assumption-input-heading">
         <label htmlFor={inputId}>{label}</label>
         {resolvedSmartState ? <SmartSuggestionBadge label={resolvedSmartLabel} state={resolvedSmartState} /> : null}
         {canApplySuggestion && suggestion && onApplySuggestion ? (
           <button
-            className="suggestion-apply-button"
+            className={`suggestion-apply-button ${isGuidanceTarget ? "action-guidance" : ""}`}
+            data-guidance-target={isGuidanceTarget ? guidanceTarget : undefined}
             type="button"
-            onClick={() => onApplySuggestion(suggestion.value)}
+            onClick={() => {
+              onApplySuggestion(suggestion.value);
+              if (guidanceTarget) {
+                onGuidanceComplete?.(guidanceTarget);
+              }
+            }}
             disabled={isSuggestionApplied}
             title={isSuggestionApplied ? `${suggestion.displayValue} sudah dipakai` : `Isi dengan ${suggestion.displayValue}`}
             aria-label={isSuggestionApplied ? `Nilai sistem sudah dipakai untuk ${label}` : `Gunakan nilai sistem untuk ${label}`}
           >
             <CheckCircle2 aria-hidden="true" size={12} />
             {isSuggestionApplied ? "Dipakai" : "Gunakan nilai sistem"}
+            {isGuidanceTarget ? <span className="action-guidance-badge">Aksi dibutuhkan</span> : null}
           </button>
         ) : null}
+        {isGuidanceTarget && !canApplySuggestion ? <span className="action-guidance-badge">Aksi dibutuhkan</span> : null}
       </div>
       <input
         className={resolvedSmartState ? "smart-suggestion-input" : undefined}
@@ -11584,7 +11701,12 @@ function AssumptionInput({
         inputMode={inputMode}
         placeholder="Opsional"
         value={value}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={(event) => {
+          onChange(event.target.value);
+          if (guidanceTarget) {
+            onGuidanceComplete?.(guidanceTarget);
+          }
+        }}
       />
       {note ? <small className="auto-source-note">{note}</small> : null}
     </div>

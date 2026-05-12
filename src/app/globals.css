@@ -2797,10 +2797,10 @@ select {
 }
 
 .assumption-input-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 8px;
+  align-items: center;
   min-width: 0;
 }
 
@@ -2814,6 +2814,7 @@ select {
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
+  justify-self: end;
   gap: 4px;
   min-height: 28px;
   max-width: 180px;
@@ -2826,6 +2827,15 @@ select {
   font-weight: 750;
   line-height: 1.15;
   text-align: center;
+}
+
+.suggestion-apply-button.action-guidance {
+  max-width: none;
+  flex-wrap: wrap;
+}
+
+.suggestion-apply-button .action-guidance-badge {
+  margin-left: 2px;
 }
 
 .suggestion-apply-button:hover,
@@ -2872,6 +2882,7 @@ select {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  justify-self: end;
   width: fit-content;
   min-height: 22px;
   padding: 0 7px;
@@ -2896,6 +2907,11 @@ select {
   background: var(--smart-blue-soft);
   color: #173469;
   box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.08);
+}
+
+.assumption-input-heading .smart-suggestion-badge {
+  white-space: nowrap;
+  overflow-wrap: normal;
 }
 
 .smart-suggestion-field {
@@ -3135,6 +3151,35 @@ select {
 
 .wacc-model-table table {
   min-width: 920px;
+}
+
+.wacc-capital-structure-table table {
+  min-width: 1040px;
+}
+
+.wacc-capital-structure-table th:nth-child(1),
+.wacc-capital-structure-table td:nth-child(1) {
+  width: 14%;
+}
+
+.wacc-capital-structure-table th:nth-child(2),
+.wacc-capital-structure-table td:nth-child(2) {
+  width: 34%;
+}
+
+.wacc-capital-structure-table th:nth-child(3),
+.wacc-capital-structure-table td:nth-child(3) {
+  width: 34%;
+}
+
+.wacc-capital-structure-table th:nth-child(4),
+.wacc-capital-structure-table td:nth-child(4) {
+  width: 9%;
+}
+
+.wacc-capital-structure-table th:nth-child(5),
+.wacc-capital-structure-table td:nth-child(5) {
+  width: 9%;
 }
 
 .wacc-model-table .field {
@@ -5130,6 +5175,21 @@ td span {
 
   .driver-trace {
     grid-template-columns: 1fr;
+  }
+
+  .assumption-input-heading {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .assumption-input-heading .smart-suggestion-badge,
+  .assumption-input-heading .suggestion-apply-button,
+  .assumption-input-heading .action-guidance-badge {
+    justify-self: start;
+  }
+
+  .assumption-input-heading .smart-suggestion-badge {
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   .period-card {

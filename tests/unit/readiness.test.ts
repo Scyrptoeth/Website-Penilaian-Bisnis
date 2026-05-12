@@ -105,6 +105,95 @@ describe("workbench readiness", () => {
     assert.equal(readiness.fixedAssets.missing.length, 0);
   });
 
+  it("treats an initialized fixed asset schedule as enough for downstream cash-flow reminders", () => {
+    const periods = buildSamplePeriods();
+    const rows: AccountRow[] = [
+      {
+        id: "balance-row",
+        statement: "balance_sheet",
+        accountName: "Neraca manual",
+        categoryOverride: "",
+        balanceSheetClassification: "",
+        labelOverrides: [],
+        values: { p2020: "900000", p2021: "1000000" },
+      },
+      {
+        id: "income-row",
+        statement: "income_statement",
+        accountName: "Laba rugi manual",
+        categoryOverride: "",
+        balanceSheetClassification: "",
+        labelOverrides: [],
+        values: { p2020: "200000", p2021: "250000" },
+      },
+    ];
+    const assumptions = { ...emptyAssumptions, taxRate: "22%" };
+    const mappedRows = rows.map(mapRow);
+    const fixedAssetSchedule = buildFixedAssetScheduleSummary(periods, [createFixedAssetScheduleRow(periods)]);
+    const snapshot = buildSnapshot(periods, "p2021", rows, assumptions);
+    const dlocPfc = calculateDlocPfc(createEmptyDlocPfcState(), emptyCaseProfile);
+    const readiness = buildWorkbenchReadiness({
+      periods,
+      rows,
+      mappedRows,
+      assumptions,
+      snapshot,
+      fixedAssetSchedule,
+      caseProfile: emptyCaseProfile,
+      caseProfileDerived: buildCaseProfileDerived(emptyCaseProfile),
+      dlocPfc,
+      taxSimulation: createEmptyTaxSimulationState(),
+    });
+
+    assert.equal(readiness.cashFlowStatement.missing.some((item) => item.targetTab === "fixedAssets"), false);
+    assert.equal(readiness.noplatFcf.missing.some((item) => item.targetTab === "fixedAssets"), false);
+  });
+
+  it("does not block Financial Ratio and ROIC only for account mapping review", () => {
+    const periods = buildSamplePeriods();
+    const rows: AccountRow[] = [
+      {
+        id: "balance-row",
+        statement: "balance_sheet",
+        accountName: "Neraca manual",
+        categoryOverride: "",
+        balanceSheetClassification: "",
+        labelOverrides: [],
+        values: { p2020: "900000", p2021: "1000000" },
+      },
+      {
+        id: "income-row",
+        statement: "income_statement",
+        accountName: "Laba rugi manual",
+        categoryOverride: "",
+        balanceSheetClassification: "",
+        labelOverrides: [],
+        values: { p2020: "200000", p2021: "250000" },
+      },
+    ];
+    const mappedRows = rows.map(mapRow);
+    const fixedAssetSchedule = buildFixedAssetScheduleSummary(periods, []);
+    const snapshot = buildSnapshot(periods, "p2021", rows, emptyAssumptions);
+    const dlocPfc = calculateDlocPfc(createEmptyDlocPfcState(), emptyCaseProfile);
+    const readiness = buildWorkbenchReadiness({
+      periods,
+      rows,
+      mappedRows,
+      assumptions: emptyAssumptions,
+      snapshot,
+      fixedAssetSchedule,
+      caseProfile: emptyCaseProfile,
+      caseProfileDerived: buildCaseProfileDerived(emptyCaseProfile),
+      dlocPfc,
+      taxSimulation: createEmptyTaxSimulationState(),
+    });
+
+    assert.equal(readiness.financialRatio.isReady, true);
+    assert.equal(readiness.roic.isReady, true);
+    assert.equal(readiness.financialRatio.missing.some((item) => item.label === "Akun sudah dikategorikan atau siap ditinjau"), false);
+    assert.equal(readiness.roic.missing.some((item) => item.label === "Akun sudah dikategorikan atau siap ditinjau"), false);
+  });
+
   it("marks sample workbook-derived data ready for the added analysis sections", () => {
     const periods = buildSamplePeriods();
     const rows = buildSampleRows();
