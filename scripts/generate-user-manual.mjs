@@ -29,164 +29,158 @@ const screenshotPlan = [
     caption: "Tombol Buku Panduan berada di atas Ganti Password dan membuka PDF statis pada tab baru.",
   },
   {
-    id: "json-import",
-    file: "03-import-json-confirmation.png",
-    title: "Konfirmasi Import JSON",
-    caption: "File JSON dummy dimuat sebagai workspace baru agar data contoh tidak menimpa workspace aktif.",
-  },
-  {
     id: "data-awal",
-    file: "04-data-awal.png",
+    file: "03-data-awal.png",
     title: "Data Awal dan profil kasus",
     caption: "Data Awal memuat profil objek pajak, subjek pajak, tahun transaksi, nilai saham, dan periode laporan keuangan.",
   },
   {
     id: "workspace",
-    file: "05-workspace-menu.png",
+    file: "04-workspace-menu.png",
     title: "Workspace lokal",
     caption: "Workspace lokal memisahkan data antar kasus di browser, termasuk opsi workspace kosong, duplikasi, rename, dan hapus.",
   },
   {
     id: "toolbar",
-    file: "06-toolbar-json.png",
-    title: "Toolbar kerja dan JSON",
-    caption: "Toolbar menyediakan Undo, Redo, Export PDF, Export XLSX, JSON, dan Reset.",
+    file: "05-toolbar-cadangan.png",
+    title: "Toolbar kerja dan cadangan data",
+    caption: "Toolbar menyediakan Undo, Redo, Export PDF, Export XLSX, menu cadangan data, dan Reset.",
   },
   {
     id: "neraca",
-    file: "07-neraca.png",
+    file: "06-neraca.png",
     title: "Input Neraca",
     caption: "Tab Neraca memuat akun neraca manual, kategori akun, label, dan nilai per periode.",
   },
   {
     id: "aset-tetap",
-    file: "08-aset-tetap.png",
+    file: "07-aset-tetap.png",
     title: "Input Aset Tetap",
     caption: "Tab Aset Tetap memuat kelas aset, biaya perolehan, penambahan, akumulasi penyusutan, dan penyusutan berjalan.",
   },
   {
     id: "laba-rugi",
-    file: "09-laba-rugi.png",
+    file: "08-laba-rugi.png",
     title: "Input Laba Rugi",
     caption: "Tab Laba Rugi memuat akun pendapatan, beban, pajak, dan driver operasi per periode.",
   },
   {
     id: "cash-flow-statement",
-    file: "10-cash-flow-statement.png",
+    file: "09-cash-flow-statement.png",
     title: "Cash Flow Statement",
     caption: "Tab Cash Flow Statement menampilkan arus kas proyeksi, rekonsiliasi, dan kontrol schedule.",
   },
   {
     id: "jadwal-utang",
-    file: "11-jadwal-utang.png",
+    file: "10-jadwal-utang.png",
     title: "Jadwal Utang",
     caption: "Tab Jadwal Utang menampilkan movement utang, distribusi, dan diagnostic schedule.",
   },
   {
     id: "noplat-fcf",
-    file: "12-noplat-fcf.png",
+    file: "11-noplat-fcf.png",
     title: "NOPLAT dan FCF",
     caption: "Tab NOPLAT & FCF menampilkan bridge dari operasi ke free cash flow.",
   },
   {
     id: "financial-ratio",
-    file: "13-financial-ratio.png",
+    file: "12-financial-ratio.png",
     title: "Financial Ratio",
     caption: "Tab Financial Ratio menampilkan rasio keuangan yang membantu review kewajaran model.",
   },
   {
     id: "roic",
-    file: "14-roic.png",
+    file: "13-roic.png",
     title: "ROIC",
     caption: "Tab ROIC menampilkan return on invested capital dan indikator profitabilitas operasi.",
   },
   {
     id: "wacc",
-    file: "15-wacc.png",
+    file: "14-wacc.png",
     title: "WACC",
     caption: "Tab WACC memuat smart suggestion pasar, pilihan basis WACC, dan kalkulator biaya modal.",
   },
   {
     id: "asumsi",
-    file: "16-asumsi-eem-dcf.png",
+    file: "15-asumsi-eem-dcf.png",
     title: "Asumsi EEM dan DCF",
     caption: "Tab Asumsi EEM/DCF memuat tarif pajak, terminal growth, required return on NTA, dan driver modal kerja.",
   },
   {
     id: "proyeksi-aset-tetap",
-    file: "17-proyeksi-aset-tetap.png",
+    file: "16-proyeksi-aset-tetap.png",
     title: "Proyeksi Aset Tetap",
     caption: "Tab Proyeksi Aset Tetap menampilkan roll-forward biaya perolehan, penyusutan, dan nilai buku neto.",
   },
   {
     id: "proyeksi-neraca",
-    file: "18-proyeksi-neraca.png",
+    file: "17-proyeksi-neraca.png",
     title: "Proyeksi Neraca",
     caption: "Tab Proyeksi Neraca menampilkan aset, liabilitas, ekuitas, dan balance control.",
   },
   {
     id: "proyeksi-laba-rugi",
-    file: "19-proyeksi-laba-rugi.png",
+    file: "18-proyeksi-laba-rugi.png",
     title: "Proyeksi Laba Rugi",
     caption: "Tab Proyeksi Laba Rugi menampilkan forecast, governance, dan kontrol scenario reviewer.",
   },
   {
     id: "proyeksi-cash-flow",
-    file: "20-proyeksi-cash-flow.png",
+    file: "19-proyeksi-cash-flow.png",
     title: "Proyeksi Cash Flow Statement",
     caption: "Tab Proyeksi Cash Flow Statement menampilkan operating, investing, financing, dan cash control.",
   },
   {
     id: "aam",
-    file: "21-penilaian-aam.png",
+    file: "20-penilaian-aam.png",
     title: "Penilaian AAM",
     caption: "Tab Penilaian AAM menampilkan nilai ekuitas, basis neraca, penyesuaian, dan jejak formula.",
   },
   {
     id: "eem",
-    file: "22-penilaian-eem.png",
+    file: "21-penilaian-eem.png",
     title: "Penilaian EEM",
     caption: "Tab Penilaian EEM menampilkan nilai aktif, NTA operasional, excess earning, dan sensitivitas utang pajak.",
   },
   {
     id: "dcf",
-    file: "23-penilaian-dcf.png",
+    file: "22-penilaian-dcf.png",
     title: "Penilaian DCF",
     caption: "Tab Penilaian DCF menampilkan nilai aktif, PV FCFF eksplisit, PV terminal value, dan basis skenario.",
   },
   {
     id: "dlom",
-    file: "24-dlom.png",
+    file: "23-dlom.png",
     title: "DLOM",
     caption: "Tab DLOM memuat kuesioner diskon marketability dan basis interest yang digunakan.",
   },
   {
     id: "dloc-pfc",
-    file: "25-dloc-pfc.png",
+    file: "24-dloc-pfc.png",
     title: "DLOC/PFC",
     caption: "Tab DLOC/PFC memuat faktor lack of control atau premium for control sesuai karakter kepemilikan.",
   },
   {
     id: "pajak",
-    file: "26-simulasi-potensi-pajak.png",
+    file: "25-simulasi-potensi-pajak.png",
     title: "Simulasi Potensi Pajak",
     caption: "Tab Simulasi Potensi Pajak memakai metode utama, basis final, diskon aktif, dan nilai pengalihan.",
   },
   {
     id: "audit",
-    file: "27-audit.png",
+    file: "26-audit.png",
     title: "Audit",
     caption: "Tab Audit merangkum status model, snapshot audit, readiness, dan kontrol validasi.",
   },
   {
     id: "export-pdf",
-    file: "28-export-pdf-menu.png",
+    file: "27-export-pdf-menu.png",
     title: "Menu Export PDF",
     caption: "Export PDF menyediakan scope AAM, EEM, DCF, dan gabungan lengkap.",
   },
   {
     id: "export-xlsx",
-    file: "29-export-xlsx-menu.png",
+    file: "28-export-xlsx-menu.png",
     title: "Menu Export XLSX",
     caption: "Export XLSX menyediakan workbook dengan scope yang sama untuk review angka dan formula.",
   },
@@ -275,7 +269,6 @@ async function captureWorkbenchScreenshots() {
     await capture(page, "manual-button");
 
     await openJsonImportDialog(page);
-    await capture(page, "json-import");
     await page.getByRole("button", { name: "Import JSON", exact: true }).click();
     await page.getByText("Contoh Nama Objek Pajak").first().waitFor({ state: "visible", timeout: 20_000 });
     await capture(page, "data-awal");
@@ -388,8 +381,9 @@ async function renderManualHtml(payload) {
   const balanceRows = rows.filter((row) => row.statement === "balance_sheet");
   const incomeRows = rows.filter((row) => row.statement === "income_statement");
   const fixedAssetRows = Array.isArray(data.fixedAssetScheduleRows) ? data.fixedAssetScheduleRows : [];
-  const scalarRows = flattenScalars(payload);
+  const technicalInputRows = flattenScalars(data);
   const screenshotSections = await renderScreenshotSections();
+  const manualGeneratedAt = new Date();
 
   return `<!doctype html>
 <html lang="id">
@@ -402,24 +396,23 @@ async function renderManualHtml(payload) {
   <section class="cover">
     <p class="eyebrow">Buku Panduan Penggunaan</p>
     <h1>Buku Panduan Penggunaan Aplikasi Penilaian Bisnis II</h1>
-    <p class="cover-subtitle">Panduan pengguna untuk workflow non-admin berbasis data dummy JSON resmi.</p>
+    <p class="cover-subtitle">Panduan pengguna untuk workflow non-admin dengan data contoh latihan yang diinput secara manual.</p>
     <dl class="cover-meta">
       <div><dt>Aplikasi</dt><dd>${escapeHtml(payload.appName || "Penilaian Bisnis II")}</dd></div>
-      <div><dt>Dataset</dt><dd>${escapeHtml(data.caseProfile?.objectTaxpayerName || "Contoh Nama Objek Pajak")}</dd></div>
-      <div><dt>Tanggal export JSON</dt><dd>${escapeHtml(formatDateTime(payload.exportedAt))}</dd></div>
-      <div><dt>Sumber data</dt><dd>${escapeHtml(path.basename(jsonPath))}</dd></div>
+      <div><dt>Data contoh</dt><dd>${escapeHtml(data.caseProfile?.objectTaxpayerName || "Contoh Nama Objek Pajak")}</dd></div>
+      <div><dt>Tanggal penyusunan</dt><dd>${escapeHtml(formatDateTime(manualGeneratedAt.toISOString()))}</dd></div>
+      <div><dt>Cakupan</dt><dd>Pengguna biasa, input manual, perhitungan, review, dan ekspor</dd></div>
     </dl>
   </section>
 
   <section class="chapter">
     <h2>1. Ruang Lingkup Panduan</h2>
     <p>Panduan ini menjelaskan penggunaan fitur pengguna biasa pada Aplikasi Penilaian Bisnis II. Fitur admin dan super admin tidak dibahas karena pengelolaan website dilakukan oleh pengelola aplikasi.</p>
-    <p>Data contoh yang dipakai adalah file JSON dummy yang disediakan pengguna. Semua tabel input pada lampiran memuat nilai yang berasal dari JSON tersebut.</p>
+    <p>Data contoh dalam panduan ini adalah data latihan. Gunakan tabel input pada setiap bab sebagai acuan ketika mengisi data satu per satu di aplikasi.</p>
     <table>
       <tbody>
-        <tr><th>Schema</th><td>${escapeHtml(payload.schema)}</td></tr>
-        <tr><th>Schema version</th><td>${escapeHtml(payload.schemaVersion)}</td></tr>
-        <tr><th>App storage version</th><td>${escapeHtml(payload.appStorageVersion)}</td></tr>
+        <tr><th>Nama objek pajak contoh</th><td>${escapeHtml(data.caseProfile?.objectTaxpayerName || "Contoh Nama Objek Pajak")}</td></tr>
+        <tr><th>Nama subjek pajak contoh</th><td>${escapeHtml(data.caseProfile?.subjectTaxpayerName || "Contoh Nama Subjek Pajak")}</td></tr>
         <tr><th>Jumlah periode</th><td>${periods.length}</td></tr>
         <tr><th>Jumlah akun neraca</th><td>${balanceRows.length}</td></tr>
         <tr><th>Jumlah akun laba rugi</th><td>${incomeRows.length}</td></tr>
@@ -435,7 +428,7 @@ async function renderManualHtml(payload) {
 
   <section class="chapter">
     <h2>3. Screenshot Workflow Utama</h2>
-    <p>Screenshot berikut menunjukkan tahap utama penggunaan aplikasi setelah data dummy JSON dimuat ke workspace lokal.</p>
+    <p>Screenshot berikut menunjukkan tahap utama penggunaan aplikasi setelah data contoh dimasukkan ke workspace aktif.</p>
     ${screenshotSections}
   </section>
 
@@ -445,35 +438,38 @@ async function renderManualHtml(payload) {
   </section>
 
   <section class="chapter">
-    <h2>5. Profil Kasus dari JSON</h2>
+    <h2>5. Input Profil Kasus</h2>
+    <p>Isi Data Awal sesuai tabel berikut. Field yang kosong pada kasus nyata dapat disesuaikan dengan dokumen pendukung yang tersedia.</p>
     ${renderCaseProfileTable(data.caseProfile || {})}
   </section>
 
   <section class="chapter">
-    <h2>6. Periode Laporan Keuangan</h2>
+    <h2>6. Input Periode Laporan Keuangan</h2>
+    <p>Gunakan tombol tambah periode untuk membuat periode historis, lalu isi label dan tanggal penilaian sesuai tabel berikut.</p>
     ${renderPeriodsTable(periods, data.activePeriodId)}
   </section>
 
   <section class="chapter">
-    <h2>7. Input Neraca</h2>
-    <p>Tabel ini memuat 18 akun neraca dummy berikut nilai per periode, category override, klasifikasi, dan label yang tersimpan di JSON.</p>
+    <h2>7. Input Neraca Satu per Satu</h2>
+    <p>Tambahkan baris akun neraca, isi nama akun, pilih kategori utama atau override bila diperlukan, lalu isi nilai untuk setiap periode.</p>
     ${renderAccountRowsTable(balanceRows, periods)}
   </section>
 
   <section class="chapter">
-    <h2>8. Input Laba Rugi</h2>
-    <p>Tabel ini memuat 8 akun laba rugi dummy berikut nilai per periode, category override, klasifikasi, dan label yang tersimpan di JSON.</p>
+    <h2>8. Input Laba Rugi Satu per Satu</h2>
+    <p>Tambahkan baris akun laba rugi, isi nama akun, pilih kategori utama atau override bila diperlukan, lalu isi nilai untuk setiap periode.</p>
     ${renderAccountRowsTable(incomeRows, periods)}
   </section>
 
   <section class="chapter">
-    <h2>9. Input Jadwal Aset Tetap</h2>
+    <h2>9. Input Jadwal Aset Tetap Satu per Satu</h2>
+    <p>Tambahkan kelas aset tetap, lalu isi biaya perolehan awal, penambahan biaya perolehan, akumulasi penyusutan awal, dan penyusutan berjalan untuk setiap periode.</p>
     ${renderFixedAssetRowsTable(fixedAssetRows, periods)}
   </section>
 
   <section class="chapter">
     <h2>10. Asumsi, Smart Suggestion, dan Driver</h2>
-    <p>Bagian ini memuat seluruh asumsi yang tersimpan di JSON. Field kosong berarti aplikasi memakai hasil kalkulasi otomatis atau fallback sistem sesuai konteks tab.</p>
+    <p>Bagian ini memuat seluruh asumsi yang perlu diperiksa pada tab WACC dan Asumsi EEM/DCF. Field kosong berarti aplikasi memakai hasil kalkulasi otomatis atau fallback sistem sesuai konteks tab.</p>
     ${renderKeyValueTable(data.assumptions || {}, assumptionLabels)}
   </section>
 
@@ -509,9 +505,9 @@ async function renderManualHtml(payload) {
   </section>
 
   <section class="chapter">
-    <h2>17. Lampiran Seluruh Nilai Scalar JSON</h2>
-    <p>Lampiran ini disediakan sebagai kontrol kelengkapan. Setiap nilai scalar dari file JSON ditampilkan berdasarkan path agar tidak ada input yang terlewat.</p>
-    ${renderScalarTable(scalarRows)}
+    <h2>17. Lampiran Kontrol Kelengkapan Input Teknis</h2>
+    <p>Lampiran ini disediakan sebagai kontrol kelengkapan. Setiap nilai input teknis ditampilkan agar tidak ada field, asumsi, atau pilihan model yang terlewat saat pengisian manual.</p>
+    ${renderScalarTable(technicalInputRows)}
   </section>
 </body>
 </html>`;
@@ -561,7 +557,7 @@ function renderFeatureSummary() {
     ["Proyeksi", "Meninjau proyeksi laba rugi, neraca, aset tetap, cash flow, jadwal utang, NOPLAT, ratio, dan ROIC."],
     ["DLOM dan DLOC/PFC", "Mengisi faktor diskon atau premium sesuai karakter transaksi."],
     ["Simulasi Potensi Pajak", "Menghitung potensi pajak berdasarkan metode utama dan nilai pengalihan."],
-    ["Export PDF, XLSX, JSON", "Membuat laporan, workbook, dan backup workspace."],
+    ["Export PDF, XLSX, dan cadangan JSON", "Membuat laporan, workbook, serta file cadangan untuk memindahkan atau memulihkan workspace."],
     ["Reset", "Mengosongkan workspace aktif setelah konfirmasi."],
   ];
   return renderArrayTable(["Fungsi", "Kegunaan"], rows);
@@ -571,22 +567,23 @@ function renderUsageSteps() {
   const steps = [
     ["1", "Login ke aplikasi memakai NIP Pendek dan Password Pengguna."],
     ["2", "Buka tombol Buku Panduan bila perlu membaca instruksi di tab baru."],
-    ["3", "Buka menu JSON, pilih Import, lalu pilih file JSON dummy."],
-    ["4", "Konfirmasi import agar aplikasi membuat workspace baru dari file JSON."],
-    ["5", "Periksa Data Awal, profil kasus, dan periode laporan keuangan."],
-    ["6", "Periksa tab Neraca, Laba Rugi, dan Aset Tetap. Sesuaikan akun, nilai, kategori, atau label bila diperlukan."],
-    ["7", "Buka Kategorisasi Akun untuk mengecek hasil mapping dan dampak label."],
-    ["8", "Buka WACC dan Asumsi EEM/DCF. Gunakan smart suggestion atau isi override dengan alasan audit."],
-    ["9", "Buka Penilaian AAM, Penilaian EEM, dan Penilaian DCF untuk melihat nilai, sensitivitas, dan formula trace."],
-    ["10", "Buka Proyeksi DCF, Diskon & Pajak, dan Audit untuk melakukan final check."],
-    ["11", "Export PDF atau XLSX sesuai scope. Gunakan Export JSON sebagai backup workspace."],
+    ["3", "Isi Data Awal sesuai tabel Profil Kasus, termasuk objek pajak, subjek pajak, jenis perusahaan, jenis pengalihan, nilai saham, dan tahun transaksi."],
+    ["4", "Atur periode laporan keuangan. Pastikan tahun penilaian aktif dan periode historis sudah sesuai label yang dibutuhkan."],
+    ["5", "Masuk ke tab Neraca. Tambahkan seluruh akun neraca satu per satu, pilih kategori utama atau override bila perlu, lalu isi nilai per periode."],
+    ["6", "Masuk ke tab Laba Rugi. Tambahkan seluruh akun laba rugi satu per satu, pilih kategori utama atau override bila perlu, lalu isi nilai per periode."],
+    ["7", "Masuk ke tab Aset Tetap. Tambahkan setiap kelas aset tetap, lalu isi biaya perolehan dan penyusutan per periode."],
+    ["8", "Periksa kategori utama, label pendukung, dan dampak label pada baris Neraca dan Laba Rugi."],
+    ["9", "Buka WACC dan Asumsi EEM/DCF. Gunakan smart suggestion atau isi override dengan alasan audit."],
+    ["10", "Buka Penilaian AAM, Penilaian EEM, dan Penilaian DCF untuk melihat nilai, sensitivitas, dan formula trace."],
+    ["11", "Buka Proyeksi DCF, Diskon & Pajak, dan Audit untuk melakukan final check."],
+    ["12", "Export PDF atau XLSX sesuai scope. Gunakan cadangan JSON hanya untuk backup atau pemindahan workspace bila diperlukan."],
   ];
   return renderArrayTable(["Tahap", "Instruksi"], steps);
 }
 
 function renderCaseProfileTable(profile) {
   const rows = Object.keys(caseProfileLabels).map((key) => [caseProfileLabels[key], key, displayValue(profile[key])]);
-  return renderArrayTable(["Field", "Key JSON", "Nilai"], rows);
+  return renderArrayTable(["Field", "Field aplikasi", "Nilai contoh"], rows);
 }
 
 function renderPeriodsTable(periods, activePeriodId) {
@@ -725,11 +722,11 @@ function renderKeyValueTable(object, labels) {
   const rows = Object.keys(object || {})
     .sort()
     .map((key) => [labels[key] || key, key, displayValue(object[key])]);
-  return renderArrayTable(["Field", "Key JSON", "Nilai"], rows);
+  return renderArrayTable(["Field", "Field aplikasi", "Nilai contoh"], rows);
 }
 
 function renderScalarTable(rows) {
-  return renderArrayTable(["Path JSON", "Nilai"], rows.map((row) => [row.path, displayValue(row.value)]));
+  return renderArrayTable(["Field teknis", "Nilai contoh"], rows.map((row) => [row.path, displayValue(row.value)]));
 }
 
 function renderArrayTable(headers, rows) {
