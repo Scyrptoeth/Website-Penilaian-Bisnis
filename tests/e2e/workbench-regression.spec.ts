@@ -1379,6 +1379,34 @@ test("localStorage persistence, fixed header, and root overflow checks remain st
   expect(await hasNoRootHorizontalOverflow(page)).toBe(true);
 });
 
+test("WACC comparable provenance remains readable on mobile tabs", async ({ page }) => {
+  await page.getByLabel("KLU sesuai Appportal").fill("45101");
+  await expect(page.getByTestId("company-sector-derived")).toHaveValue("Consumer Cyclicals");
+  await page.getByLabel("Tanggal penilaian").fill("2023-12-31");
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  const mobileTabs = page.locator(".mobile-workflow-tabs");
+  await expect(mobileTabs).toBeVisible();
+  await mobileTabs.getByRole("tab", { name: "WACC", exact: true }).click();
+  await expect(page.getByTestId("wacc-comparable-source")).toContainText("Snapshot per 01 Mei 2026");
+  await expect(page.getByTestId("wacc-comparable-source-warning")).toContainText("Potensi look-ahead bias");
+  await expect(page.getByTestId("wacc-comparable-source-warning")).toContainText("31 Des 2023");
+  expect(await hasNoRootHorizontalOverflow(page)).toBe(true);
+
+  const provenanceFitsViewport = await page.evaluate(() => {
+    const source = document.querySelector('[data-testid="wacc-comparable-source"]');
+    const warning = document.querySelector('[data-testid="wacc-comparable-source-warning"]');
+
+    if (!(source instanceof HTMLElement) || !(warning instanceof HTMLElement)) {
+      return false;
+    }
+
+    return source.scrollWidth <= source.clientWidth && warning.scrollWidth <= warning.clientWidth;
+  });
+
+  expect(provenanceFitsViewport).toBe(true);
+});
+
 async function getTotalAssetsText(page: Page) {
   const totalAssetsRow = page.getByTestId("balance-sheet-position-table").locator("tr.total-row").filter({ hasText: "Total Aset" }).first();
   return totalAssetsRow.locator(".numeric-cell").last().innerText();

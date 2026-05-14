@@ -258,9 +258,9 @@ import {
   findIdxComparableByLabel,
   formatIdxComparableLabel,
   getIdxComparablesBySector,
+  getIdxComparableDatasetResolution,
   getIdxComparableDatasetUseStatus,
   getSuggestedIdxComparables,
-  idxComparableDatasetMetadata,
   type IdxComparableCompany,
 } from "@/lib/valuation/idx-comparable-suggestions";
 import {
@@ -965,8 +965,14 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   const caseProfileDerived = useMemo(() => buildCaseProfileDerived(caseProfile), [caseProfile]);
   const activePeriod = periods.find((period) => period.id === activePeriodId) ?? getDefaultActivePeriod(periods);
   const effectiveValuationDate = caseProfileDerived.cutOffDate || activePeriod?.valuationDate || "";
-  const sectorComparableOptions = useMemo(() => getIdxComparablesBySector(caseProfile.companySector), [caseProfile.companySector]);
-  const sectorComparableSuggestions = useMemo(() => getSuggestedIdxComparables(caseProfile.companySector), [caseProfile.companySector]);
+  const sectorComparableOptions = useMemo(
+    () => getIdxComparablesBySector(caseProfile.companySector, { valuationDate: effectiveValuationDate }),
+    [caseProfile.companySector, effectiveValuationDate],
+  );
+  const sectorComparableSuggestions = useMemo(
+    () => getSuggestedIdxComparables(caseProfile.companySector, 3, { valuationDate: effectiveValuationDate }),
+    [caseProfile.companySector, effectiveValuationDate],
+  );
   const balanceSheetRows = useMemo(() => mappedRows.filter((item) => item.row.statement === "balance_sheet"), [mappedRows]);
   const incomeStatementRows = useMemo(() => mappedRows.filter((item) => item.row.statement === "income_statement"), [mappedRows]);
   const fixedAssetSchedule = useMemo(
@@ -1961,9 +1967,10 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
           : current.periods;
       const shouldRefreshSectorSuggestions =
         (key === "companySector" || key === "objectBusinessKlu") && nextCaseProfile.companySector !== current.caseProfile.companySector;
+      const nextComparableValuationDate = resolveComparableValuationDate(nextCaseProfile, nextPeriods, current.activePeriodId);
       const nextAssumptions =
         shouldRefreshSectorSuggestions
-          ? applyIdxComparableSuggestions(current.assumptions, nextCaseProfile.companySector, "empty-only")
+          ? applyIdxComparableSuggestions(current.assumptions, nextCaseProfile.companySector, "empty-only", nextComparableValuationDate)
           : current.assumptions;
 
       return {
@@ -2548,7 +2555,9 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
 
   function updateWaccComparableName(slot: WaccComparableSlot, value: string) {
     commitCoreState((current) => {
-      const selectedComparable = findIdxComparableByLabel(current.caseProfile.companySector, value);
+      const selectedComparable = findIdxComparableByLabel(current.caseProfile.companySector, value, {
+        valuationDate: resolveComparableValuationDate(current.caseProfile, current.periods, current.activePeriodId),
+      });
 
       return {
         ...current,
@@ -2562,7 +2571,12 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   function applySectorComparableSuggestions() {
     commitCoreState((current) => ({
       ...current,
-      assumptions: applyIdxComparableSuggestions(current.assumptions, current.caseProfile.companySector, "replace"),
+      assumptions: applyIdxComparableSuggestions(
+        current.assumptions,
+        current.caseProfile.companySector,
+        "replace",
+        resolveComparableValuationDate(current.caseProfile, current.periods, current.activePeriodId),
+      ),
     }));
   }
 
@@ -10483,6 +10497,8 @@ function WaccComparableTable({
   onComparableNameChange: (slot: WaccComparableSlot, value: string) => void;
   onApplyComparableSuggestions: () => void;
 }) {
+  const datasetResolution = getIdxComparableDatasetResolution(valuationDate);
+  const datasetMetadata = datasetResolution.snapshot.metadata;
   const datasetStatus = getIdxComparableDatasetUseStatus(valuationDate);
   const datasetStatusClassName = ["wacc-comparable-source-warning", datasetStatus.level].join(" ");
 
@@ -10501,17 +10517,16 @@ function WaccComparableTable({
           Terapkan Saran
         </button>
       </div>
-      <div className="wacc-comparable-source" data-testid="wacc-comparable-source">
+      <div className="wacc-comparable-source" data-testid="wacc-comparable-source" data-snapshot-id={datasetMetadata.id}>
         <div className="wacc-comparable-source-main">
           <span className="source-status-pill smart">IDX/Yahoo snapshot</span>
           <span>
-            Snapshot per {formatDisplayDate(idxComparableDatasetMetadata.asOfDate)} · {idxComparableDatasetMetadata.rowCount} catatan pembanding · toleransi{" "}
-            {idxComparableDatasetMetadata.tolerancePercent}% sektor
+            Snapshot per {formatDisplayDate(datasetMetadata.asOfDate)} · {datasetMetadata.rowCount} catatan pembanding · toleransi{" "}
+            {datasetMetadata.tolerancePercent}% sektor
           </span>
         </div>
         <small>
-          {idxComparableDatasetMetadata.metricBasis} {idxComparableDatasetMetadata.coverageNote} Sumber: {idxComparableDatasetMetadata.processedFile}; diambil{" "}
-          {idxComparableDatasetMetadata.fetchedAtWib} WIB.
+          {datasetMetadata.metricBasis} {datasetMetadata.coverageNote} Sumber: {datasetMetadata.processedFile}; diambil {datasetMetadata.fetchedAtWib} WIB.
         </small>
       </div>
       <div className={datasetStatusClassName} data-testid="wacc-comparable-source-warning" role="status">
@@ -12017,8 +12032,9 @@ function applyIdxComparableSuggestions(
   assumptions: AssumptionState,
   sector: string,
   mode: "empty-only" | "replace",
+  valuationDate: string,
 ): AssumptionState {
-  const suggestions = getSuggestedIdxComparables(sector);
+  const suggestions = getSuggestedIdxComparables(sector, 3, { valuationDate });
 
   if (suggestions.length === 0) {
     return assumptions;
@@ -12033,6 +12049,13 @@ function applyIdxComparableSuggestions(
 
     return applyIdxComparableToSlot(nextAssumptions, slot, suggestion);
   }, assumptions);
+}
+
+function resolveComparableValuationDate(caseProfile: CaseProfile, periods: Period[], activePeriodId: string): string {
+  const derived = buildCaseProfileDerived(caseProfile);
+  const activePeriod = periods.find((period) => period.id === activePeriodId) ?? getDefaultActivePeriod(periods);
+
+  return derived.cutOffDate || activePeriod?.valuationDate || "";
 }
 
 function applyIdxComparableToSlot(

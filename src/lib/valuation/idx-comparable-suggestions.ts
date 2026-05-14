@@ -32,10 +32,31 @@ export type IdxComparableDatasetMetadata = {
   coverageNote: string;
 };
 
+export type IdxComparableDatasetSnapshot = {
+  metadata: IdxComparableDatasetMetadata;
+  companies: IdxComparableCompany[];
+};
+
+export type IdxComparableDatasetResolutionKind =
+  | "missing-valuation-date"
+  | "exact-snapshot"
+  | "nearest-prior"
+  | "look-ahead-fallback";
+
+export type IdxComparableDatasetResolution = {
+  valuationDate: string | null;
+  snapshot: IdxComparableDatasetSnapshot;
+  resolutionKind: IdxComparableDatasetResolutionKind;
+};
+
 export type IdxComparableDatasetUseStatus = {
   level: "info" | "warning";
   label: string;
   message: string;
+};
+
+export type IdxComparableDatasetOptions = {
+  valuationDate?: string;
 };
 
 const qualityPriority: Record<string, number> = {
@@ -62,20 +83,33 @@ export const idxComparableDatasetMetadata: IdxComparableDatasetMetadata = {
   coverageNote: "Build saat ini memakai satu snapshot peer IDX; snapshot peer tahunan 2020-2025 belum tersedia.",
 };
 
-export const idxComparableCompanies = idxComparables as IdxComparableCompany[];
+export const idxComparableDatasetSnapshots: IdxComparableDatasetSnapshot[] = [
+  {
+    metadata: idxComparableDatasetMetadata,
+    companies: idxComparables as IdxComparableCompany[],
+  },
+];
 
-export function getIdxComparablesBySector(sector: string): IdxComparableCompany[] {
+const sortedIdxComparableDatasetSnapshots = [...idxComparableDatasetSnapshots].sort((first, second) =>
+  first.metadata.asOfDate.localeCompare(second.metadata.asOfDate),
+);
+
+export const idxComparableCompanies = sortedIdxComparableDatasetSnapshots.at(-1)?.companies ?? [];
+
+export function getIdxComparablesBySector(sector: string, options: IdxComparableDatasetOptions = {}): IdxComparableCompany[] {
   const normalizedSector = normalizeSector(sector);
 
   if (!normalizedSector) {
     return [];
   }
 
-  return idxComparableCompanies.filter((company) => normalizeSector(company.sector) === normalizedSector);
+  return getIdxComparableDatasetResolution(options.valuationDate ?? "").snapshot.companies.filter(
+    (company) => normalizeSector(company.sector) === normalizedSector,
+  );
 }
 
-export function getSuggestedIdxComparables(sector: string, limit = 3): IdxComparableCompany[] {
-  return getIdxComparablesBySector(sector)
+export function getSuggestedIdxComparables(sector: string, limit = 3, options: IdxComparableDatasetOptions = {}): IdxComparableCompany[] {
+  return getIdxComparablesBySector(sector, options)
     .filter((company) => company.quality === "Data Pembanding Bersifat Ideal" || company.quality === "Data Pembanding Bersifat Moderat")
     .sort((first, second) => getQualityPriority(first.quality) - getQualityPriority(second.quality))
     .slice(0, limit);
@@ -85,7 +119,7 @@ export function formatIdxComparableLabel(company: IdxComparableCompany): string 
   return `${company.comparable} (${company.quality})`;
 }
 
-export function findIdxComparableByLabel(sector: string, label: string): IdxComparableCompany | null {
+export function findIdxComparableByLabel(sector: string, label: string, options: IdxComparableDatasetOptions = {}): IdxComparableCompany | null {
   const normalizedLabel = label.trim();
 
   if (!normalizedLabel) {
@@ -93,7 +127,7 @@ export function findIdxComparableByLabel(sector: string, label: string): IdxComp
   }
 
   return (
-    getIdxComparablesBySector(sector).find(
+    getIdxComparablesBySector(sector, options).find(
       (company) => formatIdxComparableLabel(company) === normalizedLabel || company.comparable === normalizedLabel,
     ) ?? null
   );
@@ -104,11 +138,10 @@ function getQualityPriority(quality: string): number {
 }
 
 export function getIdxComparableDatasetUseStatus(valuationDate: string): IdxComparableDatasetUseStatus {
-  const normalizedValuationDate = normalizeIsoDate(valuationDate);
-  const snapshotDate = idxComparableDatasetMetadata.asOfDate;
-  const snapshotLabel = formatIsoDateLabel(snapshotDate);
+  const resolution = getIdxComparableDatasetResolution(valuationDate);
+  const snapshotLabel = formatIsoDateLabel(resolution.snapshot.metadata.asOfDate);
 
-  if (!normalizedValuationDate) {
+  if (resolution.resolutionKind === "missing-valuation-date") {
     return {
       level: "info",
       label: "Tanggal penilaian belum diisi",
@@ -116,21 +149,21 @@ export function getIdxComparableDatasetUseStatus(valuationDate: string): IdxComp
     };
   }
 
-  const valuationLabel = formatIsoDateLabel(normalizedValuationDate);
+  const valuationLabel = formatIsoDateLabel(resolution.valuationDate ?? "");
 
-  if (normalizedValuationDate < snapshotDate) {
+  if (resolution.resolutionKind === "look-ahead-fallback") {
     return {
       level: "warning",
       label: "Potensi look-ahead bias",
-      message: `Tanggal penilaian ${valuationLabel} mendahului snapshot peer ${snapshotLabel}. Gunakan sebagai saran awal saja atau override dengan bukti peer yang tersedia pada cut-off.`,
+      message: `Tanggal penilaian ${valuationLabel} mendahului snapshot peer tersedia ${snapshotLabel}. Sistem memakai latest-available fallback; gunakan sebagai saran awal saja atau override dengan bukti peer yang tersedia pada cut-off.`,
     };
   }
 
-  if (normalizedValuationDate > snapshotDate) {
+  if (resolution.resolutionKind === "nearest-prior") {
     return {
       level: "warning",
       label: "Snapshot peer perlu pembaruan",
-      message: `Tanggal penilaian ${valuationLabel} setelah snapshot peer ${snapshotLabel}. Validasi ulang beta, market cap, dan debt sebelum menjadi basis final.`,
+      message: `Tanggal penilaian ${valuationLabel} memakai snapshot peer terdekat sebelumnya ${snapshotLabel}. Validasi ulang beta, market cap, dan debt sebelum menjadi basis final.`,
     };
   }
 
@@ -138,6 +171,52 @@ export function getIdxComparableDatasetUseStatus(valuationDate: string): IdxComp
     level: "info",
     label: "Snapshot sesuai tanggal penilaian",
     message: `Tanggal penilaian sama dengan snapshot peer ${snapshotLabel}. Tetap cek kesesuaian sektor, ukuran, dan struktur kapital pembanding.`,
+  };
+}
+
+export function getIdxComparableDatasetResolution(valuationDate: string): IdxComparableDatasetResolution {
+  const latestSnapshot = sortedIdxComparableDatasetSnapshots.at(-1);
+
+  if (!latestSnapshot) {
+    throw new Error("IDX comparable dataset snapshot is not configured.");
+  }
+
+  const normalizedValuationDate = normalizeIsoDate(valuationDate);
+
+  if (!normalizedValuationDate) {
+    return {
+      valuationDate: null,
+      snapshot: latestSnapshot,
+      resolutionKind: "missing-valuation-date",
+    };
+  }
+
+  const exactSnapshot = sortedIdxComparableDatasetSnapshots.find((snapshot) => snapshot.metadata.asOfDate === normalizedValuationDate);
+
+  if (exactSnapshot) {
+    return {
+      valuationDate: normalizedValuationDate,
+      snapshot: exactSnapshot,
+      resolutionKind: "exact-snapshot",
+    };
+  }
+
+  const nearestPriorSnapshot = [...sortedIdxComparableDatasetSnapshots]
+    .reverse()
+    .find((snapshot) => snapshot.metadata.asOfDate < normalizedValuationDate);
+
+  if (nearestPriorSnapshot) {
+    return {
+      valuationDate: normalizedValuationDate,
+      snapshot: nearestPriorSnapshot,
+      resolutionKind: "nearest-prior",
+    };
+  }
+
+  return {
+    valuationDate: normalizedValuationDate,
+    snapshot: latestSnapshot,
+    resolutionKind: "look-ahead-fallback",
   };
 }
 
