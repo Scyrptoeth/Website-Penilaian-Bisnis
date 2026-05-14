@@ -1141,6 +1141,11 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await expect(page.getByTestId("discount-rate-analysis")).toContainText("Discount Rate Analysis (CAPM)");
   await expect(page.getByTestId("discount-rate-analysis")).not.toContainText("Detail audit teknis");
   await expect(page.getByTestId("wacc-comparable-table")).toContainText("Perusahaan Pembanding");
+  await expect(page.getByTestId("wacc-comparable-source")).toContainText("IDX/Yahoo snapshot");
+  await expect(page.getByTestId("wacc-comparable-source")).toContainText("Snapshot per 01 Mei 2026");
+  await expect(page.getByTestId("wacc-comparable-source")).toContainText("snapshot peer tahunan 2020-2025 belum tersedia");
+  await expect(page.getByTestId("wacc-comparable-source-warning")).toContainText("Potensi look-ahead bias");
+  await expect(page.getByTestId("wacc-comparable-source-warning")).toContainText("31 Des 2023");
   await expect(page.getByTestId("wacc-capital-structure-table")).toContainText("Struktur Kapital");
   await page.getByTestId("wacc-comparable-table").getByRole("button", { name: "Terapkan Saran" }).click();
   await expect(page.getByLabel("Fallback bobot utang")).toHaveValue(/0,\d+/);

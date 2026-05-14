@@ -2802,6 +2802,65 @@ select {
   line-height: 1.32;
 }
 
+.wacc-comparable-source,
+.wacc-comparable-source-warning {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.wacc-comparable-source-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.wacc-comparable-source-main span:last-child,
+.wacc-comparable-source small,
+.wacc-comparable-source-warning span {
+  color: var(--muted);
+  font-size: 8.8px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.wacc-comparable-source-warning {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+}
+
+.wacc-comparable-source-warning svg {
+  margin-top: 1px;
+  color: var(--ink-soft);
+}
+
+.wacc-comparable-source-warning div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.wacc-comparable-source-warning strong {
+  color: var(--ink);
+  font-size: 9.4px;
+}
+
+.wacc-comparable-source-warning.warning {
+  border-color: rgba(161, 98, 7, 0.32);
+  background: var(--review-soft);
+}
+
+.wacc-comparable-source-warning.warning svg,
+.wacc-comparable-source-warning.warning strong {
+  color: var(--review);
+}
+
 .auto-source-note {
   display: block;
   margin-top: 4px;

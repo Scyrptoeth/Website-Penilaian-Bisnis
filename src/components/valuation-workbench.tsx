@@ -258,7 +258,9 @@ import {
   findIdxComparableByLabel,
   formatIdxComparableLabel,
   getIdxComparablesBySector,
+  getIdxComparableDatasetUseStatus,
   getSuggestedIdxComparables,
+  idxComparableDatasetMetadata,
   type IdxComparableCompany,
 } from "@/lib/valuation/idx-comparable-suggestions";
 import {
@@ -3436,6 +3438,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
             companySector={caseProfile.companySector}
             comparableOptions={sectorComparableOptions}
             comparableSuggestions={sectorComparableSuggestions}
+            valuationDate={effectiveValuationDate}
             autoCapitalValues={autoWaccCapitalValues}
             governance={assumptionGovernance}
             marketGuidanceTarget={!marketSuggestion && guidanceTarget === "wacc-market-suggestion" ? "wacc-market-suggestion" : undefined}
@@ -10290,6 +10293,7 @@ function WaccCalculatorPanel({
   companySector,
   comparableOptions,
   comparableSuggestions,
+  valuationDate,
   autoCapitalValues,
   governance,
   marketGuidanceTarget,
@@ -10304,6 +10308,7 @@ function WaccCalculatorPanel({
   companySector: string;
   comparableOptions: IdxComparableCompany[];
   comparableSuggestions: IdxComparableCompany[];
+  valuationDate: string;
   autoCapitalValues: AutoWaccCapitalValues;
   governance: AssumptionGovernanceResult;
   marketGuidanceTarget?: GuidanceTarget;
@@ -10374,6 +10379,7 @@ function WaccCalculatorPanel({
         companySector={companySector}
         comparableOptions={comparableOptions}
         comparableSuggestions={comparableSuggestions}
+        valuationDate={valuationDate}
         onChange={onChange}
         onComparableNameChange={onComparableNameChange}
         onApplyComparableSuggestions={onApplyComparableSuggestions}
@@ -10462,6 +10468,7 @@ function WaccComparableTable({
   companySector,
   comparableOptions,
   comparableSuggestions,
+  valuationDate,
   onChange,
   onComparableNameChange,
   onApplyComparableSuggestions,
@@ -10471,10 +10478,14 @@ function WaccComparableTable({
   companySector: string;
   comparableOptions: IdxComparableCompany[];
   comparableSuggestions: IdxComparableCompany[];
+  valuationDate: string;
   onChange: (key: keyof AssumptionState, value: string) => void;
   onComparableNameChange: (slot: WaccComparableSlot, value: string) => void;
   onApplyComparableSuggestions: () => void;
 }) {
+  const datasetStatus = getIdxComparableDatasetUseStatus(valuationDate);
+  const datasetStatusClassName = ["wacc-comparable-source-warning", datasetStatus.level].join(" ");
+
   return (
     <div className="wacc-comparable-block" data-testid="wacc-comparable-table">
       <div className="wacc-comparable-toolbar">
@@ -10482,13 +10493,33 @@ function WaccComparableTable({
           <strong>Perusahaan Pembanding</strong>
           <span>
             {companySector
-              ? `${companySector} · ${comparableOptions.length} emiten tersedia · ${comparableSuggestions.length} prioritas ideal/moderat`
+              ? `${companySector} · ${comparableOptions.length} emiten tersedia · ${comparableSuggestions.length} rekomendasi teratas ideal/moderat`
               : "Isi KLU sesuai Appportal di Data Awal"}
           </span>
         </div>
         <button className="button secondary compact-button" type="button" onClick={onApplyComparableSuggestions} disabled={comparableSuggestions.length === 0}>
           Terapkan Saran
         </button>
+      </div>
+      <div className="wacc-comparable-source" data-testid="wacc-comparable-source">
+        <div className="wacc-comparable-source-main">
+          <span className="source-status-pill smart">IDX/Yahoo snapshot</span>
+          <span>
+            Snapshot per {formatDisplayDate(idxComparableDatasetMetadata.asOfDate)} · {idxComparableDatasetMetadata.rowCount} catatan pembanding · toleransi{" "}
+            {idxComparableDatasetMetadata.tolerancePercent}% sektor
+          </span>
+        </div>
+        <small>
+          {idxComparableDatasetMetadata.metricBasis} {idxComparableDatasetMetadata.coverageNote} Sumber: {idxComparableDatasetMetadata.processedFile}; diambil{" "}
+          {idxComparableDatasetMetadata.fetchedAtWib} WIB.
+        </small>
+      </div>
+      <div className={datasetStatusClassName} data-testid="wacc-comparable-source-warning" role="status">
+        {datasetStatus.level === "warning" ? <AlertTriangle size={16} aria-hidden="true" /> : <FileSearch size={16} aria-hidden="true" />}
+        <div>
+          <strong>{datasetStatus.label}</strong>
+          <span>{datasetStatus.message}</span>
+        </div>
       </div>
       <div className="table-wrap wacc-model-table">
         <table>
