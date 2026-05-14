@@ -253,6 +253,7 @@ import {
   buildTerminalGrowthSuggestion,
   type TerminalGrowthSuggestion,
 } from "@/lib/valuation/terminal-growth-suggestions";
+import { buildEemTaxPayableDebtLikeNote, eemSensitivityContext } from "@/lib/valuation/eem-sensitivity-context";
 import type { AccountCategory, DcfForecastRow, FinancialStatementSnapshot, FormulaTrace, ValuationMethod } from "@/lib/valuation/types";
 const confidenceBandLabels: Record<ReturnType<typeof mapRow>["mapping"]["confidenceBand"], string> = {
   high: "Tinggi",
@@ -1006,6 +1007,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       snapshot,
     ],
   );
+  const eemTaxPayableDebtLikeDifference = results.eem.equityValue - results.sensitivities.eemTaxPayableDebtLike.equityValue;
   const activeDcfSelection = useMemo(
     () => buildActiveDcfSelection(results, activeDcfBasis, snapshot),
     [activeDcfBasis, results, snapshot],
@@ -3623,15 +3625,26 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               <h3>Debt-like tax payable scenario</h3>
             </div>
           </div>
-          <div className="sensitivity-grid two-column">
+          <div className="sensitivity-grid two-column eem-sensitivity-grid" data-testid="eem-sensitivity-grid">
             <div>
-              <span>EEM - skenario dasar</span>
+              <span>{eemSensitivityContext.base.label}</span>
               <strong data-testid="eem-base-equity-value">{formatIdr(results.eem.equityValue)}</strong>
+              <small>{eemSensitivityContext.base.note}</small>
+              <code>{eemSensitivityContext.base.formula}</code>
             </div>
             <div>
-              <span>EEM utang pajak debt-like</span>
-              <strong>{formatIdr(results.sensitivities.eemTaxPayableDebtLike.equityValue)}</strong>
+              <span>{eemSensitivityContext.taxPayableDebtLike.label}</span>
+              <strong data-testid="eem-tax-payable-debt-like-equity-value">
+                {formatIdr(results.sensitivities.eemTaxPayableDebtLike.equityValue)}
+              </strong>
+              <small>{buildEemTaxPayableDebtLikeNote(formatIdr(eemTaxPayableDebtLikeDifference))}</small>
+              <code>{eemSensitivityContext.taxPayableDebtLike.formula}</code>
             </div>
+          </div>
+          <div className="eem-sensitivity-bridge" data-testid="eem-tax-payable-difference-driver">
+            <span>{eemSensitivityContext.differenceDriver.label}</span>
+            <strong>{formatIdr(eemTaxPayableDebtLikeDifference)}</strong>
+            <small>{eemSensitivityContext.differenceDriver.note}</small>
           </div>
         </section>
 

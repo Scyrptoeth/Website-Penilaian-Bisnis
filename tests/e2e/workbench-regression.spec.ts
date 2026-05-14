@@ -873,6 +873,10 @@ test("exports the active workbench state to a print-ready PDF report view", asyn
   await expect(reportPage.getByRole("heading", { name: "Laporan Daftar Aset" })).toBeVisible();
   await expect(reportPage.getByRole("heading", { name: "Penyesuaian AAM" })).toBeVisible();
   await expect(reportPage.getByRole("heading", { name: "Sensitivitas EEM" })).toBeVisible();
+  const eemSensitivitySection = reportPage.locator(".pdf-report-section").filter({ has: reportPage.getByRole("heading", { name: "Sensitivitas EEM" }) });
+  await expect(eemSensitivitySection).toContainText("EEM - skenario dasar");
+  await expect(eemSensitivitySection).toContainText("EEM - utang pajak debt-like");
+  await expect(eemSensitivitySection).toContainText("selisih terhadap dasar sama dengan saldo utang pajak");
   await expect(reportPage.getByRole("heading", { name: "Sensitivitas DCF" })).toBeVisible();
   await expect(reportPage.getByRole("heading", { name: "Ringkasan", exact: true })).toBeVisible();
   await expect(reportPage.getByText("Metode AAM")).toBeVisible();
@@ -890,7 +894,7 @@ test("exports the active workbench state to a print-ready PDF report view", asyn
   await reportPage.close();
 });
 
-test("exports method-scoped PDF reports for AAM and DCF", async ({ page }) => {
+test("exports method-scoped PDF reports for AAM, EEM, and DCF", async ({ page }) => {
   await loadPersistedWorkbenchFixture(page);
 
   await page.getByRole("button", { name: "Export PDF" }).click();
@@ -911,6 +915,26 @@ test("exports method-scoped PDF reports for AAM and DCF", async ({ page }) => {
   await expect(aamTraceSection.getByText("Metode EEM")).toHaveCount(0);
   await expect(aamTraceSection.getByText("Metode DCF")).toHaveCount(0);
   await aamReportPage.close();
+
+  await page.getByRole("button", { name: "Export PDF" }).click();
+  const eemPopupPromise = page.waitForEvent("popup");
+  await page.getByRole("menuitem", { name: "Export PDF Penilaian EEM" }).click();
+  const eemReportPage = await eemPopupPromise;
+  await eemReportPage.waitForLoadState("domcontentloaded");
+
+  await expect(eemReportPage.getByRole("heading", { name: "Laporan Penilaian EEM" })).toBeVisible();
+  await expect(eemReportPage).toHaveTitle(/^penilaian-bisnis-makmur-jaya-sejati-raya-eem-\d{4}-\d{2}-\d{2}\.pdf$/);
+  await expect(eemReportPage.getByRole("heading", { name: "Sensitivitas EEM" })).toBeVisible();
+  await expect(eemReportPage.getByText("EEM - skenario dasar")).toBeVisible();
+  await expect(eemReportPage.getByText("EEM - utang pajak debt-like")).toBeVisible();
+  await expect(eemReportPage.getByText("selisih terhadap dasar sama dengan saldo utang pajak")).toBeVisible();
+  await expect(eemReportPage.getByRole("heading", { name: "Penyesuaian AAM" })).toHaveCount(0);
+  await expect(eemReportPage.getByRole("heading", { name: "Sensitivitas DCF" })).toHaveCount(0);
+  const eemTraceSection = eemReportPage.locator(".pdf-report-section").filter({ has: eemReportPage.getByRole("heading", { name: "Ringkasan", exact: true }) });
+  await expect(eemTraceSection.getByText("Metode AAM")).toHaveCount(0);
+  await expect(eemTraceSection.getByText("Metode EEM")).toBeVisible();
+  await expect(eemTraceSection.getByText("Metode DCF")).toHaveCount(0);
+  await eemReportPage.close();
 
   await page.getByRole("button", { name: "Export PDF" }).click();
   const dcfPopupPromise = page.waitForEvent("popup");
@@ -1122,6 +1146,13 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await expect(page.getByRole("heading", { name: "Kesiapan EEM" })).toHaveCount(0);
   await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Manual WACC reviewer");
   await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Proxy kapasitas aset berwujud yang di-govern");
+  await expect(page.getByTestId("eem-sensitivity-grid")).toContainText("EEM - skenario dasar");
+  await expect(page.getByTestId("eem-sensitivity-grid")).toContainText("EEM - utang pajak debt-like");
+  await expect(page.getByTestId("eem-sensitivity-grid")).toContainText("sebelum utang pajak diperlakukan sebagai kewajiban debt-like");
+  await expect(page.getByTestId("eem-sensitivity-grid")).toContainText("selisih terhadap dasar sama dengan saldo utang pajak");
+  await expect(page.getByTestId("eem-base-equity-value")).toBeVisible();
+  await expect(page.getByTestId("eem-tax-payable-debt-like-equity-value")).toBeVisible();
+  await expect(page.getByTestId("eem-tax-payable-difference-driver")).toContainText("Driver selisih");
   await openWorkflowTab(page, "Penilaian DCF");
   await expect(page.getByRole("heading", { name: "Kesiapan DCF" })).toHaveCount(0);
   await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Manual WACC reviewer");

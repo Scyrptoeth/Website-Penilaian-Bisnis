@@ -14,6 +14,7 @@ import {
   type ValuationPdfExportScope,
 } from "@/lib/valuation/pdf-export";
 import { filterMappedRowsByValuationScope } from "@/lib/valuation/export-scopes";
+import { buildEemTaxPayableDebtLikeNote, eemSensitivityContext } from "@/lib/valuation/eem-sensitivity-context";
 import type { TaxSimulationMethodRow } from "@/lib/valuation/tax-simulation";
 import type { FormulaTrace, MethodOutput, ValuationMethod } from "@/lib/valuation/types";
 
@@ -460,14 +461,14 @@ function EemSensitivityReportTable({ payload }: { payload: ValuationPdfExportPay
   const { input } = payload;
   const rows = [
     {
-      label: "EEM - skenario dasar",
+      label: eemSensitivityContext.base.label,
       value: input.results.eem.equityValue,
-      note: "NTA + excess earnings yang dikapitalisasi + aset non-operasional - utang berbunga.",
+      note: `${eemSensitivityContext.base.note} Formula: ${eemSensitivityContext.base.formula}.`,
     },
     {
-      label: "EEM utang pajak debt-like",
+      label: eemSensitivityContext.taxPayableDebtLike.label,
       value: input.results.sensitivities.eemTaxPayableDebtLike.equityValue,
-      note: "Utang pajak diperlakukan sebagai debt-like sensitivity.",
+      note: `${buildEemTaxPayableDebtLikeNote(formatIdr(input.results.eem.equityValue - input.results.sensitivities.eemTaxPayableDebtLike.equityValue))} Formula: ${eemSensitivityContext.taxPayableDebtLike.formula}.`,
     },
   ];
 

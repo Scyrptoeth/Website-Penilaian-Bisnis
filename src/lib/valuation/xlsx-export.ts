@@ -1,7 +1,9 @@
 import { resolveAccountLabels } from "./account-labels";
 import { categoryLabelMap } from "./category-options";
 import { parseInputNumber, statementLabels } from "./case-model";
+import { buildEemTaxPayableDebtLikeNote, eemSensitivityContext } from "./eem-sensitivity-context";
 import { resolveTaxRateRegime, type ProgressiveTaxBracket, type TaxpayerKind } from "./tax-rates";
+import { formatIdr } from "./format";
 import {
   filterMappedRowsByValuationScope,
   resolveValuationExportScope,
@@ -383,8 +385,8 @@ function buildCalculationModelRows(input: ValuationPdfExportInput, scope: Valuat
     add("eemCapitalizationRate", "EEM", "Capitalization rate", formulaCell(`${refs.wacc}-${refs.terminalGrowth}`, input.snapshot.wacc - input.snapshot.terminalGrowth), "Formula", "WACC - terminal growth.");
     add("eemCapitalizedExcess", "EEM", "Capitalized excess earnings", formulaCell(`IF(${refs.eemCapitalizationRate}>0,${refs.eemExcessEarnings}/${refs.eemCapitalizationRate},0)`, input.results.eem.equityValue - (input.snapshot.fixedAssetsNet + input.results.operatingWorkingCapital) - input.results.nonOperatingAssets + input.results.interestBearingDebt), "Formula", "Excess earnings / capitalization rate.");
     add("eemEnterpriseValue", "EEM", "Enterprise value", formulaCell(`${refs.eemNta}+${refs.eemCapitalizedExcess}`, input.results.eem.equityValue - input.results.nonOperatingAssets + input.results.interestBearingDebt), "Formula", "NTA + capitalized excess earnings.");
-    add("eemEquityValue", "EEM", "Equity value 100%", formulaCell(`${refs.eemEnterpriseValue}+${refs.nonOperatingAssets}-${refs.interestBearingDebt}`, input.results.eem.equityValue), "Formula", "Enterprise value + non-operating assets - interest-bearing debt.");
-    add("eemTaxPayableDebtLike", "EEM", "Equity value tax payable debt-like", formulaCell(`${refs.eemEquityValue}-${refs.taxPayable}`, input.results.sensitivities.eemTaxPayableDebtLike.equityValue), "Formula", "EEM equity value - tax payable.");
+    add("eemEquityValue", "EEM", "Equity value 100%", formulaCell(`${refs.eemEnterpriseValue}+${refs.nonOperatingAssets}-${refs.interestBearingDebt}`, input.results.eem.equityValue), "Formula", eemSensitivityContext.base.note);
+    add("eemTaxPayableDebtLike", "EEM", "Equity value tax payable debt-like", formulaCell(`${refs.eemEquityValue}-${refs.taxPayable}`, input.results.sensitivities.eemTaxPayableDebtLike.equityValue), "Formula", eemSensitivityContext.taxPayableDebtLike.note);
   }
 
   if (scope.methods.includes("DCF")) {
@@ -739,16 +741,16 @@ function buildEemSensitivityRows(input: ValuationPdfExportInput, refs: Record<st
   return [
     ["Scenario", "Equity Value 100%", "Value Source", "Audit Note"],
     [
-      "EEM - skenario dasar",
+      eemSensitivityContext.base.label,
       formulaCell(refs.eemEquityValue, input.results.eem.equityValue),
       "Formula",
-      "NTA + excess earnings yang dikapitalisasi + aset non-operasional - utang berbunga.",
+      `${eemSensitivityContext.base.note} Formula: ${eemSensitivityContext.base.formula}.`,
     ],
     [
-      "EEM utang pajak debt-like",
+      eemSensitivityContext.taxPayableDebtLike.label,
       formulaCell(refs.eemTaxPayableDebtLike, input.results.sensitivities.eemTaxPayableDebtLike.equityValue),
       "Formula",
-      "Utang pajak diperlakukan sebagai debt-like sensitivity.",
+      `${buildEemTaxPayableDebtLikeNote(formatIdr(input.results.eem.equityValue - input.results.sensitivities.eemTaxPayableDebtLike.equityValue))} Formula: ${eemSensitivityContext.taxPayableDebtLike.formula}.`,
     ],
   ];
 }

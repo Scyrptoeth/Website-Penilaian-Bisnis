@@ -3820,6 +3820,49 @@ select {
   line-height: 1.38;
 }
 
+.sensitivity-grid code {
+  width: fit-content;
+  max-width: 100%;
+  padding: 3px 5px;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #ffffff;
+  color: var(--accent-ink);
+  font-family: var(--font-mono), monospace;
+  font-size: 9.2px;
+  line-height: 1.35;
+}
+
+.eem-sensitivity-bridge {
+  display: grid;
+  grid-template-columns: minmax(130px, 0.28fr) minmax(160px, 0.32fr) minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-raised);
+}
+
+.eem-sensitivity-bridge span {
+  color: var(--muted);
+  font-size: 9.2px;
+}
+
+.eem-sensitivity-bridge strong {
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono), monospace;
+  font-size: 10.4px;
+  font-weight: 500;
+}
+
+.eem-sensitivity-bridge small {
+  color: var(--ink-soft);
+  line-height: 1.35;
+}
+
 .dcf-active-basis-control {
   display: grid;
   grid-template-columns: 1.35fr repeat(2, minmax(0, 1fr));
@@ -5049,6 +5092,7 @@ td span {
   .terminal-growth-suggestion-grid,
   .dcf-active-basis-control,
   .sensitivity-grid,
+  .eem-sensitivity-bridge,
   .projection-governance-grid,
   .projection-governance-checks,
   .projection-governance-trace,

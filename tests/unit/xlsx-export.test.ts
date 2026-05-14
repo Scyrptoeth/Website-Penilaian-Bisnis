@@ -59,6 +59,21 @@ describe("valuation XLSX export", () => {
     assert.ok(countFormulaCells(workbook.sheets.find((sheet) => sheet.name === "DLOC PFC")?.rows ?? []) >= 10);
   });
 
+  it("includes EEM sensitivity scenario context and tax-payable subtraction in EEM scope", () => {
+    const workbook = buildValuationXlsxWorkbook(buildSampleExportInput(), "eem", exportedAt);
+    const eemSensitivityRows = workbook.sheets.find((sheet) => sheet.name === "EEM Sensitivity")?.rows ?? [];
+    const baseRow = eemSensitivityRows.find((row) => row[0] === "EEM - skenario dasar");
+    const debtLikeRow = eemSensitivityRows.find((row) => row[0] === "EEM - utang pajak debt-like");
+
+    assert.deepEqual(eemSensitivityRows[0], ["Scenario", "Equity Value 100%", "Value Source", "Audit Note"]);
+    assert.equal(baseRow?.[2], "Formula");
+    assert.equal(debtLikeRow?.[2], "Formula");
+    assert.match(String(baseRow?.[3]), /sebelum utang pajak diperlakukan sebagai kewajiban debt-like/);
+    assert.match(String(baseRow?.[3]), /NTA \+ excess earnings yang dikapitalisasi/);
+    assert.match(String(debtLikeRow?.[3]), /selisih terhadap dasar sama dengan saldo utang pajak/);
+    assert.match(String(debtLikeRow?.[3]), /EEM skenario dasar - utang pajak/);
+  });
+
   it("encodes a valid OOXML zip package with a scoped XLSX filename", () => {
     const file = createValuationXlsxFile(buildSampleExportInput(), "all", exportedAt);
 
