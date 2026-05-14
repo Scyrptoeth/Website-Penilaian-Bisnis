@@ -2271,6 +2271,18 @@ select {
   margin-bottom: 5px;
 }
 
+.debt-schedule-rule {
+  display: block;
+  color: var(--ink);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.debt-schedule-detail {
+  max-width: 240px;
+}
+
 .debt-schedule-table th:first-child,
 .debt-schedule-table td:first-child {
   width: 210px;

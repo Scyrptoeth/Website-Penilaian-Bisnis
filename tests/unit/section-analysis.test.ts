@@ -50,7 +50,7 @@ describe("section analysis", () => {
     assert.equal(equityInjectionMovement.values.p2021, -3_150_000_000);
   });
 
-  it("marks only ACC PAYABLES hardcoded rows as editable and flows manual debt schedule into debt bridge", () => {
+  it("marks only workbook-designated debt schedule rows as editable and flows manual debt schedule into debt bridge", () => {
     const rowsWithDebt: AccountRow[] = [
       ...rows,
       {

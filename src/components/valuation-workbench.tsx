@@ -162,6 +162,12 @@ import {
   type RatioRow,
   type SectionAnalysis,
 } from "@/lib/valuation/section-analysis";
+import {
+  getDebtScheduleDetailLabel,
+  getDebtScheduleRuleLabel,
+  getDebtScheduleSourceLabel,
+  getDebtScheduleSourcePillLabel,
+} from "@/lib/valuation/debt-schedule-display";
 import { buildValidationChecks } from "@/lib/valuation/validation-checks";
 import {
   buildPdfExportFilename,
@@ -7663,15 +7669,15 @@ function DebtScheduleSection({
     <section className="panel debt-schedule-panel" data-testid="debt-schedule-section">
       <div className="panel-heading">
         <div>
-          <p className="eyebrow">ACC PAYABLES</p>
+          <p className="eyebrow">Utang dan pinjaman</p>
           <h3>Jadwal mutasi pinjaman dan utang</h3>
         </div>
-        <span className="status-pill muted">Manual + formula + interoperable</span>
+        <span className="status-pill muted">Input pengguna + otomatis + Neraca</span>
       </div>
       <div className="debt-schedule-note">
-        <span className="source-status-pill manual">Manual input</span>
-        <span className="source-status-pill formula">Formula terkunci</span>
-        <span className="source-status-pill interoperable">Interoperable Neraca</span>
+        <span className="source-status-pill manual">Input pengguna</span>
+        <span className="source-status-pill formula">Dihitung otomatis</span>
+        <span className="source-status-pill interoperable">Terhubung Neraca</span>
       </div>
       <DebtScheduleTable
         rows={analysis.payablesRows}
@@ -7701,7 +7707,7 @@ function DebtScheduleTable({
           <tr>
             <th>Pos</th>
             <th>Sumber</th>
-            <th>Formula / aturan</th>
+            <th>Aturan</th>
             {periods.map((period) => (
               <th className="period-column" key={period.id}>
                 {period.label || "Periode"}
@@ -7721,6 +7727,7 @@ function DebtScheduleTable({
 
             const rowClassName =
               row.kind === "subtotal" ? "analysis-total-row" : row.kind === "warning" ? "analysis-warning-row" : "";
+            const ruleDetail = getDebtScheduleDetailLabel(row);
 
             return (
               <tr className={rowClassName} key={row.key}>
@@ -7730,11 +7737,11 @@ function DebtScheduleTable({
                 </td>
                 <td>
                   {row.sourceType ? <DebtScheduleSourcePill sourceType={row.sourceType} /> : null}
-                  <span>{row.source}</span>
+                  <span>{getDebtScheduleSourceLabel(row)}</span>
                 </td>
                 <td>
-                  <code>{row.formula}</code>
-                  {row.lockReason ? <span>{row.lockReason}</span> : null}
+                  <strong className="debt-schedule-rule">{getDebtScheduleRuleLabel(row)}</strong>
+                  {ruleDetail ? <span className="debt-schedule-detail">{ruleDetail}</span> : null}
                 </td>
                 {periods.map((period) => {
                   const isEditable =
@@ -7771,16 +7778,7 @@ function DebtScheduleTable({
 }
 
 function DebtScheduleSourcePill({ sourceType }: { sourceType: NonNullable<AnalysisRow["sourceType"]> }) {
-  const label =
-    sourceType === "manual"
-      ? "Manual"
-      : sourceType === "formula"
-        ? "Formula"
-        : sourceType === "interoperable"
-          ? "Interoperable"
-          : "Fallback";
-
-  return <span className={`source-status-pill ${sourceType}`}>{label}</span>;
+  return <span className={`source-status-pill ${sourceType}`}>{getDebtScheduleSourcePillLabel(sourceType)}</span>;
 }
 
 function formatDebtScheduleValue(value: AnalysisValue, valueFormat: AnalysisRow["valueFormat"] = "currency"): string {

@@ -485,18 +485,26 @@ test("added analysis sections use readiness gates before sample data and render 
 
   await openWorkflowTab(page, "Jadwal Utang");
   const debtScheduleSection = page.getByTestId("debt-schedule-section");
-  await expect(debtScheduleSection.getByText("ACC PAYABLES", { exact: true })).toBeVisible();
+  await expect(debtScheduleSection.getByText("Utang dan pinjaman", { exact: true })).toBeVisible();
   await expect(debtScheduleSection.getByText("Bridge arus kas terkoreksi")).toHaveCount(0);
   await expect(debtScheduleSection.getByText("CASH FLOW STATEMENT")).toHaveCount(0);
   await expect(debtScheduleSection.getByText("Referensi audit sistem")).toHaveCount(0);
   await expect(debtScheduleSection.getByText("Total jadwal utang", { exact: true })).toBeVisible();
-  await expect(debtScheduleSection.getByText("Manual input")).toBeVisible();
-  await expect(debtScheduleSection.getByText("Formula terkunci")).toBeVisible();
-  const shortRateRow = debtScheduleSection.getByRole("row", { name: /ACC PAYABLES row 8/ });
+  const debtScheduleLegend = debtScheduleSection.locator(".debt-schedule-note");
+  await expect(debtScheduleLegend.getByText("Input pengguna", { exact: true })).toBeVisible();
+  await expect(debtScheduleLegend.getByText("Dihitung otomatis", { exact: true })).toBeVisible();
+  await expect(debtScheduleLegend.getByText("Terhubung Neraca", { exact: true })).toBeVisible();
+  await expect(debtScheduleSection).not.toContainText("ACC PAYABLES");
+  await expect(debtScheduleSection).not.toContainText("Formula SUM");
+  await expect(debtScheduleSection).not.toContainText("Balance Sheet row");
+  await expect(debtScheduleSection).not.toContainText("Input manual");
+  await expect(debtScheduleSection).not.toContainText("Formula / aturan");
+  const shortRateRow = debtScheduleSection.locator("tbody tr").filter({ hasText: "Tarif pinjaman untuk jadwal" }).first();
   await expect(shortRateRow.getByRole("textbox").first()).toHaveValue("0,13");
-  const shortBeginningRow = debtScheduleSection.getByRole("row", { name: /Saldo akhir pinjaman jangka pendek periode sebelumnya/ });
+  await expect(shortRateRow).toContainText("Parameter tarif; bukan saldo pokok pinjaman.");
+  const shortBeginningRow = debtScheduleSection.locator("tbody tr").filter({ hasText: "Saldo awal mengikuti periode sebelumnya" }).first();
   await expect(shortBeginningRow.getByRole("textbox")).toHaveCount(0);
-  const shortAdditionRow = debtScheduleSection.getByRole("row", { name: /Balance Sheet row pinjaman jangka pendek/ });
+  const shortAdditionRow = debtScheduleSection.locator("tbody tr").filter({ hasText: "Penambahan mengikuti perubahan pinjaman di Neraca" }).first();
   await expect(shortAdditionRow.getByRole("textbox")).toHaveCount(0);
   await expect(page.locator("body")).not.toContainText("Workbook audit reference");
 

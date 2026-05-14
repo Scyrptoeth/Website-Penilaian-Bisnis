@@ -15,6 +15,11 @@ import {
 } from "@/lib/valuation/pdf-export";
 import { filterMappedRowsByValuationScope } from "@/lib/valuation/export-scopes";
 import { buildEemTaxPayableDebtLikeNote, eemSensitivityContext } from "@/lib/valuation/eem-sensitivity-context";
+import {
+  getDebtScheduleDetailLabel,
+  getDebtScheduleRuleLabel,
+  getDebtScheduleSourceLabel,
+} from "@/lib/valuation/debt-schedule-display";
 import type { TaxSimulationMethodRow } from "@/lib/valuation/tax-simulation";
 import type { AnalysisRow } from "@/lib/valuation/section-analysis";
 import type { FormulaTrace, MethodOutput, ValuationMethod } from "@/lib/valuation/types";
@@ -196,7 +201,7 @@ export function ValuationPdfReport() {
 
         <ReportSection title="Jadwal Utang">
           <p className="pdf-report-note">
-            Jadwal mengikuti ACC PAYABLES: baris manual berasal dari input schedule, sedangkan formula dan interoperabilitas Neraca tetap terkunci.
+            Baris manual berasal dari input jadwal, sedangkan nilai otomatis dan koneksi Neraca tetap terkunci.
           </p>
           <AnalysisReportTable rows={input.sectionAnalysis.payablesRows} periods={periods} />
         </ReportSection>
@@ -756,7 +761,7 @@ function AnalysisReportTable({ rows, periods }: { rows: AnalysisRow[]; periods: 
         <tr>
           <th>Pos</th>
           <th>Sumber</th>
-          <th>Formula</th>
+          <th>Aturan</th>
           {periods.map((period) => (
             <th key={period.id}>{period.label}</th>
           ))}
@@ -771,8 +776,8 @@ function AnalysisReportTable({ rows, periods }: { rows: AnalysisRow[]; periods: 
           ) : (
             <tr key={row.key}>
               <td>{row.label}</td>
-              <td>{row.source}</td>
-              <td>{row.formula}</td>
+              <td>{getDebtScheduleSourceLabel(row)}</td>
+              <td>{formatDebtScheduleReportRule(row)}</td>
               {periods.map((period) => (
                 <td className="numeric-cell" key={period.id}>
                   {formatAnalysisReportValue(row.values[period.id] ?? null, row.valueFormat)}
@@ -784,6 +789,12 @@ function AnalysisReportTable({ rows, periods }: { rows: AnalysisRow[]; periods: 
       </tbody>
     </table>
   );
+}
+
+function formatDebtScheduleReportRule(row: AnalysisRow): string {
+  const detail = getDebtScheduleDetailLabel(row);
+
+  return detail ? `${getDebtScheduleRuleLabel(row)}. ${detail}` : getDebtScheduleRuleLabel(row);
 }
 
 function formatAnalysisReportValue(value: number | null, valueFormat: AnalysisRow["valueFormat"] = "currency"): string {
