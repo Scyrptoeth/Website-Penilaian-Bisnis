@@ -250,7 +250,8 @@ svg {
   gap: 2px;
 }
 
-.nav-list button {
+.nav-list button,
+.nav-list a.auth-nav-action {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
@@ -266,13 +267,16 @@ svg {
   font-weight: 650;
   line-height: 1.2;
   text-align: left;
+  text-decoration: none;
   white-space: normal;
   overflow-wrap: anywhere;
 }
 
 .nav-list button.active,
 .nav-list button:focus-visible,
-.nav-list button:hover {
+.nav-list button:hover,
+.nav-list a.auth-nav-action:focus-visible,
+.nav-list a.auth-nav-action:hover {
   border-color: var(--line-strong);
   outline: 2px solid var(--accent-soft);
   outline-offset: 2px;

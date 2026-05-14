@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { KeyRound, LogOut, X } from "lucide-react";
+import { BookOpen, KeyRound, LogOut, X } from "lucide-react";
 import { PasswordVisibilityInput } from "./password-visibility-input";
 import { SuperAdminUserManagement } from "./super-admin-user-management";
 
@@ -81,6 +81,16 @@ export function AuthSidebarActions({ userId, isSuperAdmin = false }: AuthSidebar
   return (
     <div className="auth-sidebar-actions">
       <p className="auth-user-chip">Login sebagai {userId}</p>
+      <a
+        className="auth-nav-action"
+        href="/buku-panduan-penggunaan-aplikasi-penilaian-bisnis-ii.pdf"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Buku Panduan"
+      >
+        <BookOpen size={14} />
+        <span>Buku Panduan</span>
+      </a>
       <button className="auth-nav-action" type="button" aria-label="Ganti Password" onClick={() => {
         setStatus(null);
         setIsDialogOpen(true);
