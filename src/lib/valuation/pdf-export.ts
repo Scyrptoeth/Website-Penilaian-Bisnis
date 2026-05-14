@@ -45,6 +45,9 @@ export type ValuationPdfExportInput = {
   activeWaccBasis?: string;
   activeWaccBasisLabel?: string;
   activeWaccBasisSummary?: string;
+  activeEemBasis?: string;
+  activeEemBasisLabel?: string;
+  activeEemBasisSummary?: string;
   activeDcfBasis?: string;
   activeDcfBasisLabel?: string;
   activeDcfBasisSummary?: string;

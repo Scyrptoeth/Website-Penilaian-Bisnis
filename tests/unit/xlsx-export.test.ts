@@ -65,13 +65,41 @@ describe("valuation XLSX export", () => {
     const baseRow = eemSensitivityRows.find((row) => row[0] === "EEM - skenario dasar");
     const debtLikeRow = eemSensitivityRows.find((row) => row[0] === "EEM - utang pajak debt-like");
 
-    assert.deepEqual(eemSensitivityRows[0], ["Scenario", "Equity Value 100%", "Value Source", "Audit Note"]);
+    assert.deepEqual(eemSensitivityRows[0], ["Scenario", "Equity Value 100%", "Value Source", "Audit Note", "Active"]);
     assert.equal(baseRow?.[2], "Formula");
     assert.equal(debtLikeRow?.[2], "Formula");
     assert.match(String(baseRow?.[3]), /sebelum utang pajak diperlakukan sebagai kewajiban debt-like/);
     assert.match(String(baseRow?.[3]), /NTA \+ excess earnings yang dikapitalisasi/);
     assert.match(String(debtLikeRow?.[3]), /selisih terhadap dasar sama dengan saldo utang pajak/);
     assert.match(String(debtLikeRow?.[3]), /EEM skenario dasar - utang pajak/);
+  });
+
+  it("uses the selected active EEM basis in summaries and keeps sensitivity rows comparable", () => {
+    const input = buildSampleExportInput();
+    const activeInput: ValuationPdfExportInput = {
+      ...input,
+      results: {
+        ...input.results,
+        eem: input.results.sensitivities.eemTaxPayableDebtLike,
+      },
+      baseResults: input.results,
+      activeEemBasis: "taxPayableDebtLike",
+      activeEemBasisLabel: "EEM - utang pajak debt-like",
+      activeEemBasisSummary: "Tax payable is active debt-like.",
+    };
+    const workbook = buildValuationXlsxWorkbook(activeInput, "eem", exportedAt);
+    const summaryRows = workbook.sheets.find((sheet) => sheet.name === "Summary")?.rows ?? [];
+    const methodRows = workbook.sheets.find((sheet) => sheet.name === "Method Summary")?.rows ?? [];
+    const eemSensitivityRows = workbook.sheets.find((sheet) => sheet.name === "EEM Sensitivity")?.rows ?? [];
+    const eemMethodRow = methodRows.find((row) => row[0] === "EEM");
+    const baseSensitivityRow = eemSensitivityRows.find((row) => row[0] === "EEM - skenario dasar");
+    const debtLikeSensitivityRow = eemSensitivityRows.find((row) => row[0] === "EEM - utang pajak debt-like");
+
+    assert.ok(summaryRows.some((row) => row[0] === "Active EEM Basis" && row[1] === "EEM - utang pajak debt-like"));
+    assert.equal(readFormulaValue(eemMethodRow?.[1]), input.results.sensitivities.eemTaxPayableDebtLike.equityValue);
+    assert.equal(readFormulaValue(baseSensitivityRow?.[1]), input.results.eem.equityValue);
+    assert.equal(baseSensitivityRow?.[4], "No");
+    assert.equal(debtLikeSensitivityRow?.[4], "Yes");
   });
 
   it("encodes a valid OOXML zip package with a scoped XLSX filename", () => {
@@ -105,6 +133,10 @@ describe("valuation XLSX export", () => {
 
 function countFormulaCells(rows: XlsxCellValue[][]): number {
   return rows.flat().filter((cell) => Boolean(cell && typeof cell === "object" && "formula" in cell)).length;
+}
+
+function readFormulaValue(cell: XlsxCellValue): unknown {
+  return cell && typeof cell === "object" && "value" in cell ? cell.value : cell;
 }
 
 function extractColumnWidths(xml: string): number[] {

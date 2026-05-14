@@ -459,16 +459,17 @@ function AamAdjustmentReportTable({ payload }: { payload: ValuationPdfExportPayl
 
 function EemSensitivityReportTable({ payload }: { payload: ValuationPdfExportPayload }) {
   const { input } = payload;
+  const baseResults = input.baseResults ?? input.results;
   const rows = [
     {
       label: eemSensitivityContext.base.label,
-      value: input.results.eem.equityValue,
+      value: baseResults.eem.equityValue,
       note: `${eemSensitivityContext.base.note} Formula: ${eemSensitivityContext.base.formula}.`,
     },
     {
       label: eemSensitivityContext.taxPayableDebtLike.label,
       value: input.results.sensitivities.eemTaxPayableDebtLike.equityValue,
-      note: `${buildEemTaxPayableDebtLikeNote(formatIdr(input.results.eem.equityValue - input.results.sensitivities.eemTaxPayableDebtLike.equityValue))} Formula: ${eemSensitivityContext.taxPayableDebtLike.formula}.`,
+      note: `${buildEemTaxPayableDebtLikeNote(formatIdr(baseResults.eem.equityValue - input.results.sensitivities.eemTaxPayableDebtLike.equityValue))} Formula: ${eemSensitivityContext.taxPayableDebtLike.formula}.`,
     },
   ];
 
@@ -780,6 +781,8 @@ function buildDriverMetrics(payload: ValuationPdfExportPayload, scope: Valuation
 
   if (scope.methods.includes("EEM")) {
     metrics.push(
+      { label: "Basis EEM aktif", value: input.activeEemBasisLabel || eemSensitivityContext.base.label, note: input.activeEemBasisSummary || eemSensitivityContext.base.note },
+      { label: "Nilai aktif EEM", value: formatIdr(input.results.eem.equityValue), note: input.activeEemBasisLabel || eemSensitivityContext.base.label },
       { label: "Required return on NTA", value: formatPercent(input.snapshot.requiredReturnOnNta) },
       { label: "Operating working capital", value: formatIdr(input.results.operatingWorkingCapital) },
       { label: "Non-operating assets", value: formatIdr(input.results.nonOperatingAssets) },

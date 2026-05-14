@@ -254,7 +254,7 @@ import {
   type TerminalGrowthSuggestion,
 } from "@/lib/valuation/terminal-growth-suggestions";
 import { buildEemTaxPayableDebtLikeNote, eemSensitivityContext } from "@/lib/valuation/eem-sensitivity-context";
-import type { AccountCategory, DcfForecastRow, FinancialStatementSnapshot, FormulaTrace, ValuationMethod } from "@/lib/valuation/types";
+import type { AccountCategory, DcfForecastRow, FinancialStatementSnapshot, FormulaTrace, MethodOutput, ValuationMethod } from "@/lib/valuation/types";
 const confidenceBandLabels: Record<ReturnType<typeof mapRow>["mapping"]["confidenceBand"], string> = {
   high: "Tinggi",
   medium: "Sedang",
@@ -434,7 +434,7 @@ const requiredReturnSuggestionOrder: RequiredReturnOnNtaSuggestionKey[] = [
 const WORKBENCH_STORAGE_KEY = "penilaian-valuasi-bisnis.workbench.v1";
 const WORKBENCH_SCROLL_STORAGE_KEY = "penilaian-valuasi-bisnis.scroll.v1";
 const WORKBENCH_SIDEBAR_STORAGE_KEY = "penilaian-valuasi-bisnis.sidebar.v1";
-const WORKBENCH_STORAGE_VERSION = 16;
+const WORKBENCH_STORAGE_VERSION = 17;
 const WORKSPACE_MANIFEST_STORAGE_KEY = "penilaian-valuasi-bisnis.workspaces.v1";
 const WORKSPACE_DATA_STORAGE_PREFIX = "penilaian-valuasi-bisnis.workspace.";
 const WORKSPACE_DATA_STORAGE_SUFFIX = ".v1";
@@ -445,6 +445,8 @@ const JSON_EXPORT_SCHEMA_ID = "penilaian-valuasi-bisnis.full-workbench-json";
 const JSON_EXPORT_SCHEMA_VERSION = 1;
 const defaultFixedAssetProjectionMode: FixedAssetProjectionMode = "workbook-formula";
 const defaultActiveWaccBasis: WaccBasis = "governed";
+
+type ActiveEemBasis = "base" | "taxPayableDebtLike";
 
 type ActiveDcfBasis =
   | "base"
@@ -466,6 +468,14 @@ type ActiveDcfSelection = {
   includeWorkingCapitalChange: boolean;
   debtLikeTaxPayable: number;
   projectionEngineLabel: string;
+};
+type ActiveEemSelection = {
+  basis: ActiveEemBasis;
+  label: string;
+  shortLabel: string;
+  summary: string;
+  eem: MethodOutput;
+  debtLikeTaxPayable: number;
 };
 
 type IncomeProjectionOverrideField = "revenueGrowth" | "grossProfitMargin" | "operatingExpenseMargin" | "depreciationMargin";
@@ -542,6 +552,7 @@ type PersistedWorkbenchState = {
   fixedAssetScheduleRows: FixedAssetScheduleRow[];
   fixedAssetProjectionMode: FixedAssetProjectionMode;
   activeWaccBasis: WaccBasis;
+  activeEemBasis: ActiveEemBasis;
   activeDcfBasis: ActiveDcfBasis;
   aamAdjustments: AamAdjustmentState;
   assumptions: AssumptionState;
@@ -646,6 +657,32 @@ const dcfSensitivityContext = {
   taxPayableDebtLike: "Memperlakukan utang pajak sebagai kewajiban debt-like yang dikurangkan dari enterprise value.",
   historicalDerivedProjection: "Menguji proyeksi neraca historis: kas, utang pajak, dan ekuitas di-roll-forward dari data historis user.",
 } as const;
+
+const activeEemBasisOptions: Array<{
+  value: ActiveEemBasis;
+  label: string;
+  shortLabel: string;
+  summary: string;
+}> = [
+  {
+    value: "base",
+    label: eemSensitivityContext.base.label,
+    shortLabel: "Skenario dasar",
+    summary: eemSensitivityContext.base.note,
+  },
+  {
+    value: "taxPayableDebtLike",
+    label: eemSensitivityContext.taxPayableDebtLike.label,
+    shortLabel: "Utang pajak debt-like",
+    summary: eemSensitivityContext.taxPayableDebtLike.note,
+  },
+];
+
+const activeEemBasisLabels = Object.fromEntries(activeEemBasisOptions.map((option) => [option.value, option])) as Record<
+  ActiveEemBasis,
+  (typeof activeEemBasisOptions)[number]
+>;
+const defaultActiveEemBasis: ActiveEemBasis = "base";
 
 const activeDcfBasisOptions: Array<{
   value: ActiveDcfBasis;
@@ -864,6 +901,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   const [fixedAssetScheduleRows, setFixedAssetScheduleRows] = useState<FixedAssetScheduleRow[]>([]);
   const [fixedAssetProjectionMode, setFixedAssetProjectionMode] = useState<FixedAssetProjectionMode>(defaultFixedAssetProjectionMode);
   const [activeWaccBasis, setActiveWaccBasis] = useState<WaccBasis>(defaultActiveWaccBasis);
+  const [activeEemBasis, setActiveEemBasis] = useState<ActiveEemBasis>(defaultActiveEemBasis);
   const [activeDcfBasis, setActiveDcfBasis] = useState<ActiveDcfBasis>(defaultActiveDcfBasis);
   const [aamAdjustments, setAamAdjustments] = useState<AamAdjustmentState>({});
   const [assumptions, setAssumptions] = useState<AssumptionState>(emptyAssumptions);
@@ -1008,14 +1046,19 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     ],
   );
   const eemTaxPayableDebtLikeDifference = results.eem.equityValue - results.sensitivities.eemTaxPayableDebtLike.equityValue;
+  const activeEemSelection = useMemo(
+    () => buildActiveEemSelection(results, activeEemBasis, snapshot),
+    [activeEemBasis, results, snapshot],
+  );
+  const activeEem = activeEemSelection.eem;
   const activeDcfSelection = useMemo(
     () => buildActiveDcfSelection(results, activeDcfBasis, snapshot),
     [activeDcfBasis, results, snapshot],
   );
   const activeDcf = activeDcfSelection.dcf;
   const activeResults = useMemo(
-    () => ({ ...results, dcf: activeDcf }),
-    [activeDcf, results],
+    () => ({ ...results, eem: activeEem, dcf: activeDcf }),
+    [activeDcf, activeEem, results],
   );
   const incomeProjectionScenario = useMemo(
     () =>
@@ -1039,7 +1082,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   const taxSimulationResult = useMemo(
     () =>
       calculateTaxSimulation({
-        methods: [results.aam, results.eem, activeDcf],
+        methods: [results.aam, activeEem, activeDcf],
         dlom: dlomCalculation,
         dlocPfc: dlocPfcCalculation,
         state: taxSimulation,
@@ -1047,7 +1090,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         caseProfileDerived,
         snapshot,
       }),
-    [activeDcf, caseProfile, caseProfileDerived, dlocPfcCalculation, dlomCalculation, results.aam, results.eem, snapshot, taxSimulation],
+    [activeDcf, activeEem, caseProfile, caseProfileDerived, dlocPfcCalculation, dlomCalculation, results.aam, snapshot, taxSimulation],
   );
   const sectionAnalysis = useMemo(
     () => buildSectionAnalysis(periods, rows, assumptions, fixedAssetScheduleRows, cashFlowOverrides),
@@ -1184,6 +1227,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     hasCashFlowOverrideInput(cashFlowOverrides) ||
     hasIncomeProjectionControlInput(incomeProjectionControls) ||
     activeWaccBasis !== defaultActiveWaccBasis ||
+    activeEemBasis !== defaultActiveEemBasis ||
     activeDcfBasis !== defaultActiveDcfBasis ||
     hasDlomInput(dlom) ||
     hasDlocPfcInput(dlocPfc) ||
@@ -1231,6 +1275,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       fixedAssetScheduleRows,
       fixedAssetProjectionMode,
       activeWaccBasis,
+      activeEemBasis,
       activeDcfBasis,
       aamAdjustments,
       assumptions,
@@ -1251,6 +1296,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     setFixedAssetScheduleRows(state.fixedAssetScheduleRows);
     setFixedAssetProjectionMode(state.fixedAssetProjectionMode);
     setActiveWaccBasis(state.activeWaccBasis);
+    setActiveEemBasis(state.activeEemBasis);
     setActiveDcfBasis(state.activeDcfBasis);
     setAamAdjustments(state.aamAdjustments);
     setAssumptions(state.assumptions);
@@ -1660,6 +1706,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         fixedAssetProjectionMode,
         activeWaccBasis,
         activeDcfBasis,
+        activeEemBasis,
         aamAdjustments,
         assumptions,
         caseProfile,
@@ -1684,6 +1731,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     aamAdjustments,
     activeWaccBasis,
     activeDcfBasis,
+    activeEemBasis,
     activePeriodId,
     activeWorkspaceId,
     assumptions,
@@ -2539,6 +2587,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       fixedAssetScheduleRows: sampleFixedAssetScheduleRows,
       fixedAssetProjectionMode: defaultFixedAssetProjectionMode,
       activeWaccBasis: inferInitialWaccBasis(sampleAssumptions),
+      activeEemBasis: defaultActiveEemBasis,
       activeDcfBasis: defaultActiveDcfBasis,
       aamAdjustments: {},
       assumptions: sampleAssumptions,
@@ -2584,6 +2633,9 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       activeWaccBasis: effectiveActiveWaccBasis,
       activeWaccBasisLabel: activeWaccBasisLabels[effectiveActiveWaccBasis].label,
       activeWaccBasisSummary: activeWaccBasisLabels[effectiveActiveWaccBasis].summary,
+      activeEemBasis,
+      activeEemBasisLabel: activeEemSelection.label,
+      activeEemBasisSummary: activeEemSelection.summary,
       activeDcfBasis,
       activeDcfBasisLabel: activeDcfSelection.label,
       activeDcfBasisSummary: activeDcfSelection.summary,
@@ -3581,8 +3633,8 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               <Calculator size={20} />
               <span>EEM</span>
             </div>
-            <strong>{formatIdr(results.eem.equityValue)}</strong>
-            <p>{activePeriod?.label || "Periode aktif"} · Nilai Ekuitas 100%</p>
+            <strong data-testid="eem-active-summary-equity-value">{formatIdr(activeEem.equityValue)}</strong>
+            <p>{activePeriod?.label || "Periode aktif"} · Nilai Ekuitas 100% · {activeEemSelection.shortLabel}</p>
           </article>
           <article className="metric-card">
             <div className="card-title">
@@ -3603,6 +3655,11 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         </section>
 
         <section className="active-driver-strip" aria-label="Driver aktif penilaian">
+          <div>
+            <span>Basis EEM aktif</span>
+            <strong data-testid="eem-active-basis-label">{activeEemSelection.shortLabel}</strong>
+            <small>{activeEemBasis === "base" ? "Default sistem dipertahankan" : "Skenario terpilih user menjadi basis aktif"}</small>
+          </div>
           {assumptionDriverSummaries.map((driver) => (
             <div key={driver.label}>
               <span>{driver.label}</span>
@@ -3625,14 +3682,48 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               <h3>Debt-like tax payable scenario</h3>
             </div>
           </div>
-          <div className="sensitivity-grid two-column eem-sensitivity-grid" data-testid="eem-sensitivity-grid">
+          <div className="dcf-active-basis-control eem-active-basis-control" data-testid="eem-active-basis-control">
+            <label className="field">
+              <span>Basis EEM aktif</span>
+              <select
+                value={activeEemBasis}
+                onChange={(event) =>
+                  commitCoreState((current) => ({
+                    ...current,
+                    activeEemBasis: sanitizeActiveEemBasis(event.target.value),
+                  }))
+                }
+              >
+                {activeEemBasisOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <div>
+              <span>Nilai aktif</span>
+              <strong data-testid="eem-active-equity-value">{formatIdr(activeEem.equityValue)}</strong>
+              <small>{activeEemSelection.summary}</small>
+            </div>
+            <div>
+              <span>Selisih vs skenario dasar</span>
+              <strong>{formatIdr(activeEem.equityValue - results.eem.equityValue)}</strong>
+              <small>
+                {activeEemBasis === "base"
+                  ? "Tidak ada penyesuaian debt-like yang aktif."
+                  : `Utang pajak dikurangkan sebagai debt-like: ${formatIdr(activeEemSelection.debtLikeTaxPayable)}.`}
+              </small>
+            </div>
+          </div>
+          <div className="sensitivity-grid two-column eem-sensitivity-grid" data-testid="eem-sensitivity-grid">
+            <div className={activeEemBasis === "base" ? "active-sensitivity" : ""}>
               <span>{eemSensitivityContext.base.label}</span>
               <strong data-testid="eem-base-equity-value">{formatIdr(results.eem.equityValue)}</strong>
               <small>{eemSensitivityContext.base.note}</small>
               <code>{eemSensitivityContext.base.formula}</code>
             </div>
-            <div>
+            <div className={activeEemBasis === "taxPayableDebtLike" ? "active-sensitivity" : ""}>
               <span>{eemSensitivityContext.taxPayableDebtLike.label}</span>
               <strong data-testid="eem-tax-payable-debt-like-equity-value">
                 {formatIdr(results.sensitivities.eemTaxPayableDebtLike.equityValue)}
@@ -3657,7 +3748,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               </div>
               <FileSearch size={22} />
             </div>
-            <FormulaList traces={results.eem.traces} />
+            <FormulaList traces={activeEem.traces} />
           </article>
           <article className="panel">
             <div className="panel-heading">
@@ -7005,6 +7096,45 @@ function buildActiveDcfSelection(
   };
 }
 
+function buildActiveEemSelection(
+  results: CalculationResults,
+  basis: ActiveEemBasis,
+  snapshot: FinancialStatementSnapshot,
+): ActiveEemSelection {
+  const option = activeEemBasisLabels[basis] ?? activeEemBasisLabels[defaultActiveEemBasis];
+  const eem = resolveActiveEem(results, basis, snapshot);
+
+  return {
+    basis,
+    label: option.label,
+    shortLabel: option.shortLabel,
+    summary: option.summary,
+    eem,
+    debtLikeTaxPayable: basis === "taxPayableDebtLike" ? snapshot.taxPayable : 0,
+  };
+}
+
+function resolveActiveEem(results: CalculationResults, basis: ActiveEemBasis, snapshot: FinancialStatementSnapshot): MethodOutput {
+  if (basis !== "taxPayableDebtLike") {
+    return results.eem;
+  }
+
+  const debtLikeOutput = results.sensitivities.eemTaxPayableDebtLike;
+
+  return {
+    ...debtLikeOutput,
+    traces: [
+      ...results.eem.traces,
+      {
+        label: "Penyesuaian basis aktif EEM",
+        formula: eemSensitivityContext.taxPayableDebtLike.formula,
+        value: debtLikeOutput.equityValue,
+        note: buildEemTaxPayableDebtLikeNote(formatIdr(snapshot.taxPayable)),
+      },
+    ],
+  };
+}
+
 function resolveActiveDcf(results: CalculationResults, basis: ActiveDcfBasis): DcfOutput {
   if (basis === "terminalDownside") {
     return results.sensitivities.dcfTerminalDownside;
@@ -7864,6 +7994,7 @@ function normalizeWorkbenchStatePayload(value: unknown): PersistedWorkbenchState
     value.activeWaccBasis === undefined
       ? inferInitialWaccBasis(assumptions)
       : sanitizeWaccBasis(value.activeWaccBasis);
+  const activeEemBasis = sanitizeActiveEemBasis(value.activeEemBasis);
   const activeDcfBasis = sanitizeActiveDcfBasis(value.activeDcfBasis);
   const isFixedAssetScheduleEnabled =
     typeof value.isFixedAssetScheduleEnabled === "boolean" ? value.isFixedAssetScheduleEnabled : fixedAssetScheduleRows.length > 0;
@@ -7878,6 +8009,7 @@ function normalizeWorkbenchStatePayload(value: unknown): PersistedWorkbenchState
     fixedAssetScheduleRows,
     fixedAssetProjectionMode,
     activeWaccBasis,
+    activeEemBasis,
     activeDcfBasis,
     aamAdjustments,
     assumptions,
@@ -7917,6 +8049,7 @@ function buildEmptyCoreState(): WorkbenchCoreState {
     fixedAssetScheduleRows: [],
     fixedAssetProjectionMode: defaultFixedAssetProjectionMode,
     activeWaccBasis: defaultActiveWaccBasis,
+    activeEemBasis: defaultActiveEemBasis,
     activeDcfBasis: defaultActiveDcfBasis,
     aamAdjustments: {},
     assumptions: { ...emptyAssumptions },
@@ -8104,6 +8237,7 @@ function buildRestoredCoreState(state: PersistedWorkbenchState): WorkbenchCoreSt
     fixedAssetScheduleRows: state.fixedAssetScheduleRows,
     fixedAssetProjectionMode: state.fixedAssetProjectionMode,
     activeWaccBasis: state.activeWaccBasis,
+    activeEemBasis: state.activeEemBasis,
     activeDcfBasis: state.activeDcfBasis,
     aamAdjustments: state.aamAdjustments,
     assumptions: state.assumptions,
@@ -8322,6 +8456,12 @@ function sanitizeWaccBasis(value: unknown): WaccBasis {
 
 function inferInitialWaccBasis(assumptions: AssumptionState): WaccBasis {
   return assumptions.wacc.trim() ? "manual" : defaultActiveWaccBasis;
+}
+
+function sanitizeActiveEemBasis(value: unknown): ActiveEemBasis {
+  return typeof value === "string" && value in activeEemBasisLabels
+    ? (value as ActiveEemBasis)
+    : defaultActiveEemBasis;
 }
 
 function sanitizeActiveDcfBasis(value: unknown): ActiveDcfBasis {

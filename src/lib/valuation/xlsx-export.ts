@@ -311,6 +311,8 @@ function buildSummaryRows(input: ValuationPdfExportInput, scope: ValuationExport
     [],
     ["Active WACC Basis", input.activeWaccBasisLabel || input.activeWaccBasis || "-"],
     ["Active WACC Summary", input.activeWaccBasisSummary || "-"],
+    ["Active EEM Basis", scope.methods.includes("EEM") ? input.activeEemBasisLabel || input.activeEemBasis || "-" : "Tidak termasuk scope"],
+    ["Active EEM Summary", scope.methods.includes("EEM") ? input.activeEemBasisSummary || "-" : "Tidak termasuk scope"],
     ["Active DCF Basis", scope.methods.includes("DCF") ? input.activeDcfBasisLabel || input.activeDcfBasis || "-" : "Tidak termasuk scope"],
     ["Active DCF Summary", scope.methods.includes("DCF") ? input.activeDcfBasisSummary || "-" : "Tidak termasuk scope"],
   ];
@@ -335,6 +337,7 @@ function buildCalculationModelRows(input: ValuationPdfExportInput, scope: Valuat
   const aamFirstRow = 2;
   const aamLastRow = Math.max(aamFirstRow, aamFirstRow + aamLineCount - 1);
   const reportedTransferOverride = parseInputNumber(input.taxSimulation.reportedTransferValue);
+  const baseResults = input.baseResults ?? input.results;
 
   add("taxRate", "Input", "Tax rate", input.snapshot.taxRate, "Input", input.resolvedAssumptions.taxRateSource || input.assumptions.taxRateSource);
   add("wacc", "Input", "WACC", input.snapshot.wacc, "Input", input.activeWaccBasisLabel || input.resolvedAssumptions.waccSource || input.assumptions.waccSource);
@@ -375,6 +378,8 @@ function buildCalculationModelRows(input: ValuationPdfExportInput, scope: Valuat
   }
 
   if (scope.methods.includes("EEM")) {
+    const activeDebtLikeTaxPayable = input.activeEemBasis === "taxPayableDebtLike" ? input.snapshot.taxPayable : 0;
+
     add("eemOperatingCurrentAssets", "EEM", "Operating current assets", formulaCell(`${refs.accountReceivable}+${refs.inventory}`, input.snapshot.accountReceivable + input.snapshot.inventory), "Formula", "AR + inventory.");
     add("eemOperatingCurrentLiabilities", "EEM", "Operating current liabilities", formulaCell(`${refs.accountPayable}+${refs.otherPayable}`, input.snapshot.accountPayable + input.snapshot.otherPayable), "Formula", "AP + other payable.");
     add("eemOperatingNwc", "EEM", "Operating NWC", formulaCell(`${refs.eemOperatingCurrentAssets}-${refs.eemOperatingCurrentLiabilities}`, input.results.operatingWorkingCapital), "Formula", "Operating current assets - operating current liabilities.");
@@ -383,10 +388,12 @@ function buildCalculationModelRows(input: ValuationPdfExportInput, scope: Valuat
     add("eemRequiredReturn", "EEM", "Required return charge", formulaCell(`${refs.eemNta}*${refs.requiredReturnOnNta}`, (input.snapshot.fixedAssetsNet + input.results.operatingWorkingCapital) * input.snapshot.requiredReturnOnNta), "Formula", "NTA x required return on NTA.");
     add("eemExcessEarnings", "EEM", "Excess earnings", formulaCell(`${refs.eemNoplat}-${refs.eemRequiredReturn}`, input.results.normalizedNoplat - (input.snapshot.fixedAssetsNet + input.results.operatingWorkingCapital) * input.snapshot.requiredReturnOnNta), "Formula", "NOPLAT - required return charge.");
     add("eemCapitalizationRate", "EEM", "Capitalization rate", formulaCell(`${refs.wacc}-${refs.terminalGrowth}`, input.snapshot.wacc - input.snapshot.terminalGrowth), "Formula", "WACC - terminal growth.");
-    add("eemCapitalizedExcess", "EEM", "Capitalized excess earnings", formulaCell(`IF(${refs.eemCapitalizationRate}>0,${refs.eemExcessEarnings}/${refs.eemCapitalizationRate},0)`, input.results.eem.equityValue - (input.snapshot.fixedAssetsNet + input.results.operatingWorkingCapital) - input.results.nonOperatingAssets + input.results.interestBearingDebt), "Formula", "Excess earnings / capitalization rate.");
-    add("eemEnterpriseValue", "EEM", "Enterprise value", formulaCell(`${refs.eemNta}+${refs.eemCapitalizedExcess}`, input.results.eem.equityValue - input.results.nonOperatingAssets + input.results.interestBearingDebt), "Formula", "NTA + capitalized excess earnings.");
-    add("eemEquityValue", "EEM", "Equity value 100%", formulaCell(`${refs.eemEnterpriseValue}+${refs.nonOperatingAssets}-${refs.interestBearingDebt}`, input.results.eem.equityValue), "Formula", eemSensitivityContext.base.note);
-    add("eemTaxPayableDebtLike", "EEM", "Equity value tax payable debt-like", formulaCell(`${refs.eemEquityValue}-${refs.taxPayable}`, input.results.sensitivities.eemTaxPayableDebtLike.equityValue), "Formula", eemSensitivityContext.taxPayableDebtLike.note);
+    add("eemCapitalizedExcess", "EEM", "Capitalized excess earnings", formulaCell(`IF(${refs.eemCapitalizationRate}>0,${refs.eemExcessEarnings}/${refs.eemCapitalizationRate},0)`, baseResults.eem.equityValue - (input.snapshot.fixedAssetsNet + input.results.operatingWorkingCapital) - input.results.nonOperatingAssets + input.results.interestBearingDebt), "Formula", "Excess earnings / capitalization rate.");
+    add("eemEnterpriseValue", "EEM", "Enterprise value", formulaCell(`${refs.eemNta}+${refs.eemCapitalizedExcess}`, baseResults.eem.equityValue - input.results.nonOperatingAssets + input.results.interestBearingDebt), "Formula", "NTA + capitalized excess earnings.");
+    add("eemBaseEquityValue", "EEM", "Equity value 100% - EEM base", formulaCell(`${refs.eemEnterpriseValue}+${refs.nonOperatingAssets}-${refs.interestBearingDebt}`, baseResults.eem.equityValue), "Formula", eemSensitivityContext.base.note);
+    add("eemActiveDebtLikeTaxPayable", "EEM", "Debt-like tax payable active", activeDebtLikeTaxPayable, "System", input.activeEemBasisSummary || "Applied only when active EEM basis is tax payable debt-like.");
+    add("eemEquityValue", "EEM", "Equity value 100% - active EEM", formulaCell(`${refs.eemBaseEquityValue}-${refs.eemActiveDebtLikeTaxPayable}`, input.results.eem.equityValue), "Formula", input.activeEemBasisLabel || eemSensitivityContext.base.label);
+    add("eemTaxPayableDebtLike", "EEM", "Equity value tax payable debt-like", formulaCell(`${refs.eemBaseEquityValue}-${refs.taxPayable}`, input.results.sensitivities.eemTaxPayableDebtLike.equityValue), "Formula", eemSensitivityContext.taxPayableDebtLike.note);
   }
 
   if (scope.methods.includes("DCF")) {
@@ -458,6 +465,8 @@ function buildDriverMetrics(input: ValuationPdfExportInput, scope: ValuationExpo
 
   if (scope.methods.includes("EEM")) {
     metrics.push(
+      { label: "Basis EEM aktif", value: input.activeEemBasisLabel || eemSensitivityContext.base.label, note: input.activeEemBasisSummary || eemSensitivityContext.base.note },
+      { label: "Nilai aktif EEM", value: formulaCell(refs.eemEquityValue, input.results.eem.equityValue), sourceType: "Formula", note: input.activeEemBasisLabel || eemSensitivityContext.base.label },
       { label: "Required return on NTA", value: formulaCell(refs.requiredReturnOnNta, input.snapshot.requiredReturnOnNta), sourceType: "Formula" },
       { label: "Operating working capital", value: formulaCell(refs.eemOperatingNwc, input.results.operatingWorkingCapital), sourceType: "Formula" },
       { label: "Non-operating assets", value: formulaCell(refs.nonOperatingAssets, input.results.nonOperatingAssets), sourceType: "Formula" },
@@ -738,19 +747,23 @@ function buildAamAdjustmentRows(input: ValuationPdfExportInput): XlsxCellValue[]
 }
 
 function buildEemSensitivityRows(input: ValuationPdfExportInput, refs: Record<string, string>): XlsxCellValue[][] {
+  const baseResults = input.baseResults ?? input.results;
+
   return [
-    ["Scenario", "Equity Value 100%", "Value Source", "Audit Note"],
+    ["Scenario", "Equity Value 100%", "Value Source", "Audit Note", "Active"],
     [
       eemSensitivityContext.base.label,
-      formulaCell(refs.eemEquityValue, input.results.eem.equityValue),
+      formulaCell(refs.eemBaseEquityValue, baseResults.eem.equityValue),
       "Formula",
       `${eemSensitivityContext.base.note} Formula: ${eemSensitivityContext.base.formula}.`,
+      input.activeEemBasis === "taxPayableDebtLike" ? "No" : "Yes",
     ],
     [
       eemSensitivityContext.taxPayableDebtLike.label,
       formulaCell(refs.eemTaxPayableDebtLike, input.results.sensitivities.eemTaxPayableDebtLike.equityValue),
       "Formula",
-      `${buildEemTaxPayableDebtLikeNote(formatIdr(input.results.eem.equityValue - input.results.sensitivities.eemTaxPayableDebtLike.equityValue))} Formula: ${eemSensitivityContext.taxPayableDebtLike.formula}.`,
+      `${buildEemTaxPayableDebtLikeNote(formatIdr(baseResults.eem.equityValue - input.results.sensitivities.eemTaxPayableDebtLike.equityValue))} Formula: ${eemSensitivityContext.taxPayableDebtLike.formula}.`,
+      input.activeEemBasis === "taxPayableDebtLike" ? "Yes" : "No",
     ],
   ];
 }

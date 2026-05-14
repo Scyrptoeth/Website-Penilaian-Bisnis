@@ -92,6 +92,7 @@ test("JSON export and import round-trip the full workbench draft", async ({ page
     data?: {
       version?: number;
       activeDcfBasis?: string;
+      activeEemBasis?: string;
       fixedAssetProjectionMode?: string;
       cashFlowOverrides?: unknown;
       incomeProjectionControls?: unknown;
@@ -102,10 +103,11 @@ test("JSON export and import round-trip the full workbench draft", async ({ page
 
   expect(payload.schema).toBe("penilaian-valuasi-bisnis.full-workbench-json");
   expect(payload.schemaVersion).toBe(1);
-  expect(payload.data?.version).toBe(16);
+  expect(payload.data?.version).toBe(17);
   expect(payload.data?.caseProfile?.objectTaxpayerName).toBe("Makmur Jaya Sejati Raya");
   expect(payload.data?.rows?.length).toBeGreaterThan(0);
   expect(payload.data?.fixedAssetProjectionMode).toBe("workbook-formula");
+  expect(payload.data?.activeEemBasis).toBe("base");
   expect(payload.data?.activeDcfBasis).toBe("base");
   expect(payload.data).toHaveProperty("cashFlowOverrides");
   expect(payload.data).toHaveProperty("incomeProjectionControls");
@@ -835,7 +837,7 @@ test("legacy workbook-like DLOM drafts migrate to workbook UPDATE basis without 
   await expect(page.getByTestId("dlom-basis-grid")).not.toContainText("Workbook UPDATE DLOM!C31");
   await expect(page.getByTestId("dlom-basis-grid")).not.toContainText("Formula");
   await expect(page.getByTestId("dlom-summary")).toContainText("35%");
-  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(16);
+  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(17);
 });
 
 test("exports the active workbench state to a print-ready PDF report view", async ({ page }) => {
@@ -894,6 +896,35 @@ test("exports the active workbench state to a print-ready PDF report view", asyn
   await reportPage.close();
 });
 
+test("active EEM basis can switch to tax payable debt-like and flows to tax simulation", async ({ page }) => {
+  await loadPersistedWorkbenchFixture(page);
+  await openWorkflowTab(page, "Penilaian EEM");
+
+  const baseEemValue = await page.getByTestId("eem-base-equity-value").textContent();
+  const debtLikeEemValue = await page.getByTestId("eem-tax-payable-debt-like-equity-value").textContent();
+
+  await expect(page.getByTestId("eem-active-basis-label")).toContainText("Skenario dasar");
+  await expect(page.getByTestId("eem-active-equity-value")).toHaveText(baseEemValue ?? "");
+  await page.getByLabel("Basis EEM aktif").selectOption("taxPayableDebtLike");
+  await expect(page.getByTestId("eem-active-basis-label")).toContainText("Utang pajak debt-like");
+  await expect(page.getByTestId("eem-active-equity-value")).toHaveText(debtLikeEemValue ?? "");
+  await expect(page.getByTestId("eem-active-summary-equity-value")).toHaveText(debtLikeEemValue ?? "");
+  await expect(page.getByTestId("eem-sensitivity-grid").locator(".active-sensitivity")).toContainText("EEM - utang pajak debt-like");
+  await expect(page.getByText("Penyesuaian basis aktif EEM")).toBeVisible();
+
+  await openWorkflowTab(page, "Simulasi Potensi Pajak");
+  await page.locator(".tax-control-grid").getByLabel("Primary Method").selectOption("EEM");
+  await expect(page.getByTestId("tax-simulation-table")).toContainText(debtLikeEemValue ?? "");
+  await expect
+    .poll(() =>
+      page.evaluate((key) => {
+        const raw = window.localStorage.getItem(key);
+        return raw ? JSON.parse(raw).activeEemBasis : null;
+      }, workbenchStorageKey),
+    )
+    .toBe("taxPayableDebtLike");
+});
+
 test("exports method-scoped PDF reports for AAM, EEM, and DCF", async ({ page }) => {
   await loadPersistedWorkbenchFixture(page);
 
@@ -924,10 +955,13 @@ test("exports method-scoped PDF reports for AAM, EEM, and DCF", async ({ page })
 
   await expect(eemReportPage.getByRole("heading", { name: "Laporan Penilaian EEM" })).toBeVisible();
   await expect(eemReportPage).toHaveTitle(/^penilaian-bisnis-makmur-jaya-sejati-raya-eem-\d{4}-\d{2}-\d{2}\.pdf$/);
-  await expect(eemReportPage.getByRole("heading", { name: "Sensitivitas EEM" })).toBeVisible();
-  await expect(eemReportPage.getByText("EEM - skenario dasar")).toBeVisible();
-  await expect(eemReportPage.getByText("EEM - utang pajak debt-like")).toBeVisible();
-  await expect(eemReportPage.getByText("selisih terhadap dasar sama dengan saldo utang pajak")).toBeVisible();
+  const eemSensitivitySection = eemReportPage.locator(".pdf-report-section").filter({
+    has: eemReportPage.getByRole("heading", { name: "Sensitivitas EEM" }),
+  });
+  await expect(eemSensitivitySection).toBeVisible();
+  await expect(eemSensitivitySection.getByRole("row", { name: /EEM - skenario dasar/ })).toBeVisible();
+  await expect(eemSensitivitySection.getByRole("row", { name: /EEM - utang pajak debt-like/ })).toBeVisible();
+  await expect(eemSensitivitySection.getByText("selisih terhadap dasar sama dengan saldo utang pajak")).toBeVisible();
   await expect(eemReportPage.getByRole("heading", { name: "Penyesuaian AAM" })).toHaveCount(0);
   await expect(eemReportPage.getByRole("heading", { name: "Sensitivitas DCF" })).toHaveCount(0);
   const eemTraceSection = eemReportPage.locator(".pdf-report-section").filter({ has: eemReportPage.getByRole("heading", { name: "Ringkasan", exact: true }) });
@@ -1237,7 +1271,7 @@ test("legacy positive income-statement expense drafts migrate once and remain us
   await amountInput.press("Home");
   await amountInput.press("Delete");
   await expect(amountInput).toHaveValue("100");
-  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(16);
+  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(17);
 
   await page.reload();
   await openWorkflowTab(page, "Laba Rugi");
