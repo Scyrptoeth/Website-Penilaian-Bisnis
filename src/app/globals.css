@@ -363,20 +363,20 @@ svg {
   overflow-wrap: anywhere;
 }
 
-.nav-list .auth-nav-action {
+.nav-list .auth-sidebar-actions .auth-nav-action {
   grid-template-columns: auto minmax(0, 1fr);
   border-color: rgba(15, 118, 110, 0.18);
   background: var(--accent-soft);
   color: var(--accent-ink);
 }
 
-.nav-list .auth-nav-action.manual {
+.nav-list .auth-sidebar-actions .auth-nav-action.manual {
   border-color: rgba(37, 99, 235, 0.22);
   background: #eff6ff;
   color: #1d4ed8;
 }
 
-.nav-list .auth-nav-action.danger {
+.nav-list .auth-sidebar-actions .auth-nav-action.danger {
   border-color: rgba(180, 35, 24, 0.18);
   background: var(--danger-soft);
   color: var(--danger);

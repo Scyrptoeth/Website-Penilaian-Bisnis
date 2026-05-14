@@ -241,6 +241,10 @@ test("period workflow, scoped categories, and display-only balance sheet classif
     "Ganti Password",
     "Keluar",
   ]);
+  const authActionTextLefts = await workflowNav(page)
+    .locator(".auth-sidebar-actions .auth-nav-action span")
+    .evaluateAll((labels) => labels.map((label) => Math.round(label.getBoundingClientRect().left)));
+  expect(Math.max(...authActionTextLefts) - Math.min(...authActionTextLefts)).toBeLessThanOrEqual(1);
   await expect(workflowNav(page).getByRole("button", { name: "Neraca", exact: true }).locator(".method-badge")).toHaveText(["AAM", "EEM", "DCF"]);
   await expect(workflowNav(page).getByRole("button", { name: "Laba Rugi", exact: true }).locator(".method-badge")).toHaveText(["EEM", "DCF"]);
   await expect(workflowNav(page).getByRole("button", { name: "Kategorisasi Akun", exact: true })).toHaveCount(0);
