@@ -94,6 +94,7 @@ test("JSON export and import round-trip the full workbench draft", async ({ page
       activeDcfBasis?: string;
       activeEemBasis?: string;
       fixedAssetProjectionMode?: string;
+      debtScheduleInputs?: Record<string, Record<string, string>>;
       cashFlowOverrides?: unknown;
       incomeProjectionControls?: unknown;
       caseProfile?: { objectTaxpayerName?: string };
@@ -103,10 +104,11 @@ test("JSON export and import round-trip the full workbench draft", async ({ page
 
   expect(payload.schema).toBe("penilaian-valuasi-bisnis.full-workbench-json");
   expect(payload.schemaVersion).toBe(1);
-  expect(payload.data?.version).toBe(17);
+  expect(payload.data?.version).toBe(18);
   expect(payload.data?.caseProfile?.objectTaxpayerName).toBe("Makmur Jaya Sejati Raya");
   expect(payload.data?.rows?.length).toBeGreaterThan(0);
   expect(payload.data?.fixedAssetProjectionMode).toBe("workbook-formula");
+  expect(payload.data?.debtScheduleInputs?.p2021?.shortTermLoanRate).toBe("0,13");
   expect(payload.data?.activeEemBasis).toBe("base");
   expect(payload.data?.activeDcfBasis).toBe("base");
   expect(payload.data).toHaveProperty("cashFlowOverrides");
@@ -123,6 +125,7 @@ test("JSON export and import round-trip the full workbench draft", async ({ page
   await fileChooser.setFiles(downloadPath ?? "");
   await expect(page.getByRole("dialog", { name: "Import JSON sebagai workspace baru?" })).toBeVisible();
   await expect(page.getByRole("dialog")).toContainText("Makmur Jaya Sejati Raya");
+  await expect(page.getByRole("dialog")).toContainText("input jadwal utang");
   await page.getByRole("dialog").getByRole("button", { name: "Import JSON" }).click();
 
   await expect(page.getByLabel("Nama Objek Pajak")).toHaveValue("Makmur Jaya Sejati Raya");
@@ -482,11 +485,19 @@ test("added analysis sections use readiness gates before sample data and render 
 
   await openWorkflowTab(page, "Jadwal Utang");
   const debtScheduleSection = page.getByTestId("debt-schedule-section");
-  await expect(debtScheduleSection.getByText("ACC PAYABLES")).toBeVisible();
+  await expect(debtScheduleSection.getByText("ACC PAYABLES", { exact: true })).toBeVisible();
   await expect(debtScheduleSection.getByText("Bridge arus kas terkoreksi")).toHaveCount(0);
   await expect(debtScheduleSection.getByText("CASH FLOW STATEMENT")).toHaveCount(0);
   await expect(debtScheduleSection.getByText("Referensi audit sistem")).toHaveCount(0);
-  await expect(debtScheduleSection.getByText("Total jadwal utang")).toBeVisible();
+  await expect(debtScheduleSection.getByText("Total jadwal utang", { exact: true })).toBeVisible();
+  await expect(debtScheduleSection.getByText("Manual input")).toBeVisible();
+  await expect(debtScheduleSection.getByText("Formula terkunci")).toBeVisible();
+  const shortRateRow = debtScheduleSection.getByRole("row", { name: /ACC PAYABLES row 8/ });
+  await expect(shortRateRow.getByRole("textbox").first()).toHaveValue("0,13");
+  const shortBeginningRow = debtScheduleSection.getByRole("row", { name: /Saldo akhir pinjaman jangka pendek periode sebelumnya/ });
+  await expect(shortBeginningRow.getByRole("textbox")).toHaveCount(0);
+  const shortAdditionRow = debtScheduleSection.getByRole("row", { name: /Balance Sheet row pinjaman jangka pendek/ });
+  await expect(shortAdditionRow.getByRole("textbox")).toHaveCount(0);
   await expect(page.locator("body")).not.toContainText("Workbook audit reference");
 
   await openWorkflowTab(page, "NOPLAT & FCF");
@@ -872,7 +883,7 @@ test("legacy workbook-like DLOM drafts migrate to workbook UPDATE basis without 
   await expect(page.getByTestId("dlom-basis-grid")).not.toContainText("Workbook UPDATE DLOM!C31");
   await expect(page.getByTestId("dlom-basis-grid")).not.toContainText("Formula");
   await expect(page.getByTestId("dlom-summary")).toContainText("35%");
-  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(17);
+  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(18);
 });
 
 test("exports the active workbench state to a print-ready PDF report view", async ({ page }) => {
@@ -905,9 +916,13 @@ test("exports the active workbench state to a print-ready PDF report view", asyn
   await expect(methodSection.getByRole("columnheader", { name: "Trace" })).toHaveCount(0);
   await expect(methodSection.getByRole("columnheader", { name: "Status" })).toHaveCount(0);
   await expect(reportPage.getByRole("heading", { name: "Laporan Neraca" })).toBeVisible();
-  await expect(reportPage.getByRole("columnheader", { name: "Sumber" })).toHaveCount(0);
+  const balanceSheetSection = reportPage.locator(".pdf-report-section").filter({ has: reportPage.getByRole("heading", { name: "Laporan Neraca" }) });
+  await expect(balanceSheetSection.getByRole("columnheader", { name: "Sumber" })).toHaveCount(0);
   await expect(reportPage.getByRole("heading", { name: "Laporan Laba Rugi" })).toBeVisible();
   await expect(reportPage.getByRole("heading", { name: "Laporan Daftar Aset" })).toBeVisible();
+  await expect(reportPage.getByRole("heading", { name: "Jadwal Utang" })).toBeVisible();
+  const debtScheduleReportSection = reportPage.locator(".pdf-report-section").filter({ has: reportPage.getByRole("heading", { name: "Jadwal Utang" }) });
+  await expect(debtScheduleReportSection.getByRole("columnheader", { name: "Sumber" })).toBeVisible();
   await expect(reportPage.getByRole("heading", { name: "Penyesuaian AAM" })).toBeVisible();
   await expect(reportPage.getByRole("heading", { name: "Sensitivitas EEM" })).toBeVisible();
   const eemSensitivitySection = reportPage.locator(".pdf-report-section").filter({ has: reportPage.getByRole("heading", { name: "Sensitivitas EEM" }) });
@@ -1306,7 +1321,7 @@ test("legacy positive income-statement expense drafts migrate once and remain us
   await amountInput.press("Home");
   await amountInput.press("Delete");
   await expect(amountInput).toHaveValue("100");
-  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(17);
+  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(18);
 
   await page.reload();
   await openWorkflowTab(page, "Laba Rugi");

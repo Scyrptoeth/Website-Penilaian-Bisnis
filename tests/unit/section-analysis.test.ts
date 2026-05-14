@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { normalizedNoplat } from "../../src/lib/valuation/calculations";
-import { buildSampleAssumptions, buildSamplePeriods, buildSampleRows, buildSnapshot, type AccountRow } from "../../src/lib/valuation/case-model";
+import {
+  buildSampleAssumptions,
+  buildSamplePeriods,
+  buildSampleRows,
+  buildSnapshot,
+  type AccountRow,
+  type DebtScheduleInputState,
+} from "../../src/lib/valuation/case-model";
 import { buildSectionAnalysis } from "../../src/lib/valuation/section-analysis";
 import { assertAlmostEqual } from "./test-utils";
 
@@ -41,6 +48,60 @@ describe("section analysis", () => {
     assert.equal(accountPayable.values.p2021, 1_823_364_600);
     assert.equal(shortTermDebtEnding.values.p2021, 0);
     assert.equal(equityInjectionMovement.values.p2021, -3_150_000_000);
+  });
+
+  it("marks only ACC PAYABLES hardcoded rows as editable and flows manual debt schedule into debt bridge", () => {
+    const rowsWithDebt: AccountRow[] = [
+      ...rows,
+      {
+        id: "short-debt",
+        statement: "balance_sheet",
+        accountName: "Bank Loan-Short Term",
+        categoryOverride: "BANK_LOAN_SHORT_TERM",
+        balanceSheetClassification: "",
+        labelOverrides: [],
+        values: { p2019: "100.000.000", p2020: "150.000.000", p2021: "200.000.000" },
+      },
+    ];
+    const debtScheduleInputs: DebtScheduleInputState = {
+      p2019: {
+        shortTermLoanRate: "0,13",
+        shortTermRepayment: "-10.000.000",
+        longTermBeginning: "25.000.000",
+        longTermAddition: "5.000.000",
+        longTermRepayment: "-2.000.000",
+      },
+      p2020: {
+        longTermAddition: "3.000.000",
+      },
+      p2021: {
+        shortTermInterestPayable: "1.000.000",
+        longTermInterestPayable: "2.000.000",
+      },
+    };
+    const analysisWithSchedule = buildSectionAnalysis(periods, rowsWithDebt, assumptions, [], {}, debtScheduleInputs);
+    const snapshotWithSchedule = buildSnapshot(periods, "p2021", rowsWithDebt, assumptions, [], { debtScheduleInputs });
+    const shortRate = analysisWithSchedule.payablesRows.find((row) => row.key === "short-rate");
+    const shortBeginning = analysisWithSchedule.payablesRows.find((row) => row.key === "short-beginning");
+    const shortAddition = analysisWithSchedule.payablesRows.find((row) => row.key === "short-addition");
+    const longBeginning = analysisWithSchedule.payablesRows.find((row) => row.key === "long-beginning");
+    const shortEnding = analysisWithSchedule.payablesRows.find((row) => row.key === "short-ending");
+    const longEnding = analysisWithSchedule.payablesRows.find((row) => row.key === "long-ending");
+    const interestPayable = analysisWithSchedule.payablesRows.find((row) => row.key === "interest-payable");
+
+    assert.equal(shortRate?.editableInputKey, "shortTermLoanRate");
+    assert.equal(shortRate?.valueFormat, "percent");
+    assert.equal(shortBeginning?.editableInputKey, undefined);
+    assert.equal(shortBeginning?.sourceType, "formula");
+    assert.equal(shortAddition?.editableInputKey, undefined);
+    assert.equal(shortAddition?.sourceType, "interoperable");
+    assert.deepEqual(longBeginning?.editablePeriodIds, ["p2019"]);
+    assert.equal(shortEnding?.values.p2021, 190_000_000);
+    assert.equal(longEnding?.values.p2021, 31_000_000);
+    assert.equal(interestPayable?.values.p2021, 3_000_000);
+    assert.equal(snapshotWithSchedule.bankLoanShortTerm, 190_000_000);
+    assert.equal(snapshotWithSchedule.bankLoanLongTerm, 31_000_000);
+    assert.equal(snapshotWithSchedule.interestPayable, 3_000_000);
   });
 
   it("builds detailed cash-flow statement rows with workbook trace metadata", () => {

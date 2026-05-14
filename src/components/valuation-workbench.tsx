@@ -73,6 +73,7 @@ import {
 } from "@/lib/valuation/aam-adjustments";
 import {
   buildFixedAssetScheduleSummary,
+  buildSampleDebtScheduleInputs,
   buildCaseProfileDerived,
   buildSampleFixedAssetScheduleRows,
   buildSampleCaseProfile,
@@ -82,9 +83,11 @@ import {
   buildSnapshot,
   companySectorOptions,
   companyTypeOptions,
+  createEmptyDebtScheduleInputs,
   createFixedAssetScheduleRow,
   createHistoricalPeriod,
   createRow,
+  debtScheduleInputKeys,
   emptyCaseProfile,
   emptyAssumptions,
   ensureFixedAssetSchedulePeriods,
@@ -110,6 +113,9 @@ import {
   type BalanceSheetClassification,
   type CaseProfile,
   type CaseProfileDerived,
+  type DebtScheduleInputKey,
+  type DebtScheduleInputState,
+  type DebtSchedulePeriodInput,
   type FixedAssetPeriodAmounts,
   type FixedAssetScheduleRow,
   type FixedAssetScheduleSummary,
@@ -434,7 +440,7 @@ const requiredReturnSuggestionOrder: RequiredReturnOnNtaSuggestionKey[] = [
 const WORKBENCH_STORAGE_KEY = "penilaian-valuasi-bisnis.workbench.v1";
 const WORKBENCH_SCROLL_STORAGE_KEY = "penilaian-valuasi-bisnis.scroll.v1";
 const WORKBENCH_SIDEBAR_STORAGE_KEY = "penilaian-valuasi-bisnis.sidebar.v1";
-const WORKBENCH_STORAGE_VERSION = 17;
+const WORKBENCH_STORAGE_VERSION = 18;
 const WORKSPACE_MANIFEST_STORAGE_KEY = "penilaian-valuasi-bisnis.workspaces.v1";
 const WORKSPACE_DATA_STORAGE_PREFIX = "penilaian-valuasi-bisnis.workspace.";
 const WORKSPACE_DATA_STORAGE_SUFFIX = ".v1";
@@ -550,6 +556,7 @@ type PersistedWorkbenchState = {
   rows: AccountRow[];
   isFixedAssetScheduleEnabled: boolean;
   fixedAssetScheduleRows: FixedAssetScheduleRow[];
+  debtScheduleInputs: DebtScheduleInputState;
   fixedAssetProjectionMode: FixedAssetProjectionMode;
   activeWaccBasis: WaccBasis;
   activeEemBasis: ActiveEemBasis;
@@ -580,6 +587,7 @@ type ValuationJsonImportSummary = {
   periodCount: number;
   accountRowCount: number;
   fixedAssetClassCount: number;
+  debtScheduleInputCount: number;
   cashFlowOverrideCount: number;
   incomeProjectionAuditCount: number;
   hasSensitiveData: boolean;
@@ -899,6 +907,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   const [rows, setRows] = useState<AccountRow[]>([]);
   const [isFixedAssetScheduleEnabled, setIsFixedAssetScheduleEnabled] = useState(false);
   const [fixedAssetScheduleRows, setFixedAssetScheduleRows] = useState<FixedAssetScheduleRow[]>([]);
+  const [debtScheduleInputs, setDebtScheduleInputs] = useState<DebtScheduleInputState>(() => createEmptyDebtScheduleInputs(initialPeriods));
   const [fixedAssetProjectionMode, setFixedAssetProjectionMode] = useState<FixedAssetProjectionMode>(defaultFixedAssetProjectionMode);
   const [activeWaccBasis, setActiveWaccBasis] = useState<WaccBasis>(defaultActiveWaccBasis);
   const [activeEemBasis, setActiveEemBasis] = useState<ActiveEemBasis>(defaultActiveEemBasis);
@@ -957,8 +966,8 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     [fixedAssetScheduleRows, periods],
   );
   const accountingSnapshot = useMemo(
-    () => buildSnapshot(periods, activePeriodId, rows, assumptions, fixedAssetScheduleRows),
-    [periods, activePeriodId, rows, assumptions, fixedAssetScheduleRows],
+    () => buildSnapshot(periods, activePeriodId, rows, assumptions, fixedAssetScheduleRows, { debtScheduleInputs }),
+    [periods, activePeriodId, rows, assumptions, fixedAssetScheduleRows, debtScheduleInputs],
   );
   const autoWaccCapitalValues = useMemo(
     () => ({
@@ -1008,8 +1017,12 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     [requiredReturnSuggestion, waccResolvedAssumptions],
   );
   const snapshot = useMemo(
-    () => buildSnapshot(periods, activePeriodId, rows, resolvedAssumptions, fixedAssetScheduleRows, { waccBasis: effectiveActiveWaccBasis }),
-    [periods, activePeriodId, rows, resolvedAssumptions, fixedAssetScheduleRows, effectiveActiveWaccBasis],
+    () =>
+      buildSnapshot(periods, activePeriodId, rows, resolvedAssumptions, fixedAssetScheduleRows, {
+        waccBasis: effectiveActiveWaccBasis,
+        debtScheduleInputs,
+      }),
+    [periods, activePeriodId, rows, resolvedAssumptions, fixedAssetScheduleRows, effectiveActiveWaccBasis, debtScheduleInputs],
   );
   const aamAdjustmentModel = useMemo(() => buildAamAdjustmentModel(snapshot, aamAdjustments), [aamAdjustments, snapshot]);
   const baseDcfForecast = useMemo(() => buildDcfForecast(snapshot), [snapshot]);
@@ -1093,8 +1106,8 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     [activeDcf, activeEem, caseProfile, caseProfileDerived, dlocPfcCalculation, dlomCalculation, results.aam, snapshot, taxSimulation],
   );
   const sectionAnalysis = useMemo(
-    () => buildSectionAnalysis(periods, rows, assumptions, fixedAssetScheduleRows, cashFlowOverrides),
-    [periods, rows, assumptions, fixedAssetScheduleRows, cashFlowOverrides],
+    () => buildSectionAnalysis(periods, rows, assumptions, fixedAssetScheduleRows, cashFlowOverrides, debtScheduleInputs),
+    [periods, rows, assumptions, fixedAssetScheduleRows, cashFlowOverrides, debtScheduleInputs],
   );
   const balanceSheetView = useMemo(
     () => buildBalanceSheetView(periods, mappedRows, fixedAssetSchedule),
@@ -1224,6 +1237,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     ) ||
     Object.values(caseProfile).some((value) => value.trim() !== "") ||
     Object.values(assumptions).some((value) => value.trim() !== "") ||
+    hasDebtScheduleInput(debtScheduleInputs) ||
     hasCashFlowOverrideInput(cashFlowOverrides) ||
     hasIncomeProjectionControlInput(incomeProjectionControls) ||
     activeWaccBasis !== defaultActiveWaccBasis ||
@@ -1273,6 +1287,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       rows,
       isFixedAssetScheduleEnabled,
       fixedAssetScheduleRows,
+      debtScheduleInputs,
       fixedAssetProjectionMode,
       activeWaccBasis,
       activeEemBasis,
@@ -1294,6 +1309,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     setRows(state.rows);
     setIsFixedAssetScheduleEnabled(state.isFixedAssetScheduleEnabled);
     setFixedAssetScheduleRows(state.fixedAssetScheduleRows);
+    setDebtScheduleInputs(state.debtScheduleInputs);
     setFixedAssetProjectionMode(state.fixedAssetProjectionMode);
     setActiveWaccBasis(state.activeWaccBasis);
     setActiveEemBasis(state.activeEemBasis);
@@ -1703,6 +1719,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         rows,
         isFixedAssetScheduleEnabled,
         fixedAssetScheduleRows,
+        debtScheduleInputs,
         fixedAssetProjectionMode,
         activeWaccBasis,
         activeDcfBasis,
@@ -1737,6 +1754,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     assumptions,
     cashFlowOverrides,
     caseProfile,
+    debtScheduleInputs,
     dlocPfc,
     dlom,
     fixedAssetScheduleRows,
@@ -1887,6 +1905,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         periods: nextPeriods,
         rows: current.rows.map((row) => ({ ...row, values: { ...row.values, [period.id]: "" } })),
         fixedAssetScheduleRows: ensureFixedAssetSchedulePeriods(current.fixedAssetScheduleRows, nextPeriods),
+        debtScheduleInputs: ensureDebtScheduleInputPeriods(current.debtScheduleInputs, nextPeriods),
         activePeriodId: nextPeriods.some((item) => item.id === current.activePeriodId)
           ? current.activePeriodId
           : (getDefaultActivePeriod(nextPeriods)?.id ?? period.id),
@@ -1984,12 +2003,15 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         delete values[id];
         return { ...row, values };
       });
+      const debtScheduleInputs = { ...current.debtScheduleInputs };
+      delete debtScheduleInputs[id];
 
       return {
         ...current,
         periods: nextPeriods,
         rows,
         fixedAssetScheduleRows,
+        debtScheduleInputs,
         cashFlowOverrides: removeCashFlowOverridePeriod(current.cashFlowOverrides, id),
         activePeriodId:
           current.activePeriodId === id ? (defaultActivePeriod?.id ?? nextPeriods[nextPeriods.length - 1].id) : current.activePeriodId,
@@ -2245,6 +2267,31 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       return {
         ...current,
         cashFlowOverrides: nextOverrides,
+      };
+    });
+  }
+
+  function updateDebtScheduleInput(periodId: string, key: DebtScheduleInputKey, value: string) {
+    commitCoreState((current) => {
+      const nextInputs = { ...current.debtScheduleInputs };
+      const nextPeriodInput: DebtSchedulePeriodInput = { ...(nextInputs[periodId] ?? {}) };
+      const nextValue = formatEditableNumber(value);
+
+      if (nextValue.trim()) {
+        nextPeriodInput[key] = nextValue;
+      } else {
+        delete nextPeriodInput[key];
+      }
+
+      if (Object.keys(nextPeriodInput).length > 0) {
+        nextInputs[periodId] = nextPeriodInput;
+      } else {
+        delete nextInputs[periodId];
+      }
+
+      return {
+        ...current,
+        debtScheduleInputs: ensureDebtScheduleInputPeriods(nextInputs, current.periods),
       };
     });
   }
@@ -2585,6 +2632,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       rows: buildSampleRows().filter((row) => row.id !== "sample-fixed-net"),
       isFixedAssetScheduleEnabled: true,
       fixedAssetScheduleRows: sampleFixedAssetScheduleRows,
+      debtScheduleInputs: buildSampleDebtScheduleInputs(),
       fixedAssetProjectionMode: defaultFixedAssetProjectionMode,
       activeWaccBasis: inferInitialWaccBasis(sampleAssumptions),
       activeEemBasis: defaultActiveEemBasis,
@@ -4126,7 +4174,11 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
 
         {activeWorkflowTab === "payablesCashFlow" ? (
           readiness.payablesCashFlow.isReady ? (
-            <DebtScheduleSection analysis={sectionAnalysis} />
+            <DebtScheduleSection
+              analysis={sectionAnalysis}
+              debtScheduleInputs={debtScheduleInputs}
+              onUpdateDebtScheduleInput={updateDebtScheduleInput}
+            />
           ) : (
             <ReadinessPanel status={readiness.payablesCashFlow} onNavigate={navigateToWorkflowTab} onAction={handleReadinessAction} force />
           )
@@ -7598,7 +7650,15 @@ function cashFlowOverrideStatusLabel(status: CashFlowOverrideStatus): string {
   return "";
 }
 
-function DebtScheduleSection({ analysis }: { analysis: SectionAnalysis }) {
+function DebtScheduleSection({
+  analysis,
+  debtScheduleInputs,
+  onUpdateDebtScheduleInput,
+}: {
+  analysis: SectionAnalysis;
+  debtScheduleInputs: DebtScheduleInputState;
+  onUpdateDebtScheduleInput: (periodId: string, key: DebtScheduleInputKey, value: string) => void;
+}) {
   return (
     <section className="panel debt-schedule-panel" data-testid="debt-schedule-section">
       <div className="panel-heading">
@@ -7606,11 +7666,129 @@ function DebtScheduleSection({ analysis }: { analysis: SectionAnalysis }) {
           <p className="eyebrow">ACC PAYABLES</p>
           <h3>Jadwal mutasi pinjaman dan utang</h3>
         </div>
-        <span className="status-pill muted">Basis mutasi terkoreksi</span>
+        <span className="status-pill muted">Manual + formula + interoperable</span>
       </div>
-      <AnalysisTable rows={analysis.payablesRows} periods={analysis.periods} />
+      <div className="debt-schedule-note">
+        <span className="source-status-pill manual">Manual input</span>
+        <span className="source-status-pill formula">Formula terkunci</span>
+        <span className="source-status-pill interoperable">Interoperable Neraca</span>
+      </div>
+      <DebtScheduleTable
+        rows={analysis.payablesRows}
+        periods={analysis.periods}
+        debtScheduleInputs={debtScheduleInputs}
+        onUpdateDebtScheduleInput={onUpdateDebtScheduleInput}
+      />
     </section>
   );
+}
+
+function DebtScheduleTable({
+  rows,
+  periods,
+  debtScheduleInputs,
+  onUpdateDebtScheduleInput,
+}: {
+  rows: AnalysisRow[];
+  periods: Period[];
+  debtScheduleInputs: DebtScheduleInputState;
+  onUpdateDebtScheduleInput: (periodId: string, key: DebtScheduleInputKey, value: string) => void;
+}) {
+  return (
+    <div className="table-wrap">
+      <table className="analysis-table debt-schedule-table">
+        <thead>
+          <tr>
+            <th>Pos</th>
+            <th>Sumber</th>
+            <th>Formula / aturan</th>
+            {periods.map((period) => (
+              <th className="period-column" key={period.id}>
+                {period.label || "Periode"}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => {
+            if (row.kind === "section") {
+              return (
+                <tr className="analysis-section-row" key={row.key}>
+                  <td colSpan={periods.length + 3}>{row.label}</td>
+                </tr>
+              );
+            }
+
+            const rowClassName =
+              row.kind === "subtotal" ? "analysis-total-row" : row.kind === "warning" ? "analysis-warning-row" : "";
+
+            return (
+              <tr className={rowClassName} key={row.key}>
+                <td>
+                  {row.label}
+                  {row.note ? <span className="debt-row-note">{row.note}</span> : null}
+                </td>
+                <td>
+                  {row.sourceType ? <DebtScheduleSourcePill sourceType={row.sourceType} /> : null}
+                  <span>{row.source}</span>
+                </td>
+                <td>
+                  <code>{row.formula}</code>
+                  {row.lockReason ? <span>{row.lockReason}</span> : null}
+                </td>
+                {periods.map((period) => {
+                  const isEditable =
+                    Boolean(row.editableInputKey) &&
+                    (!row.editablePeriodIds || row.editablePeriodIds.includes(period.id));
+                  const inputValue = row.editableInputKey ? (debtScheduleInputs[period.id]?.[row.editableInputKey] ?? "") : "";
+                  const value = row.values[period.id] ?? null;
+
+                  return (
+                    <td className={isEditable ? "override-cell period-column" : "numeric-cell period-column"} key={period.id}>
+                      {isEditable && row.editableInputKey ? (
+                        <div className="debt-schedule-input-stack">
+                          <input
+                            aria-label={`${row.label} ${period.label || "Periode"}`}
+                            inputMode="decimal"
+                            value={inputValue}
+                            onChange={(event) => onUpdateDebtScheduleInput(period.id, row.editableInputKey as DebtScheduleInputKey, event.target.value)}
+                          />
+                          {!inputValue.trim() && value ? <span>Model: {formatDebtScheduleValue(value, row.valueFormat)}</span> : null}
+                        </div>
+                      ) : (
+                        formatDebtScheduleValue(value, row.valueFormat)
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function DebtScheduleSourcePill({ sourceType }: { sourceType: NonNullable<AnalysisRow["sourceType"]> }) {
+  const label =
+    sourceType === "manual"
+      ? "Manual"
+      : sourceType === "formula"
+        ? "Formula"
+        : sourceType === "interoperable"
+          ? "Interoperable"
+          : "Fallback";
+
+  return <span className={`source-status-pill ${sourceType}`}>{label}</span>;
+}
+
+function formatDebtScheduleValue(value: AnalysisValue, valueFormat: AnalysisRow["valueFormat"] = "currency"): string {
+  if (value === null || !Number.isFinite(value)) {
+    return "—";
+  }
+
+  return valueFormat === "percent" ? formatPercent(value) : formatAnalysisValue(value, "currency");
 }
 
 function NoplatFcfSection({ analysis }: { analysis: SectionAnalysis }) {
@@ -7975,6 +8153,7 @@ function normalizeWorkbenchStatePayload(value: unknown): PersistedWorkbenchState
   const periods = normalizePeriods(sanitizePeriods(value.periods));
   const rows = value.version < 2 ? migrateLegacyIncomeStatementSigns(sanitizeRows(value.rows)) : sanitizeRows(value.rows);
   const fixedAssetScheduleRows = ensureFixedAssetSchedulePeriods(sanitizeFixedAssetScheduleRows(value.fixedAssetScheduleRows), periods);
+  const debtScheduleInputs = ensureDebtScheduleInputPeriods(sanitizeDebtScheduleInputs(value.debtScheduleInputs), periods);
   const aamAdjustments = sanitizeAamAdjustments(value.aamAdjustments);
   const assumptions = sanitizeAssumptions(value.assumptions);
   const caseProfile = sanitizeCaseProfile(value.caseProfile);
@@ -8007,6 +8186,7 @@ function normalizeWorkbenchStatePayload(value: unknown): PersistedWorkbenchState
     rows,
     isFixedAssetScheduleEnabled,
     fixedAssetScheduleRows,
+    debtScheduleInputs,
     fixedAssetProjectionMode,
     activeWaccBasis,
     activeEemBasis,
@@ -8047,6 +8227,7 @@ function buildEmptyCoreState(): WorkbenchCoreState {
     rows: [],
     isFixedAssetScheduleEnabled: false,
     fixedAssetScheduleRows: [],
+    debtScheduleInputs: createEmptyDebtScheduleInputs(initialPeriods),
     fixedAssetProjectionMode: defaultFixedAssetProjectionMode,
     activeWaccBasis: defaultActiveWaccBasis,
     activeEemBasis: defaultActiveEemBasis,
@@ -8235,6 +8416,7 @@ function buildRestoredCoreState(state: PersistedWorkbenchState): WorkbenchCoreSt
     rows: state.rows,
     isFixedAssetScheduleEnabled: state.isFixedAssetScheduleEnabled || state.fixedAssetScheduleRows.length > 0,
     fixedAssetScheduleRows: state.fixedAssetScheduleRows,
+    debtScheduleInputs: ensureDebtScheduleInputPeriods(state.debtScheduleInputs, nextPeriods),
     fixedAssetProjectionMode: state.fixedAssetProjectionMode,
     activeWaccBasis: state.activeWaccBasis,
     activeEemBasis: state.activeEemBasis,
@@ -8345,6 +8527,10 @@ function readImportedWorkbenchVersion(value: unknown): number {
 
 function buildJsonImportSummary(state: PersistedWorkbenchState, exportedAt: string, fileName: string): ValuationJsonImportSummary {
   const caseName = state.caseProfile.objectTaxpayerName.trim() || "Tanpa nama objek";
+  const debtScheduleInputCount = Object.values(state.debtScheduleInputs).reduce(
+    (total, periodInput) => total + Object.values(periodInput).filter((value) => typeof value === "string" && value.trim() !== "").length,
+    0,
+  );
   const cashFlowOverrideCount = Object.values(state.cashFlowOverrides).reduce(
     (total, periodEntries) => total + Object.keys(periodEntries).length,
     0,
@@ -8357,6 +8543,7 @@ function buildJsonImportSummary(state: PersistedWorkbenchState, exportedAt: stri
     periodCount: state.periods.length,
     accountRowCount: state.rows.length,
     fixedAssetClassCount: state.fixedAssetScheduleRows.length,
+    debtScheduleInputCount,
     cashFlowOverrideCount,
     incomeProjectionAuditCount: state.incomeProjectionControls.auditEvents.length,
     hasSensitiveData: Boolean(state.caseProfile.objectTaxpayerNpwp.trim() || state.caseProfile.subjectTaxpayerNpwp.trim()),
@@ -8369,7 +8556,7 @@ function formatJsonImportConfirmationDescription(summary: ValuationJsonImportSum
     ? " File ini memuat data lengkap termasuk NPWP bila tersedia."
     : " File ini tetap memuat seluruh data angka dan asumsi model.";
 
-  return `File ${summary.fileName} berisi ${summary.accountRowCount} akun, ${summary.periodCount} periode, ${summary.fixedAssetClassCount} kelas aset tetap, ${summary.cashFlowOverrideCount} override cash-flow, dan ${summary.incomeProjectionAuditCount} audit proyeksi untuk ${summary.caseName}.${exportedAt} Workspace baru akan dibuat dan workspace aktif saat ini tetap tersimpan.${sensitiveDataNote}`;
+  return `File ${summary.fileName} berisi ${summary.accountRowCount} akun, ${summary.periodCount} periode, ${summary.fixedAssetClassCount} kelas aset tetap, ${summary.debtScheduleInputCount} input jadwal utang, ${summary.cashFlowOverrideCount} override cash-flow, dan ${summary.incomeProjectionAuditCount} audit proyeksi untuk ${summary.caseName}.${exportedAt} Workspace baru akan dibuat dan workspace aktif saat ini tetap tersimpan.${sensitiveDataNote}`;
 }
 
 function buildJsonExportFilename(caseName: string, exportedAt: string): string {
@@ -8510,6 +8697,45 @@ function sanitizeFixedAssetScheduleRows(value: unknown): FixedAssetScheduleRow[]
       },
     ];
   });
+}
+
+function sanitizeDebtScheduleInputs(value: unknown): DebtScheduleInputState {
+  if (!isRecord(value)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).flatMap(([periodId, periodInput]) => {
+      if (!isRecord(periodInput)) {
+        return [];
+      }
+
+      const sanitizedInput = Object.fromEntries(
+        debtScheduleInputKeys.flatMap((key) => {
+          const rawValue = periodInput[key];
+          const value = typeof rawValue === "string" ? formatEditableNumber(rawValue) : "";
+
+          return value.trim() ? [[key, value]] : [];
+        }),
+      ) as DebtSchedulePeriodInput;
+
+      return Object.keys(sanitizedInput).length > 0 ? [[periodId, sanitizedInput]] : [];
+    }),
+  );
+}
+
+function ensureDebtScheduleInputPeriods(inputs: DebtScheduleInputState, periods: Period[]): DebtScheduleInputState {
+  return Object.fromEntries(
+    periods.map((period) => [
+      period.id,
+      Object.fromEntries(
+        debtScheduleInputKeys.flatMap((key) => {
+          const value = inputs[period.id]?.[key] ?? "";
+          return value.trim() ? [[key, value]] : [];
+        }),
+      ) as DebtSchedulePeriodInput,
+    ]).filter(([, periodInput]) => Object.keys(periodInput as DebtSchedulePeriodInput).length > 0),
+  ) as DebtScheduleInputState;
 }
 
 function sanitizeAamAdjustments(value: unknown): AamAdjustmentState {
@@ -8764,6 +8990,12 @@ function sanitizeCashFlowOverrides(value: unknown): CashFlowOverrideState {
 function hasCashFlowOverrideInput(value: CashFlowOverrideState): boolean {
   return Object.values(value).some((row) =>
     Object.values(row).some((entry) => entry.value.trim() !== "" || entry.reason.trim() !== ""),
+  );
+}
+
+function hasDebtScheduleInput(value: DebtScheduleInputState): boolean {
+  return Object.values(value).some((periodInput) =>
+    Object.values(periodInput).some((entry) => typeof entry === "string" && entry.trim() !== ""),
   );
 }
 

@@ -1,10 +1,14 @@
 import {
+  buildDebtScheduleSummary,
   buildFixedAssetScheduleSummary,
   buildSnapshot,
   getChronologicalPeriods,
   parseInputNumber,
   type AccountRow,
   type AssumptionState,
+  type DebtScheduleInputKey,
+  type DebtScheduleInputState,
+  type DebtSchedulePeriodAmounts,
   type FixedAssetScheduleRow,
   type Period,
 } from "./case-model";
@@ -28,6 +32,11 @@ export type AnalysisRow = {
   values: Record<string, AnalysisValue>;
   note?: string;
   kind?: "section" | "subtotal" | "warning";
+  sourceType?: "manual" | "formula" | "interoperable" | "fallback";
+  editableInputKey?: DebtScheduleInputKey;
+  editablePeriodIds?: string[];
+  valueFormat?: "currency" | "percent";
+  lockReason?: string;
 };
 
 export type CashFlowOverrideEntry = {
@@ -87,6 +96,7 @@ export type PeriodAnalysis = {
   cashMovement: number | null;
   correctedNetCashFlow: number;
   cashFlowRollforwardGap: number | null;
+  debtSchedule: DebtSchedulePeriodAmounts;
   loanMovement: {
     shortTermBeginning: number;
     shortTermAddition: number;
@@ -117,15 +127,21 @@ export function buildSectionAnalysis(
   assumptions: AssumptionState,
   fixedAssetScheduleRows: FixedAssetScheduleRow[] = [],
   cashFlowOverrides: CashFlowOverrideState = {},
+  debtScheduleInputs: DebtScheduleInputState = {},
 ): SectionAnalysis {
   const chronologicalPeriods = getChronologicalPeriods(periods);
   const fixedAssetSchedule = buildFixedAssetScheduleSummary(periods, fixedAssetScheduleRows);
+  const debtSchedule = buildDebtScheduleSummary(periods, rows, debtScheduleInputs);
   const snapshots = new Map(
-    chronologicalPeriods.map((period) => [period.id, buildSnapshot(periods, period.id, rows, assumptions, fixedAssetScheduleRows)]),
+    chronologicalPeriods.map((period) => [
+      period.id,
+      buildSnapshot(periods, period.id, rows, assumptions, fixedAssetScheduleRows, { debtScheduleInputs }),
+    ]),
   );
 
   const periodAnalyses = chronologicalPeriods.map((period, index): PeriodAnalysis => {
-    const snapshot = snapshots.get(period.id) ?? buildSnapshot(periods, period.id, rows, assumptions, fixedAssetScheduleRows);
+    const snapshot =
+      snapshots.get(period.id) ?? buildSnapshot(periods, period.id, rows, assumptions, fixedAssetScheduleRows, { debtScheduleInputs });
     const previousPeriod = chronologicalPeriods[index - 1];
     const previousSnapshot = previousPeriod ? (snapshots.get(previousPeriod.id) ?? null) : null;
     const scheduleAmounts = fixedAssetSchedule.totals[period.id];
@@ -152,7 +168,8 @@ export function buildSectionAnalysis(
     const cashTotal = snapshot.cashOnHand + snapshot.cashOnBankDeposit;
     const previousCashTotal = previousSnapshot ? previousSnapshot.cashOnHand + previousSnapshot.cashOnBankDeposit : null;
     const cashMovement = previousCashTotal === null ? null : cashTotal - previousCashTotal;
-    const loanMovement = buildLoanMovement(snapshot, previousSnapshot);
+    const debtScheduleAmounts = debtSchedule.periods[period.id] ?? createEmptyDebtSchedulePeriodAmounts();
+    const loanMovement = buildLoanMovement(debtScheduleAmounts);
     const equityInjectionMovement = previousSnapshot
       ? snapshot.paidUpCapital + snapshot.additionalPaidInCapital - (previousSnapshot.paidUpCapital + previousSnapshot.additionalPaidInCapital)
       : 0;
@@ -184,6 +201,7 @@ export function buildSectionAnalysis(
       cashMovement,
       correctedNetCashFlow,
       cashFlowRollforwardGap,
+      debtSchedule: debtScheduleAmounts,
       loanMovement,
     };
   });
@@ -202,27 +220,93 @@ export function buildSectionAnalysis(
 }
 
 function buildPayablesRows(periodAnalyses: PeriodAnalysis[]): AnalysisRow[] {
+  const firstPeriodId = periodAnalyses[0]?.period.id;
+
   return [
     sectionRow("trade-payables-section", "Utang usaha dan operasional"),
-    valueRow(periodAnalyses, "account-payable", "Utang usaha", "Terpetakan account payable", "Saldo input", (item) => item.snapshot.accountPayable),
-    valueRow(periodAnalyses, "tax-payable", "Utang pajak", "Terpetakan tax payable", "Saldo input", (item) => item.snapshot.taxPayable),
-    valueRow(periodAnalyses, "other-payable", "Utang lain-lain", "Terpetakan other payable", "Saldo input", (item) => item.snapshot.otherPayable),
+    valueRow(periodAnalyses, "account-payable", "Utang usaha", "Terpetakan account payable", "Saldo input", (item) => item.snapshot.accountPayable, undefined, undefined, {
+      sourceType: "interoperable",
+      lockReason: "Diambil dari Neraca agar operating working capital tetap konsisten.",
+    }),
+    valueRow(periodAnalyses, "tax-payable", "Utang pajak", "Terpetakan tax payable", "Saldo input", (item) => item.snapshot.taxPayable, undefined, undefined, {
+      sourceType: "interoperable",
+      lockReason: "Diambil dari Neraca dan dipakai untuk sensitivitas debt-like.",
+    }),
+    valueRow(periodAnalyses, "other-payable", "Utang lain-lain", "Terpetakan other payable", "Saldo input", (item) => item.snapshot.otherPayable, undefined, undefined, {
+      sourceType: "interoperable",
+      lockReason: "Diambil dari Neraca agar operating working capital tetap konsisten.",
+    }),
     valueRow(periodAnalyses, "operating-current-liabilities", "Utang operasi", "Operating working capital bridge", "Utang usaha + utang lain-lain", (item) =>
       operatingCurrentLiabilities(item.snapshot),
       "subtotal",
+      undefined,
+      {
+        sourceType: "formula",
+        lockReason: "Formula operating WC: AP + utang lain-lain.",
+      },
     ),
     sectionRow("bank-loan-short-section", "Pinjaman bank jangka pendek"),
-    valueRow(periodAnalyses, "short-beginning", "Saldo awal", "Saldo akhir pinjaman jangka pendek periode sebelumnya", "Saldo akhir periode sebelumnya", (item) => item.loanMovement.shortTermBeginning),
-    valueRow(periodAnalyses, "short-addition", "Penambahan", "Mutasi positif pinjaman bank jangka pendek", "max(Saldo akhir - saldo awal, 0)", (item) => item.loanMovement.shortTermAddition),
-    valueRow(periodAnalyses, "short-repayment", "Pembayaran kembali", "Mutasi negatif pinjaman bank jangka pendek", "min(Saldo akhir - saldo awal, 0)", (item) => item.loanMovement.shortTermRepayment),
-    valueRow(periodAnalyses, "short-ending", "Saldo akhir", "Terpetakan pinjaman bank jangka pendek", "Saldo awal + penambahan + pembayaran kembali", (item) => item.loanMovement.shortTermEnding, "subtotal"),
+    valueRow(periodAnalyses, "short-rate", "Tingkat pinjaman / rate", "Input manual ACC PAYABLES row 8", "Parameter rate; label workbook lama: Principal", (item) => item.debtSchedule.shortTermLoanRate, undefined, "Bukan saldo pokok.", {
+      sourceType: "manual",
+      editableInputKey: "shortTermLoanRate",
+      valueFormat: "percent",
+    }),
+    valueRow(periodAnalyses, "short-beginning", "Saldo awal", "Saldo akhir pinjaman jangka pendek periode sebelumnya", "Saldo akhir periode sebelumnya", (item) => item.loanMovement.shortTermBeginning, undefined, undefined, {
+      sourceType: "formula",
+      lockReason: "Formula roll-forward dari saldo akhir periode sebelumnya.",
+    }),
+    valueRow(periodAnalyses, "short-addition", "Penambahan", "Balance Sheet row pinjaman jangka pendek", "Saldo BS kini - saldo BS sebelumnya", (item) => item.loanMovement.shortTermAddition, undefined, undefined, {
+      sourceType: "interoperable",
+      lockReason: "Mengikuti formula ACC PAYABLES row 10 dari Balance Sheet.",
+    }),
+    valueRow(periodAnalyses, "short-repayment", "Pembayaran kembali", "Input manual ACC PAYABLES row 11", "Nilai manual; gunakan negatif untuk pelunasan", (item) => item.loanMovement.shortTermRepayment, undefined, undefined, {
+      sourceType: "manual",
+      editableInputKey: "shortTermRepayment",
+    }),
+    valueRow(periodAnalyses, "short-ending", "Saldo akhir", "Formula jadwal jangka pendek", "Saldo awal + penambahan + pembayaran kembali", (item) => item.loanMovement.shortTermEnding, "subtotal", undefined, {
+      sourceType: "formula",
+      lockReason: "Formula SUM seperti ACC PAYABLES row 12.",
+    }),
+    valueRow(periodAnalyses, "short-interest-payable", "Utang bunga jangka pendek", "Input manual ACC PAYABLES row 14", "Saldo input", (item) => item.debtSchedule.shortTermInterestPayable, undefined, undefined, {
+      sourceType: "manual",
+      editableInputKey: "shortTermInterestPayable",
+    }),
     sectionRow("bank-loan-long-section", "Pinjaman bank jangka panjang"),
-    valueRow(periodAnalyses, "long-beginning", "Saldo awal", "Saldo akhir pinjaman jangka panjang periode sebelumnya", "Saldo akhir periode sebelumnya", (item) => item.loanMovement.longTermBeginning),
-    valueRow(periodAnalyses, "long-addition", "Penambahan", "Mutasi positif pinjaman bank jangka panjang", "max(Saldo akhir - saldo awal, 0)", (item) => item.loanMovement.longTermAddition),
-    valueRow(periodAnalyses, "long-repayment", "Pembayaran kembali", "Mutasi negatif pinjaman bank jangka panjang", "min(Saldo akhir - saldo awal, 0)", (item) => item.loanMovement.longTermRepayment),
-    valueRow(periodAnalyses, "long-ending", "Saldo akhir", "Terpetakan pinjaman bank jangka panjang / utang berbunga", "Saldo awal + penambahan + pembayaran kembali", (item) => item.loanMovement.longTermEnding, "subtotal"),
-    valueRow(periodAnalyses, "interest-payable", "Utang bunga", "Terpetakan utang bunga", "Saldo input", (item) => item.snapshot.interestPayable),
-    valueRow(periodAnalyses, "interest-bearing-debt", "Utang berbunga", "Debt bridge", "Pinjaman bank jangka pendek + pinjaman bank jangka panjang", (item) => interestBearingDebt(item.snapshot), "subtotal"),
+    valueRow(periodAnalyses, "long-rate", "Tingkat pinjaman / rate", "Input manual ACC PAYABLES row 17", "Parameter rate; label workbook lama: Principal", (item) => item.debtSchedule.longTermLoanRate, undefined, "Bukan saldo pokok.", {
+      sourceType: "manual",
+      editableInputKey: "longTermLoanRate",
+      valueFormat: "percent",
+    }),
+    valueRow(periodAnalyses, "long-beginning", "Saldo awal", "Input awal lalu roll-forward", "Periode pertama manual; periode berikutnya saldo akhir sebelumnya", (item) => item.loanMovement.longTermBeginning, undefined, undefined, {
+      sourceType: "manual",
+      editableInputKey: "longTermBeginning",
+      editablePeriodIds: firstPeriodId ? [firstPeriodId] : [],
+      lockReason: "Periode lanjutan dikunci oleh formula roll-forward.",
+    }),
+    valueRow(periodAnalyses, "long-addition", "Penambahan", "Input manual ACC PAYABLES row 19", "Nilai manual; fallback Neraca bila jadwal manual belum diisi", (item) => item.loanMovement.longTermAddition, undefined, undefined, {
+      sourceType: "manual",
+      editableInputKey: "longTermAddition",
+    }),
+    valueRow(periodAnalyses, "long-repayment", "Pembayaran kembali", "Input manual ACC PAYABLES row 20", "Nilai manual; gunakan negatif untuk pelunasan", (item) => item.loanMovement.longTermRepayment, undefined, undefined, {
+      sourceType: "manual",
+      editableInputKey: "longTermRepayment",
+    }),
+    valueRow(periodAnalyses, "long-ending", "Saldo akhir", "Formula jadwal jangka panjang", "Saldo awal + penambahan + pembayaran kembali", (item) => item.loanMovement.longTermEnding, "subtotal", undefined, {
+      sourceType: "formula",
+      lockReason: "Formula SUM seperti ACC PAYABLES row 21.",
+    }),
+    valueRow(periodAnalyses, "long-interest-payable", "Utang bunga jangka panjang", "Input manual ACC PAYABLES row 23", "Saldo input", (item) => item.debtSchedule.longTermInterestPayable, undefined, undefined, {
+      sourceType: "manual",
+      editableInputKey: "longTermInterestPayable",
+    }),
+    valueRow(periodAnalyses, "interest-payable", "Utang bunga", "Schedule / Neraca", "Utang bunga jangka pendek + jangka panjang; fallback saldo Neraca", (item) => item.snapshot.interestPayable, "subtotal", undefined, {
+      sourceType: "formula",
+      lockReason: "Formula gabungan input schedule atau fallback akun utang bunga.",
+    }),
+    valueRow(periodAnalyses, "interest-bearing-debt", "Utang berbunga", "Debt bridge", "Pinjaman bank jangka pendek + pinjaman bank jangka panjang", (item) => interestBearingDebt(item.snapshot), "subtotal", undefined, {
+      sourceType: "formula",
+      lockReason: "Formula EV-to-equity bridge.",
+    }),
     valueRow(
       periodAnalyses,
       "total-debt-schedule",
@@ -236,6 +320,11 @@ function buildPayablesRows(periodAnalyses: PeriodAnalysis[]): AnalysisRow[] {
         item.snapshot.interestPayable +
         interestBearingDebt(item.snapshot),
       "subtotal",
+      undefined,
+      {
+        sourceType: "formula",
+        lockReason: "Formula total jadwal utang dan payable.",
+      },
     ),
   ];
 }
@@ -775,6 +864,7 @@ function valueRow(
   value: (item: PeriodAnalysis) => AnalysisValue,
   kind?: AnalysisRow["kind"],
   note?: string,
+  extra: Partial<Omit<AnalysisRow, "key" | "label" | "source" | "formula" | "values" | "kind" | "note">> = {},
 ): AnalysisRow {
   return {
     key,
@@ -784,6 +874,7 @@ function valueRow(
     values: Object.fromEntries(periodAnalyses.map((item) => [item.period.id, value(item)])),
     kind,
     note,
+    ...extra,
   };
 }
 
@@ -833,23 +924,38 @@ function sectionRow(key: string, label: string): AnalysisRow {
   };
 }
 
-function buildLoanMovement(snapshot: FinancialStatementSnapshot, previousSnapshot: FinancialStatementSnapshot | null): PeriodAnalysis["loanMovement"] {
-  const shortTermBeginning = previousSnapshot?.bankLoanShortTerm ?? 0;
-  const longTermBeginning = previousSnapshot?.bankLoanLongTerm ?? 0;
-  const shortTermEnding = snapshot.bankLoanShortTerm;
-  const longTermEnding = snapshot.bankLoanLongTerm;
-  const shortTermDelta = shortTermEnding - shortTermBeginning;
-  const longTermDelta = longTermEnding - longTermBeginning;
-
+function buildLoanMovement(debtSchedule: DebtSchedulePeriodAmounts): PeriodAnalysis["loanMovement"] {
   return {
-    shortTermBeginning,
-    shortTermAddition: Math.max(shortTermDelta, 0),
-    shortTermRepayment: Math.min(shortTermDelta, 0),
-    shortTermEnding,
-    longTermBeginning,
-    longTermAddition: Math.max(longTermDelta, 0),
-    longTermRepayment: Math.min(longTermDelta, 0),
-    longTermEnding,
+    shortTermBeginning: debtSchedule.shortTermBeginning,
+    shortTermAddition: debtSchedule.shortTermAddition,
+    shortTermRepayment: debtSchedule.shortTermRepayment,
+    shortTermEnding: debtSchedule.shortTermEnding,
+    longTermBeginning: debtSchedule.longTermBeginning,
+    longTermAddition: debtSchedule.longTermAddition,
+    longTermRepayment: debtSchedule.longTermRepayment,
+    longTermEnding: debtSchedule.longTermEnding,
+  };
+}
+
+function createEmptyDebtSchedulePeriodAmounts(): DebtSchedulePeriodAmounts {
+  return {
+    shortTermLoanRate: 0,
+    shortTermBeginning: 0,
+    shortTermAddition: 0,
+    shortTermRepayment: 0,
+    shortTermEnding: 0,
+    shortTermInterestPayable: 0,
+    longTermLoanRate: 0,
+    longTermBeginning: 0,
+    longTermAddition: 0,
+    longTermRepayment: 0,
+    longTermEnding: 0,
+    longTermInterestPayable: 0,
+    interestPayable: 0,
+    interestBearingDebt: 0,
+    totalDebtSchedule: 0,
+    usesManualLongTermSchedule: false,
+    usesManualInterestPayable: false,
   };
 }
 

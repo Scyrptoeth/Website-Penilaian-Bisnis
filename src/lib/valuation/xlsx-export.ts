@@ -661,8 +661,16 @@ function resolveAnalysisFormula(
       return sum("account-payable", "other-payable");
     }
 
+    if (key === "short-beginning") {
+      return priorPeriodCell("short-ending") || undefined;
+    }
+
     if (key === "short-ending") {
       return sum("short-beginning", "short-addition", "short-repayment");
+    }
+
+    if (key === "long-beginning") {
+      return priorPeriodCell("long-ending") || undefined;
     }
 
     if (key === "long-ending") {

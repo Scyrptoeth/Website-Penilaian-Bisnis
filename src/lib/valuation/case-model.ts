@@ -84,6 +84,46 @@ export type FixedAssetScheduleRow = {
   values: Record<string, Record<FixedAssetScheduleValueKey, string>>;
 };
 
+export type DebtScheduleInputKey =
+  | "shortTermLoanRate"
+  | "shortTermRepayment"
+  | "shortTermInterestPayable"
+  | "longTermLoanRate"
+  | "longTermBeginning"
+  | "longTermAddition"
+  | "longTermRepayment"
+  | "longTermInterestPayable";
+
+export type DebtSchedulePeriodInput = Partial<Record<DebtScheduleInputKey, string>>;
+
+export type DebtScheduleInputState = Record<string, DebtSchedulePeriodInput>;
+
+export type DebtSchedulePeriodAmounts = {
+  shortTermLoanRate: number;
+  shortTermBeginning: number;
+  shortTermAddition: number;
+  shortTermRepayment: number;
+  shortTermEnding: number;
+  shortTermInterestPayable: number;
+  longTermLoanRate: number;
+  longTermBeginning: number;
+  longTermAddition: number;
+  longTermRepayment: number;
+  longTermEnding: number;
+  longTermInterestPayable: number;
+  interestPayable: number;
+  interestBearingDebt: number;
+  totalDebtSchedule: number;
+  usesManualLongTermSchedule: boolean;
+  usesManualInterestPayable: boolean;
+};
+
+export type DebtScheduleSummary = {
+  periods: Record<string, DebtSchedulePeriodAmounts>;
+  hasManualInput: boolean;
+  hasManualLongTermSchedule: boolean;
+};
+
 export type FixedAssetPeriodAmounts = {
   acquisitionBeginning: number;
   acquisitionAdditions: number;
@@ -219,6 +259,17 @@ export const fixedAssetScheduleValueKeys: FixedAssetScheduleValueKey[] = [
   "acquisitionAdditions",
   "depreciationBeginning",
   "depreciationAdditions",
+];
+
+export const debtScheduleInputKeys: DebtScheduleInputKey[] = [
+  "shortTermLoanRate",
+  "shortTermRepayment",
+  "shortTermInterestPayable",
+  "longTermLoanRate",
+  "longTermBeginning",
+  "longTermAddition",
+  "longTermRepayment",
+  "longTermInterestPayable",
 ];
 
 export const emptyAssumptions: AssumptionState = {
@@ -573,6 +624,87 @@ export function buildFixedAssetScheduleSummary(periods: Period[], rows: FixedAss
   return { rows: computedRows, totals, hasInput };
 }
 
+export function buildDebtScheduleSummary(
+  periods: Period[],
+  rows: AccountRow[],
+  inputs: DebtScheduleInputState = {},
+): DebtScheduleSummary {
+  const chronologicalPeriods = getChronologicalPeriods(periods);
+  const mappedRows = rows.map(mapRow);
+  const hasManualInput = chronologicalPeriods.some((period) => hasDebtSchedulePeriodInput(inputs[period.id]));
+  const hasManualLongTermSchedule = chronologicalPeriods.some((period) =>
+    hasDebtSchedulePeriodInput(inputs[period.id], ["longTermBeginning", "longTermAddition", "longTermRepayment"]),
+  );
+  const result: Record<string, DebtSchedulePeriodAmounts> = {};
+  let previousBaseShortTerm = 0;
+  let previousBaseLongTerm = 0;
+  let previousShortTermEnding = 0;
+  let previousLongTermEnding = 0;
+
+  chronologicalPeriods.forEach((period, index) => {
+    const periodInputs = inputs[period.id] ?? {};
+    const baseShortTerm = amount(aggregateForPeriod(mappedRows, period.id, ["BANK_LOAN_SHORT_TERM"]));
+    const baseLongTerm = amount(aggregateForPeriod(mappedRows, period.id, ["BANK_LOAN_LONG_TERM", "INTEREST_BEARING_DEBT"]));
+    const baseInterestPayable = amount(aggregateForPeriod(mappedRows, period.id, ["INTEREST_PAYABLE"]));
+    const shortTermBeginning = previousShortTermEnding;
+    const shortTermAddition = baseShortTerm - (index === 0 ? 0 : previousBaseShortTerm);
+    const shortTermRepayment = readDebtScheduleInput(periodInputs, "shortTermRepayment");
+    const shortTermEnding = shortTermBeginning + shortTermAddition + shortTermRepayment;
+    const shortTermInterestPayable = readDebtScheduleInput(periodInputs, "shortTermInterestPayable");
+    const usesManualInterestPayable =
+      hasDebtScheduleValue(periodInputs, "shortTermInterestPayable") || hasDebtScheduleValue(periodInputs, "longTermInterestPayable");
+    const longTermLoanRate = readDebtScheduleInput(periodInputs, "longTermLoanRate");
+    const longTermBeginning = hasManualLongTermSchedule
+      ? index === 0
+        ? readDebtScheduleInput(periodInputs, "longTermBeginning")
+        : previousLongTermEnding
+      : previousBaseLongTerm;
+    const longTermAddition = hasManualLongTermSchedule
+      ? readDebtScheduleInput(periodInputs, "longTermAddition")
+      : Math.max(baseLongTerm - previousBaseLongTerm, 0);
+    const longTermRepayment = hasManualLongTermSchedule
+      ? readDebtScheduleInput(periodInputs, "longTermRepayment")
+      : Math.min(baseLongTerm - previousBaseLongTerm, 0);
+    const longTermEnding = hasManualLongTermSchedule
+      ? longTermBeginning + longTermAddition + longTermRepayment
+      : baseLongTerm;
+    const longTermInterestPayable = readDebtScheduleInput(periodInputs, "longTermInterestPayable");
+    const interestPayable = usesManualInterestPayable ? shortTermInterestPayable + longTermInterestPayable : baseInterestPayable;
+    const interestBearingDebt = shortTermEnding + longTermEnding;
+
+    result[period.id] = {
+      shortTermLoanRate: readDebtScheduleInput(periodInputs, "shortTermLoanRate"),
+      shortTermBeginning,
+      shortTermAddition,
+      shortTermRepayment,
+      shortTermEnding,
+      shortTermInterestPayable,
+      longTermLoanRate,
+      longTermBeginning,
+      longTermAddition,
+      longTermRepayment,
+      longTermEnding,
+      longTermInterestPayable,
+      interestPayable,
+      interestBearingDebt,
+      totalDebtSchedule: interestBearingDebt + interestPayable,
+      usesManualLongTermSchedule: hasManualLongTermSchedule,
+      usesManualInterestPayable,
+    };
+
+    previousBaseShortTerm = baseShortTerm;
+    previousBaseLongTerm = baseLongTerm;
+    previousShortTermEnding = shortTermEnding;
+    previousLongTermEnding = longTermEnding;
+  });
+
+  return { periods: result, hasManualInput, hasManualLongTermSchedule };
+}
+
+export function createEmptyDebtScheduleInputs(periods: Period[]): DebtScheduleInputState {
+  return Object.fromEntries(periods.map((period) => [period.id, {}]));
+}
+
 export function buildSamplePeriods(): Period[] {
   return [
     { id: "p2019", label: "2019", valuationDate: "2019-12-31", yearOffset: -2 },
@@ -657,6 +789,14 @@ export function buildSampleAssumptions(): AssumptionState {
     inventoryDays: formatInputNumber(sampleCase.inventoryDays),
     apDays: formatInputNumber(sampleCase.apDays),
     otherPayableDays: formatInputNumber(sampleCase.otherPayableDays),
+  };
+}
+
+export function buildSampleDebtScheduleInputs(): DebtScheduleInputState {
+  return {
+    p2019: debtScheduleSampleValues(),
+    p2020: debtScheduleSampleValues(),
+    p2021: debtScheduleSampleValues(),
   };
 }
 
@@ -843,13 +983,15 @@ export function buildSnapshot(
   rows: AccountRow[],
   assumptions: AssumptionState,
   fixedAssetScheduleRows: FixedAssetScheduleRow[] = [],
-  options: { waccBasis?: WaccBasis } = {},
+  options: { waccBasis?: WaccBasis; debtScheduleInputs?: DebtScheduleInputState } = {},
 ): FinancialStatementSnapshot {
   const activePeriod = periods.find((period) => period.id === activePeriodId) ?? getDefaultActivePeriod(periods);
   const effectiveActivePeriodId = activePeriod?.id ?? activePeriodId;
   const mappedRows = rows.map(mapRow);
   const fixedAssetSchedule = buildFixedAssetScheduleSummary(periods, fixedAssetScheduleRows);
   const fixedAssetScheduleAmounts = fixedAssetSchedule.totals[effectiveActivePeriodId];
+  const debtSchedule = buildDebtScheduleSummary(periods, rows, options.debtScheduleInputs ?? {});
+  const debtScheduleAmounts = debtSchedule.periods[effectiveActivePeriodId];
   const aggregate = (periodId: string, ...categories: AccountCategory[]) =>
     aggregateForPeriod(mappedRows, periodId, categories);
   const activeAggregate = (...categories: AccountCategory[]) => aggregate(effectiveActivePeriodId, ...categories);
@@ -890,12 +1032,12 @@ export function buildSnapshot(
     derivedCurrentAssets +
     derivedNonCurrentAssets;
 
-  const bankLoanShortTerm = amount(activeAggregate("BANK_LOAN_SHORT_TERM"));
+  const bankLoanShortTerm = debtScheduleAmounts?.shortTermEnding ?? amount(activeAggregate("BANK_LOAN_SHORT_TERM"));
   const accountPayable = amount(activeAggregate("ACCOUNT_PAYABLE"));
   const taxPayable = amount(activeAggregate("TAX_PAYABLE"));
   const otherPayable = amount(activeAggregate("OTHER_PAYABLE"));
-  const interestPayable = amount(activeAggregate("INTEREST_PAYABLE"));
-  const bankLoanLongTerm = amount(activeAggregate("BANK_LOAN_LONG_TERM", "INTEREST_BEARING_DEBT"));
+  const interestPayable = debtScheduleAmounts?.interestPayable ?? amount(activeAggregate("INTEREST_PAYABLE"));
+  const bankLoanLongTerm = debtScheduleAmounts?.longTermEnding ?? amount(activeAggregate("BANK_LOAN_LONG_TERM", "INTEREST_BEARING_DEBT"));
   const broadCurrentLiabilities = amount(activeAggregate("CURRENT_LIABILITIES"));
   const broadNonCurrentLiabilities = amount(activeAggregate("NON_CURRENT_LIABILITIES"));
   const totalLiabilitiesOverride = amount(activeAggregate("TOTAL_LIABILITIES"));
@@ -1044,6 +1186,19 @@ function fixedAssetSampleValues([acquisitionBeginning, acquisitionAdditions, dep
     acquisitionAdditions: acquisitionAdditions === null ? "" : formatInputNumber(acquisitionAdditions),
     depreciationBeginning: depreciationBeginning === null ? "" : formatInputNumber(depreciationBeginning),
     depreciationAdditions: depreciationAdditions === null ? "" : formatInputNumber(depreciationAdditions),
+  };
+}
+
+function debtScheduleSampleValues(): DebtSchedulePeriodInput {
+  return {
+    shortTermLoanRate: formatRateInputNumber(0.13),
+    shortTermRepayment: formatInputNumber(0),
+    shortTermInterestPayable: formatInputNumber(0),
+    longTermLoanRate: formatRateInputNumber(0.13),
+    longTermBeginning: formatInputNumber(0),
+    longTermAddition: formatInputNumber(0),
+    longTermRepayment: formatInputNumber(0),
+    longTermInterestPayable: formatInputNumber(0),
   };
 }
 
@@ -1337,6 +1492,18 @@ export function parseInputNumber(input: string): number {
 
   const parsed = Number(`${isNegative ? "-" : ""}${normalized.replace(/[^0-9.]/g, "")}`);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function readDebtScheduleInput(inputs: DebtSchedulePeriodInput, key: DebtScheduleInputKey): number {
+  return parseInputNumber(inputs[key] ?? "");
+}
+
+function hasDebtScheduleValue(inputs: DebtSchedulePeriodInput | undefined, key: DebtScheduleInputKey): boolean {
+  return typeof inputs?.[key] === "string" && Boolean(inputs[key]?.trim());
+}
+
+function hasDebtSchedulePeriodInput(inputs: DebtSchedulePeriodInput | undefined, keys: DebtScheduleInputKey[] = debtScheduleInputKeys): boolean {
+  return keys.some((key) => hasDebtScheduleValue(inputs, key));
 }
 
 function parseRate(input: string): number {

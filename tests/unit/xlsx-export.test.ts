@@ -7,6 +7,7 @@ import {
   buildFixedAssetScheduleSummary,
   buildSampleAssumptions,
   buildSampleCaseProfile,
+  buildSampleDebtScheduleInputs,
   buildSampleFixedAssetScheduleRows,
   buildSamplePeriods,
   buildSampleRows,
@@ -72,6 +73,27 @@ describe("valuation XLSX export", () => {
     assert.match(String(baseRow?.[3]), /NTA \+ excess earnings yang dikapitalisasi/);
     assert.match(String(debtLikeRow?.[3]), /selisih terhadap dasar sama dengan saldo utang pajak/);
     assert.match(String(debtLikeRow?.[3]), /EEM skenario dasar - utang pajak/);
+  });
+
+  it("exports Payables rows with workbook-style formulas while manual schedule rows remain literal values", () => {
+    const workbook = buildValuationXlsxWorkbook(buildSampleExportInput(), "all", exportedAt);
+    const cashFlowRows = workbook.sheets.find((sheet) => sheet.name === "Cash Flow")?.rows ?? [];
+    const shortRateRow = cashFlowRows.find((row) => row[1] === "short-rate");
+    const shortEndingRow = cashFlowRows.find((row) => row[1] === "short-ending");
+    const longBeginningRow = cashFlowRows.find((row) => row[1] === "long-beginning");
+    const longEndingRow = cashFlowRows.find((row) => row[1] === "long-ending");
+    const interestBearingDebtRow = cashFlowRows.find((row) => row[1] === "interest-bearing-debt");
+    const totalDebtScheduleRow = cashFlowRows.find((row) => row[1] === "total-debt-schedule");
+
+    assert.equal(shortRateRow?.[8], 0.13);
+    assert.equal(typeof shortEndingRow?.[8], "object");
+    assert.equal(typeof longBeginningRow?.[8], "object");
+    assert.equal(typeof longEndingRow?.[8], "object");
+    assert.equal(typeof interestBearingDebtRow?.[8], "object");
+    assert.equal(typeof totalDebtScheduleRow?.[8], "object");
+    assert.match(String((shortEndingRow?.[8] as { formula?: string }).formula), /\+/);
+    assert.match(String((interestBearingDebtRow?.[8] as { formula?: string }).formula), /\+/);
+    assert.match(String((totalDebtScheduleRow?.[8] as { formula?: string }).formula), /\+/);
   });
 
   it("uses the selected active EEM basis in summaries and keeps sensitivity rows comparable", () => {
@@ -150,8 +172,9 @@ function buildSampleExportInput(): ValuationPdfExportInput {
   const mappedRows = rows.map(mapRow);
   const fixedAssetScheduleRows = buildSampleFixedAssetScheduleRows();
   const fixedAssetSchedule = buildFixedAssetScheduleSummary(periods, fixedAssetScheduleRows);
+  const debtScheduleInputs = buildSampleDebtScheduleInputs();
   const assumptions = buildSampleAssumptions();
-  const snapshot = buildSnapshot(periods, activePeriodId, rows, assumptions, fixedAssetScheduleRows);
+  const snapshot = buildSnapshot(periods, activePeriodId, rows, assumptions, fixedAssetScheduleRows, { debtScheduleInputs });
   const aamAdjustmentModel = buildAamAdjustmentModel(snapshot, {});
   const results = calculateAllMethods(snapshot, {
     aam: {
@@ -174,7 +197,7 @@ function buildSampleExportInput(): ValuationPdfExportInput {
     caseProfileDerived,
     snapshot,
   });
-  const sectionAnalysis = buildSectionAnalysis(periods, rows, assumptions, fixedAssetScheduleRows);
+  const sectionAnalysis = buildSectionAnalysis(periods, rows, assumptions, fixedAssetScheduleRows, {}, debtScheduleInputs);
   const equityBookComponents =
     snapshot.paidUpCapital +
     snapshot.additionalPaidInCapital +

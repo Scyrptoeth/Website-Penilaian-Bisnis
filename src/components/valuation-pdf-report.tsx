@@ -16,6 +16,7 @@ import {
 import { filterMappedRowsByValuationScope } from "@/lib/valuation/export-scopes";
 import { buildEemTaxPayableDebtLikeNote, eemSensitivityContext } from "@/lib/valuation/eem-sensitivity-context";
 import type { TaxSimulationMethodRow } from "@/lib/valuation/tax-simulation";
+import type { AnalysisRow } from "@/lib/valuation/section-analysis";
 import type { FormulaTrace, MethodOutput, ValuationMethod } from "@/lib/valuation/types";
 
 type ReportMetric = {
@@ -192,6 +193,13 @@ export function ValuationPdfReport() {
             </table>
           </ReportSection>
         ) : null}
+
+        <ReportSection title="Jadwal Utang">
+          <p className="pdf-report-note">
+            Jadwal mengikuti ACC PAYABLES: baris manual berasal dari input schedule, sedangkan formula dan interoperabilitas Neraca tetap terkunci.
+          </p>
+          <AnalysisReportTable rows={input.sectionAnalysis.payablesRows} periods={periods} />
+        </ReportSection>
 
         {scope.methods.includes("AAM") ? (
           <ReportSection title="Penyesuaian AAM">
@@ -739,6 +747,51 @@ function FinancialStatementTable({ title, rows, periods }: { title?: string; row
       </table>
     </div>
   );
+}
+
+function AnalysisReportTable({ rows, periods }: { rows: AnalysisRow[]; periods: Period[] }) {
+  return (
+    <table className="pdf-report-table compact financial">
+      <thead>
+        <tr>
+          <th>Pos</th>
+          <th>Sumber</th>
+          <th>Formula</th>
+          {periods.map((period) => (
+            <th key={period.id}>{period.label}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row) =>
+          row.kind === "section" ? (
+            <tr className="subtotal-row" key={row.key}>
+              <td colSpan={periods.length + 3}>{row.label}</td>
+            </tr>
+          ) : (
+            <tr key={row.key}>
+              <td>{row.label}</td>
+              <td>{row.source}</td>
+              <td>{row.formula}</td>
+              {periods.map((period) => (
+                <td className="numeric-cell" key={period.id}>
+                  {formatAnalysisReportValue(row.values[period.id] ?? null, row.valueFormat)}
+                </td>
+              ))}
+            </tr>
+          ),
+        )}
+      </tbody>
+    </table>
+  );
+}
+
+function formatAnalysisReportValue(value: number | null, valueFormat: AnalysisRow["valueFormat"] = "currency"): string {
+  if (value === null || !Number.isFinite(value)) {
+    return "-";
+  }
+
+  return valueFormat === "percent" ? formatPercent(value) : formatIdr(value);
 }
 
 function formatTraceValue(trace: FormulaTrace): string {
