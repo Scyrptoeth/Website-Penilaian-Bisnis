@@ -10519,7 +10519,7 @@ function WaccComparableTable({
       </div>
       <div className="wacc-comparable-source" data-testid="wacc-comparable-source" data-snapshot-id={datasetMetadata.id}>
         <div className="wacc-comparable-source-main">
-          <span className="source-status-pill smart">IDX/Yahoo snapshot</span>
+          <span className="source-status-pill smart">IDX peer snapshot</span>
           <span>
             Snapshot per {formatDisplayDate(datasetMetadata.asOfDate)} · {datasetMetadata.rowCount} catatan pembanding · toleransi{" "}
             {datasetMetadata.tolerancePercent}% sektor

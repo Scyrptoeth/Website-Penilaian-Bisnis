@@ -1,0 +1,84 @@
+{
+  "generatedAtWib": "14/05/2026, 21:01:09",
+  "sourceFile": "Daftar_Saham_IDX_2026-05-01_Yahoo_Statistics_Sector_Comparison_Tolerance_20pct.xlsx",
+  "outputDir": "src/lib/valuation",
+  "rowCount": 719,
+  "years": {
+    "2021": {
+      "rowCount": 719,
+      "completeRows": 497,
+      "missingBeta": 222,
+      "missingMarketCap": 71,
+      "missingDebt": 71,
+      "qualityCounts": {
+        "Bisa Dipertimbangkan sebagai Data Pembanding": 388,
+        "Data Pembanding Bersifat Moderat": 107,
+        "Data Pembanding Dibawah Rata-Rata Sektor": 177,
+        "Data Pembanding Bersifat Ideal": 9,
+        "Data Pembanding Diatas Rata-Rata Sektor": 38
+      }
+    },
+    "2022": {
+      "rowCount": 719,
+      "completeRows": 536,
+      "missingBeta": 183,
+      "missingMarketCap": 13,
+      "missingDebt": 13,
+      "qualityCounts": {
+        "Bisa Dipertimbangkan sebagai Data Pembanding": 362,
+        "Data Pembanding Bersifat Moderat": 117,
+        "Data Pembanding Dibawah Rata-Rata Sektor": 192,
+        "Data Pembanding Diatas Rata-Rata Sektor": 43,
+        "Data Pembanding Bersifat Ideal": 5
+      }
+    },
+    "2023": {
+      "rowCount": 719,
+      "completeRows": 581,
+      "missingBeta": 136,
+      "missingMarketCap": 2,
+      "missingDebt": 2,
+      "qualityCounts": {
+        "Bisa Dipertimbangkan sebagai Data Pembanding": 341,
+        "Data Pembanding Dibawah Rata-Rata Sektor": 208,
+        "Data Pembanding Bersifat Moderat": 118,
+        "Data Pembanding Diatas Rata-Rata Sektor": 43,
+        "Data Pembanding Bersifat Ideal": 9
+      }
+    },
+    "2024": {
+      "rowCount": 719,
+      "completeRows": 632,
+      "missingBeta": 77,
+      "missingMarketCap": 10,
+      "missingDebt": 10,
+      "qualityCounts": {
+        "Bisa Dipertimbangkan sebagai Data Pembanding": 334,
+        "Data Pembanding Bersifat Moderat": 110,
+        "Data Pembanding Dibawah Rata-Rata Sektor": 220,
+        "Data Pembanding Diatas Rata-Rata Sektor": 44,
+        "Data Pembanding Bersifat Ideal": 11
+      }
+    },
+    "2025": {
+      "rowCount": 719,
+      "completeRows": 650,
+      "missingBeta": 10,
+      "missingMarketCap": 59,
+      "missingDebt": 59,
+      "qualityCounts": {
+        "Bisa Dipertimbangkan sebagai Data Pembanding": 320,
+        "Data Pembanding Bersifat Moderat": 139,
+        "Data Pembanding Dibawah Rata-Rata Sektor": 224,
+        "Data Pembanding Diatas Rata-Rata Sektor": 25,
+        "Data Pembanding Bersifat Ideal": 11
+      }
+    }
+  },
+  "sourceNotes": [
+    "IDX company universe, sector, and names come from the source XLSX.",
+    "Market cap, short-term borrowing, and long-term borrowing come from IndoPremier annual fundamentals endpoint with quarter=4.",
+    "Beta is calculated from monthly stock returns versus ^JKSE using Yahoo Finance chart data, trailing five years up to each snapshot year-end.",
+    "Investing.com financial statement pages were used as a manual structure cross-check; automated Investing.com extraction was not used because regular requests are Cloudflare challenged."
+  ]
+}

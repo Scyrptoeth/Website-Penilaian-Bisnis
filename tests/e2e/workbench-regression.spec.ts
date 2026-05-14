@@ -1141,10 +1141,10 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await expect(page.getByTestId("discount-rate-analysis")).toContainText("Discount Rate Analysis (CAPM)");
   await expect(page.getByTestId("discount-rate-analysis")).not.toContainText("Detail audit teknis");
   await expect(page.getByTestId("wacc-comparable-table")).toContainText("Perusahaan Pembanding");
-  await expect(page.getByTestId("wacc-comparable-source")).toContainText("IDX/Yahoo snapshot");
-  await expect(page.getByTestId("wacc-comparable-source")).toContainText("Snapshot per 01 Mei 2026");
-  await expect(page.getByTestId("wacc-comparable-source")).toContainText("snapshot peer tahunan 2020-2025 belum tersedia");
-  await expect(page.getByTestId("wacc-comparable-source-warning")).toContainText("Potensi look-ahead bias");
+  await expect(page.getByTestId("wacc-comparable-source")).toContainText("IDX peer snapshot");
+  await expect(page.getByTestId("wacc-comparable-source")).toContainText("Snapshot per 31 Desember 2023");
+  await expect(page.getByTestId("wacc-comparable-source")).toContainText("return bulanan saham IDX");
+  await expect(page.getByTestId("wacc-comparable-source-warning")).toContainText("Snapshot sesuai tanggal penilaian");
   await expect(page.getByTestId("wacc-comparable-source-warning")).toContainText("31 Des 2023");
   await expect(page.getByTestId("wacc-capital-structure-table")).toContainText("Struktur Kapital");
   await page.getByTestId("wacc-comparable-table").getByRole("button", { name: "Terapkan Saran" }).click();
@@ -1388,8 +1388,8 @@ test("WACC comparable provenance remains readable on mobile tabs", async ({ page
   const mobileTabs = page.locator(".mobile-workflow-tabs");
   await expect(mobileTabs).toBeVisible();
   await mobileTabs.getByRole("tab", { name: "WACC", exact: true }).click();
-  await expect(page.getByTestId("wacc-comparable-source")).toContainText("Snapshot per 01 Mei 2026");
-  await expect(page.getByTestId("wacc-comparable-source-warning")).toContainText("Potensi look-ahead bias");
+  await expect(page.getByTestId("wacc-comparable-source")).toContainText("Snapshot per 31 Desember 2023");
+  await expect(page.getByTestId("wacc-comparable-source-warning")).toContainText("Snapshot sesuai tanggal penilaian");
   await expect(page.getByTestId("wacc-comparable-source-warning")).toContainText("31 Des 2023");
   expect(await hasNoRootHorizontalOverflow(page)).toBe(true);
 

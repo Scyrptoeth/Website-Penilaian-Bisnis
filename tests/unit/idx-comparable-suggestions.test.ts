@@ -39,23 +39,41 @@ describe("idx comparable suggestions", () => {
     assert.equal(idxComparableDatasetMetadata.asOfDate, "2026-05-01");
     assert.equal(idxComparableDatasetMetadata.rowCount, 719);
     assert.match(idxComparableDatasetMetadata.processedFile, /Sector_Comparison_Tolerance_20pct/);
-    assert.match(idxComparableDatasetMetadata.coverageNote, /2020-2025 belum tersedia/);
     assert.deepEqual(
       idxComparableDatasetSnapshots.map((snapshot) => snapshot.metadata.id),
-      ["idx-yahoo-peer-snapshot-2026-05-01"],
+      [
+        "idx-annual-peer-snapshot-2021-12-31",
+        "idx-annual-peer-snapshot-2022-12-31",
+        "idx-annual-peer-snapshot-2023-12-31",
+        "idx-annual-peer-snapshot-2024-12-31",
+        "idx-annual-peer-snapshot-2025-12-31",
+        "idx-yahoo-peer-snapshot-2026-05-01",
+      ],
     );
   });
 
-  it("warns when a valuation date predates the IDX peer snapshot", () => {
-    const status = getIdxComparableDatasetUseStatus("2023-12-31");
-    const resolution = getIdxComparableDatasetResolution("2023-12-31");
+  it("resolves annual IDX peer snapshots for 2021 through 2025", () => {
+    for (const year of [2021, 2022, 2023, 2024, 2025]) {
+      const resolution = getIdxComparableDatasetResolution(`${year}-12-31`);
+
+      assert.equal(resolution.resolutionKind, "exact-snapshot");
+      assert.equal(resolution.snapshot.metadata.asOfDate, `${year}-12-31`);
+      assert.equal(resolution.snapshot.metadata.rowCount, 719);
+      assert.equal(resolution.snapshot.companies.length, 719);
+      assert.match(resolution.snapshot.metadata.metricBasis, /return bulanan/);
+    }
+  });
+
+  it("warns when a valuation date predates the earliest IDX peer snapshot", () => {
+    const status = getIdxComparableDatasetUseStatus("2020-12-31");
+    const resolution = getIdxComparableDatasetResolution("2020-12-31");
 
     assert.equal(resolution.resolutionKind, "look-ahead-fallback");
-    assert.equal(resolution.snapshot.metadata.asOfDate, "2026-05-01");
+    assert.equal(resolution.snapshot.metadata.asOfDate, "2021-12-31");
     assert.equal(status.level, "warning");
     assert.equal(status.label, "Potensi look-ahead bias");
-    assert.match(status.message, /31 Des 2023/);
-    assert.match(status.message, /1 Mei 2026/);
+    assert.match(status.message, /31 Des 2020/);
+    assert.match(status.message, /31 Des 2021/);
     assert.match(status.message, /latest-available fallback/);
   });
 
@@ -86,6 +104,8 @@ describe("idx comparable suggestions", () => {
 
     assert.equal(withHistoricalDate.length, withoutDate.length);
     assert.equal(suggestions.length, 3);
-    assert.equal(suggestions.every((company) => company.quality === "Data Pembanding Bersifat Moderat"), true);
+    assert.equal(suggestions.every((company) => company.betaLevered !== null && company.betaLevered > 0), true);
+    assert.equal(suggestions.every((company) => company.marketCap !== null && company.marketCap > 0), true);
+    assert.equal(suggestions.every((company) => company.debt !== null && company.debt >= 0), true);
   });
 });

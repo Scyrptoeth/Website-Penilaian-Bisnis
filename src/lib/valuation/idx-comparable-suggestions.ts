@@ -1,3 +1,8 @@
+import idxComparables2021 from "./idx-comparables-2021.json";
+import idxComparables2022 from "./idx-comparables-2022.json";
+import idxComparables2023 from "./idx-comparables-2023.json";
+import idxComparables2024 from "./idx-comparables-2024.json";
+import idxComparables2025 from "./idx-comparables-2025.json";
 import idxComparables from "./idx-comparables.json";
 
 export type IdxComparableQuality =
@@ -80,10 +85,27 @@ export const idxComparableDatasetMetadata: IdxComparableDatasetMetadata = {
   sourceRowCount: 957,
   tolerancePercent: 20,
   metricBasis: "Beta 5Y monthly, market cap current, dan total debt MRQ dari Yahoo Finance.",
-  coverageNote: "Build saat ini memakai satu snapshot peer IDX; snapshot peer tahunan 2020-2025 belum tersedia.",
+  coverageNote: "Snapshot current tetap tersedia sebagai fallback terbaru; snapshot peer tahunan 2021-2025 tersedia terpisah.",
+};
+
+const annualSnapshotSourceFile = "Daftar_Saham_IDX_2026-05-01_Yahoo_Statistics_Sector_Comparison_Tolerance_20pct.xlsx";
+const annualSnapshotFetchedAtWib = "14/05/2026, 21:01:09";
+const annualSnapshotMetricBasis =
+  "Beta dihitung dari return bulanan saham IDX terhadap IHSG (^JKSE) trailing lima tahun via Yahoo Finance chart API; market cap dan interest-bearing debt memakai fundamental tahunan IndoPremier.";
+
+const annualComparableDatasets: Record<number, IdxComparableCompany[]> = {
+  2021: idxComparables2021 as IdxComparableCompany[],
+  2022: idxComparables2022 as IdxComparableCompany[],
+  2023: idxComparables2023 as IdxComparableCompany[],
+  2024: idxComparables2024 as IdxComparableCompany[],
+  2025: idxComparables2025 as IdxComparableCompany[],
 };
 
 export const idxComparableDatasetSnapshots: IdxComparableDatasetSnapshot[] = [
+  ...Object.entries(annualComparableDatasets).map(([year, companies]) => ({
+    metadata: buildAnnualSnapshotMetadata(Number(year), companies.length),
+    companies,
+  })),
   {
     metadata: idxComparableDatasetMetadata,
     companies: idxComparables as IdxComparableCompany[],
@@ -110,7 +132,16 @@ export function getIdxComparablesBySector(sector: string, options: IdxComparable
 
 export function getSuggestedIdxComparables(sector: string, limit = 3, options: IdxComparableDatasetOptions = {}): IdxComparableCompany[] {
   return getIdxComparablesBySector(sector, options)
-    .filter((company) => company.quality === "Data Pembanding Bersifat Ideal" || company.quality === "Data Pembanding Bersifat Moderat")
+    .filter(
+      (company) =>
+        (company.quality === "Data Pembanding Bersifat Ideal" || company.quality === "Data Pembanding Bersifat Moderat") &&
+        company.betaLevered !== null &&
+        company.betaLevered > 0 &&
+        company.marketCap !== null &&
+        company.marketCap > 0 &&
+        company.debt !== null &&
+        company.debt >= 0,
+    )
     .sort((first, second) => getQualityPriority(first.quality) - getQualityPriority(second.quality))
     .slice(0, limit);
 }
@@ -175,9 +206,10 @@ export function getIdxComparableDatasetUseStatus(valuationDate: string): IdxComp
 }
 
 export function getIdxComparableDatasetResolution(valuationDate: string): IdxComparableDatasetResolution {
+  const earliestSnapshot = sortedIdxComparableDatasetSnapshots.at(0);
   const latestSnapshot = sortedIdxComparableDatasetSnapshots.at(-1);
 
-  if (!latestSnapshot) {
+  if (!earliestSnapshot || !latestSnapshot) {
     throw new Error("IDX comparable dataset snapshot is not configured.");
   }
 
@@ -215,13 +247,32 @@ export function getIdxComparableDatasetResolution(valuationDate: string): IdxCom
 
   return {
     valuationDate: normalizedValuationDate,
-    snapshot: latestSnapshot,
+    snapshot: earliestSnapshot,
     resolutionKind: "look-ahead-fallback",
   };
 }
 
 function normalizeSector(value: string): string {
   return value.trim().toLowerCase();
+}
+
+function buildAnnualSnapshotMetadata(year: number, rowCount: number): IdxComparableDatasetMetadata {
+  return {
+    id: `idx-annual-peer-snapshot-${year}-12-31`,
+    sourceName: "IDX company list + Yahoo Finance chart API + IndoPremier fundamentals",
+    sourceUrl: "https://www.indopremier.com/module/saham/include/fundamental.php?code=TLKM&quarter=4",
+    sourceFile: annualSnapshotSourceFile,
+    processedFile: `idx-comparables-${year}.json`,
+    asOfDate: `${year}-12-31`,
+    fetchedAtWib: annualSnapshotFetchedAtWib,
+    processedAtWib: "2026-05-14",
+    rowCount,
+    sourceRowCount: 719,
+    tolerancePercent: 20,
+    metricBasis: annualSnapshotMetricBasis,
+    coverageNote:
+      "Investing.com dipakai sebagai cross-check struktur laporan; batch extraction otomatis tidak dipakai karena request biasa terkena Cloudflare challenge.",
+  };
 }
 
 function normalizeIsoDate(value: string): string | null {
