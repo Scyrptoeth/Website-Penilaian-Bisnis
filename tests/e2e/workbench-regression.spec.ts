@@ -432,7 +432,8 @@ test("added analysis sections use readiness gates before sample data and render 
 
   await loadSampleWorkbook(page);
   await openWorkflowTab(page, "Cash Flow Statement");
-  await expect(page.getByText("Review arus kas historis")).toBeVisible();
+  await expect(page.getByText("Review arus kas historis")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Koneksi EEM/DCF" })).toHaveCount(0);
   await expect(page.getByText("Calculated · override · final · trace")).toBeVisible();
   const cashFlowStatementTable = page.locator("table.cash-flow-statement-table");
   await expect(cashFlowStatementTable).not.toContainText(/CFS!\d/);
@@ -447,22 +448,20 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(debtScheduleSection.getByText("ACC PAYABLES")).toBeVisible();
   await expect(debtScheduleSection.getByText("Bridge arus kas terkoreksi")).toHaveCount(0);
   await expect(debtScheduleSection.getByText("CASH FLOW STATEMENT")).toHaveCount(0);
-  await expect(debtScheduleSection.getByText("Referensi audit sistem")).toBeVisible();
+  await expect(debtScheduleSection.getByText("Referensi audit sistem")).toHaveCount(0);
+  await expect(debtScheduleSection.getByText("Total jadwal utang")).toBeVisible();
   await expect(page.locator("body")).not.toContainText("Workbook audit reference");
-  await expect(debtScheduleSection.getByText(/1\.823\.364\.600/).first()).toBeVisible();
 
   await openWorkflowTab(page, "NOPLAT & FCF");
   await expect(page.getByText("Free Cash Flow to Firm (FCFF)")).toBeVisible();
   await expect(page.getByText("Basis statutory komersial")).toBeVisible();
-  await expect(page.getByText("Referensi audit sistem")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Bridge NOPLAT" })).toHaveCount(0);
+  await expect(page.getByTestId("noplat-audit-panel")).toHaveCount(0);
   const noplatBox = await page.getByTestId("noplat-panel").boundingBox();
-  const auditBox = await page.getByTestId("noplat-audit-panel").boundingBox();
   const fcfBox = await page.getByTestId("fcf-panel").boundingBox();
   expect(noplatBox).not.toBeNull();
-  expect(auditBox).not.toBeNull();
   expect(fcfBox).not.toBeNull();
-  expect(auditBox!.y).toBeGreaterThan(noplatBox!.y + noplatBox!.height - 1);
-  expect(fcfBox!.y).toBeGreaterThan(auditBox!.y + auditBox!.height - 1);
+  expect(fcfBox!.y).toBeGreaterThan(noplatBox!.y + noplatBox!.height - 1);
 
   await openWorkflowTab(page, "Proyeksi Laba Rugi");
   await expect(page.getByRole("heading", { name: "Proyeksi Laba Rugi" })).toBeVisible();
@@ -607,43 +606,35 @@ test("added analysis sections use readiness gates before sample data and render 
   await openWorkflowTab(page, "ROIC");
   await expect(page.getByText("Bridge efisiensi modal")).toBeVisible();
   await expect(page.getByText("Basis NOPLAT terkoreksi")).toBeVisible();
-  await expect(page.getByText("Referensi audit sistem")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Basis kapital ROIC" })).toHaveCount(0);
   await expect(page.locator(".roic-table-panel")).toBeVisible();
-  await expect(page.locator(".roic-audit-panel")).toBeVisible();
   const roicLayout = await page.evaluate(() => {
     const tablePanel = document.querySelector(".roic-table-panel");
-    const auditPanel = document.querySelector(".roic-audit-panel");
     const tableWrap = document.querySelector(".roic-table-panel .table-wrap");
     const workspace = document.querySelector(".workspace");
 
-    if (!(tablePanel instanceof HTMLElement) || !(auditPanel instanceof HTMLElement) || !(tableWrap instanceof HTMLElement) || !(workspace instanceof HTMLElement)) {
+    if (!(tablePanel instanceof HTMLElement) || !(tableWrap instanceof HTMLElement) || !(workspace instanceof HTMLElement)) {
       return null;
     }
 
     const tablePanelBox = tablePanel.getBoundingClientRect();
-    const auditPanelBox = auditPanel.getBoundingClientRect();
     const tableWrapBox = tableWrap.getBoundingClientRect();
     const workspaceBox = workspace.getBoundingClientRect();
 
     return {
-      auditTop: auditPanelBox.top,
       tablePanelBottom: tablePanelBox.bottom,
       tableWrapWidth: tableWrapBox.width,
       workspaceWidth: workspaceBox.width,
     };
   });
   expect(roicLayout).not.toBeNull();
-  expect(roicLayout?.auditTop ?? 0).toBeGreaterThanOrEqual((roicLayout?.tablePanelBottom ?? 0) - 1);
+  expect(roicLayout?.tablePanelBottom ?? 0).toBeGreaterThan(0);
   expect(roicLayout?.tableWrapWidth ?? 0).toBeGreaterThan((roicLayout?.workspaceWidth ?? 0) * 0.7);
   expect(await hasNoRootHorizontalOverflow(page)).toBe(true);
 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.locator(".mobile-workflow-tabs")).toBeVisible();
-  await expect(page.locator(".roic-audit-panel")).toBeVisible();
-  const roicAuditMetricColumns = await page.locator(".roic-audit-panel .audit-reference-grid").evaluate((grid) =>
-    getComputedStyle(grid).gridTemplateColumns.split(" ").length,
-  );
-  expect(roicAuditMetricColumns).toBe(1);
+  await expect(page.locator(".roic-audit-panel")).toHaveCount(0);
   expect(await hasNoRootHorizontalOverflow(page)).toBe(true);
 });
 

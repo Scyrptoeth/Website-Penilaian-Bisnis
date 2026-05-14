@@ -153,7 +153,6 @@ import {
   type CashFlowOverrideState,
   type CashFlowOverrideStatus,
   type CashFlowStatementRow,
-  type PeriodAnalysis,
   type RatioRow,
   type SectionAnalysis,
 } from "@/lib/valuation/section-analysis";
@@ -7290,71 +7289,9 @@ function CashFlowStatementSection({
   onNavigate: (tabId: WorkflowTabId) => void;
   onUpdateOverride: (rowKey: string, periodId: string, patch: Partial<CashFlowOverrideEntry>) => void;
 }) {
-  const latest = getLatestPeriodAnalysis(analysis);
-  const latestPeriodId = latest?.period.id ?? "";
-  const netCashFlow = analysis.cashFlowStatementRows.find((row) => row.key === "net-cash-flow")?.values[latestPeriodId] ?? null;
-  const cashGap = analysis.cashFlowStatementRows.find((row) => row.key === "cash-rollforward-gap")?.values[latestPeriodId] ?? null;
-  const overrideCount = analysis.cashFlowStatementRows.reduce(
-    (count, row) => count + Object.values(row.overrideStatuses).filter((status) => status === "applied").length,
-    0,
-  );
-  const reviewableRowCount = analysis.cashFlowStatementRows.filter((row) => row.isOverridable).length;
-
   return (
     <>
       <ReadinessPanel status={readiness} onNavigate={onNavigate} />
-
-      <section className="split-panel cash-flow-review-grid">
-        <article className="panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">CASH FLOW STATEMENT</p>
-              <h3>Review arus kas historis</h3>
-            </div>
-            <span className="status-pill muted">Derived + controlled override</span>
-          </div>
-          <EngineAuditReference
-            sourceLabel="Referensi model + mesin kasus aktif"
-            summary="Struktur mengikuti format arus kas, tetapi angka dihitung ulang dari Neraca, Laba Rugi, Aset Tetap, dan asumsi aktif."
-            metrics={[
-              { label: "Net cash flow", value: netCashFlow },
-              { label: "Cash roll-forward gap", value: cashGap },
-              { label: "Override diterapkan", value: overrideCount, display: "number" },
-              { label: "Baris reviewable", value: reviewableRowCount, display: "number" },
-            ]}
-            notes={[
-              "Override numerik langsung memengaruhi final value saat nilai override diisi.",
-              "Subtotal memakai final value agar pengguna dapat melihat dampak override ke rekonsiliasi.",
-              "Formula dan sumber bisnis ditampilkan di setiap baris agar angka tidak muncul tanpa konteks.",
-            ]}
-          />
-        </article>
-
-        <article className="panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Interoperabilitas</p>
-              <h3>Koneksi EEM/DCF</h3>
-            </div>
-            <span className="status-pill muted">BS · IS · FA · assumptions</span>
-          </div>
-          <EngineAuditReference
-            sourceLabel="Mesin valuasi"
-            summary="Cash-flow statement historis menjadi jembatan review untuk kualitas input EEM/DCF, bukan default production fixture."
-            metrics={[
-              { label: "CFO historis", value: latest?.cashFlowFromOperations ?? null },
-              { label: "FCFF historis", value: latest?.freeCashFlow ?? null },
-              { label: "Operating WC", value: latest?.operatingWorkingCapital ?? null },
-              { label: "Capex", value: latest ? -latest.capitalExpenditure : null },
-            ]}
-            notes={[
-              "EEM tetap memakai NTA, NOPLAT, required return, aset non-operasional, dan debt sesuai engine.",
-              "DCF tetap memakai FCFF formula-driven dan driver proyeksi; tab ini membantu audit angka historis.",
-              "Cash beginning periode awal dapat di-seed manual bila sumber memiliki opening cash sebelum periode pertama.",
-            ]}
-          />
-        </article>
-      </section>
 
       <section className="panel">
         <div className="panel-heading">
@@ -7519,8 +7456,6 @@ function cashFlowOverrideStatusLabel(status: CashFlowOverrideStatus): string {
 }
 
 function DebtScheduleSection({ analysis }: { analysis: SectionAnalysis }) {
-  const latest = getLatestPeriodAnalysis(analysis);
-
   return (
     <section className="panel debt-schedule-panel" data-testid="debt-schedule-section">
       <div className="panel-heading">
@@ -7531,35 +7466,11 @@ function DebtScheduleSection({ analysis }: { analysis: SectionAnalysis }) {
         <span className="status-pill muted">Basis mutasi terkoreksi</span>
       </div>
       <AnalysisTable rows={analysis.payablesRows} periods={analysis.periods} />
-
-      <div className="debt-schedule-reference" aria-label="Referensi audit jadwal utang">
-        <EngineAuditReference
-          sourceLabel="Referensi audit sistem"
-          summary="Saldo dan mutasi utang dihitung ulang dari akun yang dipetakan pada kasus aktif, bukan disalin dari prototipe."
-          metrics={[
-            { label: "Utang usaha", value: latest?.snapshot.accountPayable ?? null },
-            { label: "Utang pajak", value: latest?.snapshot.taxPayable ?? null },
-            { label: "Utang lain-lain", value: latest?.snapshot.otherPayable ?? null },
-            {
-              label: "Utang berbunga",
-              value: latest ? latest.loanMovement.shortTermEnding + latest.loanMovement.longTermEnding : null,
-            },
-          ]}
-          notes={[
-            "Penambahan dan pembayaran kembali dihitung dari movement saldo antarperiode.",
-            "Utang usaha, utang pajak, dan utang lain-lain tetap terlihat sebagai saldo utama jadwal.",
-            "Utang bunga dan pinjaman bank tetap tersedia di tabel agar reviewer dapat membedakannya dari saldo operasional.",
-            "Detail arus kas historis tetap direview di tab arus kas terpisah.",
-          ]}
-        />
-      </div>
     </section>
   );
 }
 
 function NoplatFcfSection({ analysis }: { analysis: SectionAnalysis }) {
-  const latest = getLatestPeriodAnalysis(analysis);
-
   return (
     <>
       <section className="panel" data-testid="noplat-panel">
@@ -7571,29 +7482,6 @@ function NoplatFcfSection({ analysis }: { analysis: SectionAnalysis }) {
           <span className="status-pill muted">Basis statutory komersial</span>
         </div>
         <AnalysisTable rows={analysis.noplatRows} periods={analysis.periods} />
-      </section>
-
-      <section className="panel noplat-audit-panel" data-testid="noplat-audit-panel">
-        <div className="panel-heading">
-          <div>
-            <p className="eyebrow">Referensi audit sistem</p>
-            <h3>Bridge NOPLAT</h3>
-          </div>
-        </div>
-        <EngineAuditReference
-          sourceLabel="Mesin kasus aktif"
-          summary="Laba operasi dinormalisasi dari line laba rugi yang sudah dipetakan dan asumsi pajak aktif."
-          metrics={[
-            { label: "NPAT komersial", value: latest?.snapshot.commercialNpat ?? null },
-            { label: "NOPLAT ternormalisasi", value: latest?.normalizedNoplat ?? null },
-            { label: "Free Cash Flow (FCF)", value: latest?.freeCashFlow ?? null },
-          ]}
-          notes={[
-            "Bunga dan item non-operasional dikeluarkan dari NOPLAT.",
-            "Pajak memakai tarif statutory aktif atau asumsi tarif pajak yang telah ditinjau.",
-            "FCFF memakai NOPLAT, add-back penyusutan, mutasi working capital, dan capex.",
-          ]}
-        />
       </section>
 
       <section className="panel" data-testid="fcf-panel">
@@ -7646,8 +7534,6 @@ function RoicSection({
   readiness: SectionReadiness;
   onNavigate: (tabId: WorkflowTabId) => void;
 }) {
-  const latest = getLatestPeriodAnalysis(analysis);
-
   return (
     <>
       <ReadinessPanel status={readiness} onNavigate={onNavigate} />
@@ -7662,30 +7548,6 @@ function RoicSection({
             <span className="status-pill muted">Basis NOPLAT terkoreksi</span>
           </div>
           <AnalysisTable rows={analysis.roicRows} periods={analysis.periods} percentRowKeys={new Set(["roic"])} />
-        </article>
-
-        <article className="panel roic-audit-panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Referensi audit sistem</p>
-              <h3>Basis kapital ROIC</h3>
-            </div>
-          </div>
-          <EngineAuditReference
-            sourceLabel="Mesin kasus aktif"
-            summary="Referensi efisiensi modal dihitung ulang dari klasifikasi kasus aktif."
-            metrics={[
-              { label: "Operating NWC", value: latest?.operatingWorkingCapital ?? null },
-              { label: "Invested capital akhir", value: latest?.investedCapitalEnd ?? null },
-              { label: "Invested capital awal", value: latest?.investedCapitalBeginning ?? null },
-              { label: "ROIC", value: latest?.roic ?? null, display: "percent" },
-            ]}
-            notes={[
-              "Operating NWC memakai piutang usaha plus persediaan dikurangi utang usaha dan utang lain-lain.",
-              "Invested capital menggabungkan aset tetap neto dan operating working capital.",
-              "ROIC memakai invested capital awal saat periode pembanding tersedia.",
-            ]}
-          />
         </article>
       </section>
     </>
@@ -7787,50 +7649,6 @@ function RatioTable({ rows, periods }: { rows: RatioRow[]; periods: Period[] }) 
           ))}
         </tbody>
       </table>
-    </div>
-  );
-}
-
-type EngineAuditMetric = {
-  label: string;
-  value: AnalysisValue;
-  display?: "currency" | "percent" | "multiple" | "number";
-};
-
-function getLatestPeriodAnalysis(analysis: SectionAnalysis): PeriodAnalysis | null {
-  return analysis.periodAnalyses[analysis.periodAnalyses.length - 1] ?? null;
-}
-
-function EngineAuditReference({
-  sourceLabel,
-  summary,
-  metrics,
-  notes,
-}: {
-  sourceLabel: string;
-  summary: string;
-  metrics: EngineAuditMetric[];
-  notes: string[];
-}) {
-  return (
-    <div className="audit-reference">
-      <div className="audit-reference-source">
-        <strong>{sourceLabel}</strong>
-        <span>{summary}</span>
-      </div>
-      <div className="audit-reference-grid">
-        {metrics.map((metric) => (
-          <div key={metric.label}>
-            <span>{metric.label}</span>
-            <strong>{formatAnalysisValue(metric.value, metric.display ?? "currency")}</strong>
-          </div>
-        ))}
-      </div>
-      <ul>
-        {notes.map((note) => (
-          <li key={note}>{note}</li>
-        ))}
-      </ul>
     </div>
   );
 }

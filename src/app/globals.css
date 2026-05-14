@@ -2186,10 +2186,6 @@ select {
   font-weight: 600;
 }
 
-.cash-flow-review-grid {
-  align-items: start;
-}
-
 .cash-flow-statement-wrap {
   border-color: var(--line-strong);
 }
@@ -2238,15 +2234,6 @@ select {
 .debt-schedule-panel {
   display: grid;
   gap: 10px;
-}
-
-.debt-schedule-reference {
-  padding-top: 10px;
-  border-top: 1px solid var(--line);
-}
-
-.debt-schedule-reference .audit-reference-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .cash-flow-statement-table td:first-child span,
@@ -2308,70 +2295,6 @@ select {
   border-color: rgba(22, 101, 52, 0.35);
   background: var(--ok-soft);
   color: var(--ok);
-}
-
-.audit-reference {
-  display: grid;
-  gap: 10px;
-}
-
-.audit-reference-source {
-  display: grid;
-  gap: 3px;
-  padding: 9px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface-raised);
-}
-
-.audit-reference-source strong {
-  overflow-wrap: anywhere;
-  font-size: 10px;
-}
-
-.audit-reference-source span {
-  color: var(--muted);
-  font-family: var(--font-mono), monospace;
-  font-size: 8.4px;
-}
-
-.audit-reference-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1px;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--line);
-}
-
-.audit-reference-grid div {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-  padding: 9px;
-  background: var(--surface);
-}
-
-.audit-reference-grid span {
-  color: var(--muted);
-  font-size: 8.8px;
-}
-
-.audit-reference-grid strong {
-  overflow-wrap: anywhere;
-  font-family: var(--font-mono), monospace;
-  font-size: 9.6px;
-  font-weight: 500;
-}
-
-.audit-reference ul {
-  display: grid;
-  gap: 5px;
-  margin: 0;
-  padding-left: 16px;
-  color: var(--muted);
-  line-height: 1.38;
 }
 
 .account-entry-table {
@@ -4641,10 +4564,6 @@ td span {
   min-width: 0;
 }
 
-.noplat-audit-panel .audit-reference-grid {
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
-}
-
 .roic-section-stack {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -4659,19 +4578,6 @@ td span {
 .roic-table-panel .analysis-table th.period-column,
 .roic-table-panel .analysis-table td.period-column {
   width: 168px;
-}
-
-.roic-audit-panel .audit-reference {
-  gap: 8px;
-}
-
-.roic-audit-panel .audit-reference-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.roic-audit-panel .audit-reference ul {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  column-gap: 18px;
 }
 
 .formula-list {
@@ -5149,8 +5055,6 @@ td span {
   .active-driver-strip,
   .projection-mode-panel,
   .projection-mode-toggle,
-  .debt-schedule-reference .audit-reference-grid,
-  .audit-reference-grid,
   .audit-disclosure-grid,
   .data-awal-grid,
   .case-transaction-grid,
@@ -5162,14 +5066,6 @@ td span {
   }
 
   .sensitivity-grid.two-column {
-    grid-template-columns: 1fr;
-  }
-
-  .roic-audit-panel .audit-reference ul {
-    grid-template-columns: 1fr;
-  }
-
-  .roic-audit-panel .audit-reference-grid {
     grid-template-columns: 1fr;
   }
 
