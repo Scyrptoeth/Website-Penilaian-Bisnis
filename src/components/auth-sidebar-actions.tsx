@@ -82,7 +82,7 @@ export function AuthSidebarActions({ userId, isSuperAdmin = false }: AuthSidebar
     <div className="auth-sidebar-actions">
       <p className="auth-user-chip">Login sebagai {userId}</p>
       <a
-        className="auth-nav-action"
+        className="auth-nav-action manual"
         href="/buku-panduan-penggunaan-aplikasi-penilaian-bisnis-ii.pdf"
         target="_blank"
         rel="noopener noreferrer"

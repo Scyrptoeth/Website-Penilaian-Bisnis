@@ -381,7 +381,6 @@ async function renderManualHtml(payload) {
   const balanceRows = rows.filter((row) => row.statement === "balance_sheet");
   const incomeRows = rows.filter((row) => row.statement === "income_statement");
   const fixedAssetRows = Array.isArray(data.fixedAssetScheduleRows) ? data.fixedAssetScheduleRows : [];
-  const technicalInputRows = flattenScalars(data);
   const screenshotSections = await renderScreenshotSections();
   const manualGeneratedAt = new Date();
 
@@ -449,23 +448,29 @@ async function renderManualHtml(payload) {
     ${renderPeriodsTable(periods, data.activePeriodId)}
   </section>
 
-  <section class="chapter">
-    <h2>7. Input Neraca Satu per Satu</h2>
-    <p>Tambahkan baris akun neraca, isi nama akun, pilih kategori utama atau override bila diperlukan, lalu isi nilai untuk setiap periode.</p>
-    ${renderAccountRowsTable(balanceRows, periods)}
-  </section>
+  ${renderAccountRowsChapter({
+    title: "7. Input Neraca Satu per Satu",
+    intro: "Tambahkan baris akun neraca, isi nama akun, pilih kategori utama atau override bila diperlukan, lalu isi nilai untuk setiap periode.",
+    rows: balanceRows,
+    periods,
+    chunkSizes: [9, 9],
+  })}
 
-  <section class="chapter">
-    <h2>8. Input Laba Rugi Satu per Satu</h2>
-    <p>Tambahkan baris akun laba rugi, isi nama akun, pilih kategori utama atau override bila diperlukan, lalu isi nilai untuk setiap periode.</p>
-    ${renderAccountRowsTable(incomeRows, periods)}
-  </section>
+  ${renderAccountRowsChapter({
+    title: "8. Input Laba Rugi Satu per Satu",
+    intro: "Tambahkan baris akun laba rugi, isi nama akun, pilih kategori utama atau override bila diperlukan, lalu isi nilai untuk setiap periode.",
+    rows: incomeRows,
+    periods,
+    chunkSizes: [3, 3, 2],
+  })}
 
-  <section class="chapter">
-    <h2>9. Input Jadwal Aset Tetap Satu per Satu</h2>
-    <p>Tambahkan kelas aset tetap, lalu isi biaya perolehan awal, penambahan biaya perolehan, akumulasi penyusutan awal, dan penyusutan berjalan untuk setiap periode.</p>
-    ${renderFixedAssetRowsTable(fixedAssetRows, periods)}
-  </section>
+  ${renderFixedAssetRowsChapter({
+    title: "9. Input Jadwal Aset Tetap Satu per Satu",
+    intro: "Tambahkan kelas aset tetap, lalu isi biaya perolehan awal, penambahan biaya perolehan, akumulasi penyusutan awal, dan penyusutan berjalan untuk setiap periode.",
+    rows: fixedAssetRows,
+    periods,
+    chunkSizes: [2, 3],
+  })}
 
   <section class="chapter">
     <h2>10. Asumsi, Smart Suggestion, dan Driver</h2>
@@ -493,10 +498,7 @@ async function renderManualHtml(payload) {
     ${renderKeyValueTable(data.taxSimulation || {}, {})}
   </section>
 
-  <section class="chapter">
-    <h2>15. Kontrol Proyeksi Laba Rugi</h2>
-    ${renderIncomeProjectionControls(data.incomeProjectionControls || {})}
-  </section>
+  ${renderIncomeProjectionControlsChapter(data.incomeProjectionControls || {})}
 
   <section class="chapter">
     <h2>16. AAM Adjustment dan Cash Flow Override</h2>
@@ -504,11 +506,6 @@ async function renderManualHtml(payload) {
     ${renderObjectSummary("Cash flow override", data.cashFlowOverrides)}
   </section>
 
-  <section class="chapter">
-    <h2>17. Lampiran Kontrol Kelengkapan Input Teknis</h2>
-    <p>Lampiran ini disediakan sebagai kontrol kelengkapan. Setiap nilai input teknis ditampilkan agar tidak ada field, asumsi, atau pilihan model yang terlewat saat pengisian manual.</p>
-    ${renderScalarTable(technicalInputRows)}
-  </section>
 </body>
 </html>`;
 }
@@ -597,6 +594,49 @@ function renderPeriodsTable(periods, activePeriodId) {
   return renderArrayTable(["ID", "Label", "Tanggal penilaian", "Year offset", "Status"], rows);
 }
 
+function renderAccountRowsChapter({ title, intro, rows, periods, chunkSizes }) {
+  return splitRowsBySizes(rows, chunkSizes)
+    .map((chunk, index) => {
+      const suffix = index === 0 ? "" : " (lanjutan)";
+      const introText = index === 0 ? `<p>${escapeHtml(intro)}</p>` : "";
+      return `
+  <section class="chapter landscape-chapter">
+    <h2>${escapeHtml(title + suffix)}</h2>
+    ${introText}
+    ${renderAccountRowsTable(chunk, periods)}
+  </section>`;
+    })
+    .join("");
+}
+
+function renderFixedAssetRowsChapter({ title, intro, rows, periods, chunkSizes }) {
+  return splitRowsBySizes(rows, chunkSizes)
+    .map((chunk, index) => {
+      const suffix = index === 0 ? "" : " (lanjutan)";
+      const introText = index === 0 ? `<p>${escapeHtml(intro)}</p>` : "";
+      return `
+  <section class="chapter landscape-chapter">
+    <h2>${escapeHtml(title + suffix)}</h2>
+    ${introText}
+    ${renderFixedAssetRowsTable(chunk, periods)}
+  </section>`;
+    })
+    .join("");
+}
+
+function splitRowsBySizes(rows, sizes) {
+  const chunks = [];
+  let start = 0;
+  for (const size of sizes) {
+    chunks.push(rows.slice(start, start + size));
+    start += size;
+  }
+  if (start < rows.length) {
+    chunks[chunks.length - 1].push(...rows.slice(start));
+  }
+  return chunks.filter((chunk) => chunk.length > 0);
+}
+
 function renderAccountRowsTable(rows, periods) {
   const headers = ["Akun", "Category override", "Klasifikasi neraca", "Label"];
   const periodHeaders = periods.map((period) => period.label || period.id);
@@ -673,7 +713,7 @@ function renderDlocPfcTable(dlocPfc) {
   return renderArrayTable(["Faktor", "Jawaban", "Alasan override"], factorRows);
 }
 
-function renderIncomeProjectionControls(controls) {
+function renderIncomeProjectionControlsChapter(controls) {
   const yearly = controls.yearlyOverrides || {};
   const yearlyRows = Object.entries(yearly).map(([year, value]) => [
     year,
@@ -696,18 +736,33 @@ function renderIncomeProjectionControls(controls) {
         event.impact,
       ])
     : [];
+  const auditChunks = splitRowsBySizes(auditRows, [4, Math.max(1, auditRows.length - 4)]);
   return `
+  <section class="chapter landscape-chapter">
+    <h2>15. Kontrol Proyeksi Laba Rugi</h2>
     <h3>Yearly override</h3>
     ${renderArrayTable(["Tahun", "Revenue growth", "Gross margin", "Opex margin", "Depreciation margin", "Reason", "Updated at"], yearlyRows)}
+  </section>
+
+  <section class="chapter landscape-chapter">
+    <h2>15. Kontrol Proyeksi Laba Rugi (lanjutan)</h2>
     <h3>Reviewer decision</h3>
     ${renderKeyValueTable(controls.reviewerDecision || {}, {})}
     <h3>Non operating policy</h3>
     ${renderKeyValueTable(controls.nonOperatingPolicy || {}, {})}
     <h3>Presentation assumptions</h3>
     ${renderKeyValueTable(controls.presentationAssumptions || {}, {})}
-    <h3>Audit events</h3>
-    ${renderArrayTable(["Created at", "Actor", "Action", "Field", "Prior value", "New value", "Reason", "Impact"], auditRows)}
-  `;
+  </section>
+
+  ${auditChunks
+    .map(
+      (chunk, index) => `
+  <section class="chapter landscape-chapter">
+    <h2>15. Kontrol Proyeksi Laba Rugi (audit events${index === 0 ? "" : " lanjutan"})</h2>
+    ${renderArrayTable(["Created at", "Actor", "Action", "Field", "Prior value", "New value", "Reason", "Impact"], chunk)}
+  </section>`,
+    )
+    .join("")}`;
 }
 
 function renderObjectSummary(title, value) {
@@ -802,6 +857,10 @@ function manualCss() {
       size: A4;
       margin: 14mm 12mm 16mm;
     }
+    @page manual-landscape {
+      size: A4 landscape;
+      margin: 10mm 9mm 12mm;
+    }
     * {
       box-sizing: border-box;
       font-style: normal !important;
@@ -892,6 +951,30 @@ function manualCss() {
     }
     .chapter {
       page-break-before: always;
+    }
+    .landscape-chapter {
+      page: manual-landscape;
+      font-size: 8.8pt;
+      line-height: 1.28;
+    }
+    .landscape-chapter h2 {
+      margin-bottom: 3mm;
+      padding-bottom: 2mm;
+      font-size: 15pt;
+    }
+    .landscape-chapter h3 {
+      margin: 4mm 0 2mm;
+      font-size: 10.5pt;
+    }
+    .landscape-chapter p {
+      margin-bottom: 2.2mm;
+    }
+    .landscape-chapter .table-wrap {
+      margin: 2mm 0 4mm;
+    }
+    .landscape-chapter th,
+    .landscape-chapter td {
+      padding: 1.05mm 1.15mm;
     }
     .table-wrap {
       width: 100%;
