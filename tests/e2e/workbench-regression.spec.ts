@@ -386,6 +386,41 @@ test("fixed asset schedule remains empty until user adds a class and then rolls 
   expect(await hasNoRootHorizontalOverflow(page)).toBe(true);
 });
 
+test("fixed asset roll-forward tables reveal current year with three periods", async ({ page }) => {
+  await page.getByLabel("Tahun Transaksi Pengalihan").fill("2022");
+  await page.getByRole("button", { name: /Tambah Y-1/ }).click();
+  await page.getByRole("button", { name: /Tambah Y-2/ }).click();
+  await openWorkflowTab(page, "Aset Tetap");
+  await page.getByRole("button", { name: "Tambah kelas aset" }).first().click();
+
+  for (const testId of ["fixed-asset-acquisition-table", "fixed-asset-depreciation-table"]) {
+    const visibility = await page.getByTestId(testId).evaluate((table) => {
+      const wrapper = table.closest(".fixed-asset-table-wrap");
+      const currentYearHeading = Array.from(table.querySelectorAll("thead tr:first-child th.fixed-asset-period-group-heading")).at(-1);
+      const assetColumn = table.querySelector("thead th.fixed-asset-asset-column");
+
+      if (!(wrapper instanceof HTMLElement) || !(currentYearHeading instanceof HTMLElement) || !(assetColumn instanceof HTMLElement)) {
+        return null;
+      }
+
+      const wrapperRect = wrapper.getBoundingClientRect();
+      const headingRect = currentYearHeading.getBoundingClientRect();
+      const assetRect = assetColumn.getBoundingClientRect();
+
+      return {
+        assetColumnWidth: Math.round(assetRect.width),
+        currentYearLabel: currentYearHeading.textContent?.trim() ?? "",
+        visiblePixels: Math.round(wrapperRect.right - headingRect.left),
+      };
+    });
+
+    expect(visibility).not.toBeNull();
+    expect(visibility?.currentYearLabel).toMatch(/^(2021|Tahun Y)$/);
+    expect(visibility?.assetColumnWidth).toBeLessThanOrEqual(280);
+    expect(visibility?.visiblePixels).toBeGreaterThanOrEqual(40);
+  }
+});
+
 test("AAM valuation remains available without WACC or EEM/DCF driver inputs", async ({ page }) => {
   await page.getByLabel("Tanggal penilaian").fill("2021-12-31");
   await openWorkflowTab(page, "Neraca");

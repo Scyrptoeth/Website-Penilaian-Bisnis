@@ -12050,7 +12050,7 @@ function FixedAssetSectionTable({
     <div className="fixed-asset-section">
       <h5>{title}</h5>
       <div className="table-wrap fixed-asset-table-wrap">
-        <table className="fixed-asset-table" data-testid={title.startsWith("A.") ? "fixed-asset-acquisition-table" : "fixed-asset-depreciation-table"}>
+        <table className="fixed-asset-table fixed-asset-rollforward-table" data-testid={title.startsWith("A.") ? "fixed-asset-acquisition-table" : "fixed-asset-depreciation-table"}>
           <thead>
             <tr>
               <th className="fixed-asset-asset-column" rowSpan={2}>Kelas aset</th>

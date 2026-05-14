@@ -1908,6 +1908,10 @@ select {
   width: 520px;
 }
 
+.fixed-asset-rollforward-table .fixed-asset-asset-column {
+  width: 256px;
+}
+
 .fixed-asset-table .fixed-asset-period-group-heading {
   width: 396px;
 }
