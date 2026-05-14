@@ -310,6 +310,7 @@ test("period workflow, scoped categories, and display-only balance sheet classif
   await openWorkflowTab(page, "Laba Rugi");
   const incomePanel = page.locator("#income");
   await expect(incomePanel.getByText("Langkah 2C")).toHaveCount(0);
+  await expect(incomePanel.getByRole("button", { name: "Tambah akun laba rugi" })).toHaveCount(2);
   await page.getByRole("button", { name: "Tambah akun laba rugi" }).first().click();
   const incomeHeaders = await page.getByTestId("income-account-table").locator("thead th").evaluateAll((headers) =>
     headers.map((header) => header.textContent?.trim() ?? ""),
@@ -349,9 +350,10 @@ test("fixed asset schedule remains empty until user adds a class and then rolls 
   await expect(page.getByTestId("readiness-fixedAssets")).toBeVisible();
   await expect(page.getByTestId("readiness-fixedAssets")).toContainText("Aset Tetap belum dapat ditampilkan penuh");
   await expect(page.getByTestId("fixed-asset-empty")).toBeVisible();
+  await expect(fixedAssetsPanel.getByRole("button", { name: "Tambah kelas aset" })).toHaveCount(2);
   await expect(fixedAssetsPanel.getByRole("button", { name: "Tambah kelas aset" }).first()).toHaveCSS("background-color", "rgb(15, 118, 110)");
 
-  await page.getByRole("button", { name: "Tambah kelas aset" }).click();
+  await page.getByRole("button", { name: "Tambah kelas aset" }).first().click();
   await expect(page.getByTestId("fixed-asset-row")).toHaveCount(2);
   await expect(page.getByRole("heading", { name: "C. Nilai Buku Neto Aset Tetap" })).toBeVisible();
 
@@ -404,7 +406,7 @@ test("AAM valuation remains available without WACC or EEM/DCF driver inputs", as
   await expect(page.getByText("Semua penyesuaian non-zero sudah memiliki catatan.")).toBeVisible();
   await expect(page.getByTestId("aam-adjustment-aset")).toContainText("1.100.000");
   await expect(page.getByText(/850\.000/).first()).toBeVisible();
-  await expect(page.getByText("Tidak diperlukan")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Ekuitas dan cakupan metode" })).toHaveCount(0);
 
   await openWorkflowTab(page, "Penilaian EEM");
   await expect(page.getByTestId("readiness-valuationEem")).toContainText("Masih diperlukan");
@@ -479,7 +481,7 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByTestId("income-projection-controls")).toContainText("Recurring vs non-recurring non-operating income");
   await expect(page.getByTestId("income-projection-controls")).toContainText("Debt/cash/yield");
   await expect(page.getByTestId("income-projection-controls")).toContainText("Reviewer approval/rejection");
-  await expect(page.getByTestId("income-projection-audit-events")).toContainText("Belum ada perubahan asumsi reviewer.");
+  await expect(page.getByTestId("income-projection-audit-events")).toHaveCount(0);
   await page.getByRole("button", { name: /Terapkan semua smart suggestion/ }).click();
   await expect(page.getByLabel("Revenue growth override 2022")).toHaveValue(/.+/);
   await expect(page.getByLabel("Gross margin override 2022")).toHaveValue(/.+/);
@@ -487,18 +489,36 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByLabel("Depreciation override 2022")).toHaveValue(/.+/);
   await expect(page.getByLabel("Cash/deposit yield")).toHaveValue(/.+/);
   await expect(page.getByLabel("Interest expense / revenue")).toHaveValue(/.+/);
-  await expect(page.getByTestId("income-projection-audit-events")).toContainText("incomeProjectionControls.autoSmartSuggestions");
+  await expect(page.getByTestId("income-projection-audit-events")).toHaveCount(0);
+  await expect.poll(() => page.evaluate((key) => {
+    const raw = window.localStorage.getItem(key);
+    const state = raw ? JSON.parse(raw) : {};
+    return state?.incomeProjectionControls?.auditEvents?.some((event: { field?: string }) =>
+      event.field === "incomeProjectionControls.autoSmartSuggestions",
+    );
+  }, workbenchStorageKey)).toBe(true);
   await page.getByLabel("Revenue growth override 2022").fill("0,25");
-  await expect(page.getByTestId("income-projection-audit-events")).toContainText("2022.revenueGrowth");
+  await expect.poll(() => page.evaluate((key) => {
+    const raw = window.localStorage.getItem(key);
+    const state = raw ? JSON.parse(raw) : {};
+    return state?.incomeProjectionControls?.auditEvents?.some((event: { field?: string }) =>
+      event.field === "2022.revenueGrowth",
+    );
+  }, workbenchStorageKey)).toBe(true);
   await page.getByTestId("income-projection-controls").getByLabel("Decision").selectOption("approved");
-  await expect(page.getByTestId("income-projection-audit-events")).toContainText("reviewerDecision.decision");
+  await expect.poll(() => page.evaluate((key) => {
+    const raw = window.localStorage.getItem(key);
+    const state = raw ? JSON.parse(raw) : {};
+    return state?.incomeProjectionControls?.auditEvents?.some((event: { field?: string }) =>
+      event.field === "reviewerDecision.decision",
+    );
+  }, workbenchStorageKey)).toBe(true);
   await expect(page.getByTestId("dcf-income-projection-table")).not.toContainText("Revenue t-1");
   await expect(page.getByTestId("dcf-income-projection-table")).not.toContainText(/belum dimodelkan/i);
   await expect(page.getByTestId("dcf-income-projection-table")).toContainText("Presentation-only");
   await expect(page.getByTestId("dcf-income-projection-table")).not.toContainText(/KKP|Excel|Workbook/i);
-  await page.getByText("Detail formula dan referensi audit").click();
-  await expect(page.getByTestId("dcf-income-projection-table-trace")).toContainText("Revenue t-1");
-  await expect(page.getByTestId("dcf-income-projection-table-trace")).not.toContainText(/KKP|Excel|Workbook/i);
+  await expect(page.getByText("Detail formula dan referensi audit")).toHaveCount(0);
+  await expect(page.getByTestId("dcf-income-projection-table-trace")).toHaveCount(0);
 
   await openWorkflowTab(page, "Proyeksi Neraca");
   await expect(page.getByRole("heading", { name: "Proyeksi Neraca" })).toBeVisible();
@@ -506,6 +526,8 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByTestId("dcf-balance-projection-table")).toContainText("Balance Control");
   await expect(page.getByTestId("dcf-balance-projection-table")).not.toContainText("Perlu input");
   await expect(page.getByTestId("dcf-balance-projection-table")).not.toContainText(/belum dimodelkan/i);
+  await expect(page.getByText("Detail formula dan referensi audit")).toHaveCount(0);
+  await expect(page.getByTestId("dcf-balance-projection-table-trace")).toHaveCount(0);
 
   await openWorkflowTab(page, "Penilaian DCF");
   await expect(page.getByTestId("dcf-sensitivity-historical-projection")).toContainText("DCF - proyeksi neraca berbasis historis");
@@ -515,6 +537,7 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByTestId("dcf-sensitivity-no-incremental-wc")).toContainText("perubahan modal kerja incremental");
   await expect(page.getByTestId("dcf-sensitivity-tax-payable-debt-like")).toContainText("utang pajak sebagai kewajiban debt-like");
   await expect(page.getByTestId("dcf-sensitivity-historical-projection")).toContainText("di-roll-forward dari data historis user");
+  await expect(page.getByRole("heading", { name: "Kesiapan DCF" })).toHaveCount(0);
   const baseDcfValue = await page.getByTestId("dcf-base-equity-value").textContent();
   const noIncrementalWcValue = await page.getByTestId("dcf-no-incremental-wc-equity-value").textContent();
   await expect(page.getByTestId("dcf-active-equity-value")).toHaveText(baseDcfValue ?? "");
@@ -546,6 +569,8 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByTestId("dcf-fixed-asset-projection-table")).not.toContainText("Delta vs DCF capex");
   await expect(page.getByTestId("dcf-fixed-asset-projection-table")).not.toContainText(/belum dimodelkan/i);
   await expect(page.getByTestId("dcf-fixed-asset-projection-table")).not.toContainText("Perlu input");
+  await expect(page.getByText("Detail formula dan referensi audit")).toHaveCount(0);
+  await expect(page.getByTestId("dcf-fixed-asset-projection-table-trace")).toHaveCount(0);
   await page.getByRole("radio", { name: /Proksi DCF/ }).click();
   await expect(page.getByRole("radio", { name: /Proksi DCF/ })).toHaveAttribute("aria-checked", "true");
   await expect(page.getByTestId("dcf-fixed-asset-projection-table")).toContainText("Proksi DCF berbasis jadwal aset tetap");
@@ -566,6 +591,8 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByTestId("dcf-cash-flow-projection-table")).toContainText("2026");
   await expect(page.getByTestId("dcf-cash-flow-projection-table")).not.toContainText("Perlu input");
   await expect(page.getByTestId("dcf-cash-flow-projection-table")).not.toContainText(/belum dimodelkan/i);
+  await expect(page.getByText("Detail formula dan referensi audit")).toHaveCount(0);
+  await expect(page.getByTestId("dcf-cash-flow-projection-table-trace")).toHaveCount(0);
 
   await openWorkflowTab(page, "Financial Ratio");
   const ratioTable = page.locator("table.ratio-table");
@@ -573,6 +600,8 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(ratioTable).toContainText("Short Term Debt Coverage");
   await expect(ratioTable).toContainText("Capex Coverage");
   await expect(ratioTable).toContainText("Operating cash flow / capex");
+  await expect(ratioTable.locator("thead th").last()).toHaveCSS("text-align", "right");
+  await expect(ratioTable.locator("tbody tr").first().locator("td").last()).toHaveCSS("text-align", "right");
   await expect(page.getByRole("heading", { name: "Bridge efisiensi modal" })).toHaveCount(0);
 
   await openWorkflowTab(page, "ROIC");
@@ -691,6 +720,9 @@ test("DLOM and tax simulation render workbook-derived scenario layer after loadi
   expect(dlocPfcColumnWidths[5]).toBeGreaterThanOrEqual(360);
   expect(await tableFitsWrapper(page, "dloc-pfc-factor-table")).toBe(true);
 
+  await openWorkflowTab(page, "Penilaian AAM");
+  await expect(page.getByRole("heading", { name: "Ekuitas dan cakupan metode" })).toHaveCount(0);
+
   await openWorkflowTab(page, "Simulasi Potensi Pajak");
   await expect(page.getByText("Tahun Cut Off").locator("..")).toContainText("2021");
   await expect(page.getByText("Tahun Pajak Legal")).toHaveCount(0);
@@ -706,6 +738,7 @@ test("DLOM and tax simulation render workbook-derived scenario layer after loadi
   await expect(page.getByTestId("tax-simulation-table")).toContainText("Primary");
   await expect(page.getByTestId("tax-simulation-table")).not.toContainText("Rate otomatis dari tab DLOC/PFC");
   await expect(page.getByTestId("tax-simulation-table")).not.toContainText("Dibulatkan:");
+  await expect(page.getByTestId("tax-simulation-table")).not.toContainText("UU 36/2008 Pasal 17 ayat (1) huruf a");
   await expect(page.getByText("AAM primary method")).toBeVisible();
   await expect(page.getByLabel("Catatan skenario manual")).not.toBeVisible();
   await expect(page.getByText("Jejak audit basis perhitungan")).toHaveCount(0);
@@ -995,7 +1028,7 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await expect(page.getByTestId("wacc-calculator")).toContainText("isi dengan beta manual yang memiliki sumber dan justifikasi penilai");
   await expect(page.getByTestId("wacc-calculator")).not.toContainText("DCF discount rate dan EEM capitalization rate");
   await expect(page.getByTestId("discount-rate-analysis")).toContainText("Discount Rate Analysis (CAPM)");
-  await expect(page.getByTestId("discount-rate-analysis")).toContainText("Referensi teknis");
+  await expect(page.getByTestId("discount-rate-analysis")).not.toContainText("Detail audit teknis");
   await expect(page.getByTestId("wacc-comparable-table")).toContainText("Perusahaan Pembanding");
   await expect(page.getByTestId("wacc-capital-structure-table")).toContainText("Struktur Kapital");
   await page.getByTestId("wacc-comparable-table").getByRole("button", { name: "Terapkan Saran" }).click();
@@ -1022,6 +1055,16 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await openWorkflowTab(page, "WACC");
   await expect(page.getByTestId("wacc-calculator")).toContainText("Kalkulator WACC");
   await expect(page.getByTestId("wacc-calculator")).toContainText("Risk-free rate");
+  await expect(
+    page.getByLabel("Nilai pasar utang").locator("xpath=ancestor::div[contains(@class, 'assumption-input-field')][1]"),
+  ).toContainText(
+    "Auto Neraca: liabilitas lancar + liabilitas tidak lancar.",
+  );
+  await expect(
+    page.getByLabel("Nilai pasar ekuitas").locator("xpath=ancestor::div[contains(@class, 'assumption-input-field')][1]"),
+  ).toContainText(
+    "Auto Neraca: book equity aktif.",
+  );
   const waccBasisControl = page.getByTestId("wacc-basis-control");
   await expect(waccBasisControl).toContainText("Governed WACC");
   await expect(waccBasisControl).toContainText("Raw calculated WACC");
@@ -1085,9 +1128,11 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
 
   await openWorkflowTab(page, "Penilaian EEM");
   await expect(page.getByRole("heading", { name: "Excess Earnings Method (EEM)" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Kesiapan EEM" })).toHaveCount(0);
   await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Manual WACC reviewer");
   await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Proxy kapasitas aset berwujud yang di-govern");
   await openWorkflowTab(page, "Penilaian DCF");
+  await expect(page.getByRole("heading", { name: "Kesiapan DCF" })).toHaveCount(0);
   await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Manual WACC reviewer");
   await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Proxy kapasitas aset berwujud yang di-govern");
 });

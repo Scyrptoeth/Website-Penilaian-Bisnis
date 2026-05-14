@@ -3225,18 +3225,21 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
 
         {activeWorkflowTab === "income" ? (
         <section id="income" className="panel">
-          <div className="panel-heading">
+          <ReadinessPanel status={readiness.income} onNavigate={navigateToWorkflowTab} onAction={handleReadinessAction} />
+
+          <div className="subpanel-heading account-input-heading">
             <div>
-              <h3>Laba rugi dan driver operasi</h3>
+              <p className="eyebrow">Laba Rugi</p>
+              <h4>Laba rugi dan driver operasi</h4>
             </div>
             <button className="button secondary" type="button" onClick={() => addRow("income_statement")}>
               <Plus size={18} />
               Tambah akun laba rugi
             </button>
           </div>
-          <ReadinessPanel status={readiness.income} onNavigate={navigateToWorkflowTab} onAction={handleReadinessAction} />
+
           <AccountInputTable
-            emptyMessage="Belum ada akun laba rugi. Tambahkan baris akun laba rugi."
+            emptyMessage="Belum ada akun laba rugi. Tambahkan baris dari tombol Tambah akun laba rugi di atas."
             hideStatementColumn
             mappedRows={incomeStatementRows}
             periods={periods}
@@ -3561,24 +3564,6 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
             </div>
             <FormulaList traces={results.aam.traces} />
           </article>
-          <article className="panel">
-            <div className="panel-heading">
-              <div>
-                <p className="eyebrow">Rekonsiliasi</p>
-                <h3>Ekuitas dan cakupan metode</h3>
-              </div>
-              <FileSearch size={22} />
-            </div>
-            <MetricTraceGrid
-              metrics={[
-                ["Ekuitas buku", formatIdr(aamAdjustmentModel.bookEquity)],
-                ["Selisih nilai AAM disesuaikan ke ekuitas buku", formatIdr(aamAdjustmentModel.adjustedBookEquityGap)],
-                ["Tidak diperlukan", "WACC, terminal growth, tarif pajak, required return on NTA"],
-                ["Cakupan adjustment", "Hanya memengaruhi AAM; EEM/DCF tetap memakai snapshot historis/normalized"],
-              ]}
-            />
-            <AamEquityReconciliation lines={aamAdjustmentModel.equityLines} />
-          </article>
         </section>
         </>
         ) : (
@@ -3631,21 +3616,6 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
           governance={eemAssumptionGovernance}
           onNavigate={navigateToGovernanceTarget}
         />
-
-        <section className="review-band compact-review">
-          <div>
-            <p className="eyebrow">Pemeriksaan model</p>
-            <h3>Kesiapan EEM</h3>
-          </div>
-          <div className="risk-grid">
-            {checks.map((check) => (
-              <div className={check.ok ? "risk-item ok-item" : "risk-item"} key={check.label}>
-                {check.ok ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
-                <span>{check.label}</span>
-              </div>
-            ))}
-          </div>
-        </section>
 
         <section className="panel">
           <div className="panel-heading">
@@ -3756,21 +3726,6 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
           governance={assumptionGovernance}
           onNavigate={navigateToGovernanceTarget}
         />
-
-        <section className="review-band compact-review">
-          <div>
-            <p className="eyebrow">Pemeriksaan model</p>
-            <h3>Kesiapan DCF</h3>
-          </div>
-          <div className="risk-grid">
-            {checks.map((check) => (
-              <div className={check.ok ? "risk-item ok-item" : "risk-item"} key={check.label}>
-                {check.ok ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
-                <span>{check.label}</span>
-              </div>
-            ))}
-          </div>
-        </section>
 
         <section className="panel">
           <div className="panel-heading">
@@ -4838,7 +4793,6 @@ function TaxSimulationSection({
                   </td>
                   <td className="numeric-cell">
                     <strong>{formatIdr(row.potentialTax)}</strong>
-                    <span>{row.taxSourceLegalBasis}</span>
                   </td>
                 </tr>
               ))}
@@ -6583,8 +6537,6 @@ function IncomeProjectionControlsPanel({
   onPresentationAssumptionReasonChange?: (reason: string) => void;
   onApplySmartSuggestions?: () => void;
 }) {
-  const latestAuditEvents = controls.auditEvents.slice().reverse().slice(0, 12);
-
   return (
     <article className="panel income-projection-controls-panel" data-testid="income-projection-controls">
       <div className="panel-heading">
@@ -6768,37 +6720,6 @@ function IncomeProjectionControlsPanel({
         </div>
       </section>
 
-      <details className="audit-disclosure compact" data-testid="income-projection-audit-events" open={latestAuditEvents.length > 0}>
-        <summary>Immutable audit events</summary>
-        {latestAuditEvents.length ? (
-          <div className="table-wrap">
-            <table className="analysis-table projection-trace-table">
-              <thead>
-                <tr>
-                  <th>Waktu</th>
-                  <th>Field</th>
-                  <th>Perubahan</th>
-                  <th>Impact</th>
-                </tr>
-              </thead>
-              <tbody>
-                {latestAuditEvents.map((event) => (
-                  <tr key={event.id}>
-                    <td>{formatDisplayDateTime(event.createdAt)}</td>
-                    <td>{event.field}</td>
-                    <td>
-                      <code>{event.priorValue || "blank"}</code> → <code>{event.newValue || "blank"}</code>
-                    </td>
-                    <td>{event.impact}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p>Belum ada perubahan asumsi reviewer.</p>
-        )}
-      </details>
     </article>
   );
 }
@@ -6899,8 +6820,6 @@ function DcfProjectionPanel({
   fixedAssetProjection?: FixedAssetProjectionSummary;
 }) {
   const context = { forecast, snapshot, fixedAssetProjection };
-  const traceRows = config.rows.filter((line) => line.kind !== "section");
-
   return (
     <article className="panel dcf-projection-panel">
       <div className="panel-heading">
@@ -6969,33 +6888,6 @@ function DcfProjectionPanel({
         </table>
       </div>
 
-      <details className="audit-disclosure compact projection-trace-disclosure">
-        <summary>Detail formula dan referensi audit</summary>
-        <div className="table-wrap projection-trace-wrap">
-          <table className="analysis-table projection-trace-table" data-testid={`${config.testId}-trace`}>
-            <thead>
-              <tr>
-                <th>Pos</th>
-                <th>Referensi</th>
-                <th>Formula</th>
-                <th>Catatan</th>
-              </tr>
-            </thead>
-            <tbody>
-              {traceRows.map((line) => (
-                <tr key={`${line.key}-trace`}>
-                  <td>{line.label}</td>
-                  <td>{line.workbookReference ?? config.eyebrow}</td>
-                  <td>
-                    <code>{line.formula}</code>
-                  </td>
-                  <td>{resolveProjectionLineNote(line, context) ?? projectionStatusLabels[resolveProjectionLineStatus(line, context)]}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </details>
     </article>
   );
 }
@@ -7225,19 +7117,6 @@ function formatIncomeProjectionYearDefaultSummary(
 
 function formatReviewerDecision(value: IncomeProjectionReviewerDecision): string {
   return reviewerDecisionOptions.find((option) => option.value === value)?.label ?? "Pending review";
-}
-
-function formatDisplayDateTime(value: string): string {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat("id-ID", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
 }
 
 function safeAbsoluteRatio(numerator: number, denominator: number): number {
@@ -7885,7 +7764,7 @@ function RatioTable({ rows, periods }: { rows: RatioRow[]; periods: Period[] }) 
                 {period.label || "Periode"}
               </th>
             ))}
-            <th>Rata-rata</th>
+            <th className="numeric-cell period-column">Rata-rata</th>
           </tr>
         </thead>
         <tbody>
@@ -10558,9 +10437,9 @@ function WaccCapitalStructureTable({
                 smartSuggestionLabel={isDebtAuto ? "Auto Neraca, dapat diedit" : undefined}
                 smartSuggestionState={isDebtAuto ? "auto" : undefined}
                 inputMode="numeric"
+                note={isDebtAuto ? "Auto Neraca: liabilitas lancar + liabilitas tidak lancar." : undefined}
                 onChange={(value) => onChange("waccDebtMarketValue", value)}
               />
-              {isDebtAuto ? <small className="auto-source-note">Auto Neraca: liabilitas lancar + liabilitas tidak lancar.</small> : null}
             </td>
             <td>
               <AssumptionInput
@@ -10602,9 +10481,9 @@ function WaccCapitalStructureTable({
                 smartSuggestionLabel={isEquityAuto ? "Auto Neraca, dapat diedit" : undefined}
                 smartSuggestionState={isEquityAuto ? "auto" : undefined}
                 inputMode="numeric"
+                note={isEquityAuto ? "Auto Neraca: book equity aktif." : undefined}
                 onChange={(value) => onChange("waccEquityMarketValue", value)}
               />
-              {isEquityAuto ? <small className="auto-source-note">Auto Neraca: book equity aktif.</small> : null}
             </td>
             <td>
               <AssumptionInput
@@ -10898,59 +10777,6 @@ function DiscountRateAnalysisPanel({
           </table>
         </div>
       ) : null}
-      <details className="audit-disclosure compact workbook-audit-disclosure">
-        <summary>Detail audit teknis</summary>
-        <div className="table-wrap discount-rate-audit-table">
-          <table>
-            <thead>
-              <tr>
-                <th>Komponen</th>
-                <th>Referensi teknis</th>
-                <th>Formula teknis</th>
-                <th>Catatan audit</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={`${row.component}-audit`}>
-                  <td>{row.component}</td>
-                  <td>
-                    <code>{row.workbookRef}</code>
-                  </td>
-                  <td>
-                    <code>{row.workbookFormula}</code>
-                  </td>
-                  <td>{row.note}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {bankLoanRate ? (
-          <div className="table-wrap discount-rate-audit-table">
-            <table>
-              <thead>
-                <tr>
-                  <th>Input debt rate</th>
-                  <th>Referensi teknis</th>
-                  <th className="numeric-cell">Nilai aktif</th>
-                </tr>
-              </thead>
-              <tbody>
-                {bankLoanRate.rows.map((row) => (
-                  <tr key={`${row.key}-audit`}>
-                    <td>{row.label}</td>
-                    <td>
-                      <code>{row.sourceCell}</code>
-                    </td>
-                    <td className="numeric-cell">{formatOptionalRate(row.value)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : null}
-      </details>
     </section>
   );
 }
@@ -11429,19 +11255,6 @@ function AamAdjustmentTable({
           </tfoot>
         </table>
       </div>
-    </div>
-  );
-}
-
-function AamEquityReconciliation({ lines }: { lines: Array<{ label: string; value: number }> }) {
-  return (
-    <div className="aam-equity-reconciliation">
-      {lines.map((line) => (
-        <div key={line.label}>
-          <span>{line.label}</span>
-          <strong>{formatIdr(line.value)}</strong>
-        </div>
-      ))}
     </div>
   );
 }
@@ -12218,6 +12031,13 @@ function FixedAssetScheduleEditor({
           <FixedAssetNetValueTable periods={periods} schedule={schedule} />
         </>
       )}
+
+      <div className="account-input-footer">
+        <button className="button secondary" type="button" onClick={onAddRow}>
+          <Plus size={16} />
+          Tambah kelas aset
+        </button>
+      </div>
     </div>
   );
 }

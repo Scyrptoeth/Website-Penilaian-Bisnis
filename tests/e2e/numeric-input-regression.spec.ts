@@ -35,7 +35,7 @@ test("integer amount fields keep accepting typed digits after thousands separato
   await expect(balanceRow.getByLabel("Tahun Y amount")).toHaveValue("1.234.567.890");
 
   await openWorkflowTab(page, "Aset Tetap");
-  await page.getByRole("button", { name: "Tambah kelas aset" }).click();
+  await page.getByRole("button", { name: "Tambah kelas aset" }).first().click();
   const acquisition = page.getByTestId("fixed-asset-acquisition-table");
   await acquisition.getByLabel("Kelas aset").fill("Factory equipment");
   await acquisition.getByLabel("A. Biaya Perolehan Tahun Y-1 Saldo awal").pressSequentially("9876543210");

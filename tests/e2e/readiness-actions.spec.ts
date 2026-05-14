@@ -101,7 +101,7 @@ test("destructive Data Awal and Aset Tetap actions require confirmation", async 
   await expect(page.getByTestId("period-card")).toHaveCount(1);
 
   await openWorkflowTab(page, "Aset Tetap");
-  await page.getByRole("button", { name: "Tambah kelas aset" }).click();
+  await page.getByRole("button", { name: "Tambah kelas aset" }).first().click();
   await expect(page.getByTestId("fixed-asset-acquisition-table").getByTestId("fixed-asset-row")).toHaveCount(1);
   await page.getByTitle("Hapus kelas aset").click();
   await expect(page.getByRole("dialog", { name: "Hapus kelas aset?" })).toBeVisible();
