@@ -1,4 +1,4 @@
-import { adjustedTotalAssets, adjustedTotalLiabilities } from "./calculations";
+import { adjustedTotalAssets, aamLiabilityBasis } from "./calculations";
 import { parseInputNumber } from "./case-model";
 import type { FinancialStatementSnapshot } from "./types";
 
@@ -183,74 +183,21 @@ const liabilityDefinitions: LineDefinition[] = [
     section: "Liabilitas lancar",
     label: "Pinjaman bank jangka pendek",
     source: "Neraca: Pinjaman bank jangka pendek",
-    value: (snapshot) => snapshot.bankLoanShortTerm,
-  },
-  {
-    id: "account-payable",
-    role: "liability",
-    section: "Liabilitas lancar",
-    label: "Utang usaha",
-    source: "Neraca: Utang usaha",
-    value: (snapshot) => snapshot.accountPayable,
-  },
-  {
-    id: "tax-payable",
-    role: "liability",
-    section: "Liabilitas lancar",
-    label: "Utang pajak",
-    source: "Neraca: Utang pajak",
-    value: (snapshot) => snapshot.taxPayable,
-  },
-  {
-    id: "other-payable",
-    role: "liability",
-    section: "Liabilitas lancar",
-    label: "Utang lain-lain",
-    source: "Neraca: Utang lain-lain",
-    value: (snapshot) => snapshot.otherPayable,
-  },
-  {
-    id: "interest-payable",
-    role: "liability",
-    section: "Liabilitas lancar",
-    label: "Utang bunga",
-    source: "Neraca: Utang bunga",
-    value: (snapshot) => snapshot.interestPayable,
-  },
-  {
-    id: "other-current-liabilities",
-    role: "liability",
-    section: "Liabilitas lancar",
-    label: "Liabilitas lancar lain-lain",
-    source: "Neraca: Liabilitas lancar yang belum terinci",
-    value: (snapshot) =>
-      residual(
-        snapshot.currentLiabilities,
-        snapshot.bankLoanShortTerm + snapshot.accountPayable + snapshot.taxPayable + snapshot.otherPayable + snapshot.interestPayable,
-      ),
+    value: (snapshot) => snapshot.aamBankLoanShortTerm ?? snapshot.bankLoanShortTerm,
   },
   {
     id: "bank-loan-long-term",
     role: "liability",
     section: "Liabilitas tidak lancar",
     label: "Pinjaman bank jangka panjang",
-    source: "Neraca: Pinjaman bank jangka panjang / utang berbunga",
-    value: (snapshot) => snapshot.bankLoanLongTerm,
-  },
-  {
-    id: "other-non-current-liabilities",
-    role: "liability",
-    section: "Liabilitas tidak lancar",
-    label: "Liabilitas tidak lancar lain-lain",
-    source: "Neraca: Liabilitas tidak lancar yang belum terinci",
-    value: (snapshot) => residual(snapshot.nonCurrentLiabilities, snapshot.bankLoanLongTerm),
+    source: "Neraca: Pinjaman bank jangka panjang",
+    value: (snapshot) => snapshot.aamBankLoanLongTerm ?? snapshot.bankLoanLongTerm,
   },
 ];
 
 export const aamAdjustmentLineIds = new Set([
   ...[...assetDefinitions, ...liabilityDefinitions].map((definition) => definition.id),
   "asset-total-bridge",
-  "liability-total-bridge",
 ]);
 
 export function buildAamAdjustmentModel(
@@ -260,9 +207,8 @@ export function buildAamAdjustmentModel(
   const assetLines = buildLines(assetDefinitions, snapshot, adjustments);
   const liabilityLines = buildLines(liabilityDefinitions, snapshot, adjustments);
   const componentAssetTotal = sumLines(assetLines, "historical");
-  const componentLiabilityTotal = sumLines(liabilityLines, "historical");
   const historicalAssetTotal = adjustedTotalAssets(snapshot);
-  const historicalLiabilityTotal = adjustedTotalLiabilities(snapshot);
+  const historicalLiabilityTotal = aamLiabilityBasis(snapshot);
   const bridgedAssetLines = withBridgeLine({
     lines: assetLines,
     role: "asset",
@@ -273,18 +219,8 @@ export function buildAamAdjustmentModel(
     difference: historicalAssetTotal - componentAssetTotal,
     adjustments,
   });
-  const bridgedLiabilityLines = withBridgeLine({
-    lines: liabilityLines,
-    role: "liability",
-    section: "Rekonsiliasi liabilitas",
-    label: "Selisih ke total liabilitas neraca",
-    source: "Total liabilitas historis dikurangi subtotal pos AAM",
-    bridgeId: "liability-total-bridge",
-    difference: historicalLiabilityTotal - componentLiabilityTotal,
-    adjustments,
-  });
   const assetAdjustmentTotal = sumLines(bridgedAssetLines, "adjustment");
-  const liabilityAdjustmentTotal = sumLines(bridgedLiabilityLines, "adjustment");
+  const liabilityAdjustmentTotal = sumLines(liabilityLines, "adjustment");
   const adjustedAssetTotal = historicalAssetTotal + assetAdjustmentTotal;
   const adjustedLiabilityTotal = historicalLiabilityTotal + liabilityAdjustmentTotal;
   const bookEquity =
@@ -295,7 +231,7 @@ export function buildAamAdjustmentModel(
 
   return {
     assetLines: bridgedAssetLines,
-    liabilityLines: bridgedLiabilityLines,
+    liabilityLines,
     equityLines: [
       { label: "Modal disetor", value: snapshot.paidUpCapital },
       { label: "Tambahan modal disetor", value: snapshot.additionalPaidInCapital },
@@ -313,7 +249,7 @@ export function buildAamAdjustmentModel(
     adjustedEquityValue: adjustedAssetTotal - adjustedLiabilityTotal,
     bookEquity,
     adjustedBookEquityGap: adjustedAssetTotal - adjustedLiabilityTotal - bookEquity,
-    missingNoteCount: [...bridgedAssetLines, ...bridgedLiabilityLines].filter((line) => line.requiresNote).length,
+    missingNoteCount: [...bridgedAssetLines, ...liabilityLines].filter((line) => line.requiresNote).length,
   };
 }
 

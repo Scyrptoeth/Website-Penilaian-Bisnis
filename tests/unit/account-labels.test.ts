@@ -21,6 +21,14 @@ describe("account label profiles", () => {
     assert.equal(new Set(labels).size, labels.length);
   });
 
+  it("marks only bank loans as AAM liability categories", () => {
+    assert.equal(resolveAccountLabels("balance_sheet", "BANK_LOAN_SHORT_TERM").includes("formula:aam"), true);
+    assert.equal(resolveAccountLabels("balance_sheet", "BANK_LOAN_LONG_TERM").includes("formula:aam"), true);
+    assert.equal(resolveAccountLabels("balance_sheet", "ACCOUNT_PAYABLE").includes("formula:aam"), false);
+    assert.equal(resolveAccountLabels("balance_sheet", "TAX_PAYABLE").includes("formula:aam"), false);
+    assert.equal(resolveAccountLabels("balance_sheet", "TOTAL_LIABILITIES").includes("formula:aam"), false);
+  });
+
   it("keeps corporate tax as a report bridge instead of a valuation formula driver", () => {
     const profile = getCategoryLabelProfile("CORPORATE_TAX");
     const labels = resolveAccountLabels("income_statement", "CORPORATE_TAX");

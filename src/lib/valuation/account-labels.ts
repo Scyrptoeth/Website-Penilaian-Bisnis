@@ -230,7 +230,10 @@ export function getCategoryLabelProfile(category: AccountCategory): CategoryLabe
 
   if (currentLiabilityCategories.has(category) || nonCurrentLiabilityCategories.has(category) || category === "TOTAL_LIABILITIES") {
     placement = "Liabilitas";
-    labels.push("fs:liability", "formula:neraca", "formula:aam", "sign:credit-positive");
+    labels.push("fs:liability", "formula:neraca", "sign:credit-positive");
+    if (category === "BANK_LOAN_SHORT_TERM" || category === "BANK_LOAN_LONG_TERM") {
+      labels.push("formula:aam");
+    }
     signBehavior = "Liabilitas kredit positif";
   }
 

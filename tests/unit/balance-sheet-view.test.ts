@@ -66,6 +66,21 @@ describe("balance sheet classification and view", () => {
     assert.equal(grouped[0].key, "non_current_asset");
   });
 
+  it("keeps non-bank liabilities in the balance sheet without reducing AAM", () => {
+    const rows = [
+      rowFixture({ id: "cash", accountName: "Kas", category: "CASH_ON_HAND", values: { p1: "1.000" } }),
+      rowFixture({ id: "bank-short", accountName: "Pinjaman bank jangka pendek", category: "BANK_LOAN_SHORT_TERM", values: { p1: "50" } }),
+      rowFixture({ id: "bank-long", accountName: "Pinjaman bank jangka panjang", category: "BANK_LOAN_LONG_TERM", values: { p1: "70" } }),
+      rowFixture({ id: "ap", accountName: "Utang usaha", category: "ACCOUNT_PAYABLE", values: { p1: "250" } }),
+      rowFixture({ id: "tax", accountName: "Utang pajak", category: "TAX_PAYABLE", values: { p1: "100" } }),
+    ];
+    const snapshot = buildSnapshot(basePeriods, "p1", rows, emptyAssumptions);
+    const view = buildBalanceSheetView(basePeriods, rows.map(mapRow), buildFixedAssetScheduleSummary(basePeriods, []));
+
+    assert.equal(view.totalLiabilities.p1, 470);
+    assert.equal(calculateAam(snapshot).equityValue, 880);
+  });
+
   it("shows fixed asset detail rows without double-counting opening balances and accumulated depreciation", () => {
     const scheduleRow: FixedAssetScheduleRow = {
       id: "fa1",

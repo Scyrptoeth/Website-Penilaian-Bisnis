@@ -10,18 +10,33 @@ const snapshot = buildSnapshot(periods, "p2021", buildSampleRows(), buildSampleA
 
 describe("AAM adjustments", () => {
   it("builds historis, penyesuaian, and disesuaikan rows from the active balance sheet snapshot", () => {
-    const model = buildAamAdjustmentModel(snapshot, {
+    const bankLoanSnapshot = {
+      ...snapshot,
+      bankLoanShortTerm: 1_000_000,
+      bankLoanLongTerm: 750_000,
+      aamBankLoanShortTerm: 1_000_000,
+      aamBankLoanLongTerm: 750_000,
+      accountPayable: 2_000_000,
+      taxPayable: 500_000,
+      otherPayable: 300_000,
+      totalLiabilities: 4_550_000,
+    };
+    const model = buildAamAdjustmentModel(bankLoanSnapshot, {
       "fixed-assets-net": { adjustment: "1.000.000", note: "Independent appraisal uplift" },
-      "account-payable": { adjustment: "-250.000", note: "Post-cutoff settlement evidence" },
+      "bank-loan-short-term": { adjustment: "-250.000", note: "Post-cutoff bank settlement evidence" },
     });
 
     const fixedAssetLine = model.assetLines.find((line) => line.id === "fixed-assets-net");
-    const payableLine = model.liabilityLines.find((line) => line.id === "account-payable");
+    const shortBankLoanLine = model.liabilityLines.find((line) => line.id === "bank-loan-short-term");
 
-    assert.equal(fixedAssetLine?.historical, snapshot.fixedAssetsNet);
+    assert.equal(fixedAssetLine?.historical, bankLoanSnapshot.fixedAssetsNet);
     assert.equal(fixedAssetLine?.adjustment, 1_000_000);
-    assert.equal(fixedAssetLine?.adjusted, snapshot.fixedAssetsNet + 1_000_000);
-    assert.equal(payableLine?.adjustment, -250_000);
+    assert.equal(fixedAssetLine?.adjusted, bankLoanSnapshot.fixedAssetsNet + 1_000_000);
+    assert.equal(shortBankLoanLine?.adjustment, -250_000);
+    assert.equal(model.historicalLiabilityTotal, 1_750_000);
+    assert.equal(model.liabilityLines.some((line) => line.id === "account-payable"), false);
+    assert.equal(model.liabilityLines.some((line) => line.id === "tax-payable"), false);
+    assert.equal(model.liabilityLines.some((line) => line.id === "liability-total-bridge"), false);
     assert.equal(model.assetAdjustmentTotal, 1_000_000);
     assert.equal(model.liabilityAdjustmentTotal, -250_000);
     assert.equal(model.adjustedEquityValue, model.historicalEquityValue + 1_250_000);
@@ -41,7 +56,7 @@ describe("AAM adjustments", () => {
     const baseline = calculateAllMethods(snapshot);
     const model = buildAamAdjustmentModel(snapshot, {
       "fixed-assets-net": { adjustment: "1.000.000", note: "Independent appraisal uplift" },
-      "account-payable": { adjustment: "-250.000", note: "Post-cutoff settlement evidence" },
+      "bank-loan-long-term": { adjustment: "-250.000", note: "Post-cutoff bank settlement evidence" },
     });
     const adjusted = calculateAllMethods(snapshot, {
       aam: {

@@ -1032,7 +1032,9 @@ export function buildSnapshot(
     derivedCurrentAssets +
     derivedNonCurrentAssets;
 
-  const bankLoanShortTerm = debtScheduleAmounts?.shortTermEnding ?? amount(activeAggregate("BANK_LOAN_SHORT_TERM"));
+  const aamBankLoanShortTerm = amount(activeAggregate("BANK_LOAN_SHORT_TERM"));
+  const aamBankLoanLongTerm = amount(activeAggregate("BANK_LOAN_LONG_TERM"));
+  const bankLoanShortTerm = debtScheduleAmounts?.shortTermEnding ?? aamBankLoanShortTerm;
   const accountPayable = amount(activeAggregate("ACCOUNT_PAYABLE"));
   const taxPayable = amount(activeAggregate("TAX_PAYABLE"));
   const otherPayable = amount(activeAggregate("OTHER_PAYABLE"));
@@ -1132,11 +1134,13 @@ export function buildSnapshot(
     nonCurrentAssets: derivedNonCurrentAssets,
     totalAssets: totalAssetsOverride || derivedTotalAssets,
     bankLoanShortTerm,
+    aamBankLoanShortTerm,
     accountPayable,
     taxPayable,
     otherPayable,
     interestPayable,
     bankLoanLongTerm,
+    aamBankLoanLongTerm,
     currentLiabilities: derivedCurrentLiabilities,
     nonCurrentLiabilities: derivedNonCurrentLiabilities,
     totalLiabilities: totalLiabilitiesOverride || derivedTotalLiabilities,

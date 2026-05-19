@@ -18,7 +18,7 @@ import type { AccountCategory } from "../../src/lib/valuation/types";
 import { assertAlmostEqual } from "./test-utils";
 
 const correctedTargets = {
-  aam: 13_701_055_249,
+  aam: 17_278_293_031,
   eem: 19_886_438_291,
   dcf: 34_009_467_930,
 };

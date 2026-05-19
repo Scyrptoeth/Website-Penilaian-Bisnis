@@ -449,7 +449,8 @@ test("AAM valuation remains available without WACC or EEM/DCF driver inputs", as
   await page.getByLabel("Catatan Kas di tangan").fill("FMV cash count after cut-off");
   await expect(page.getByText("Semua penyesuaian non-zero sudah memiliki catatan.")).toBeVisible();
   await expect(page.getByTestId("aam-adjustment-aset")).toContainText("1.100.000");
-  await expect(page.getByText(/850\.000/).first()).toBeVisible();
+  await expect(page.getByText(/1\.100\.000/).first()).toBeVisible();
+  await expect(page.getByText(/850\.000/)).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Ekuitas dan cakupan metode" })).toHaveCount(0);
 
   await openWorkflowTab(page, "Penilaian EEM");

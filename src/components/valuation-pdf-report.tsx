@@ -460,8 +460,8 @@ function AamAdjustmentReportTable({ payload }: { payload: ValuationPdfExportPayl
         metrics={[
           { label: "Total aset historis", value: formatIdr(aamAdjustmentModel.historicalAssetTotal) },
           { label: "Total penyesuaian aset", value: formatIdr(aamAdjustmentModel.assetAdjustmentTotal) },
-          { label: "Total liabilitas historis", value: formatIdr(aamAdjustmentModel.historicalLiabilityTotal) },
-          { label: "Total penyesuaian liabilitas", value: formatIdr(aamAdjustmentModel.liabilityAdjustmentTotal) },
+          { label: "Pinjaman bank historis AAM", value: formatIdr(aamAdjustmentModel.historicalLiabilityTotal) },
+          { label: "Penyesuaian pinjaman bank AAM", value: formatIdr(aamAdjustmentModel.liabilityAdjustmentTotal) },
           { label: "Nilai ekuitas AAM", value: formatIdr(aamAdjustmentModel.adjustedEquityValue) },
           { label: "Catatan wajib belum lengkap", value: String(aamAdjustmentModel.missingNoteCount) },
         ]}
@@ -839,7 +839,7 @@ function buildDriverMetrics(payload: ValuationPdfExportPayload, scope: Valuation
   if (scope.methods.includes("AAM")) {
     metrics.push(
       { label: "Aset historis AAM", value: formatIdr(input.aamAdjustmentModel.historicalAssetTotal) },
-      { label: "Liabilitas historis AAM", value: formatIdr(input.aamAdjustmentModel.historicalLiabilityTotal) },
+      { label: "Pinjaman bank historis AAM", value: formatIdr(input.aamAdjustmentModel.historicalLiabilityTotal) },
     );
   }
 

@@ -3626,10 +3626,10 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
           <article className="metric-card">
             <div className="card-title">
               <Banknote size={20} />
-              <span>Neraca basis</span>
+              <span>Basis AAM</span>
             </div>
             <strong>{formatIdr(aamAdjustmentModel.historicalEquityValue)}</strong>
-            <p>Aset historis dikurangi seluruh liabilitas historis; tidak memakai WACC, tarif pajak, terminal growth, atau required return on NTA.</p>
+            <p>Aset historis dikurangi pinjaman bank jangka pendek dan panjang; liabilitas non-bank tetap di Neraca.</p>
           </article>
           <article className="metric-card">
             <div className="card-title">
@@ -3668,7 +3668,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
             onUpdate={updateAamAdjustment}
           />
           <AamAdjustmentTable
-            title="Liabilitas"
+            title="Liabilitas AAM"
             lines={aamAdjustmentModel.liabilityLines}
             historicalTotal={aamAdjustmentModel.historicalLiabilityTotal}
             adjustmentTotal={aamAdjustmentModel.liabilityAdjustmentTotal}
