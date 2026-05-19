@@ -84,7 +84,7 @@ export function AuthLoginPanel() {
                 <a href="https://wa.me/6282294116001" target="_blank" rel="noreferrer">
                   0822-9411-6001
                 </a>{" "}
-                (Goradok Pande Raja Sinabutar) apabila lupa password.
+                (Goradok Pande Raja Sinabutar / Dedek) apabila lupa password.
               </p>
             </div>
           </div>
