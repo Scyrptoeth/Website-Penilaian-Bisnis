@@ -63,7 +63,7 @@ export function AuthLoginPanel() {
             </div>
             <div>
               <KeyRound size={16} />
-              <p>Gunakan 8 digit angka dari NIP Panjang sebagai Password ketika pertama kali login.</p>
+              <p>Gunakan 8 digit angka pertama dari NIP Panjang sebagai Password ketika pertama kali login.</p>
             </div>
             <div>
               <RefreshCw size={16} />
