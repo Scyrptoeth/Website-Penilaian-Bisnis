@@ -183,7 +183,6 @@ import {
 } from "@/lib/valuation/xlsx-export";
 import {
   buildFixedAssetProjection,
-  fixedAssetProjectionClassLabels,
   type FixedAssetProjectionMode,
   type FixedAssetProjectionSummary,
 } from "@/lib/valuation/fixed-asset-projection";
@@ -1078,31 +1077,38 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     [activeEemBasis, results, snapshot],
   );
   const activeEem = activeEemSelection.eem;
-  const activeDcfSelection = useMemo(
+  const baseActiveDcfSelection = useMemo(
     () => buildActiveDcfSelection(results, activeDcfBasis, snapshot),
     [activeDcfBasis, results, snapshot],
+  );
+  const baseActiveDcf = baseActiveDcfSelection.dcf;
+  const incomeProjectionScenario = useMemo(
+    () =>
+      buildIncomeProjectionScenario({
+        snapshot,
+        baselineEquityValue: baseActiveDcf.equityValue,
+        controls: incomeProjectionControls,
+        activeDcfOptions: buildActiveDcfBasisDcfOptions(activeDcfBasis, snapshot),
+        fixedAssetProjection: dcfFixedAssetProjection,
+        fixedAssetProjectionSource: dcfFixedAssetProjection ? fixedAssetProjection.source : undefined,
+      }),
+    [
+      activeDcfBasis,
+      dcfFixedAssetProjection,
+      baseActiveDcf.equityValue,
+      fixedAssetProjection.source,
+      incomeProjectionControls,
+      snapshot,
+    ],
+  );
+  const activeDcfSelection = useMemo(
+    () => buildIncomeProjectionActiveDcfSelection(baseActiveDcfSelection, incomeProjectionScenario),
+    [baseActiveDcfSelection, incomeProjectionScenario],
   );
   const activeDcf = activeDcfSelection.dcf;
   const activeResults = useMemo(
     () => ({ ...results, eem: activeEem, dcf: activeDcf }),
     [activeDcf, activeEem, results],
-  );
-  const incomeProjectionScenario = useMemo(
-    () =>
-      buildIncomeProjectionScenario({
-        snapshot,
-        baselineEquityValue: activeDcf.equityValue,
-        controls: incomeProjectionControls,
-        fixedAssetProjection: dcfFixedAssetProjection,
-        fixedAssetProjectionSource: dcfFixedAssetProjection ? fixedAssetProjection.source : undefined,
-      }),
-    [
-      dcfFixedAssetProjection,
-      activeDcf.equityValue,
-      fixedAssetProjection.source,
-      incomeProjectionControls,
-      snapshot,
-    ],
   );
   const dlomCalculation = useMemo(() => calculateDlom(dlom, snapshot, caseProfile), [caseProfile, dlom, snapshot]);
   const dlocPfcCalculation = useMemo(() => calculateDlocPfc(dlocPfc, caseProfile), [caseProfile, dlocPfc]);
@@ -3884,7 +3890,13 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
           <div>
             <span>Basis DCF aktif</span>
             <strong data-testid="dcf-active-basis-label">{activeDcfSelection.shortLabel}</strong>
-            <small>{activeDcfBasis === "base" ? "Default sistem dipertahankan" : "Skenario terpilih user menjadi basis aktif"}</small>
+            <small>
+              {incomeProjectionScenario.activeBasis === "reviewer-approved-scenario"
+                ? "Scenario Proyeksi Laba Rugi reviewer menjadi basis aktif"
+                : activeDcfBasis === "base"
+                  ? "Default sistem dipertahankan"
+                  : "Skenario terpilih user menjadi basis aktif"}
+            </small>
           </div>
           {dcfDriverSummaries.map((driver) => (
             <div key={driver.label}>
@@ -5797,7 +5809,7 @@ const dcfBalanceProjectionRows: DcfProjectionLine[] = [
 ];
 
 function buildDcfFixedAssetProjectionRows(projection?: FixedAssetProjectionSummary): DcfProjectionLine[] {
-  const classLabels = projection?.rows.length ? projection.rows.map((row) => row.assetName) : fixedAssetProjectionClassLabels;
+  const classLabels = projection?.rows.map((row) => row.assetName) ?? [];
   const source = (context: DcfProjectionContext) => context.fixedAssetProjection?.source ?? "Perlu input";
   const status = (context: DcfProjectionContext) => fixedAssetProjectionStatus(context.fixedAssetProjection);
   const note = (context: DcfProjectionContext) => context.fixedAssetProjection?.note;
@@ -6516,9 +6528,13 @@ function ProjectionStatementSection({
           rows: buildDcfFixedAssetProjectionRows(fixedAssetProjection),
         }
       : dcfProjectionConfigs[kind];
-  const firstForecast = forecast[0] ?? null;
-  const finalForecast = forecast.at(-1) ?? null;
+  const scenarioPreviewForecast =
+    kind === "income" && incomeProjectionScenario?.hasScenarioInput ? incomeProjectionScenario.dcf.forecast : null;
+  const displayForecast = scenarioPreviewForecast ?? forecast;
+  const firstForecast = displayForecast[0] ?? null;
+  const finalForecast = displayForecast.at(-1) ?? null;
   const horizonLabel = firstForecast && finalForecast ? `${firstForecast.year}-${finalForecast.year}` : "Perlu data";
+  const displayedRevenueGrowth = readDisplayedRevenueGrowth(displayForecast, snapshot);
 
   return (
     <>
@@ -6573,7 +6589,7 @@ function ProjectionStatementSection({
             onChange={onFixedAssetProjectionModeChange}
             disabled={!fixedAssetProjection?.hasProjection}
           />
-          <FixedAssetProjectionDriverStrip forecast={forecast} fixedAssetProjection={fixedAssetProjection} />
+          <FixedAssetProjectionDriverStrip forecast={displayForecast} fixedAssetProjection={fixedAssetProjection} />
         </>
       ) : (
         <section className="active-driver-strip" aria-label={`Driver aktif ${config.title}`}>
@@ -6584,8 +6600,8 @@ function ProjectionStatementSection({
           </div>
           <div>
             <span>Revenue growth</span>
-            <strong>{formatPercent(snapshot.revenueGrowth)}</strong>
-            <small>Driver pertumbuhan pendapatan aktif</small>
+            <strong>{formatPercent(displayedRevenueGrowth)}</strong>
+            <small>{scenarioPreviewForecast ? "Scenario reviewer live preview" : "Driver pertumbuhan pendapatan aktif"}</small>
           </div>
           <div>
             <span>Tax rate</span>
@@ -6630,7 +6646,7 @@ function ProjectionStatementSection({
         />
       ) : null}
 
-      <DcfProjectionPanel config={config} forecast={forecast} snapshot={snapshot} fixedAssetProjection={fixedAssetProjection} />
+      <DcfProjectionPanel config={config} forecast={displayForecast} snapshot={snapshot} fixedAssetProjection={fixedAssetProjection} />
     </>
   );
 }
@@ -6986,6 +7002,16 @@ function FixedAssetProjectionDriverStrip({
   );
 }
 
+function readDisplayedRevenueGrowth(forecast: DcfForecastRow[], snapshot: FinancialStatementSnapshot): number {
+  const firstForecast = forecast[0];
+
+  if (!firstForecast) {
+    return snapshot.revenueGrowth;
+  }
+
+  return growthValue(firstForecast.revenue, snapshot.revenue) ?? snapshot.revenueGrowth;
+}
+
 function DcfProjectionPanel({
   config,
   forecast,
@@ -7090,17 +7116,20 @@ function buildIncomeProjectionScenario({
   snapshot,
   baselineEquityValue,
   controls,
+  activeDcfOptions,
   fixedAssetProjection,
   fixedAssetProjectionSource,
 }: {
   snapshot: FinancialStatementSnapshot;
   baselineEquityValue: number;
   controls: IncomeProjectionControlState;
+  activeDcfOptions?: DcfOptions;
   fixedAssetProjection?: Record<number, DcfFixedAssetProjectionInput>;
   fixedAssetProjectionSource?: string;
 }): IncomeProjectionScenarioResult {
   const controlOptions = buildIncomeProjectionControlDcfOptions(controls);
   const options: DcfOptions = {
+    ...activeDcfOptions,
     ...(fixedAssetProjection
       ? {
           fixedAssetProjection,
@@ -7136,6 +7165,24 @@ function buildIncomeProjectionScenario({
     level,
     activeBasis,
     summary,
+  };
+}
+
+function buildIncomeProjectionActiveDcfSelection(
+  baseSelection: ActiveDcfSelection,
+  scenario: IncomeProjectionScenarioResult,
+): ActiveDcfSelection {
+  if (scenario.activeBasis !== "reviewer-approved-scenario") {
+    return baseSelection;
+  }
+
+  return {
+    ...baseSelection,
+    label: "Reviewer-approved income projection scenario",
+    shortLabel: "Reviewer scenario",
+    summary: scenario.summary,
+    dcf: scenario.dcf,
+    projectionEngineLabel: "Reviewer-approved income projection overrides",
   };
 }
 
@@ -7187,6 +7234,30 @@ function buildActiveEemSelection(
     eem,
     debtLikeTaxPayable: basis === "taxPayableDebtLike" ? snapshot.taxPayable : 0,
   };
+}
+
+function buildActiveDcfBasisDcfOptions(basis: ActiveDcfBasis, snapshot: FinancialStatementSnapshot): DcfOptions {
+  if (basis === "terminalDownside") {
+    return { terminalGrowth: snapshot.terminalGrowthDownside ?? snapshot.terminalGrowth };
+  }
+
+  if (basis === "terminalUpside") {
+    return { terminalGrowth: snapshot.terminalGrowthUpside ?? snapshot.terminalGrowth };
+  }
+
+  if (basis === "noIncrementalWorkingCapital") {
+    return { includeWorkingCapitalChange: false };
+  }
+
+  if (basis === "taxPayableDebtLike") {
+    return { debtLikeTaxPayable: true };
+  }
+
+  if (basis === "historicalDerivedProjection") {
+    return { projectionEngine: "historical-derived" };
+  }
+
+  return {};
 }
 
 function resolveActiveEem(results: CalculationResults, basis: ActiveEemBasis, snapshot: FinancialStatementSnapshot): MethodOutput {

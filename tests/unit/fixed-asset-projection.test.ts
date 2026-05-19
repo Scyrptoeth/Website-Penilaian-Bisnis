@@ -1,21 +1,20 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { buildFixedAssetScheduleSummary, type FixedAssetScheduleRow } from "../../src/lib/valuation/case-model";
-import {
-  buildFixedAssetProjection,
-  fixedAssetProjectionClassLabels,
-} from "../../src/lib/valuation/fixed-asset-projection";
+import { buildFixedAssetProjection } from "../../src/lib/valuation/fixed-asset-projection";
 import type { DcfForecastRow } from "../../src/lib/valuation/types";
 import { assertAlmostEqual, basePeriods } from "./test-utils";
+
+const projectedAssetLabels = ["Factory equipment", "Delivery vehicles"];
 
 describe("fixed asset projection", () => {
   it("uses historical roll-forward mode by default and keeps DCF proxy as fallback", () => {
     const schedule = buildFixedAssetScheduleSummary(basePeriods, [
-      fixedAssetRow(fixedAssetProjectionClassLabels[2], [
+      fixedAssetRow(projectedAssetLabels[0], [
         ["100", "50", "10", "5"],
         ["", "20", "", "8"],
       ]),
-      fixedAssetRow(fixedAssetProjectionClassLabels[3], [
+      fixedAssetRow(projectedAssetLabels[1], [
         ["200", "0", "20", "10"],
         ["", "0", "", "12"],
       ]),
@@ -26,12 +25,16 @@ describe("fixed asset projection", () => {
     ];
 
     const projection = buildFixedAssetProjection(forecast, basePeriods, "p1", schedule);
-    const equipment = projection.rows.find((row) => row.assetName === fixedAssetProjectionClassLabels[2]);
-    const vehicle = projection.rows.find((row) => row.assetName === fixedAssetProjectionClassLabels[3]);
+    const equipment = projection.rows.find((row) => row.assetName === projectedAssetLabels[0]);
+    const vehicle = projection.rows.find((row) => row.assetName === projectedAssetLabels[1]);
 
     assert.equal(projection.hasProjection, true);
     assert.equal(projection.mode, "workbook-formula");
     assert.equal(projection.source, "Roll-forward aset tetap historis");
+    assert.deepEqual(
+      projection.rows.map((row) => row.assetName),
+      projectedAssetLabels,
+    );
     assert.equal(equipment?.amounts[2022].acquisitionBeginning, 170);
     assertAlmostEqual(equipment?.amounts[2022].acquisitionAdditions ?? 0, 8, 1e-9);
     assertAlmostEqual(equipment?.amounts[2022].depreciationAdditions ?? 0, 12.8, 1e-9);
@@ -47,11 +50,11 @@ describe("fixed asset projection", () => {
 
   it("can preserve the DCF proxy projection mode explicitly", () => {
     const schedule = buildFixedAssetScheduleSummary(basePeriods, [
-      fixedAssetRow(fixedAssetProjectionClassLabels[2], [
+      fixedAssetRow(projectedAssetLabels[0], [
         ["100", "50", "10", "5"],
         ["", "20", "", "8"],
       ]),
-      fixedAssetRow(fixedAssetProjectionClassLabels[3], [
+      fixedAssetRow(projectedAssetLabels[1], [
         ["200", "0", "20", "10"],
         ["", "0", "", "12"],
       ]),
@@ -62,8 +65,8 @@ describe("fixed asset projection", () => {
     ];
 
     const projection = buildFixedAssetProjection(forecast, basePeriods, "p1", schedule, { preferredMode: "dcf-proxy" });
-    const equipment = projection.rows.find((row) => row.assetName === fixedAssetProjectionClassLabels[2]);
-    const vehicle = projection.rows.find((row) => row.assetName === fixedAssetProjectionClassLabels[3]);
+    const equipment = projection.rows.find((row) => row.assetName === projectedAssetLabels[0]);
+    const vehicle = projection.rows.find((row) => row.assetName === projectedAssetLabels[1]);
 
     assert.equal(projection.mode, "dcf-proxy");
     assert.equal(projection.source, "Proksi DCF berbasis jadwal aset tetap");
@@ -85,7 +88,7 @@ describe("fixed asset projection", () => {
     assert.equal(projection.hasProjection, false);
     assert.equal(projection.mode, "workbook-formula");
     assert.equal(projection.source, "Perlu input");
-    assert.equal(projection.rows.length, fixedAssetProjectionClassLabels.length);
+    assert.deepEqual(projection.rows, []);
     assert.deepEqual(projection.totals, {});
   });
 });

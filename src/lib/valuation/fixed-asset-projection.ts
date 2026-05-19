@@ -1,20 +1,10 @@
 import type {
-  FixedAssetComputedRow,
   FixedAssetPeriodAmounts,
   FixedAssetScheduleSummary,
   Period,
 } from "./case-model";
 import { getChronologicalPeriods } from "./case-model";
 import type { DcfForecastRow } from "./types";
-
-export const fixedAssetProjectionClassLabels = [
-  "Land (Tanah Lahan Sawit + Tanah Lahan Sawit (TA))",
-  "Building (Bangunan Mess/Barak + Bangunan Mess/Barak (TA) + Lapangan + Kantor)",
-  "Equipment, Laboratory, & Machinery (Sarana & Prasarana)",
-  "Vehicle & Heavy Equipment (Alat Berat + Kendaraan)",
-  "Office Inventory (Inventaris Tanaman Sawit + Inventaris Tanaman Sawit (TA))",
-  "Electrical",
-];
 
 export type FixedAssetProjectionMode = "workbook-formula" | "dcf-proxy";
 
@@ -271,36 +261,13 @@ function buildProjectionBasisRows(
     chronologicalPeriods.findIndex((period) => period.id === activeId),
   );
   const historicalPeriods = chronologicalPeriods.slice(0, activeIndex + 1);
-  const rowsByLabel = new Map<string, FixedAssetComputedRow>();
-  const usedLabels = new Set<string>();
 
-  schedule.rows.forEach((row) => {
-    rowsByLabel.set(normalizeAssetLabel(row.row.assetName), row);
-  });
-
-  const templateRows = fixedAssetProjectionClassLabels.map((assetName) => {
-    const normalized = normalizeAssetLabel(assetName);
-    const row = rowsByLabel.get(normalized);
-    usedLabels.add(normalized);
-
-    return {
-      assetName,
-      activeAmounts: row?.amounts[activeId] ?? emptyAmounts,
-      historicalAmounts: row ? historicalPeriods.map((period) => row.amounts[period.id] ?? emptyAmounts) : [],
-      hasHistoricalBasis: Boolean(row),
-    };
-  });
-
-  const extraRows = schedule.rows
-    .filter((row) => !usedLabels.has(normalizeAssetLabel(row.row.assetName)))
-    .map((row) => ({
-      assetName: row.row.assetName || "Kelas aset lain",
-      activeAmounts: row.amounts[activeId] ?? emptyAmounts,
-      historicalAmounts: historicalPeriods.map((period) => row.amounts[period.id] ?? emptyAmounts),
-      hasHistoricalBasis: true,
-    }));
-
-  return [...templateRows, ...extraRows];
+  return schedule.rows.map((row) => ({
+    assetName: row.row.assetName || "Kelas aset lain",
+    activeAmounts: row.amounts[activeId] ?? emptyAmounts,
+    historicalAmounts: historicalPeriods.map((period) => row.amounts[period.id] ?? emptyAmounts),
+    hasHistoricalBasis: true,
+  }));
 }
 
 function buildProjectionTotals(
@@ -441,8 +408,4 @@ function equalWeights(length: number): number[] {
 
 function positive(value: number): number {
   return Number.isFinite(value) && value > 0 ? value : 0;
-}
-
-function normalizeAssetLabel(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }

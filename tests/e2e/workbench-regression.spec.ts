@@ -70,6 +70,31 @@ async function loadPersistedWorkbenchFixture(page: Page) {
     .toBe(1);
 }
 
+async function readIncomeProjectionRowCells(page: Page, rowLabel: string) {
+  const cells = await page.getByTestId("dcf-income-projection-table").locator("tbody tr").evaluateAll((rows, label) => {
+    const row = rows.find((candidate) => candidate.querySelector("td strong")?.textContent?.trim() === label);
+
+    return row ? Array.from(row.querySelectorAll("td")).map((cell) => cell.textContent?.trim() ?? "") : [];
+  }, rowLabel);
+
+  if (!cells.length) {
+    throw new Error(`Income projection row not found: ${rowLabel}`);
+  }
+
+  return cells;
+}
+
+function parseDisplayedNumber(value: string) {
+  const normalized = value.replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", ".");
+  const parsed = Number(normalized);
+
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`Unable to parse displayed number: ${value}`);
+  }
+
+  return parsed;
+}
+
 test("JSON export and import round-trip the full workbench draft", async ({ page }) => {
   await loadSampleWorkbook(page);
   await expect(page.getByLabel("Nama Objek Pajak")).toHaveValue("Makmur Jaya Sejati Raya");
@@ -550,6 +575,11 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByLabel("Cash/deposit yield")).toHaveValue(/.+/);
   await expect(page.getByLabel("Interest expense / revenue")).toHaveValue(/.+/);
   await expect(page.getByTestId("income-projection-audit-events")).toHaveCount(0);
+  const approvalSafeRevenueGrowth = await page.getByLabel("Revenue growth override 2022").inputValue();
+  const approvalSafeGrossMargin = await page.getByLabel("Gross margin override 2022").inputValue();
+  const approvalSafeOpexMargin = await page.getByLabel("Opex margin override 2022").inputValue();
+  const approvalSafeDepreciation = await page.getByLabel("Depreciation override 2022").inputValue();
+  const firstYearRevenueBeforeOverride = parseDisplayedNumber((await readIncomeProjectionRowCells(page, "Revenue"))[3]);
   await expect.poll(() => page.evaluate((key) => {
     const raw = window.localStorage.getItem(key);
     const state = raw ? JSON.parse(raw) : {};
@@ -557,7 +587,18 @@ test("added analysis sections use readiness gates before sample data and render 
       event.field === "incomeProjectionControls.autoSmartSuggestions",
     );
   }, workbenchStorageKey)).toBe(true);
-  await page.getByLabel("Revenue growth override 2022").fill("0,25");
+  await page.getByLabel("Revenue growth override 2022").fill("0,50");
+  await page.getByLabel("Gross margin override 2022").fill("0,60");
+  await page.getByLabel("Opex margin override 2022").fill("0,10");
+  await page.getByLabel("Depreciation override 2022").fill("0,04");
+  await expect.poll(async () => (await readIncomeProjectionRowCells(page, "Revenue Growth"))[3]).toBe("50%");
+  const scenarioRevenue = parseDisplayedNumber((await readIncomeProjectionRowCells(page, "Revenue"))[3]);
+  expect(scenarioRevenue).toBeGreaterThan(firstYearRevenueBeforeOverride);
+  await expect.poll(async () => (await readIncomeProjectionRowCells(page, "Gross Profit Margin"))[3]).toBe("60%");
+  const scenarioOpex = parseDisplayedNumber((await readIncomeProjectionRowCells(page, "General & Administrative Overheads"))[3]);
+  const scenarioDepreciation = parseDisplayedNumber((await readIncomeProjectionRowCells(page, "Depreciation"))[3]);
+  expect(Math.abs(scenarioOpex - scenarioRevenue * 0.1)).toBeLessThanOrEqual(1);
+  expect(Math.abs(scenarioDepreciation - scenarioRevenue * 0.04)).toBeLessThanOrEqual(1);
   await expect.poll(() => page.evaluate((key) => {
     const raw = window.localStorage.getItem(key);
     const state = raw ? JSON.parse(raw) : {};
@@ -565,7 +606,16 @@ test("added analysis sections use readiness gates before sample data and render 
       event.field === "2022.revenueGrowth",
     );
   }, workbenchStorageKey)).toBe(true);
+  await page.getByLabel("Revenue growth override 2022").fill(approvalSafeRevenueGrowth);
+  await page.getByLabel("Gross margin override 2022").fill(approvalSafeGrossMargin);
+  await page.getByLabel("Opex margin override 2022").fill(approvalSafeOpexMargin);
+  await page.getByLabel("Depreciation override 2022").fill(approvalSafeDepreciation);
   await page.getByTestId("income-projection-controls").getByLabel("Decision").selectOption("approved");
+  const approvedScenarioDcfValue = await page
+    .getByTestId("income-projection-controls")
+    .locator(".projection-governance-grid > div", { hasText: "Scenario DCF" })
+    .locator("strong")
+    .innerText();
   await expect.poll(() => page.evaluate((key) => {
     const raw = window.localStorage.getItem(key);
     const state = raw ? JSON.parse(raw) : {};
@@ -579,6 +629,12 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByTestId("dcf-income-projection-table")).not.toContainText(/KKP|Excel|Workbook/i);
   await expect(page.getByText("Detail formula dan referensi audit")).toHaveCount(0);
   await expect(page.getByTestId("dcf-income-projection-table-trace")).toHaveCount(0);
+
+  await openWorkflowTab(page, "Penilaian DCF");
+  await expect(page.getByTestId("dcf-active-basis-label")).toHaveText("Reviewer scenario");
+  await expect(page.getByTestId("dcf-active-equity-value")).toHaveText(approvedScenarioDcfValue);
+  await openWorkflowTab(page, "Proyeksi Laba Rugi");
+  await page.getByTestId("income-projection-controls").getByLabel("Decision").selectOption("pending");
 
   await openWorkflowTab(page, "Proyeksi Neraca");
   await expect(page.getByRole("heading", { name: "Proyeksi Neraca" })).toBeVisible();
@@ -625,6 +681,8 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByTestId("dcf-fixed-asset-projection-table")).toContainText("A. Acquisition Costs");
   await expect(page.getByTestId("dcf-fixed-asset-projection-table")).toContainText("Net Value Fixed Assets");
   await expect(page.getByTestId("dcf-fixed-asset-projection-table")).toContainText("Roll-forward aset tetap historis");
+  await expect(page.getByTestId("dcf-fixed-asset-projection-table")).toContainText("Office Inventory");
+  await expect(page.getByTestId("dcf-fixed-asset-projection-table")).not.toContainText("Electrical");
   await expect(page.getByRole("radio", { name: /Roll-forward Historis/ })).toHaveAttribute("aria-checked", "true");
   await expect(page.getByTestId("dcf-fixed-asset-projection-table")).not.toContainText("Delta vs DCF capex");
   await expect(page.getByTestId("dcf-fixed-asset-projection-table")).not.toContainText(/belum dimodelkan/i);
