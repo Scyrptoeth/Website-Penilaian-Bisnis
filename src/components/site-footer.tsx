@@ -1,6 +1,6 @@
 import { MessageCircle } from "lucide-react";
 
-const supportPhoneLabel = "0822-9411-6001 (Goradok Pande Raja Sinabutar)";
+const supportPhoneLabel = "0822-9411-6001 (Goradok Pande Raja Sinabutar / Dedek)";
 
 export function SiteFooter() {
   return (
