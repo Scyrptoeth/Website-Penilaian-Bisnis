@@ -13,7 +13,7 @@ import {
 } from "./export-scopes";
 import type { AnalysisRow } from "./section-analysis";
 import type { TaxSimulationMethodRow } from "./tax-simulation";
-import type { MethodOutput, ValuationMethod } from "./types";
+import type { FormulaTrace, MethodOutput, ValuationMethod } from "./types";
 import type { ValuationPdfExportInput } from "./pdf-export";
 
 export type ValuationXlsxExportScopeId = ValuationExportScopeId;
@@ -385,8 +385,16 @@ function buildCalculationModelRows(input: ValuationPdfExportInput, scope: Valuat
     add("eemOperatingNwc", "EEM", "Operating NWC", formulaCell(`${refs.eemOperatingCurrentAssets}-${refs.eemOperatingCurrentLiabilities}`, input.results.operatingWorkingCapital), "Formula", "Operating current assets - operating current liabilities.");
     add("eemNta", "EEM", "Net operating tangible assets", formulaCell(`${refs.fixedAssetsNet}+${refs.eemOperatingNwc}`, input.snapshot.fixedAssetsNet + input.results.operatingWorkingCapital), "Formula", "Fixed assets net + operating NWC.");
     add("eemNoplat", "EEM", "NOPLAT", formulaCell(`${refs.ebit}*(1-${refs.taxRate})`, input.results.normalizedNoplat), "Formula", "EBIT x (1 - tax rate).");
+    add("eemDepreciation", "EEM", "Depreciation add-back", 0, "System", "Normalized single-period EEM base policy.");
+    add("eemGrossCashFlow", "EEM", "Gross cash flow", formulaCell(`${refs.eemNoplat}+${refs.eemDepreciation}`, input.results.normalizedNoplat), "Formula", "NOPLAT + depreciation add-back.");
+    add("eemCurrentAssetMovement", "EEM", "Increase/decrease current asset", 0, "System", "Normalized single-period EEM base policy.");
+    add("eemCurrentLiabilityMovement", "EEM", "Increase/decrease current liabilities", 0, "System", "Normalized single-period EEM base policy.");
+    add("eemTotalNetChangesWorkingCapital", "EEM", "Total net changes in working capital", formulaCell(`${refs.eemCurrentAssetMovement}+${refs.eemCurrentLiabilityMovement}`, 0), "Formula", "Current asset movement + current liability movement.");
+    add("eemCapitalExpenditures", "EEM", "Capital expenditures", 0, "System", "Normalized single-period EEM base policy.");
+    add("eemGrossInvestment", "EEM", "Gross investment", formulaCell(`${refs.eemTotalNetChangesWorkingCapital}-${refs.eemCapitalExpenditures}`, 0), "Formula", "Total net WC changes - capital expenditures.");
+    add("eemFreeCashFlow", "EEM", "Free cash flow", formulaCell(`${refs.eemGrossCashFlow}+${refs.eemGrossInvestment}`, input.results.normalizedNoplat), "Formula", "Gross cash flow + gross investment.");
     add("eemRequiredReturn", "EEM", "Required return charge", formulaCell(`${refs.eemNta}*${refs.requiredReturnOnNta}`, (input.snapshot.fixedAssetsNet + input.results.operatingWorkingCapital) * input.snapshot.requiredReturnOnNta), "Formula", "NTA x required return on NTA.");
-    add("eemExcessEarnings", "EEM", "Excess earnings", formulaCell(`${refs.eemNoplat}-${refs.eemRequiredReturn}`, input.results.normalizedNoplat - (input.snapshot.fixedAssetsNet + input.results.operatingWorkingCapital) * input.snapshot.requiredReturnOnNta), "Formula", "NOPLAT - required return charge.");
+    add("eemExcessEarnings", "EEM", "Excess earnings", formulaCell(`${refs.eemFreeCashFlow}-${refs.eemRequiredReturn}`, input.results.normalizedNoplat - (input.snapshot.fixedAssetsNet + input.results.operatingWorkingCapital) * input.snapshot.requiredReturnOnNta), "Formula", "FCF - required return charge.");
     add("eemCapitalizationRate", "EEM", "Capitalization rate", formulaCell(`${refs.wacc}-${refs.terminalGrowth}`, input.snapshot.wacc - input.snapshot.terminalGrowth), "Formula", "WACC - terminal growth.");
     add("eemCapitalizedExcess", "EEM", "Capitalized excess earnings", formulaCell(`IF(${refs.eemCapitalizationRate}>0,${refs.eemExcessEarnings}/${refs.eemCapitalizationRate},0)`, baseResults.eem.equityValue - (input.snapshot.fixedAssetsNet + input.results.operatingWorkingCapital) - input.results.nonOperatingAssets + input.results.interestBearingDebt), "Formula", "Excess earnings / capitalization rate.");
     add("eemEnterpriseValue", "EEM", "Enterprise value", formulaCell(`${refs.eemNta}+${refs.eemCapitalizedExcess}`, baseResults.eem.equityValue - input.results.nonOperatingAssets + input.results.interestBearingDebt), "Formula", "NTA + capitalized excess earnings.");
@@ -854,14 +862,14 @@ function buildFormulaTraceRows(methodOutputs: MethodOutput[], refs: Record<strin
     ["Method", "Trace", "Formula", "Value", "Value Source", "Value Format", "Note"],
     ...methodOutputs.flatMap((method) =>
       method.traces.map((trace) => {
-        const traceRef = resolveTraceFormulaRef(method.method, trace.label, refs);
+        const traceRef = resolveTraceFormulaRef(method.method, trace, refs);
 
         return [
           method.method,
           trace.label,
           trace.formula,
           traceRef ? formulaCell(traceRef, trace.value) : trace.value,
-          traceRef ? "Formula" : "System",
+          traceRef ? "Formula" : trace.treatment ?? "System",
           trace.valueFormat ?? "currency",
           trace.note,
         ];
@@ -1156,16 +1164,40 @@ function excelString(value: string): string {
   return `"${value.replace(/"/g, '""')}"`;
 }
 
-function resolveTraceFormulaRef(method: ValuationMethod, label: string, refs: Record<string, string>): string | undefined {
-  if (method === "AAM" && label === "Nilai Ekuitas 100% - AAM") {
+function resolveTraceFormulaRef(method: ValuationMethod, trace: FormulaTrace, refs: Record<string, string>): string | undefined {
+  if (method === "AAM" && trace.label === "Nilai Ekuitas 100% - AAM") {
     return refs.aamEquityValue;
   }
 
-  if (method === "EEM" && label === "Nilai Ekuitas 100% - EEM") {
-    return refs.eemEquityValue;
+  if (method === "EEM") {
+    const eemTraceRefs: Record<string, string | undefined> = {
+      "eem-net-tangible-asset-value": refs.eemNta,
+      "eem-return-on-tangible-asset": refs.requiredReturnOnNta,
+      "eem-earning-return-on-nta": refs.eemRequiredReturn,
+      "eem-noplat": refs.eemNoplat,
+      "eem-depreciation": refs.eemDepreciation,
+      "eem-gross-cash-flow": refs.eemGrossCashFlow,
+      "eem-changes-in-working-capital": refs.eemTotalNetChangesWorkingCapital,
+      "eem-increase-decrease-current-asset": refs.eemCurrentAssetMovement,
+      "eem-increase-decrease-current-liabilities": refs.eemCurrentLiabilityMovement,
+      "eem-total-net-changes-working-capital": refs.eemTotalNetChangesWorkingCapital,
+      "eem-capital-expenditures": refs.eemCapitalExpenditures,
+      "eem-gross-investment": refs.eemGrossInvestment,
+      "eem-free-cash-flow": refs.eemFreeCashFlow,
+      "eem-excess-earning": refs.eemExcessEarnings,
+      "eem-capitalization-rate": refs.eemCapitalizationRate,
+      "eem-capitalized-excess-earning": refs.eemCapitalizedExcess,
+      "eem-enterprise-value": refs.eemEnterpriseValue,
+      "eem-interest-bearing-debt": refs.interestBearingDebt,
+      "eem-non-operating-asset": refs.nonOperatingAssets,
+      "eem-equity-value-100": refs.eemBaseEquityValue,
+      "eem-active-basis-adjustment": refs.eemEquityValue,
+    };
+
+    return (trace.id && eemTraceRefs[trace.id]) || (trace.label === "Nilai Ekuitas 100% - EEM" ? refs.eemEquityValue : undefined);
   }
 
-  if (method === "DCF" && label === "Nilai Ekuitas 100% - DCF") {
+  if (method === "DCF" && trace.label === "Nilai Ekuitas 100% - DCF") {
     return refs.dcfEquityValue;
   }
 

@@ -4799,6 +4799,146 @@ td span {
   gap: 6px;
 }
 
+.eem-trace-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.eem-trace-table {
+  width: 100%;
+  min-width: 1180px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.eem-trace-table th,
+.eem-trace-table td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+  text-align: left;
+}
+
+.eem-trace-table th {
+  background: #f2f5f1;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.eem-trace-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.eem-trace-table th:nth-child(1),
+.eem-trace-table td:nth-child(1) {
+  width: 37%;
+}
+
+.eem-trace-table th:nth-child(2),
+.eem-trace-table td:nth-child(2) {
+  width: 13%;
+}
+
+.eem-trace-table th:nth-child(3),
+.eem-trace-table td:nth-child(3) {
+  width: 34%;
+}
+
+.eem-trace-table th:nth-child(4),
+.eem-trace-table td:nth-child(4) {
+  width: 16%;
+}
+
+.eem-trace-component {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 4px 8px;
+  min-width: 0;
+}
+
+.eem-trace-component > span {
+  grid-row: span 3;
+  color: var(--muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.eem-trace-component strong {
+  overflow-wrap: anywhere;
+}
+
+.eem-trace-component code,
+.eem-trace-source-stack code {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  padding: 3px 5px;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #ffffff;
+  color: var(--accent-ink);
+  font-family: var(--font-mono), monospace;
+  font-size: 8.4px;
+}
+
+.eem-trace-component p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.eem-trace-value {
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono), monospace;
+  font-weight: 700;
+  text-align: right;
+}
+
+.eem-trace-source-stack,
+.eem-trace-treatment {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.eem-trace-source-stack small,
+.eem-trace-treatment small {
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.eem-trace-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.eem-trace-chip-row span,
+.eem-trace-treatment span {
+  width: fit-content;
+  max-width: 100%;
+  padding: 2px 6px;
+  border: 1px solid #b7d1ca;
+  border-radius: 999px;
+  background: #e8f4f1;
+  color: var(--accent-ink);
+  font-size: 8.6px;
+  font-weight: 800;
+}
+
+.eem-trace-treatment span {
+  border-color: var(--line-strong);
+  background: #ffffff;
+  color: var(--ink);
+}
+
 .formula-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(120px, 150px);

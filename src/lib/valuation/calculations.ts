@@ -1,4 +1,4 @@
-import type { DcfForecastRow, FinancialStatementSnapshot, FormulaTrace, MethodOutput } from "./types";
+import type { AccountCategory, DcfForecastRow, FinancialStatementSnapshot, FormulaTrace, MethodOutput } from "./types";
 
 export type IncomeProjectionYearOverrideInput = {
   revenueGrowth?: number;
@@ -157,6 +157,40 @@ export function normalizedNoplat(snapshot: FinancialStatementSnapshot): number {
   return snapshot.ebit * (1 - snapshot.taxRate);
 }
 
+const eemTangibleAssetCategories: AccountCategory[] = [
+  "FIXED_ASSET",
+  "ACCOUNT_RECEIVABLE",
+  "INVENTORY",
+  "ACCOUNT_PAYABLE",
+  "OTHER_PAYABLE",
+];
+
+const eemIncomeCategories: AccountCategory[] = [
+  "EBIT",
+  "REVENUE",
+  "COST_OF_GOOD_SOLD",
+  "SELLING_EXPENSE",
+  "GENERAL_ADMINISTRATIVE_OVERHEADS",
+  "OPERATING_EXPENSE",
+  "DEPRECIATION_EXPENSE",
+];
+
+const eemNonOperatingAssetCategories: AccountCategory[] = [
+  "CASH_ON_HAND",
+  "CASH_ON_BANK",
+  "EMPLOYEE_RECEIVABLE",
+  "EXCESS_CASH",
+  "SURPLUS_ASSET_CASH",
+  "MARKETABLE_SECURITIES",
+  "NON_OPERATING_FIXED_ASSETS",
+];
+
+const eemDebtCategories: AccountCategory[] = [
+  "BANK_LOAN_SHORT_TERM",
+  "BANK_LOAN_LONG_TERM",
+  "INTEREST_BEARING_DEBT",
+];
+
 export function calculateAam(snapshot: FinancialStatementSnapshot, options: AamOptions = {}): MethodOutput {
   const historicalAssets = adjustedTotalAssets(snapshot);
   const historicalLiabilities = adjustedTotalLiabilities(snapshot);
@@ -217,46 +251,268 @@ export function calculateAam(snapshot: FinancialStatementSnapshot, options: AamO
 }
 
 export function calculateEem(snapshot: FinancialStatementSnapshot): MethodOutput {
-  const nwc = operatingWorkingCapital(snapshot);
+  const operatingCurrentAssetValue = operatingCurrentAssets(snapshot);
+  const operatingCurrentLiabilityValue = operatingCurrentLiabilities(snapshot);
+  const nwc = operatingCurrentAssetValue - operatingCurrentLiabilityValue;
   const netOperatingTangibleAssets = snapshot.fixedAssetsNet + nwc;
   const noplat = normalizedNoplat(snapshot);
+  const depreciationAddBack = 0;
+  const grossCashFlow = noplat + depreciationAddBack;
+  const currentAssetMovement = 0;
+  const currentLiabilityMovement = 0;
+  const totalNetChangesInWorkingCapital = currentAssetMovement + currentLiabilityMovement;
+  const capitalExpenditures = 0;
+  const grossInvestment = totalNetChangesInWorkingCapital - capitalExpenditures;
+  const freeCashFlow = grossCashFlow + grossInvestment;
   const requiredReturn = netOperatingTangibleAssets * snapshot.requiredReturnOnNta;
-  const excessEarnings = noplat - requiredReturn;
+  const excessEarnings = freeCashFlow - requiredReturn;
   const capitalizationRate = snapshot.wacc - snapshot.terminalGrowth;
   const capitalizedExcess = capitalizationRate > 0 ? excessEarnings / capitalizationRate : 0;
   const enterpriseValue = netOperatingTangibleAssets + capitalizedExcess;
-  const equityValue = enterpriseValue + nonOperatingAssets(snapshot) - interestBearingDebt(snapshot);
+  const nonOperatingAssetValue = nonOperatingAssets(snapshot);
+  const interestBearingDebtValue = interestBearingDebt(snapshot);
+  const equityValue = enterpriseValue + nonOperatingAssetValue - interestBearingDebtValue;
 
   const traces: FormulaTrace[] = [
     {
-      label: "Operating NWC (modal kerja operasional bersih)",
-      formula: "(AR + inventory) - (AP + other payable)",
-      value: nwc,
-      note: "Cash, deposit, employee receivable, tax payable, dan debt dikeluarkan.",
-    },
-    {
-      label: "Aset berwujud operasional neto",
+      id: "eem-net-tangible-asset-value",
+      label: "Nett Tangible Asset Value",
       formula: "Aset tetap neto + operating NWC",
       value: netOperatingTangibleAssets,
-      note: "Basis aset berwujud operasional untuk EEM.",
+      note: "Basis aset berwujud operasional EEM; kas, deposito, piutang karyawan, utang pajak, dan debt tidak masuk operating NWC.",
+      sourceTabs: ["Neraca", "Aset Tetap", "Kategorisasi Akun"],
+      accountCategories: eemTangibleAssetCategories,
+      workbookReference: "EEM!D7 / STAT_EEM!B7 / BALANCE SHEET!E21,E10,E12,E31,E33",
+      treatment: "Operating tangible asset base",
+      traceLevel: "subtotal",
     },
     {
-      label: "NOPLAT ternormalisasi",
+      id: "eem-return-on-tangible-asset",
+      label: "Return on Tangible Asset",
+      formula: "Required return on NTA aktif",
+      value: snapshot.requiredReturnOnNta,
+      note: "Rate berasal dari asumsi/reviewer governance, bukan angka workbook yang ditanam di runtime.",
+      valueFormat: "percent",
+      sourceTabs: ["Asumsi EEM/DCF", "WACC"],
+      workbookReference: "EEM!C8 / STAT_EEM!B15 / assumptions driver / BORROWING CAP F14",
+      treatment: "Assumption driver",
+      traceLevel: "assumption",
+    },
+    {
+      id: "eem-earning-return-on-nta",
+      label: "Earning Return on Nett Tangible Asset",
+      formula: "NTA x return on tangible asset",
+      value: requiredReturn,
+      note: "Capital charge untuk aset berwujud operasional sebelum menghitung excess earning.",
+      sourceTabs: ["Penilaian EEM", "Asumsi EEM/DCF"],
+      accountCategories: eemTangibleAssetCategories,
+      workbookReference: "EEM!D9",
+      treatment: "Tangible asset capital charge",
+      traceLevel: "calculation",
+    },
+    {
+      id: "eem-noplat",
+      label: "NOPLAT",
       formula: "EBIT komersial x (1 - tarif pajak statutory)",
       value: noplat,
-      note: "Menggunakan earning power komersial dan tarif pajak statutory aktif.",
+      note: "Earning power komersial; interest income, interest expense, dan non-operating income dikeluarkan dari operasi.",
+      sourceTabs: ["Laba Rugi", "Asumsi EEM/DCF", "NOPLAT & FCF"],
+      accountCategories: eemIncomeCategories,
+      workbookReference: "EEM!D12 / STAT_EEM!B14 / INCOME STATEMENT!E22 / tax assumption",
+      treatment: "Operating after-tax earnings",
+      traceLevel: "calculation",
     },
     {
-      label: "Excess earnings (laba lebih)",
-      formula: "NOPLAT - (NTA x required return on NTA)",
+      id: "eem-depreciation",
+      label: "Depreciation",
+      formula: "Normalized single-period EEM add-back",
+      value: depreciationAddBack,
+      note: "Basis EEM saat ini memakai NOPLAT ternormalisasi; add-back depresiasi tidak dipakai sampai ada reinvestment/capex policy terpisah.",
+      sourceTabs: ["Laba Rugi", "Aset Tetap", "Penilaian EEM"],
+      accountCategories: ["DEPRECIATION_EXPENSE", "ACCUMULATED_DEPRECIATION"],
+      workbookReference: "EEM!D13",
+      treatment: "Policy-driven zero in base EEM",
+      traceLevel: "bridge",
+    },
+    {
+      id: "eem-gross-cash-flow",
+      label: "Gross Cash Flow",
+      formula: "NOPLAT + depreciation",
+      value: grossCashFlow,
+      note: "Arus kas bruto mengikuti NOPLAT karena depresiasi add-back base EEM bernilai nol.",
+      sourceTabs: ["NOPLAT & FCF", "Penilaian EEM"],
+      accountCategories: [...eemIncomeCategories, "DEPRECIATION_EXPENSE"],
+      workbookReference: "EEM!D14",
+      treatment: "Cash-flow bridge subtotal",
+      traceLevel: "subtotal",
+    },
+    {
+      id: "eem-changes-in-working-capital",
+      label: "Changes in Working Capital",
+      formula: "(increase/decrease current asset) + increase/decrease current liabilities",
+      value: totalNetChangesInWorkingCapital,
+      note: "Single-period normalized EEM tidak mengambil perubahan historis CFS sebagai driver valuasi; operating NWC sudah masuk NTA.",
+      sourceTabs: ["Neraca", "Cash Flow Statement", "NOPLAT & FCF"],
+      accountCategories: ["ACCOUNT_RECEIVABLE", "INVENTORY", "ACCOUNT_PAYABLE", "OTHER_PAYABLE"],
+      workbookReference: "EEM!B16:D19",
+      treatment: "Normalized working-capital movement",
+      traceLevel: "bridge",
+    },
+    {
+      id: "eem-increase-decrease-current-asset",
+      label: "(Increase) Decrease in Current Asset",
+      formula: "Normalized movement of AR + inventory",
+      value: currentAssetMovement,
+      note: "AR dan inventory dipakai sebagai saldo operating current asset dalam NTA, bukan sebagai perubahan CFS historis pada base EEM.",
+      sourceTabs: ["Neraca", "Cash Flow Statement"],
+      accountCategories: ["ACCOUNT_RECEIVABLE", "INVENTORY"],
+      workbookReference: "EEM!D17",
+      treatment: "Policy-driven zero in base EEM",
+      traceLevel: "bridge",
+    },
+    {
+      id: "eem-increase-decrease-current-liabilities",
+      label: "Increase (Decrease) in Current Liabilities",
+      formula: "Normalized movement of AP + other payable",
+      value: currentLiabilityMovement,
+      note: "AP dan utang lain-lain dipakai sebagai saldo operating current liabilities dalam NTA; utang pajak dan debt tetap dikeluarkan.",
+      sourceTabs: ["Neraca", "Cash Flow Statement"],
+      accountCategories: ["ACCOUNT_PAYABLE", "OTHER_PAYABLE"],
+      workbookReference: "EEM!D18",
+      treatment: "Policy-driven zero in base EEM",
+      traceLevel: "bridge",
+    },
+    {
+      id: "eem-total-net-changes-working-capital",
+      label: "Total Net Changes in Working Capital",
+      formula: "Current asset movement + current liability movement",
+      value: totalNetChangesInWorkingCapital,
+      note: "Subtotal pergerakan modal kerja bersih untuk bridge EEM normalized.",
+      sourceTabs: ["NOPLAT & FCF", "Penilaian EEM"],
+      accountCategories: ["ACCOUNT_RECEIVABLE", "INVENTORY", "ACCOUNT_PAYABLE", "OTHER_PAYABLE"],
+      workbookReference: "EEM!D19",
+      treatment: "Cash-flow bridge subtotal",
+      traceLevel: "subtotal",
+    },
+    {
+      id: "eem-capital-expenditures",
+      label: "Capital Expenditures",
+      formula: "Normalized EEM capex requirement",
+      value: capitalExpenditures,
+      note: "Base EEM belum memakai capex proyeksi; kebutuhan reinvestment diuji di DCF/proyeksi aset tetap, bukan ditanam sebagai angka EEM.",
+      sourceTabs: ["Aset Tetap", "Proyeksi Aset Tetap", "Penilaian EEM"],
+      accountCategories: ["FIXED_ASSET", "FIXED_ASSET_ACQUISITION", "ACCUMULATED_DEPRECIATION"],
+      workbookReference: "EEM!D21",
+      treatment: "Policy-driven zero in base EEM",
+      traceLevel: "bridge",
+    },
+    {
+      id: "eem-gross-investment",
+      label: "Gross Investment",
+      formula: "Total net WC changes - capital expenditures",
+      value: grossInvestment,
+      note: "Signed reinvestment bridge yang ditambahkan ke gross cash flow untuk mendapat FCF EEM.",
+      sourceTabs: ["NOPLAT & FCF", "Proyeksi Aset Tetap", "Penilaian EEM"],
+      accountCategories: ["ACCOUNT_RECEIVABLE", "INVENTORY", "ACCOUNT_PAYABLE", "OTHER_PAYABLE", "FIXED_ASSET"],
+      workbookReference: "EEM!D23",
+      treatment: "Cash-flow bridge subtotal",
+      traceLevel: "subtotal",
+    },
+    {
+      id: "eem-free-cash-flow",
+      label: "Free Cash Flow",
+      formula: "Gross cash flow + gross investment",
+      value: freeCashFlow,
+      note: "FCF EEM menjadi earning base sebelum tangible asset capital charge.",
+      sourceTabs: ["NOPLAT & FCF", "Penilaian EEM"],
+      accountCategories: [...eemIncomeCategories, ...eemTangibleAssetCategories],
+      workbookReference: "EEM!D25",
+      treatment: "EEM earning base",
+      traceLevel: "calculation",
+    },
+    {
+      id: "eem-excess-earning",
+      label: "Excess Earning",
+      formula: "Free cash flow - earning return on NTA",
       value: excessEarnings,
-      note: "Required return dibebankan pada aset berwujud operasional.",
+      note: "Laba lebih yang dianggap dihasilkan oleh aset tidak berwujud/ekonomi goodwill.",
+      sourceTabs: ["Penilaian EEM", "NOPLAT & FCF", "Asumsi EEM/DCF"],
+      accountCategories: [...eemIncomeCategories, ...eemTangibleAssetCategories],
+      workbookReference: "EEM!D27 / STAT_EEM!B17",
+      treatment: "Intangible earnings premium",
+      traceLevel: "calculation",
     },
     {
-      label: "Nilai Ekuitas 100% - EEM",
-      formula: "NTA + excess earnings yang dikapitalisasi + aset non-operasional - utang berbunga",
+      id: "eem-capitalization-rate",
+      label: "Capitalization Rate",
+      formula: "WACC - terminal growth",
+      value: capitalizationRate,
+      note: "Rate kapitalisasi aktif mengikuti WACC dan terminal growth yang disetujui reviewer.",
+      valueFormat: "percent",
+      sourceTabs: ["WACC", "Asumsi EEM/DCF"],
+      workbookReference: "EEM!C28 / STAT_EEM!B18 / WACC driver / terminal growth driver / DISCOUNT RATE H10",
+      treatment: "Assumption driver",
+      traceLevel: "assumption",
+    },
+    {
+      id: "eem-capitalized-excess-earning",
+      label: "Capitalized Excess Earning",
+      formula: "IF(capitalization rate > 0, excess earning / capitalization rate, 0)",
+      value: capitalizedExcess,
+      note: "Kapitalisasi laba lebih; rate nol/negatif ditahan ke nol untuk mencegah nilai tidak valid.",
+      sourceTabs: ["Penilaian EEM", "Asumsi EEM/DCF"],
+      accountCategories: [...eemIncomeCategories, ...eemTangibleAssetCategories],
+      workbookReference: "EEM!D29 / STAT_EEM!B19",
+      treatment: "Capitalized intangible value",
+      traceLevel: "calculation",
+    },
+    {
+      id: "eem-enterprise-value",
+      label: "Enterprise Value",
+      formula: "NTA + capitalized excess earning",
+      value: enterpriseValue,
+      note: "Nilai operasi sebelum bridge aset non-operasional dan utang berbunga.",
+      sourceTabs: ["Penilaian EEM"],
+      accountCategories: [...eemTangibleAssetCategories, ...eemIncomeCategories],
+      workbookReference: "EEM!D31 / STAT_EEM!B20",
+      treatment: "Operating enterprise value",
+      traceLevel: "subtotal",
+    },
+    {
+      id: "eem-interest-bearing-debt",
+      label: "Interest Bearing Debt",
+      formula: "Pinjaman bank jangka pendek + pinjaman bank jangka panjang",
+      value: interestBearingDebtValue,
+      note: "Debt dikeluarkan dari operating WC dan dikurangkan dari enterprise value pada bridge ekuitas; workbook EEM menyajikan row ini dengan tanda negatif.",
+      sourceTabs: ["Neraca", "Jadwal Utang"],
+      accountCategories: eemDebtCategories,
+      workbookReference: "EEM!D32 / STAT_EEM!B21 / BALANCE SHEET!E30,E37",
+      treatment: "Deducted in equity bridge",
+      traceLevel: "bridge",
+    },
+    {
+      id: "eem-non-operating-asset",
+      label: "Non Operating Asset",
+      formula: "Cash/deposit + surplus cash + marketable securities + employee receivable + non-operating fixed assets",
+      value: nonOperatingAssetValue,
+      note: "Aset non-operasional ditambahkan setelah EV; minimum operating cash tetap area judgment reviewer.",
+      sourceTabs: ["Neraca", "Kategorisasi Akun", "Penilaian EEM"],
+      accountCategories: eemNonOperatingAssetCategories,
+      workbookReference: "EEM!D33 / STAT_EEM!B11 / BALANCE SHEET!E8,E9,E11",
+      treatment: "Added after enterprise value",
+      traceLevel: "bridge",
+    },
+    {
+      id: "eem-equity-value-100",
+      label: "Equity Value (100%)",
+      formula: "Enterprise value + non-operating asset - interest-bearing debt",
       value: equityValue,
-      note: "DLOM/DLOC tidak diterapkan.",
+      note: "DLOM/DLOC tidak diterapkan pada base EEM; skenario utang pajak debt-like ditampilkan sebagai sensitivitas terpisah.",
+      sourceTabs: ["Penilaian EEM", "Diskon & Pajak"],
+      accountCategories: [...eemNonOperatingAssetCategories, ...eemDebtCategories],
+      workbookReference: "EEM!D34 / STAT_EEM!B22",
+      treatment: "Final 100% equity bridge",
+      traceLevel: "final",
     },
   ];
 

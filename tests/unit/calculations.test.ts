@@ -54,6 +54,62 @@ describe("valuation calculations", () => {
     assertAlmostEqual(eem.equityValue, expected, 0.01);
   });
 
+  it("builds granular workbook-aligned EEM traces from engine values", () => {
+    const eem = calculateEem(snapshot);
+    const valueById = (id: string) => eem.traces.find((trace) => trace.id === id)?.value ?? Number.NaN;
+
+    assert.deepEqual(
+      eem.traces.map((trace) => trace.id),
+      [
+        "eem-net-tangible-asset-value",
+        "eem-return-on-tangible-asset",
+        "eem-earning-return-on-nta",
+        "eem-noplat",
+        "eem-depreciation",
+        "eem-gross-cash-flow",
+        "eem-changes-in-working-capital",
+        "eem-increase-decrease-current-asset",
+        "eem-increase-decrease-current-liabilities",
+        "eem-total-net-changes-working-capital",
+        "eem-capital-expenditures",
+        "eem-gross-investment",
+        "eem-free-cash-flow",
+        "eem-excess-earning",
+        "eem-capitalization-rate",
+        "eem-capitalized-excess-earning",
+        "eem-enterprise-value",
+        "eem-interest-bearing-debt",
+        "eem-non-operating-asset",
+        "eem-equity-value-100",
+      ],
+    );
+    assert.equal(new Set(eem.traces.map((trace) => trace.id)).size, 20);
+
+    const nta = snapshot.fixedAssetsNet + operatingWorkingCapital(snapshot);
+    const noplat = normalizedNoplat(snapshot);
+    const requiredReturn = nta * snapshot.requiredReturnOnNta;
+    const excessEarning = noplat - requiredReturn;
+    const capitalizationRate = snapshot.wacc - snapshot.terminalGrowth;
+    const capitalizedExcess = excessEarning / capitalizationRate;
+
+    assertAlmostEqual(valueById("eem-net-tangible-asset-value"), nta, 0.01);
+    assertAlmostEqual(valueById("eem-earning-return-on-nta"), requiredReturn, 0.01);
+    assertAlmostEqual(valueById("eem-noplat"), noplat, 0.01);
+    assert.equal(valueById("eem-depreciation"), 0);
+    assert.equal(valueById("eem-total-net-changes-working-capital"), 0);
+    assert.equal(valueById("eem-capital-expenditures"), 0);
+    assertAlmostEqual(valueById("eem-free-cash-flow"), noplat, 0.01);
+    assertAlmostEqual(valueById("eem-excess-earning"), excessEarning, 0.01);
+    assertAlmostEqual(valueById("eem-capitalization-rate"), capitalizationRate, 1e-12);
+    assertAlmostEqual(valueById("eem-capitalized-excess-earning"), capitalizedExcess, 0.01);
+    assertAlmostEqual(valueById("eem-enterprise-value"), nta + capitalizedExcess, 0.01);
+    assertAlmostEqual(valueById("eem-interest-bearing-debt"), interestBearingDebt(snapshot), 0.01);
+    assertAlmostEqual(valueById("eem-non-operating-asset"), nonOperatingAssets(snapshot), 0.01);
+    assertAlmostEqual(valueById("eem-equity-value-100"), eem.equityValue, 0.01);
+    assert.ok(eem.traces.every((trace) => trace.workbookReference || trace.traceLevel === "final"));
+    assert.ok(eem.traces.some((trace) => trace.accountCategories?.includes("ACCOUNT_RECEIVABLE")));
+  });
+
   it("builds a deterministic five-year DCF forecast from valuation year", () => {
     const forecast = buildDcfForecast(snapshot);
 

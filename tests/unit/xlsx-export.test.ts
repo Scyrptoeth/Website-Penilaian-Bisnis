@@ -63,8 +63,12 @@ describe("valuation XLSX export", () => {
   it("includes EEM sensitivity scenario context and tax-payable subtraction in EEM scope", () => {
     const workbook = buildValuationXlsxWorkbook(buildSampleExportInput(), "eem", exportedAt);
     const eemSensitivityRows = workbook.sheets.find((sheet) => sheet.name === "EEM Sensitivity")?.rows ?? [];
+    const formulaTraceRows = workbook.sheets.find((sheet) => sheet.name === "Formula Trace")?.rows ?? [];
+    const eemTraceRows = formulaTraceRows.slice(1).filter((row) => row[0] === "EEM");
     const baseRow = eemSensitivityRows.find((row) => row[0] === "EEM - skenario dasar");
     const debtLikeRow = eemSensitivityRows.find((row) => row[0] === "EEM - utang pajak debt-like");
+    const freeCashFlowTraceRow = eemTraceRows.find((row) => row[1] === "Free Cash Flow");
+    const equityTraceRow = eemTraceRows.find((row) => row[1] === "Equity Value (100%)");
 
     assert.deepEqual(eemSensitivityRows[0], ["Scenario", "Equity Value 100%", "Value Source", "Audit Note", "Active"]);
     assert.equal(baseRow?.[2], "Formula");
@@ -73,6 +77,11 @@ describe("valuation XLSX export", () => {
     assert.match(String(baseRow?.[3]), /NTA \+ excess earnings yang dikapitalisasi/);
     assert.match(String(debtLikeRow?.[3]), /selisih terhadap dasar sama dengan saldo utang pajak/);
     assert.match(String(debtLikeRow?.[3]), /EEM skenario dasar - utang pajak/);
+    assert.equal(eemTraceRows.length, 20);
+    assert.equal(freeCashFlowTraceRow?.[4], "Formula");
+    assert.equal(equityTraceRow?.[4], "Formula");
+    assert.equal(typeof freeCashFlowTraceRow?.[3], "object");
+    assert.equal(typeof equityTraceRow?.[3], "object");
   });
 
   it("exports Payables rows with workbook-style formulas while manual schedule rows remain literal values", () => {

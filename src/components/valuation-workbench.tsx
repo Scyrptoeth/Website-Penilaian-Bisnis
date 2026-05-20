@@ -1138,13 +1138,15 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     [fixedAssetSchedule, incomeStatementRows, periods],
   );
   const eemOperatingWorkingCapital = operatingWorkingCapital(snapshot);
-  const eemNetOperatingTangibleAssets = snapshot.fixedAssetsNet + eemOperatingWorkingCapital;
-  const eemNoplat = normalizedNoplat(snapshot);
-  const eemRequiredReturnAmount = eemNetOperatingTangibleAssets * snapshot.requiredReturnOnNta;
-  const eemExcessEarnings = eemNoplat - eemRequiredReturnAmount;
-  const eemCapitalizationRate = snapshot.wacc - snapshot.terminalGrowth;
-  const eemCapitalizedExcess = eemCapitalizationRate > 0 ? eemExcessEarnings / eemCapitalizationRate : 0;
-  const eemEnterpriseValue = eemNetOperatingTangibleAssets + eemCapitalizedExcess;
+  const eemNetOperatingTangibleAssets = findTraceValueById(activeEem.traces, "eem-net-tangible-asset-value");
+  const eemRequiredReturnAmount = findTraceValueById(activeEem.traces, "eem-earning-return-on-nta");
+  const eemExcessEarnings = findTraceValueById(activeEem.traces, "eem-excess-earning");
+  const eemCapitalizationRate = findTraceValueById(activeEem.traces, "eem-capitalization-rate");
+  const eemCapitalizedExcess = findTraceValueById(activeEem.traces, "eem-capitalized-excess-earning");
+  const eemEnterpriseValue = findTraceValueById(activeEem.traces, "eem-enterprise-value");
+  const eemNonOperatingAssetValue = findTraceValueById(activeEem.traces, "eem-non-operating-asset");
+  const eemInterestBearingDebtValue = findTraceValueById(activeEem.traces, "eem-interest-bearing-debt");
+  const eemEquityValueTrace = findTraceValueById(activeEem.traces, "eem-equity-value-100", activeEem.equityValue);
   const dcfExplicitPv = findTraceValue(activeDcf.traces, "PV eksplisit FCFF");
   const dcfTerminalPv = findTraceValue(activeDcf.traces, "PV nilai terminal");
   const dcfEnterpriseValue = dcfExplicitPv + dcfTerminalPv;
@@ -3825,7 +3827,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               </div>
               <FileSearch size={22} />
             </div>
-            <FormulaList traces={activeEem.traces} />
+            <EemTraceTable traces={activeEem.traces} mappedRows={mappedRows} />
           </article>
           <article className="panel">
             <div className="panel-heading">
@@ -3844,8 +3846,9 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
                 ["Capitalization rate", formatPercent(eemCapitalizationRate)],
                 ["Capitalized excess earning", formatIdr(eemCapitalizedExcess)],
                 ["Enterprise value", formatIdr(eemEnterpriseValue)],
-                ["Aset non-operasional", formatIdr(nonOperatingAssets(snapshot))],
-                ["Utang berbunga", formatIdr(interestBearingDebt(snapshot))],
+                ["Aset non-operasional", formatIdr(eemNonOperatingAssetValue)],
+                ["Utang berbunga", formatIdr(eemInterestBearingDebtValue)],
+                ["Equity Value (100%)", formatIdr(eemEquityValueTrace)],
               ]}
             />
           </article>
@@ -7272,10 +7275,16 @@ function resolveActiveEem(results: CalculationResults, basis: ActiveEemBasis, sn
     traces: [
       ...results.eem.traces,
       {
+        id: "eem-active-basis-adjustment",
         label: "Penyesuaian basis aktif EEM",
         formula: eemSensitivityContext.taxPayableDebtLike.formula,
         value: debtLikeOutput.equityValue,
         note: buildEemTaxPayableDebtLikeNote(formatIdr(snapshot.taxPayable)),
+        sourceTabs: ["Penilaian EEM", "Simulasi Potensi Pajak"],
+        accountCategories: ["TAX_PAYABLE"],
+        workbookReference: "Sensitivity layer: EEM base - tax payable",
+        treatment: "Active sensitivity adjustment",
+        traceLevel: "final",
       },
     ],
   };
@@ -12573,6 +12582,71 @@ function AamFormulaList({ traces }: { traces: FormulaTrace[] }) {
   );
 }
 
+function EemTraceTable({ traces, mappedRows }: { traces: FormulaTrace[]; mappedRows: MappedRow[] }) {
+  return (
+    <div className="eem-trace-table-wrap" data-testid="eem-trace-table">
+      <table className="eem-trace-table" aria-label="Jejak rinci perhitungan EEM">
+        <thead>
+          <tr>
+            <th scope="col">Komponen</th>
+            <th scope="col">Nilai aktif</th>
+            <th scope="col">Sumber dan akun</th>
+            <th scope="col">Treatment</th>
+          </tr>
+        </thead>
+        <tbody>
+          {traces.map((trace, index) => {
+            const sourceTabs = trace.sourceTabs ?? [];
+            const categoryLabels = getTraceCategoryLabels(trace);
+            const sourceAccounts = getTraceSourceAccountNames(trace, mappedRows);
+            const levelLabel = trace.traceLevel ? formulaTraceLevelLabels[trace.traceLevel] : "Trace";
+
+            return (
+              <tr key={trace.id ?? trace.label} data-testid="eem-trace-row">
+                <td>
+                  <div className="eem-trace-component">
+                    <span>{String(index + 1).padStart(2, "0")}</span>
+                    <strong>{trace.label}</strong>
+                    <code>{trace.formula}</code>
+                    <p>{trace.note}</p>
+                  </div>
+                </td>
+                <td className="eem-trace-value">{formatFormulaTraceValue(trace)}</td>
+                <td>
+                  <div className="eem-trace-source-stack">
+                    {sourceTabs.length > 0 ? (
+                      <div className="eem-trace-chip-row" aria-label={`Tab sumber ${trace.label}`}>
+                        {sourceTabs.map((tab) => (
+                          <span key={tab}>{tab}</span>
+                        ))}
+                      </div>
+                    ) : null}
+                    {trace.workbookReference ? <code>{trace.workbookReference}</code> : null}
+                    {categoryLabels.length > 0 ? <small>Kategori: {formatLimitedList(categoryLabels)}</small> : null}
+                    {sourceAccounts.length > 0 ? (
+                      <small>Akun aktif: {formatLimitedList(sourceAccounts)}</small>
+                    ) : categoryLabels.length > 0 ? (
+                      <small>Akun aktif mengikuti mapping kategori pengguna.</small>
+                    ) : (
+                      <small>Asumsi/model; tidak memakai akun langsung.</small>
+                    )}
+                  </div>
+                </td>
+                <td>
+                  <div className="eem-trace-treatment">
+                    <span>{levelLabel}</span>
+                    <small>{trace.treatment ?? "Formula trace"}</small>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function FormulaList({ traces }: { traces: FormulaTrace[] }) {
   return (
     <div className="formula-list">
@@ -12585,7 +12659,7 @@ function renderFormulaRow(trace: FormulaTrace, extraClassName?: string) {
   const className = extraClassName ? `formula-row ${extraClassName}` : "formula-row";
 
   return (
-    <div className={className} key={trace.label}>
+    <div className={className} key={trace.id ?? trace.label}>
       <div>
         <strong>{trace.label}</strong>
         <code>{trace.formula}</code>
@@ -12606,6 +12680,50 @@ function formatFormulaTraceValue(trace: FormulaTrace): string {
   }
 
   return formatIdr(trace.value);
+}
+
+const formulaTraceLevelLabels: Record<NonNullable<FormulaTrace["traceLevel"]>, string> = {
+  input: "Input",
+  assumption: "Asumsi",
+  subtotal: "Subtotal",
+  calculation: "Formula",
+  bridge: "Bridge",
+  final: "Final",
+};
+
+function getTraceCategoryLabels(trace: FormulaTrace): string[] {
+  return uniqueStrings((trace.accountCategories ?? []).map((category) => categoryLabelMap.get(category) ?? category));
+}
+
+function getTraceSourceAccountNames(trace: FormulaTrace, mappedRows: MappedRow[]): string[] {
+  const categories = new Set(trace.accountCategories ?? []);
+
+  if (categories.size === 0) {
+    return [];
+  }
+
+  return uniqueStrings(
+    mappedRows
+      .filter((item) => categories.has(item.effectiveCategory))
+      .map((item) => item.row.accountName.trim())
+      .filter(Boolean),
+  );
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return Array.from(new Set(values));
+}
+
+function formatLimitedList(values: string[], limit = 4): string {
+  if (values.length <= limit) {
+    return values.join(", ");
+  }
+
+  return `${values.slice(0, limit).join(", ")} +${values.length - limit}`;
+}
+
+function findTraceValueById(traces: FormulaTrace[], id: string, fallback = 0): number {
+  return traces.find((trace) => trace.id === id)?.value ?? fallback;
 }
 
 function findTraceValue(traces: FormulaTrace[], label: string): number {

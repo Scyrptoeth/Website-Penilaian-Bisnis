@@ -165,11 +165,17 @@ export interface FinancialStatementSnapshot {
 }
 
 export interface FormulaTrace {
+  id?: string;
   label: string;
   formula: string;
   value: number;
   note: string;
   valueFormat?: "currency" | "percent" | "number";
+  sourceTabs?: string[];
+  accountCategories?: AccountCategory[];
+  workbookReference?: string;
+  treatment?: string;
+  traceLevel?: "input" | "assumption" | "subtotal" | "calculation" | "bridge" | "final";
 }
 
 export interface MethodOutput {
