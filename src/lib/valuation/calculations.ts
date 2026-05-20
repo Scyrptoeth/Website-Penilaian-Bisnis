@@ -179,6 +179,12 @@ export function calculateAam(snapshot: FinancialStatementSnapshot, options: AamO
       note: "Nilai positif menaikkan aset disesuaikan; nilai negatif menurunkan aset disesuaikan.",
     },
     {
+      label: "Total aset disesuaikan",
+      formula: "Aset historis + penyesuaian aset",
+      value: totalAssets,
+      note: "Adjustment AAM tidak mengubah snapshot global untuk EEM/DCF.",
+    },
+    {
       label: "Liabilitas historis basis AAM",
       formula: "Input total liabilitas atau jumlah komponen liabilitas bila total liabilitas kosong",
       value: historicalLiabilities,
@@ -189,12 +195,6 @@ export function calculateAam(snapshot: FinancialStatementSnapshot, options: AamO
       formula: "Jumlah kolom Penyesuaian untuk pos liabilitas AAM",
       value: liabilityAdjustment,
       note: "Nilai positif menaikkan liabilitas; nilai negatif menurunkan liabilitas.",
-    },
-    {
-      label: "Total aset disesuaikan",
-      formula: "Aset historis + penyesuaian aset",
-      value: totalAssets,
-      note: "Adjustment AAM tidak mengubah snapshot global untuk EEM/DCF.",
     },
     {
       label: "Total liabilitas disesuaikan",

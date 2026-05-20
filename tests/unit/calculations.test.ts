@@ -27,6 +27,23 @@ describe("valuation calculations", () => {
     assert.equal(aam.equityValue, snapshot.totalAssets - snapshot.totalLiabilities);
   });
 
+  it("orders AAM trace rows by asset group before liability group", () => {
+    const aam = calculateAam(snapshot);
+
+    assert.deepEqual(
+      aam.traces.map((trace) => trace.label),
+      [
+        "Aset historis basis AAM",
+        "Penyesuaian aset AAM",
+        "Total aset disesuaikan",
+        "Liabilitas historis basis AAM",
+        "Penyesuaian liabilitas AAM",
+        "Total liabilitas disesuaikan",
+        "Nilai Ekuitas 100% - AAM",
+      ],
+    );
+  });
+
   it("calculates EEM from NTA, required return, and non-operating bridge", () => {
     const eem = calculateEem(snapshot);
     const nta = snapshot.fixedAssetsNet + operatingWorkingCapital(snapshot);

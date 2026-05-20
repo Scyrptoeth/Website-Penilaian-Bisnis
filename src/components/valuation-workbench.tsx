@@ -3692,7 +3692,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               </div>
               <Banknote size={22} />
             </div>
-            <FormulaList traces={results.aam.traces} />
+            <AamFormulaList traces={results.aam.traces} />
           </article>
         </section>
         </>
@@ -12548,19 +12548,50 @@ function FixedAssetNetValueTable({ periods, schedule }: { periods: Period[]; sch
   );
 }
 
+const aamAssetTraceLabels = new Set(["Aset historis basis AAM", "Penyesuaian aset AAM", "Total aset disesuaikan"]);
+const aamLiabilityTraceLabels = new Set(["Liabilitas historis basis AAM", "Penyesuaian liabilitas AAM", "Total liabilitas disesuaikan"]);
+
+function AamFormulaList({ traces }: { traces: FormulaTrace[] }) {
+  const assetTraces = traces.filter((trace) => aamAssetTraceLabels.has(trace.label));
+  const liabilityTraces = traces.filter((trace) => aamLiabilityTraceLabels.has(trace.label));
+  const equityTraces = traces.filter((trace) => !aamAssetTraceLabels.has(trace.label) && !aamLiabilityTraceLabels.has(trace.label));
+
+  return (
+    <div className="formula-list formula-list-aam">
+      {assetTraces.length ? (
+        <div className="formula-group formula-group-assets" aria-label="Kelompok aset AAM">
+          {assetTraces.map((trace) => renderFormulaRow(trace))}
+        </div>
+      ) : null}
+      {liabilityTraces.length ? (
+        <div className="formula-group formula-group-liabilities" aria-label="Kelompok liabilitas AAM">
+          {liabilityTraces.map((trace) => renderFormulaRow(trace))}
+        </div>
+      ) : null}
+      {equityTraces.map((trace) => renderFormulaRow(trace, "formula-row-final"))}
+    </div>
+  );
+}
+
 function FormulaList({ traces }: { traces: FormulaTrace[] }) {
   return (
     <div className="formula-list">
-      {traces.map((trace) => (
-        <div className="formula-row" key={trace.label}>
-          <div>
-            <strong>{trace.label}</strong>
-            <code>{trace.formula}</code>
-            <p>{trace.note}</p>
-          </div>
-          <span>{formatFormulaTraceValue(trace)}</span>
-        </div>
-      ))}
+      {traces.map((trace) => renderFormulaRow(trace))}
+    </div>
+  );
+}
+
+function renderFormulaRow(trace: FormulaTrace, extraClassName?: string) {
+  const className = extraClassName ? `formula-row ${extraClassName}` : "formula-row";
+
+  return (
+    <div className={className} key={trace.label}>
+      <div>
+        <strong>{trace.label}</strong>
+        <code>{trace.formula}</code>
+        <p>{trace.note}</p>
+      </div>
+      <span>{formatFormulaTraceValue(trace)}</span>
     </div>
   );
 }

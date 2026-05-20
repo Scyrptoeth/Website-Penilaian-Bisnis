@@ -4809,6 +4809,37 @@ td span {
   background: var(--surface-raised);
 }
 
+.formula-list-aam {
+  gap: 8px;
+}
+
+.formula-group {
+  display: grid;
+  gap: 6px;
+  padding: 7px;
+  border: 2px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: #fcfcf9;
+}
+
+.formula-group-assets {
+  border-left: 4px solid var(--accent);
+}
+
+.formula-group-liabilities {
+  border-left: 4px solid var(--review);
+}
+
+.formula-group .formula-row {
+  border-color: #cfd8d1;
+  background: #ffffff;
+}
+
+.formula-row-final {
+  border-color: var(--line-strong);
+  background: #ffffff;
+}
+
 .formula-row code {
   display: block;
   width: fit-content;
