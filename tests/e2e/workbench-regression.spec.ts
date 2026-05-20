@@ -481,6 +481,10 @@ test("AAM valuation remains available without WACC or EEM/DCF driver inputs", as
   await expect(page.getByText("Revaluasi otomatis Ekuitas: Rp 100.000.")).toBeVisible();
   await expect(page.getByTestId("aam-adjustment-aset")).toContainText("1.100.000");
   await expect(page.getByText(/850\.000/).first()).toBeVisible();
+  await expect(page.locator("#aam")).not.toContainText("Ekuitas historis basis AAM");
+  await expect(page.locator("#aam")).not.toContainText("Changes on Asset Revaluation");
+  await expect(page.locator("#aam")).not.toContainText("Total liabilitas + ekuitas disesuaikan");
+  await expect(page.locator("#aam")).not.toContainText("Selisih balance AAM");
   await expect(page.getByRole("heading", { name: "Ekuitas dan cakupan metode" })).toHaveCount(0);
 
   await openWorkflowTab(page, "Penilaian EEM");

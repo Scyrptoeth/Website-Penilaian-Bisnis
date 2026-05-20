@@ -12668,12 +12668,13 @@ const aamEquityTraceLabels = new Set([
   "Penyesuaian ekuitas manual AAM",
   "Changes on Asset Revaluation",
   "Total ekuitas disesuaikan",
+  "Total liabilitas + ekuitas disesuaikan",
+  "Selisih balance AAM",
 ]);
 
 function AamFormulaList({ traces }: { traces: FormulaTrace[] }) {
   const assetTraces = traces.filter((trace) => aamAssetTraceLabels.has(trace.label));
   const liabilityTraces = traces.filter((trace) => aamLiabilityTraceLabels.has(trace.label));
-  const equityTraces = traces.filter((trace) => aamEquityTraceLabels.has(trace.label));
   const finalTraces = traces.filter(
     (trace) => !aamAssetTraceLabels.has(trace.label) && !aamLiabilityTraceLabels.has(trace.label) && !aamEquityTraceLabels.has(trace.label),
   );
@@ -12688,11 +12689,6 @@ function AamFormulaList({ traces }: { traces: FormulaTrace[] }) {
       {liabilityTraces.length ? (
         <div className="formula-group formula-group-liabilities" aria-label="Kelompok liabilitas AAM">
           {liabilityTraces.map((trace) => renderFormulaRow(trace))}
-        </div>
-      ) : null}
-      {equityTraces.length ? (
-        <div className="formula-group formula-group-equity" aria-label="Kelompok ekuitas AAM">
-          {equityTraces.map((trace) => renderFormulaRow(trace))}
         </div>
       ) : null}
       {finalTraces.map((trace) => renderFormulaRow(trace, "formula-row-final"))}
