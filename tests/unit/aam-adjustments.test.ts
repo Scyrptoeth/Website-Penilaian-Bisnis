@@ -24,17 +24,43 @@ describe("AAM adjustments", () => {
     assert.equal(payableLine?.adjustment, -250_000);
     assert.equal(model.assetAdjustmentTotal, 1_000_000);
     assert.equal(model.liabilityAdjustmentTotal, -250_000);
+    assert.equal(model.equityManualAdjustmentTotal, 0);
+    assert.equal(model.equityRevaluationAdjustment, 1_250_000);
+    assert.equal(model.equityAdjustmentTotal, 1_250_000);
     assert.equal(model.adjustedEquityValue, model.historicalEquityValue + 1_250_000);
+    assert.equal(model.adjustedBookEquity, model.bookEquity + 1_250_000);
     assert.equal(model.missingNoteCount, 0);
+  });
+
+  it("builds read-only Changes on Asset Revaluation from asset, liability, and equity adjustment signs", () => {
+    const model = buildAamAdjustmentModel(snapshot, {
+      "fixed-assets-net": { adjustment: "1.000.000", note: "Independent appraisal uplift" },
+      "account-payable": { adjustment: "250.000", note: "Liability fair value uplift" },
+      "paid-up-capital": { adjustment: "-100.000", note: "Capital correction" },
+    });
+    const revaluationLine = model.equityLines.find((line) => line.id === "changes-on-asset-revaluation");
+
+    assert.equal(model.assetAdjustmentTotal, 1_000_000);
+    assert.equal(model.liabilityAdjustmentTotal, 250_000);
+    assert.equal(model.equityManualAdjustmentTotal, -100_000);
+    assert.equal(model.equityRevaluationAdjustment, 850_000);
+    assert.equal(revaluationLine?.label, "Changes on Asset Revaluation");
+    assert.equal(revaluationLine?.isReadOnly, true);
+    assert.equal(revaluationLine?.adjustment, 850_000);
+    assert.equal(model.equityAdjustmentTotal, 750_000);
+    assert.equal(model.adjustedBookEquity, model.bookEquity + 750_000);
   });
 
   it("flags non-zero adjustments without audit notes", () => {
     const model = buildAamAdjustmentModel(snapshot, {
       inventory: { adjustment: "-100.000", note: "" },
+      "retained-earnings-current-profit": { adjustment: "25.000", note: "" },
     });
 
-    assert.equal(model.missingNoteCount, 1);
+    assert.equal(model.missingNoteCount, 2);
     assert.equal(model.assetLines.find((line) => line.id === "inventory")?.requiresNote, true);
+    assert.equal(model.equityLines.find((line) => line.id === "retained-earnings-current-profit")?.requiresNote, true);
+    assert.equal(model.equityLines.find((line) => line.id === "changes-on-asset-revaluation")?.requiresNote, false);
   });
 
   it("keeps AAM adjustments scoped to AAM and leaves EEM/DCF unchanged", () => {
@@ -47,6 +73,10 @@ describe("AAM adjustments", () => {
       aam: {
         assetAdjustment: model.assetAdjustmentTotal,
         liabilityAdjustment: model.liabilityAdjustmentTotal,
+        equityManualAdjustment: model.equityManualAdjustmentTotal,
+        equityRevaluationAdjustment: model.equityRevaluationAdjustment,
+        equityAdjustment: model.equityAdjustmentTotal,
+        adjustedBookEquityGap: model.adjustedBookEquityGap,
         missingAdjustmentNotes: model.missingNoteCount,
       },
     });

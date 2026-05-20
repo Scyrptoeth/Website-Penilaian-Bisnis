@@ -469,10 +469,13 @@ test("AAM valuation remains available without WACC or EEM/DCF driver inputs", as
   await expect(page.getByText("Asset Accumulation Method (AAM)")).toBeVisible();
   await expect(page.getByText("Historis + Penyesuaian = Disesuaikan")).toBeVisible();
   await expect(page.getByTestId("aam-adjustment-aset")).toContainText("Kas di tangan");
+  await expect(page.getByTestId("aam-adjustment-ekuitas")).toContainText("Changes on Asset Revaluation");
+  await expect(page.getByTestId("aam-adjustment-ekuitas").locator('input[aria-label="Penyesuaian Changes on Asset Revaluation"]')).toHaveCount(0);
   await page.getByLabel("Penyesuaian Kas di tangan").fill("100000");
   await expect(page.getByText("1 penyesuaian masih perlu catatan.")).toBeVisible();
+  await expect(page.getByTestId("aam-adjustment-ekuitas")).toContainText("100.000");
   await page.getByLabel("Catatan Kas di tangan").fill("FMV cash count after cut-off");
-  await expect(page.getByText("Semua penyesuaian non-zero sudah memiliki catatan.")).toBeVisible();
+  await expect(page.getByText("Revaluasi otomatis Ekuitas: Rp 100.000.")).toBeVisible();
   await expect(page.getByTestId("aam-adjustment-aset")).toContainText("1.100.000");
   await expect(page.getByText(/850\.000/).first()).toBeVisible();
   await expect(page.getByRole("heading", { name: "Ekuitas dan cakupan metode" })).toHaveCount(0);
@@ -487,6 +490,8 @@ test("AAM valuation remains available without WACC or EEM/DCF driver inputs", as
   await openWorkflowTab(page, "Penilaian AAM");
   await expect(page.getByLabel("Penyesuaian Kas di tangan")).toHaveValue("100.000");
   await expect(page.getByLabel("Catatan Kas di tangan")).toHaveValue("FMV cash count after cut-off");
+  await expect(page.getByTestId("aam-adjustment-ekuitas")).toContainText("Changes on Asset Revaluation");
+  await expect(page.getByTestId("aam-adjustment-ekuitas")).toContainText("100.000");
 });
 
 test("added analysis sections use readiness gates before sample data and render formula-derived bridges after loading sample", async ({ page }) => {

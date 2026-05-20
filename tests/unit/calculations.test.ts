@@ -39,6 +39,10 @@ describe("valuation calculations", () => {
         "Liabilitas historis basis AAM",
         "Penyesuaian liabilitas AAM",
         "Total liabilitas disesuaikan",
+        "Ekuitas historis basis AAM",
+        "Penyesuaian ekuitas manual AAM",
+        "Changes on Asset Revaluation",
+        "Total ekuitas disesuaikan",
         "Nilai Ekuitas 100% - AAM",
       ],
     );

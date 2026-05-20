@@ -9,7 +9,7 @@ export type AamAdjustmentEntry = {
 
 export type AamAdjustmentState = Record<string, AamAdjustmentEntry>;
 
-export type AamAdjustmentRole = "asset" | "liability";
+export type AamAdjustmentRole = "asset" | "liability" | "equity";
 
 export type AamAdjustmentLine = {
   id: string;
@@ -24,6 +24,9 @@ export type AamAdjustmentLine = {
   note: string;
   requiresNote: boolean;
   isBridgeLine?: boolean;
+  isReadOnly?: boolean;
+  readOnlyReason?: string;
+  isAutoRevaluationLine?: boolean;
 };
 
 export type AamEquityReconciliationLine = {
@@ -34,13 +37,18 @@ export type AamEquityReconciliationLine = {
 export type AamAdjustmentModel = {
   assetLines: AamAdjustmentLine[];
   liabilityLines: AamAdjustmentLine[];
-  equityLines: AamEquityReconciliationLine[];
+  equityLines: AamAdjustmentLine[];
   historicalAssetTotal: number;
   historicalLiabilityTotal: number;
+  historicalEquityTotal: number;
   assetAdjustmentTotal: number;
   liabilityAdjustmentTotal: number;
+  equityManualAdjustmentTotal: number;
+  equityRevaluationAdjustment: number;
+  equityAdjustmentTotal: number;
   adjustedAssetTotal: number;
   adjustedLiabilityTotal: number;
+  adjustedBookEquity: number;
   historicalEquityValue: number;
   adjustedEquityValue: number;
   bookEquity: number;
@@ -247,8 +255,43 @@ const liabilityDefinitions: LineDefinition[] = [
   },
 ];
 
+const equityDefinitions: LineDefinition[] = [
+  {
+    id: "paid-up-capital",
+    role: "equity",
+    section: "Ekuitas",
+    label: "Modal disetor",
+    source: "Neraca: Modal disetor",
+    value: (snapshot) => snapshot.paidUpCapital,
+  },
+  {
+    id: "additional-paid-in-capital",
+    role: "equity",
+    section: "Ekuitas",
+    label: "Tambahan modal disetor",
+    source: "Neraca: Tambahan modal disetor",
+    value: (snapshot) => snapshot.additionalPaidInCapital,
+  },
+  {
+    id: "retained-earnings-surplus",
+    role: "equity",
+    section: "Ekuitas",
+    label: "Saldo laba ditahan / defisit",
+    source: "Neraca: Saldo laba ditahan / defisit",
+    value: (snapshot) => snapshot.retainedEarningsSurplus,
+  },
+  {
+    id: "retained-earnings-current-profit",
+    role: "equity",
+    section: "Ekuitas",
+    label: "Laba tahun berjalan",
+    source: "Neraca: Laba tahun berjalan",
+    value: (snapshot) => snapshot.retainedEarningsCurrentProfit,
+  },
+];
+
 export const aamAdjustmentLineIds = new Set([
-  ...[...assetDefinitions, ...liabilityDefinitions].map((definition) => definition.id),
+  ...[...assetDefinitions, ...liabilityDefinitions, ...equityDefinitions].map((definition) => definition.id),
   "asset-total-bridge",
   "liability-total-bridge",
 ]);
@@ -259,10 +302,16 @@ export function buildAamAdjustmentModel(
 ): AamAdjustmentModel {
   const assetLines = buildLines(assetDefinitions, snapshot, adjustments);
   const liabilityLines = buildLines(liabilityDefinitions, snapshot, adjustments);
+  const manualEquityLines = buildLines(equityDefinitions, snapshot, adjustments);
   const componentAssetTotal = sumLines(assetLines, "historical");
   const componentLiabilityTotal = sumLines(liabilityLines, "historical");
   const historicalAssetTotal = adjustedTotalAssets(snapshot);
   const historicalLiabilityTotal = adjustedTotalLiabilities(snapshot);
+  const bookEquity =
+    snapshot.paidUpCapital +
+    snapshot.additionalPaidInCapital +
+    snapshot.retainedEarningsSurplus +
+    snapshot.retainedEarningsCurrentProfit;
   const bridgedAssetLines = withBridgeLine({
     lines: assetLines,
     role: "asset",
@@ -285,35 +334,50 @@ export function buildAamAdjustmentModel(
   });
   const assetAdjustmentTotal = sumLines(bridgedAssetLines, "adjustment");
   const liabilityAdjustmentTotal = sumLines(bridgedLiabilityLines, "adjustment");
+  const equityManualAdjustmentTotal = sumLines(manualEquityLines, "adjustment");
+  const equityRevaluationAdjustment = assetAdjustmentTotal - liabilityAdjustmentTotal - equityManualAdjustmentTotal;
+  const equityLines = [
+    ...manualEquityLines,
+    buildReadOnlyLine({
+      id: "changes-on-asset-revaluation",
+      role: "equity",
+      section: "Ekuitas",
+      label: "Changes on Asset Revaluation",
+      source: "AAM: penyeimbang otomatis atas penyesuaian aset, liabilitas, dan ekuitas",
+      historical: 0,
+      adjustment: equityRevaluationAdjustment,
+      note: "Otomatis = penyesuaian aset - penyesuaian liabilitas - penyesuaian ekuitas manual.",
+      readOnlyReason: "Read-only; dihitung otomatis dari seluruh penyesuaian AAM.",
+      isAutoRevaluationLine: true,
+    }),
+  ];
+  const equityAdjustmentTotal = sumLines(equityLines, "adjustment");
   const adjustedAssetTotal = historicalAssetTotal + assetAdjustmentTotal;
   const adjustedLiabilityTotal = historicalLiabilityTotal + liabilityAdjustmentTotal;
-  const bookEquity =
-    snapshot.paidUpCapital +
-    snapshot.additionalPaidInCapital +
-    snapshot.retainedEarningsSurplus +
-    snapshot.retainedEarningsCurrentProfit;
+  const adjustedEquityValue = adjustedAssetTotal - adjustedLiabilityTotal;
+  const adjustedBookEquity = bookEquity + equityAdjustmentTotal;
 
   return {
     assetLines: bridgedAssetLines,
     liabilityLines: bridgedLiabilityLines,
-    equityLines: [
-      { label: "Modal disetor", value: snapshot.paidUpCapital },
-      { label: "Tambahan modal disetor", value: snapshot.additionalPaidInCapital },
-      { label: "Saldo laba ditahan", value: snapshot.retainedEarningsSurplus },
-      { label: "Laba tahun berjalan", value: snapshot.retainedEarningsCurrentProfit },
-      { label: "Ekuitas buku", value: bookEquity },
-    ],
+    equityLines,
     historicalAssetTotal,
     historicalLiabilityTotal,
+    historicalEquityTotal: bookEquity,
     assetAdjustmentTotal,
     liabilityAdjustmentTotal,
+    equityManualAdjustmentTotal,
+    equityRevaluationAdjustment,
+    equityAdjustmentTotal,
     adjustedAssetTotal,
     adjustedLiabilityTotal,
+    adjustedBookEquity,
     historicalEquityValue: historicalAssetTotal - historicalLiabilityTotal,
-    adjustedEquityValue: adjustedAssetTotal - adjustedLiabilityTotal,
+    adjustedEquityValue,
     bookEquity,
-    adjustedBookEquityGap: adjustedAssetTotal - adjustedLiabilityTotal - bookEquity,
-    missingNoteCount: [...bridgedAssetLines, ...bridgedLiabilityLines].filter((line) => line.requiresNote).length,
+    adjustedBookEquityGap: adjustedEquityValue - adjustedBookEquity,
+    missingNoteCount: [...bridgedAssetLines, ...bridgedLiabilityLines, ...manualEquityLines].filter((line) => line.requiresNote)
+      .length,
   };
 }
 
@@ -357,6 +421,47 @@ function buildLine({
     note: entry.note,
     requiresNote: adjustment !== 0 && !entry.note.trim(),
     isBridgeLine,
+  };
+}
+
+function buildReadOnlyLine({
+  id,
+  role,
+  section,
+  label,
+  source,
+  historical,
+  adjustment,
+  note,
+  readOnlyReason,
+  isAutoRevaluationLine = false,
+}: {
+  id: string;
+  role: AamAdjustmentRole;
+  section: string;
+  label: string;
+  source: string;
+  historical: number;
+  adjustment: number;
+  note: string;
+  readOnlyReason: string;
+  isAutoRevaluationLine?: boolean;
+}): AamAdjustmentLine {
+  return {
+    id,
+    role,
+    section,
+    label,
+    source,
+    historical,
+    adjustmentInput: "",
+    adjustment,
+    adjusted: historical + adjustment,
+    note,
+    requiresNote: false,
+    isReadOnly: true,
+    readOnlyReason,
+    isAutoRevaluationLine,
   };
 }
 

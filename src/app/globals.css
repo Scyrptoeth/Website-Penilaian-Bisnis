@@ -4955,6 +4955,10 @@ td span {
   border-left: 4px solid var(--review);
 }
 
+.formula-group-equity {
+  border-left: 4px solid var(--ok);
+}
+
 .formula-group .formula-row {
   border-color: #cfd8d1;
   background: #ffffff;
@@ -5265,6 +5269,36 @@ td span {
 .aam-adjustment-table textarea.warning {
   border-color: rgba(161, 98, 7, 0.55);
   background: #fffdf4;
+}
+
+.aam-readonly-value {
+  display: grid;
+  gap: 3px;
+  min-height: 30px;
+  padding: 6px 7px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+  color: var(--ink);
+  text-align: right;
+}
+
+.aam-readonly-value strong {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.aam-readonly-value small,
+.aam-readonly-note {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.aam-readonly-note {
+  display: block;
+  padding: 6px 0;
 }
 
 .aam-adjustment-table tfoot td {

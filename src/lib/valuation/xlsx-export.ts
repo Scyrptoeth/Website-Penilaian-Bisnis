@@ -333,7 +333,10 @@ function buildCalculationModelRows(input: ValuationPdfExportInput, scope: Valuat
   const fixedAssetScheduleRowCount = input.fixedAssetSchedule.rows.length * input.periods.length;
   const fixedAssetFirstRow = 2;
   const fixedAssetLastRow = Math.max(fixedAssetFirstRow, fixedAssetFirstRow + fixedAssetScheduleRowCount - 1);
-  const aamLineCount = input.aamAdjustmentModel.assetLines.length + input.aamAdjustmentModel.liabilityLines.length;
+  const aamLineCount =
+    input.aamAdjustmentModel.assetLines.length +
+    input.aamAdjustmentModel.liabilityLines.length +
+    input.aamAdjustmentModel.equityLines.length;
   const aamFirstRow = 2;
   const aamLastRow = Math.max(aamFirstRow, aamFirstRow + aamLineCount - 1);
   const reportedTransferOverride = parseInputNumber(input.taxSimulation.reportedTransferValue);
@@ -374,6 +377,11 @@ function buildCalculationModelRows(input: ValuationPdfExportInput, scope: Valuat
     add("aamHistoricalLiabilities", "AAM", "Historical liabilities", formulaCell(`SUMIF(${sheetCell(aamAdjustmentsSheetName, `A${aamFirstRow}:A${aamLastRow}`)},"Liabilitas",${sheetCell(aamAdjustmentsSheetName, `E${aamFirstRow}:E${aamLastRow}`)})`, input.aamAdjustmentModel.historicalLiabilityTotal), "Formula", "SUMIF AAM liability rows.");
     add("aamLiabilityAdjustment", "AAM", "Liability adjustment", formulaCell(`SUMIF(${sheetCell(aamAdjustmentsSheetName, `A${aamFirstRow}:A${aamLastRow}`)},"Liabilitas",${sheetCell(aamAdjustmentsSheetName, `F${aamFirstRow}:F${aamLastRow}`)})`, input.aamAdjustmentModel.liabilityAdjustmentTotal), "Formula", "SUMIF AAM liability adjustment rows.");
     add("aamAdjustedLiabilities", "AAM", "Adjusted liabilities", formulaCell(`${refs.aamHistoricalLiabilities}+${refs.aamLiabilityAdjustment}`, input.aamAdjustmentModel.adjustedLiabilityTotal), "Formula", "Historical liabilities + liability adjustment.");
+    add("aamHistoricalEquity", "AAM", "Historical equity", formulaCell(`SUMIF(${sheetCell(aamAdjustmentsSheetName, `A${aamFirstRow}:A${aamLastRow}`)},"Ekuitas",${sheetCell(aamAdjustmentsSheetName, `E${aamFirstRow}:E${aamLastRow}`)})`, input.aamAdjustmentModel.historicalEquityTotal), "Formula", "SUMIF AAM equity rows.");
+    add("aamEquityManualAdjustment", "AAM", "Manual equity adjustment", formulaCell(`SUMIFS(${sheetCell(aamAdjustmentsSheetName, `F${aamFirstRow}:F${aamLastRow}`)},${sheetCell(aamAdjustmentsSheetName, `A${aamFirstRow}:A${aamLastRow}`)},"Ekuitas",${sheetCell(aamAdjustmentsSheetName, `C${aamFirstRow}:C${aamLastRow}`)},"<>Changes on Asset Revaluation")`, input.aamAdjustmentModel.equityManualAdjustmentTotal), "Formula", "SUMIFS AAM equity adjustment rows excluding automatic revaluation.");
+    add("aamEquityRevaluationAdjustment", "AAM", "Changes on Asset Revaluation", formulaCell(`${refs.aamAssetAdjustment}-${refs.aamLiabilityAdjustment}-${refs.aamEquityManualAdjustment}`, input.aamAdjustmentModel.equityRevaluationAdjustment), "Formula", "Asset adjustment - liability adjustment - manual equity adjustment.");
+    add("aamEquityAdjustment", "AAM", "Equity adjustment", formulaCell(`${refs.aamEquityManualAdjustment}+${refs.aamEquityRevaluationAdjustment}`, input.aamAdjustmentModel.equityAdjustmentTotal), "Formula", "Manual equity adjustment + automatic revaluation.");
+    add("aamAdjustedBookEquity", "AAM", "Adjusted book equity", formulaCell(`${refs.aamHistoricalEquity}+${refs.aamEquityAdjustment}`, input.aamAdjustmentModel.adjustedBookEquity), "Formula", "Historical equity + equity adjustment.");
     add("aamEquityValue", "AAM", "Equity value 100%", formulaCell(`${refs.aamAdjustedAssets}-${refs.aamAdjustedLiabilities}`, input.results.aam.equityValue), "Formula", "Adjusted assets - adjusted liabilities.");
   }
 
@@ -468,6 +476,13 @@ function buildDriverMetrics(input: ValuationPdfExportInput, scope: ValuationExpo
       { label: "Liabilitas historis AAM", value: formulaCell(refs.aamHistoricalLiabilities, input.aamAdjustmentModel.historicalLiabilityTotal), sourceType: "Formula" },
       { label: "Penyesuaian aset AAM", value: formulaCell(refs.aamAssetAdjustment, input.aamAdjustmentModel.assetAdjustmentTotal), sourceType: "Formula" },
       { label: "Penyesuaian liabilitas AAM", value: formulaCell(refs.aamLiabilityAdjustment, input.aamAdjustmentModel.liabilityAdjustmentTotal), sourceType: "Formula" },
+      { label: "Ekuitas historis AAM", value: formulaCell(refs.aamHistoricalEquity, input.aamAdjustmentModel.historicalEquityTotal), sourceType: "Formula" },
+      {
+        label: "Changes on Asset Revaluation",
+        value: formulaCell(refs.aamEquityRevaluationAdjustment, input.aamAdjustmentModel.equityRevaluationAdjustment),
+        sourceType: "Formula",
+        note: "Asset adjustment - liability adjustment - manual equity adjustment.",
+      },
     );
   }
 
@@ -732,20 +747,36 @@ function resolveAnalysisFormula(
 }
 
 function buildAamAdjustmentRows(input: ValuationPdfExportInput): XlsxCellValue[][] {
-  const lines = [...input.aamAdjustmentModel.assetLines, ...input.aamAdjustmentModel.liabilityLines];
+  const lines = [...input.aamAdjustmentModel.assetLines, ...input.aamAdjustmentModel.liabilityLines, ...input.aamAdjustmentModel.equityLines];
+  const firstDataRow = 2;
+  const lastDataRow = lines.length + 1;
+  const roleRange = `A${firstDataRow}:A${lastDataRow}`;
+  const lineRange = `C${firstDataRow}:C${lastDataRow}`;
+  const historicalRange = `E${firstDataRow}:E${lastDataRow}`;
+  const adjustmentRange = `F${firstDataRow}:F${lastDataRow}`;
+  const adjustedRange = `G${firstDataRow}:G${lastDataRow}`;
 
   return [
     ["Role", "Section", "Line", "Source", "Historical", "Adjustment", "Adjusted", "Requires Note", "Note"],
     ...lines.map((line, index) => {
       const rowNumber = index + 2;
+      const lastPriorDataRow = Math.max(firstDataRow, rowNumber - 1);
+      const priorRoleRange = `A${firstDataRow}:A${lastPriorDataRow}`;
+      const priorAdjustmentRange = `F${firstDataRow}:F${lastPriorDataRow}`;
+      const adjustmentValue = line.isAutoRevaluationLine
+        ? formulaCell(
+            `SUMIF(${priorRoleRange},"Aset",${priorAdjustmentRange})-SUMIF(${priorRoleRange},"Liabilitas",${priorAdjustmentRange})-SUMIF(${priorRoleRange},"Ekuitas",${priorAdjustmentRange})`,
+            line.adjustment,
+          )
+        : line.adjustment;
 
       return [
-        line.role === "asset" ? "Aset" : "Liabilitas",
+        formatAamAdjustmentRoleForExport(line.role),
         line.section,
         line.label,
         line.source,
         line.historical,
-        line.adjustment,
+        adjustmentValue,
         formulaCell(`E${rowNumber}+F${rowNumber}`, line.adjusted),
         line.requiresNote ? "Yes" : "No",
         line.note || (line.requiresNote ? "Catatan penyesuaian belum diisi." : ""),
@@ -753,13 +784,36 @@ function buildAamAdjustmentRows(input: ValuationPdfExportInput): XlsxCellValue[]
     }),
     [],
     ["Metric", "Value"],
-    ["Total aset historis", formulaCell(`SUMIF(A2:A${lines.length + 1},"Aset",E2:E${lines.length + 1})`, input.aamAdjustmentModel.historicalAssetTotal)],
-    ["Total penyesuaian aset", formulaCell(`SUMIF(A2:A${lines.length + 1},"Aset",F2:F${lines.length + 1})`, input.aamAdjustmentModel.assetAdjustmentTotal)],
-    ["Total liabilitas historis", formulaCell(`SUMIF(A2:A${lines.length + 1},"Liabilitas",E2:E${lines.length + 1})`, input.aamAdjustmentModel.historicalLiabilityTotal)],
-    ["Total penyesuaian liabilitas", formulaCell(`SUMIF(A2:A${lines.length + 1},"Liabilitas",F2:F${lines.length + 1})`, input.aamAdjustmentModel.liabilityAdjustmentTotal)],
-    ["Nilai ekuitas AAM", formulaCell(`B${lines.length + 4}+B${lines.length + 5}-B${lines.length + 6}-B${lines.length + 7}`, input.aamAdjustmentModel.adjustedEquityValue)],
+    ["Total aset historis", formulaCell(`SUMIF(${roleRange},"Aset",${historicalRange})`, input.aamAdjustmentModel.historicalAssetTotal)],
+    ["Total penyesuaian aset", formulaCell(`SUMIF(${roleRange},"Aset",${adjustmentRange})`, input.aamAdjustmentModel.assetAdjustmentTotal)],
+    ["Total liabilitas historis", formulaCell(`SUMIF(${roleRange},"Liabilitas",${historicalRange})`, input.aamAdjustmentModel.historicalLiabilityTotal)],
+    ["Total penyesuaian liabilitas", formulaCell(`SUMIF(${roleRange},"Liabilitas",${adjustmentRange})`, input.aamAdjustmentModel.liabilityAdjustmentTotal)],
+    ["Total ekuitas historis", formulaCell(`SUMIF(${roleRange},"Ekuitas",${historicalRange})`, input.aamAdjustmentModel.historicalEquityTotal)],
+    [
+      "Penyesuaian ekuitas manual",
+      formulaCell(
+        `SUMIFS(${adjustmentRange},${roleRange},"Ekuitas",${lineRange},"<>Changes on Asset Revaluation")`,
+        input.aamAdjustmentModel.equityManualAdjustmentTotal,
+      ),
+    ],
+    ["Changes on Asset Revaluation", formulaCell(`SUMIF(${roleRange},"Aset",${adjustmentRange})-SUMIF(${roleRange},"Liabilitas",${adjustmentRange})-B${lines.length + 9}`, input.aamAdjustmentModel.equityRevaluationAdjustment)],
+    ["Total penyesuaian ekuitas", formulaCell(`B${lines.length + 9}+B${lines.length + 10}`, input.aamAdjustmentModel.equityAdjustmentTotal)],
+    ["Total ekuitas disesuaikan", formulaCell(`B${lines.length + 8}+B${lines.length + 11}`, input.aamAdjustmentModel.adjustedBookEquity)],
+    ["Nilai ekuitas AAM", formulaCell(`SUMIF(${roleRange},"Aset",${adjustedRange})-SUMIF(${roleRange},"Liabilitas",${adjustedRange})`, input.aamAdjustmentModel.adjustedEquityValue)],
     ["Catatan wajib belum lengkap", formulaCell(`COUNTIFS(H2:H${lines.length + 1},"Yes",I2:I${lines.length + 1},"")`, input.aamAdjustmentModel.missingNoteCount)],
   ];
+}
+
+function formatAamAdjustmentRoleForExport(role: "asset" | "liability" | "equity"): "Aset" | "Liabilitas" | "Ekuitas" {
+  if (role === "asset") {
+    return "Aset";
+  }
+
+  if (role === "liability") {
+    return "Liabilitas";
+  }
+
+  return "Ekuitas";
 }
 
 function buildEemSensitivityRows(input: ValuationPdfExportInput, refs: Record<string, string>): XlsxCellValue[][] {
@@ -1165,8 +1219,22 @@ function excelString(value: string): string {
 }
 
 function resolveTraceFormulaRef(method: ValuationMethod, trace: FormulaTrace, refs: Record<string, string>): string | undefined {
-  if (method === "AAM" && trace.label === "Nilai Ekuitas 100% - AAM") {
-    return refs.aamEquityValue;
+  if (method === "AAM") {
+    const aamTraceRefs: Record<string, string | undefined> = {
+      "Aset historis basis AAM": refs.aamHistoricalAssets,
+      "Penyesuaian aset AAM": refs.aamAssetAdjustment,
+      "Total aset disesuaikan": refs.aamAdjustedAssets,
+      "Liabilitas historis basis AAM": refs.aamHistoricalLiabilities,
+      "Penyesuaian liabilitas AAM": refs.aamLiabilityAdjustment,
+      "Total liabilitas disesuaikan": refs.aamAdjustedLiabilities,
+      "Ekuitas historis basis AAM": refs.aamHistoricalEquity,
+      "Penyesuaian ekuitas manual AAM": refs.aamEquityManualAdjustment,
+      "Changes on Asset Revaluation": refs.aamEquityRevaluationAdjustment,
+      "Total ekuitas disesuaikan": refs.aamAdjustedBookEquity,
+      "Nilai Ekuitas 100% - AAM": refs.aamEquityValue,
+    };
+
+    return aamTraceRefs[trace.label];
   }
 
   if (method === "EEM") {

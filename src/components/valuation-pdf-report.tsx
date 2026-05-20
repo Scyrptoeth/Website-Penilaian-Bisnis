@@ -425,7 +425,7 @@ function MetricGrid({ metrics }: { metrics: ReportMetric[] }) {
 
 function AamAdjustmentReportTable({ payload }: { payload: ValuationPdfExportPayload }) {
   const { aamAdjustmentModel } = payload.input;
-  const lines = [...aamAdjustmentModel.assetLines, ...aamAdjustmentModel.liabilityLines];
+  const lines = [...aamAdjustmentModel.assetLines, ...aamAdjustmentModel.liabilityLines, ...aamAdjustmentModel.equityLines];
 
   return (
     <>
@@ -443,7 +443,7 @@ function AamAdjustmentReportTable({ payload }: { payload: ValuationPdfExportPayl
         <tbody>
           {lines.map((line) => (
             <tr key={line.id}>
-              <td>{line.role === "asset" ? "Aset" : "Liabilitas"}</td>
+              <td>{formatAamAdjustmentRole(line.role)}</td>
               <td>
                 <strong>{line.label}</strong>
                 <small>{line.source}</small>
@@ -462,12 +462,27 @@ function AamAdjustmentReportTable({ payload }: { payload: ValuationPdfExportPayl
           { label: "Total penyesuaian aset", value: formatIdr(aamAdjustmentModel.assetAdjustmentTotal) },
           { label: "Total liabilitas historis", value: formatIdr(aamAdjustmentModel.historicalLiabilityTotal) },
           { label: "Total penyesuaian liabilitas", value: formatIdr(aamAdjustmentModel.liabilityAdjustmentTotal) },
+          { label: "Total ekuitas historis", value: formatIdr(aamAdjustmentModel.historicalEquityTotal) },
+          { label: "Changes on Asset Revaluation", value: formatIdr(aamAdjustmentModel.equityRevaluationAdjustment) },
+          { label: "Total ekuitas disesuaikan", value: formatIdr(aamAdjustmentModel.adjustedBookEquity) },
           { label: "Nilai ekuitas AAM", value: formatIdr(aamAdjustmentModel.adjustedEquityValue) },
           { label: "Catatan wajib belum lengkap", value: String(aamAdjustmentModel.missingNoteCount) },
         ]}
       />
     </>
   );
+}
+
+function formatAamAdjustmentRole(role: "asset" | "liability" | "equity") {
+  if (role === "asset") {
+    return "Aset";
+  }
+
+  if (role === "liability") {
+    return "Liabilitas";
+  }
+
+  return "Ekuitas";
 }
 
 function EemSensitivityReportTable({ payload }: { payload: ValuationPdfExportPayload }) {

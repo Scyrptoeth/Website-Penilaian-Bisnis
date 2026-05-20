@@ -29,6 +29,8 @@ describe("valuation XLSX export", () => {
   it("builds AAM-only workbook sheets without EEM or DCF sections", () => {
     const workbook = buildValuationXlsxWorkbook(buildSampleExportInput(), "aam", exportedAt);
     const sheetNames = workbook.sheets.map((sheet) => sheet.name);
+    const aamRows = workbook.sheets.find((sheet) => sheet.name === "AAM Adjustments")?.rows ?? [];
+    const revaluationRow = aamRows.find((row) => row[2] === "Changes on Asset Revaluation");
 
     assert.equal(workbook.scope.id, "aam");
     assert.ok(sheetNames.includes("Calculation Model"));
@@ -40,6 +42,12 @@ describe("valuation XLSX export", () => {
     assert.equal(sheetNames.includes("DCF Sensitivity"), false);
     assert.equal(sheetNames.includes("DCF Forecast"), false);
     assert.equal(workbook.sheets.find((sheet) => sheet.name === "Formula Trace")?.rows.slice(1).every((row) => row[0] === "AAM"), true);
+    assert.equal(revaluationRow?.[0], "Ekuitas");
+    assert.equal(typeof revaluationRow?.[5], "object");
+    assert.match(
+      String((revaluationRow?.[5] as { formula?: string }).formula),
+      /SUMIF\(A2:A\d+,"Aset",F2:F\d+\)-SUMIF\(A2:A\d+,"Liabilitas",F2:F\d+\)-SUMIF\(A2:A\d+,"Ekuitas",F2:F\d+\)/,
+    );
     assert.ok(countFormulaCells(workbook.sheets.flatMap((sheet) => sheet.rows)) > 40);
   });
 

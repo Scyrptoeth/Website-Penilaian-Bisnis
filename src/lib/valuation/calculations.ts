@@ -32,6 +32,10 @@ export type DcfOptions = {
 type AamOptions = {
   assetAdjustment?: number;
   liabilityAdjustment?: number;
+  equityManualAdjustment?: number;
+  equityRevaluationAdjustment?: number;
+  equityAdjustment?: number;
+  adjustedBookEquityGap?: number;
   missingAdjustmentNotes?: number;
 };
 
@@ -196,8 +200,12 @@ export function calculateAam(snapshot: FinancialStatementSnapshot, options: AamO
   const historicalLiabilities = adjustedTotalLiabilities(snapshot);
   const assetAdjustment = options.assetAdjustment ?? 0;
   const liabilityAdjustment = options.liabilityAdjustment ?? 0;
+  const equityManualAdjustment = options.equityManualAdjustment ?? 0;
+  const equityRevaluationAdjustment = options.equityRevaluationAdjustment ?? assetAdjustment - liabilityAdjustment - equityManualAdjustment;
+  const equityAdjustment = options.equityAdjustment ?? equityManualAdjustment + equityRevaluationAdjustment;
   const totalAssets = historicalAssets + assetAdjustment;
   const totalLiabilities = historicalLiabilities + liabilityAdjustment;
+  const adjustedBookEquity = snapshot.bookEquity + equityAdjustment;
   const equityValue = totalAssets - totalLiabilities;
   const traces: FormulaTrace[] = [
     {
@@ -235,6 +243,33 @@ export function calculateAam(snapshot: FinancialStatementSnapshot, options: AamO
       formula: "Liabilitas historis + penyesuaian liabilitas",
       value: totalLiabilities,
       note: "Adjustment AAM hanya berlaku di metode AAM dan jejak audit AAM.",
+    },
+    {
+      label: "Ekuitas historis basis AAM",
+      formula: "Modal disetor + tambahan modal disetor + saldo laba + laba tahun berjalan",
+      value: snapshot.bookEquity,
+      note: "Basis ekuitas berasal dari pos ekuitas Neraca pada periode aktif.",
+    },
+    {
+      label: "Penyesuaian ekuitas manual AAM",
+      formula: "Jumlah kolom Penyesuaian untuk pos ekuitas AAM selain Changes on Asset Revaluation",
+      value: equityManualAdjustment,
+      note: "Nilai positif menaikkan pos ekuitas manual; baris revaluasi otomatis mengimbangi dengan tanda berlawanan.",
+    },
+    {
+      label: "Changes on Asset Revaluation",
+      formula: "Penyesuaian aset - penyesuaian liabilitas - penyesuaian ekuitas manual",
+      value: equityRevaluationAdjustment,
+      note: "Baris read-only agar Ekuitas merekonsiliasi dampak penyesuaian Aset, Liabilitas, dan Ekuitas.",
+    },
+    {
+      label: "Total ekuitas disesuaikan",
+      formula: "Ekuitas historis + penyesuaian ekuitas manual + Changes on Asset Revaluation",
+      value: adjustedBookEquity,
+      note:
+        options.adjustedBookEquityGap && Math.abs(options.adjustedBookEquityGap) >= 0.5
+          ? `Masih terdapat selisih rekonsiliasi ekuitas ${options.adjustedBookEquityGap}.`
+          : "Setelah revaluasi otomatis, ekuitas mengikuti perubahan bersih aset dan liabilitas.",
     },
     {
       label: "Nilai Ekuitas 100% - AAM",

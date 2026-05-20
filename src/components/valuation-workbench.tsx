@@ -1053,6 +1053,10 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         aam: {
           assetAdjustment: aamAdjustmentModel.assetAdjustmentTotal,
           liabilityAdjustment: aamAdjustmentModel.liabilityAdjustmentTotal,
+          equityManualAdjustment: aamAdjustmentModel.equityManualAdjustmentTotal,
+          equityRevaluationAdjustment: aamAdjustmentModel.equityRevaluationAdjustment,
+          equityAdjustment: aamAdjustmentModel.equityAdjustmentTotal,
+          adjustedBookEquityGap: aamAdjustmentModel.adjustedBookEquityGap,
           missingAdjustmentNotes: aamAdjustmentModel.missingNoteCount,
         },
         dcf: dcfFixedAssetProjection
@@ -1064,6 +1068,10 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       }),
     [
       aamAdjustmentModel.assetAdjustmentTotal,
+      aamAdjustmentModel.adjustedBookEquityGap,
+      aamAdjustmentModel.equityAdjustmentTotal,
+      aamAdjustmentModel.equityManualAdjustmentTotal,
+      aamAdjustmentModel.equityRevaluationAdjustment,
       aamAdjustmentModel.liabilityAdjustmentTotal,
       aamAdjustmentModel.missingNoteCount,
       dcfFixedAssetProjection,
@@ -3648,7 +3656,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
             <p>
               {aamAdjustmentModel.missingNoteCount > 0
                 ? `${aamAdjustmentModel.missingNoteCount} penyesuaian masih perlu catatan.`
-                : "Semua penyesuaian non-zero sudah memiliki catatan."}
+                : `Revaluasi otomatis Ekuitas: ${formatIdr(aamAdjustmentModel.equityRevaluationAdjustment)}.`}
             </p>
           </article>
         </section>
@@ -3681,6 +3689,14 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
             historicalTotal={aamAdjustmentModel.historicalLiabilityTotal}
             adjustmentTotal={aamAdjustmentModel.liabilityAdjustmentTotal}
             adjustedTotal={aamAdjustmentModel.adjustedLiabilityTotal}
+            onUpdate={updateAamAdjustment}
+          />
+          <AamAdjustmentTable
+            title="Ekuitas"
+            lines={aamAdjustmentModel.equityLines}
+            historicalTotal={aamAdjustmentModel.historicalEquityTotal}
+            adjustmentTotal={aamAdjustmentModel.equityAdjustmentTotal}
+            adjustedTotal={aamAdjustmentModel.adjustedBookEquity}
             onUpdate={updateAamAdjustment}
           />
         </section>
@@ -11546,24 +11562,35 @@ function AamAdjustmentTable({
                 </td>
                 <td className="numeric-cell">{formatIdr(line.historical)}</td>
                 <td>
-                  <input
-                    aria-label={`Penyesuaian ${line.label}`}
-                    inputMode="numeric"
-                    placeholder="0"
-                    value={line.adjustmentInput}
-                    onChange={(event) => onUpdate(line.id, { adjustment: event.target.value })}
-                  />
+                  {line.isReadOnly ? (
+                    <div className="aam-readonly-value" aria-label={`Penyesuaian ${line.label}`}>
+                      <strong>{formatIdr(line.adjustment)}</strong>
+                      {line.readOnlyReason ? <small>{line.readOnlyReason}</small> : null}
+                    </div>
+                  ) : (
+                    <input
+                      aria-label={`Penyesuaian ${line.label}`}
+                      inputMode="numeric"
+                      placeholder="0"
+                      value={line.adjustmentInput}
+                      onChange={(event) => onUpdate(line.id, { adjustment: event.target.value })}
+                    />
+                  )}
                 </td>
                 <td className="numeric-cell">{formatIdr(line.adjusted)}</td>
                 <td>
-                  <textarea
-                    aria-label={`Catatan ${line.label}`}
-                    className={line.requiresNote ? "aam-note warning" : "aam-note"}
-                    placeholder="Catatan jika ada adjustment"
-                    value={line.note}
-                    onChange={(event) => onUpdate(line.id, { note: event.target.value })}
-                    rows={1}
-                  />
+                  {line.isReadOnly ? (
+                    <span className="aam-readonly-note">{line.note || line.readOnlyReason || "-"}</span>
+                  ) : (
+                    <textarea
+                      aria-label={`Catatan ${line.label}`}
+                      className={line.requiresNote ? "aam-note warning" : "aam-note"}
+                      placeholder="Catatan jika ada adjustment"
+                      value={line.note}
+                      onChange={(event) => onUpdate(line.id, { note: event.target.value })}
+                      rows={1}
+                    />
+                  )}
                   {line.requiresNote ? <small className="field-warning">Catatan wajib untuk adjustment non-zero.</small> : null}
                 </td>
               </tr>
@@ -12557,11 +12584,20 @@ function FixedAssetNetValueTable({ periods, schedule }: { periods: Period[]; sch
 
 const aamAssetTraceLabels = new Set(["Aset historis basis AAM", "Penyesuaian aset AAM", "Total aset disesuaikan"]);
 const aamLiabilityTraceLabels = new Set(["Liabilitas historis basis AAM", "Penyesuaian liabilitas AAM", "Total liabilitas disesuaikan"]);
+const aamEquityTraceLabels = new Set([
+  "Ekuitas historis basis AAM",
+  "Penyesuaian ekuitas manual AAM",
+  "Changes on Asset Revaluation",
+  "Total ekuitas disesuaikan",
+]);
 
 function AamFormulaList({ traces }: { traces: FormulaTrace[] }) {
   const assetTraces = traces.filter((trace) => aamAssetTraceLabels.has(trace.label));
   const liabilityTraces = traces.filter((trace) => aamLiabilityTraceLabels.has(trace.label));
-  const equityTraces = traces.filter((trace) => !aamAssetTraceLabels.has(trace.label) && !aamLiabilityTraceLabels.has(trace.label));
+  const equityTraces = traces.filter((trace) => aamEquityTraceLabels.has(trace.label));
+  const finalTraces = traces.filter(
+    (trace) => !aamAssetTraceLabels.has(trace.label) && !aamLiabilityTraceLabels.has(trace.label) && !aamEquityTraceLabels.has(trace.label),
+  );
 
   return (
     <div className="formula-list formula-list-aam">
@@ -12575,7 +12611,12 @@ function AamFormulaList({ traces }: { traces: FormulaTrace[] }) {
           {liabilityTraces.map((trace) => renderFormulaRow(trace))}
         </div>
       ) : null}
-      {equityTraces.map((trace) => renderFormulaRow(trace, "formula-row-final"))}
+      {equityTraces.length ? (
+        <div className="formula-group formula-group-equity" aria-label="Kelompok ekuitas AAM">
+          {equityTraces.map((trace) => renderFormulaRow(trace))}
+        </div>
+      ) : null}
+      {finalTraces.map((trace) => renderFormulaRow(trace, "formula-row-final"))}
     </div>
   );
 }
