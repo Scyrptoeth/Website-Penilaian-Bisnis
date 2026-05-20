@@ -3800,7 +3800,6 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               <span>{eemSensitivityContext.base.label}</span>
               <strong data-testid="eem-base-equity-value">{formatIdr(results.eem.equityValue)}</strong>
               <small>{eemSensitivityContext.base.note}</small>
-              <code>{eemSensitivityContext.base.formula}</code>
             </div>
             <div className={activeEemBasis === "taxPayableDebtLike" ? "active-sensitivity" : ""}>
               <span>{eemSensitivityContext.taxPayableDebtLike.label}</span>
@@ -3808,7 +3807,6 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
                 {formatIdr(results.sensitivities.eemTaxPayableDebtLike.equityValue)}
               </strong>
               <small>{buildEemTaxPayableDebtLikeNote(formatIdr(eemTaxPayableDebtLikeDifference))}</small>
-              <code>{eemSensitivityContext.taxPayableDebtLike.formula}</code>
             </div>
           </div>
           <div className="eem-sensitivity-bridge" data-testid="eem-tax-payable-difference-driver">
@@ -12591,7 +12589,7 @@ function EemTraceTable({ traces, mappedRows }: { traces: FormulaTrace[]; mappedR
             <th scope="col">Komponen</th>
             <th scope="col">Nilai aktif</th>
             <th scope="col">Sumber dan akun</th>
-            <th scope="col">Treatment</th>
+            <th scope="col">Perlakuan</th>
           </tr>
         </thead>
         <tbody>
@@ -12600,6 +12598,7 @@ function EemTraceTable({ traces, mappedRows }: { traces: FormulaTrace[]; mappedR
             const categoryLabels = getTraceCategoryLabels(trace);
             const sourceAccounts = getTraceSourceAccountNames(trace, mappedRows);
             const levelLabel = trace.traceLevel ? formulaTraceLevelLabels[trace.traceLevel] : "Trace";
+            const workbookSourceSummary = formatWorkbookReferenceForUser(trace);
 
             return (
               <tr key={trace.id ?? trace.label} data-testid="eem-trace-row">
@@ -12607,7 +12606,6 @@ function EemTraceTable({ traces, mappedRows }: { traces: FormulaTrace[]; mappedR
                   <div className="eem-trace-component">
                     <span>{String(index + 1).padStart(2, "0")}</span>
                     <strong>{trace.label}</strong>
-                    <code>{trace.formula}</code>
                     <p>{trace.note}</p>
                   </div>
                 </td>
@@ -12621,7 +12619,7 @@ function EemTraceTable({ traces, mappedRows }: { traces: FormulaTrace[]; mappedR
                         ))}
                       </div>
                     ) : null}
-                    {trace.workbookReference ? <code>{trace.workbookReference}</code> : null}
+                    {workbookSourceSummary ? <small>{workbookSourceSummary}</small> : null}
                     {categoryLabels.length > 0 ? <small>Kategori: {formatLimitedList(categoryLabels)}</small> : null}
                     {sourceAccounts.length > 0 ? (
                       <small>Akun aktif: {formatLimitedList(sourceAccounts)}</small>
@@ -12635,7 +12633,7 @@ function EemTraceTable({ traces, mappedRows }: { traces: FormulaTrace[]; mappedR
                 <td>
                   <div className="eem-trace-treatment">
                     <span>{levelLabel}</span>
-                    <small>{trace.treatment ?? "Formula trace"}</small>
+                    <small>{formatTraceTreatmentForUser(trace)}</small>
                   </div>
                 </td>
               </tr>
@@ -12686,13 +12684,85 @@ const formulaTraceLevelLabels: Record<NonNullable<FormulaTrace["traceLevel"]>, s
   input: "Input",
   assumption: "Asumsi",
   subtotal: "Subtotal",
-  calculation: "Formula",
-  bridge: "Bridge",
+  calculation: "Perhitungan",
+  bridge: "Jembatan",
   final: "Final",
+};
+
+const traceTreatmentDisplayLabels: Record<string, string> = {
+  "Operating tangible asset base": "Basis aset berwujud operasional",
+  "Assumption driver": "Driver asumsi",
+  "Tangible asset capital charge": "Beban imbal hasil aset berwujud",
+  "Operating after-tax earnings": "Laba operasi setelah pajak",
+  "Policy-driven zero in base EEM": "Kebijakan dasar: tidak digunakan",
+  "Cash-flow bridge subtotal": "Subtotal jembatan arus kas",
+  "Normalized working-capital movement": "Pergerakan modal kerja ternormalisasi",
+  "EEM earning base": "Basis laba EEM",
+  "Intangible earnings premium": "Laba lebih aset tak berwujud",
+  "Capitalized intangible value": "Kapitalisasi laba lebih",
+  "Operating enterprise value": "Nilai operasi sebelum bridge ekuitas",
+  "Deducted in equity bridge": "Dikurangkan dalam bridge ekuitas",
+  "Added after enterprise value": "Ditambahkan setelah enterprise value",
+  "Final 100% equity bridge": "Nilai ekuitas 100%",
+  "Active sensitivity adjustment": "Penyesuaian sensitivitas aktif",
 };
 
 function getTraceCategoryLabels(trace: FormulaTrace): string[] {
   return uniqueStrings((trace.accountCategories ?? []).map((category) => categoryLabelMap.get(category) ?? category));
+}
+
+function formatWorkbookReferenceForUser(trace: FormulaTrace): string {
+  const reference = trace.workbookReference ?? "";
+
+  if (!reference) {
+    return "";
+  }
+
+  if (reference.startsWith("Sensitivity layer")) {
+    return "Acuan: skenario sensitivitas EEM aktif.";
+  }
+
+  const sourceParts: string[] = [];
+
+  if (reference.includes("EEM")) {
+    sourceParts.push("sheet EEM");
+  }
+
+  if (reference.includes("STAT_EEM")) {
+    sourceParts.push("layer statistik EEM");
+  }
+
+  if (reference.includes("BALANCE SHEET")) {
+    sourceParts.push("neraca");
+  }
+
+  if (reference.includes("INCOME STATEMENT")) {
+    sourceParts.push("laba rugi");
+  }
+
+  if (reference.includes("BORROWING CAP")) {
+    sourceParts.push("borrowing capacity");
+  }
+
+  if (reference.includes("DISCOUNT RATE")) {
+    sourceParts.push("discount rate");
+  }
+
+  if (reference.includes("tax assumption") || reference.includes("assumptions driver")) {
+    sourceParts.push("asumsi reviewer");
+  }
+
+  const summary = formatLimitedList(uniqueStrings(sourceParts), 5);
+
+  return summary ? `Acuan workbook: ${summary}.` : "Acuan workbook tersedia di model audit internal.";
+}
+
+function formatTraceTreatmentForUser(trace: FormulaTrace): string {
+  if (!trace.treatment) {
+    return "Jejak perhitungan";
+  }
+
+  return traceTreatmentDisplayLabels[trace.treatment] ?? trace.treatment;
 }
 
 function getTraceSourceAccountNames(trace: FormulaTrace, mappedRows: MappedRow[]): string[] {

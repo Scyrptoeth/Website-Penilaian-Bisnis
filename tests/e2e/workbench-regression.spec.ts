@@ -1033,6 +1033,11 @@ test("active EEM basis can switch to tax payable debt-like and flows to tax simu
   await expect(page.getByText("Penyesuaian basis aktif EEM")).toBeVisible();
   await expect(page.getByTestId("eem-trace-row")).toHaveCount(21);
   await expect(page.getByTestId("eem-trace-table")).toContainText("Equity Value (100%)");
+  await expect(page.getByTestId("eem-trace-table")).toContainText("Acuan workbook");
+  await expect(page.getByTestId("eem-trace-table")).not.toContainText("STAT_EEM");
+  await expect(page.getByTestId("eem-trace-table")).not.toContainText("EEM!D");
+  await expect(page.locator("#eem code")).toHaveCount(0);
+  await expect(page.getByTestId("eem-sensitivity-grid").locator("code")).toHaveCount(0);
 
   await openWorkflowTab(page, "Simulasi Potensi Pajak");
   await page.locator(".tax-control-grid").getByLabel("Primary Method").selectOption("EEM");
@@ -1316,8 +1321,12 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await expect(page.getByTestId("eem-tax-payable-difference-driver")).toContainText("Driver selisih");
   await expect(page.getByTestId("eem-trace-row")).toHaveCount(20);
   await expect(page.getByTestId("eem-trace-table")).toContainText("Nett Tangible Asset Value");
-  await expect(page.getByTestId("eem-trace-table")).toContainText("STAT_EEM!B7");
+  await expect(page.getByTestId("eem-trace-table")).toContainText("Acuan workbook");
   await expect(page.getByTestId("eem-trace-table")).toContainText("Akun aktif");
+  await expect(page.getByTestId("eem-trace-table")).not.toContainText("STAT_EEM");
+  await expect(page.getByTestId("eem-trace-table")).not.toContainText("EEM!D");
+  await expect(page.locator("#eem code")).toHaveCount(0);
+  await expect(page.getByTestId("eem-sensitivity-grid").locator("code")).toHaveCount(0);
   await openWorkflowTab(page, "Penilaian DCF");
   await expect(page.getByRole("heading", { name: "Kesiapan DCF" })).toHaveCount(0);
   await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Manual WACC reviewer");

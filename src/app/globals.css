@@ -4862,7 +4862,7 @@ td span {
 }
 
 .eem-trace-component > span {
-  grid-row: span 3;
+  grid-row: span 2;
   color: var(--muted);
   font-family: var(--font-mono), monospace;
   font-size: 9px;
@@ -4871,21 +4871,6 @@ td span {
 
 .eem-trace-component strong {
   overflow-wrap: anywhere;
-}
-
-.eem-trace-component code,
-.eem-trace-source-stack code {
-  display: block;
-  width: fit-content;
-  max-width: 100%;
-  padding: 3px 5px;
-  overflow-wrap: anywhere;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: #ffffff;
-  color: var(--accent-ink);
-  font-family: var(--font-mono), monospace;
-  font-size: 8.4px;
 }
 
 .eem-trace-component p {
