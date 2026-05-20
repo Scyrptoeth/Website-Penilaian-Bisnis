@@ -658,6 +658,12 @@ type WorkflowTabGroup = {
   label: string;
   tabs: WorkflowTab[];
 };
+type SourceFocusTarget = {
+  tabId: WorkflowTabId;
+  sourceLabel: string;
+  traceId: string;
+  traceLabel: string;
+};
 
 declare global {
   interface Window {
@@ -856,6 +862,13 @@ const workflowNavigationGroups: WorkflowTabGroup[] = [
   },
 ];
 const workflowNavigationTabs = workflowNavigationGroups.flatMap((group) => group.tabs);
+const workflowTabIdByLabel = new Map<WorkflowTab["label"], WorkflowTabId>(
+  workflowNavigationTabs.map((tab) => [tab.label, tab.id]),
+);
+const traceSourceTabAliases = new Map<string, WorkflowTabId>([
+  ["Diskon & Pajak", "taxSimulation"],
+  ["Simulasi Potensi Pajak", "taxSimulation"],
+]);
 
 const incomeProjectionOverrideFields: Array<{
   key: IncomeProjectionOverrideField;
@@ -961,6 +974,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   const [isJsonImporting, setIsJsonImporting] = useState(false);
   const [pendingConfirmation, setPendingConfirmation] = useState<ConfirmationDialogState | null>(null);
   const [guidanceTarget, setGuidanceTarget] = useState<GuidanceTarget | null>(null);
+  const [sourceFocusTarget, setSourceFocusTarget] = useState<SourceFocusTarget | null>(null);
   const workspaceMenuRef = useRef<HTMLDivElement>(null);
   const pdfExportMenuRef = useRef<HTMLDivElement>(null);
   const xlsxExportMenuRef = useRef<HTMLDivElement>(null);
@@ -1181,14 +1195,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     [fixedAssetSchedule, incomeStatementRows, periods],
   );
   const eemNetOperatingTangibleAssets = findTraceValueById(activeEem.traces, "eem-net-tangible-asset-value");
-  const eemRequiredReturnAmount = findTraceValueById(activeEem.traces, "eem-earning-return-on-nta");
   const eemExcessEarnings = findTraceValueById(activeEem.traces, "eem-excess-earning");
-  const eemCapitalizationRate = findTraceValueById(activeEem.traces, "eem-capitalization-rate");
-  const eemCapitalizedExcess = findTraceValueById(activeEem.traces, "eem-capitalized-excess-earning");
-  const eemEnterpriseValue = findTraceValueById(activeEem.traces, "eem-enterprise-value");
-  const eemNonOperatingAssetValue = findTraceValueById(activeEem.traces, "eem-non-operating-asset");
-  const eemInterestBearingDebtValue = findTraceValueById(activeEem.traces, "eem-interest-bearing-debt");
-  const eemEquityValueTrace = findTraceValueById(activeEem.traces, "eem-equity-value-100", activeEem.equityValue);
   const dcfExplicitPv = findTraceValue(activeDcf.traces, "PV eksplisit FCFF");
   const dcfTerminalPv = findTraceValue(activeDcf.traces, "PV nilai terminal");
   const dcfEnterpriseValue = dcfExplicitPv + dcfTerminalPv;
@@ -1610,15 +1617,26 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     });
   }
 
-  function navigateToWorkflowTab(tabId: WorkflowTabId, options: { preserveGuidance?: boolean } = {}) {
+  function navigateToWorkflowTab(
+    tabId: WorkflowTabId,
+    options: { preserveGuidance?: boolean; preserveSourceFocus?: boolean } = {},
+  ) {
     setActiveWorkflowTab(tabId);
     if (!options.preserveGuidance) {
       setGuidanceTarget(null);
+    }
+    if (!options.preserveSourceFocus) {
+      setSourceFocusTarget(null);
     }
 
     if (typeof window !== "undefined") {
       window.scrollTo({ top: 0 });
     }
+  }
+
+  function navigateToTraceSource(target: SourceFocusTarget) {
+    setSourceFocusTarget(target);
+    navigateToWorkflowTab(target.tabId, { preserveSourceFocus: true });
   }
 
   function navigateToGovernanceTarget(target: AssumptionGovernanceTarget) {
@@ -1759,6 +1777,23 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       target.scrollIntoView({ block: "center", behavior: prefersReducedMotion ? "auto" : "smooth" });
     }, 80);
   }, [activeWorkflowTab, guidanceTarget]);
+
+  useEffect(() => {
+    if (!sourceFocusTarget || activeWorkflowTab !== "valuationEem" || sourceFocusTarget.tabId !== "valuationEem") {
+      return;
+    }
+
+    const target = document.querySelector<HTMLElement>(`[data-source-focus-row="${sourceFocusTarget.traceId}"]`);
+    if (!target) {
+      return;
+    }
+
+    const prefersReducedMotion =
+      typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.setTimeout(() => {
+      target.scrollIntoView({ block: "center", behavior: prefersReducedMotion ? "auto" : "smooth" });
+    }, 80);
+  }, [activeWorkflowTab, sourceFocusTarget]);
 
   useEffect(() => {
     const storedWorkspace = readPersistedWorkspaceSnapshot();
@@ -2993,7 +3028,12 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
                 <div className="nav-group-items">
                   {group.tabs.map((item) => (
                     <button
-                      className={activeWorkflowTab === item.id ? "active" : ""}
+                      className={[
+                        activeWorkflowTab === item.id ? "active" : "",
+                        sourceFocusTarget?.tabId === item.id ? "source-focus-tab" : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
                       type="button"
                       onClick={() => navigateToWorkflowTab(item.id)}
                       aria-current={activeWorkflowTab === item.id ? "page" : undefined}
@@ -3268,7 +3308,12 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
           <div className="workflow-tabs mobile-workflow-tabs" role="tablist" aria-label="Workflow penilaian">
             {workflowNavigationTabs.map((tab) => (
               <button
-                className={activeWorkflowTab === tab.id ? "active" : ""}
+                className={[
+                  activeWorkflowTab === tab.id ? "active" : "",
+                  sourceFocusTarget?.tabId === tab.id ? "source-focus-tab" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
                 type="button"
                 role="tab"
                 aria-selected={activeWorkflowTab === tab.id}
@@ -3282,6 +3327,13 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               </button>
             ))}
           </div>
+          {sourceFocusTarget && activeWorkflowTab === sourceFocusTarget.tabId ? (
+            <div className="source-focus-strip" data-testid="source-focus-strip" role="status">
+              <span>Sumber aktif</span>
+              <strong>{workflowTabRegistry[sourceFocusTarget.tabId].label}</strong>
+              <small>{sourceFocusTarget.traceLabel}</small>
+            </div>
+          ) : null}
         </div>
 
         {activeWorkflowTab === "periods" ? (
@@ -3888,8 +3940,8 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
           </div>
         </section>
 
-        <section id="eem" className="split-panel">
-          <article className="panel">
+        <section id="eem" className="eem-trace-section">
+          <article className="panel eem-trace-panel">
             <div className="panel-heading">
               <div>
                 <p className="eyebrow">Jejak EEM</p>
@@ -3897,30 +3949,11 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               </div>
               <FileSearch size={22} />
             </div>
-            <EemTraceTable traces={activeEem.traces} mappedRows={mappedRows} />
-          </article>
-          <article className="panel">
-            <div className="panel-heading">
-              <div>
-                <p className="eyebrow">Anchor workbook EEM</p>
-                <h3>Dari NTA ke equity value</h3>
-              </div>
-              <TableProperties size={22} />
-            </div>
-            <MetricTraceGrid
-              metrics={[
-                ["Aset AAM tanpa kas", formatIdr(eemCalculationOptions.adjustedAssetsExcludingCash ?? 0)],
-                ["Liabilitas AAM tanpa debt", formatIdr(eemCalculationOptions.adjustedLiabilitiesExcludingDebt ?? 0)],
-                ["Nett Tangible Asset Value", formatIdr(eemNetOperatingTangibleAssets)],
-                ["Return on Tangible Asset", formatPercent(snapshot.requiredReturnOnNta)],
-                ["Earning return on NTA", formatIdr(eemRequiredReturnAmount)],
-                ["Capitalization rate", formatPercent(eemCapitalizationRate)],
-                ["Capitalized excess earning", formatIdr(eemCapitalizedExcess)],
-                ["Enterprise value", formatIdr(eemEnterpriseValue)],
-                ["Aset non-operasional", formatIdr(eemNonOperatingAssetValue)],
-                ["Utang berbunga", formatIdr(eemInterestBearingDebtValue)],
-                ["Equity Value (100%)", formatIdr(eemEquityValueTrace)],
-              ]}
+            <EemTraceTable
+              traces={activeEem.traces}
+              mappedRows={mappedRows}
+              sourceFocusTarget={sourceFocusTarget}
+              onSourceNavigate={navigateToTraceSource}
             />
           </article>
         </section>
@@ -12850,7 +12883,17 @@ function AamFormulaList({ traces }: { traces: FormulaTrace[] }) {
   );
 }
 
-function EemTraceTable({ traces, mappedRows }: { traces: FormulaTrace[]; mappedRows: MappedRow[] }) {
+function EemTraceTable({
+  traces,
+  mappedRows,
+  sourceFocusTarget,
+  onSourceNavigate,
+}: {
+  traces: FormulaTrace[];
+  mappedRows: MappedRow[];
+  sourceFocusTarget: SourceFocusTarget | null;
+  onSourceNavigate: (target: SourceFocusTarget) => void;
+}) {
   return (
     <div className="eem-trace-table-wrap" data-testid="eem-trace-table">
       <table className="eem-trace-table" aria-label="Jejak rinci perhitungan EEM">
@@ -12859,19 +12902,27 @@ function EemTraceTable({ traces, mappedRows }: { traces: FormulaTrace[]; mappedR
             <th scope="col">Komponen</th>
             <th scope="col">Nilai aktif</th>
             <th scope="col">Sumber dan akun</th>
-            <th scope="col">Perlakuan</th>
           </tr>
         </thead>
         <tbody>
           {traces.map((trace, index) => {
+            const traceId = trace.id ?? trace.label;
             const sourceTabs = trace.sourceTabs ?? [];
             const categoryLabels = getTraceCategoryLabels(trace);
             const sourceAccounts = getTraceSourceAccountNames(trace, mappedRows);
             const levelLabel = trace.traceLevel ? formulaTraceLevelLabels[trace.traceLevel] : "Trace";
+            const sourceKind = getTraceSourceKind(trace);
             const workbookSourceSummary = formatWorkbookReferenceForUser(trace);
+            const isFocusedRow =
+              sourceFocusTarget?.tabId === "valuationEem" && sourceFocusTarget.traceId === traceId;
 
             return (
-              <tr key={trace.id ?? trace.label} data-testid="eem-trace-row">
+              <tr
+                className={isFocusedRow ? "source-focus-row" : ""}
+                key={traceId}
+                data-testid="eem-trace-row"
+                data-source-focus-row={traceId}
+              >
                 <td>
                   <div className="eem-trace-component">
                     <span>{String(index + 1).padStart(2, "0")}</span>
@@ -12882,13 +12933,43 @@ function EemTraceTable({ traces, mappedRows }: { traces: FormulaTrace[]; mappedR
                 <td className="eem-trace-value">{formatFormulaTraceValue(trace)}</td>
                 <td>
                   <div className="eem-trace-source-stack">
+                    <div className="eem-trace-meta-row" aria-label={`Jenis sumber ${trace.label}`}>
+                      <span className={`eem-trace-origin-badge ${sourceKind.className}`}>{sourceKind.label}</span>
+                      <span>{levelLabel}</span>
+                      <span>{formatTraceTreatmentForUser(trace)}</span>
+                    </div>
                     {sourceTabs.length > 0 ? (
                       <div className="eem-trace-chip-row" aria-label={`Tab sumber ${trace.label}`}>
-                        {sourceTabs.map((tab) => (
-                          <span key={tab}>{tab}</span>
-                        ))}
+                        {sourceTabs.map((tab) => {
+                          const tabId = resolveTraceSourceTabId(tab);
+                          const isFocusedChip =
+                            sourceFocusTarget?.traceId === traceId && sourceFocusTarget.sourceLabel === tab;
+
+                          return tabId ? (
+                            <button
+                              className={isFocusedChip ? "active" : ""}
+                              data-testid="eem-source-chip"
+                              key={tab}
+                              type="button"
+                              onClick={() =>
+                                onSourceNavigate({
+                                  tabId,
+                                  sourceLabel: tab,
+                                  traceId,
+                                  traceLabel: trace.label,
+                                })
+                              }
+                              aria-label={`Buka sumber ${tab} untuk ${trace.label}`}
+                            >
+                              {tab}
+                            </button>
+                          ) : (
+                            <span key={tab}>{tab}</span>
+                          );
+                        })}
                       </div>
                     ) : null}
+                    <TraceFormula formula={trace.formula} traceLabel={trace.label} />
                     {workbookSourceSummary ? <small>{workbookSourceSummary}</small> : null}
                     {categoryLabels.length > 0 ? <small>Kategori: {formatLimitedList(categoryLabels)}</small> : null}
                     {sourceAccounts.length > 0 ? (
@@ -12900,17 +12981,32 @@ function EemTraceTable({ traces, mappedRows }: { traces: FormulaTrace[]; mappedR
                     )}
                   </div>
                 </td>
-                <td>
-                  <div className="eem-trace-treatment">
-                    <span>{levelLabel}</span>
-                    <small>{formatTraceTreatmentForUser(trace)}</small>
-                  </div>
-                </td>
               </tr>
             );
           })}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function TraceFormula({ formula, traceLabel }: { formula: string; traceLabel: string }) {
+  const tokens = tokenizeTraceFormula(formula);
+
+  return (
+    <div className="eem-trace-equation" aria-label={`Formula ${traceLabel}`}>
+      <span className="eem-trace-equation-label">Rumus</span>
+      <span className="eem-trace-equation-flow">
+        {tokens.map((token, index) =>
+          token.isOperator ? (
+            <span className="operator" key={`${token.value}-${index}`}>
+              {token.value}
+            </span>
+          ) : (
+            <span key={`${token.value}-${index}`}>{token.value}</span>
+          ),
+        )}
+      </span>
     </div>
   );
 }
@@ -12958,6 +13054,46 @@ const formulaTraceLevelLabels: Record<NonNullable<FormulaTrace["traceLevel"]>, s
   bridge: "Jembatan",
   final: "Final",
 };
+
+const traceFormulaOperatorLabels: Record<string, string> = {
+  "+": "+",
+  "-": "-",
+  x: "×",
+  X: "×",
+  "*": "×",
+  "/": "÷",
+  ">": ">",
+  "<": "<",
+  ">=": ">=",
+  "<=": "<=",
+};
+
+function getTraceSourceKind(trace: FormulaTrace): { label: string; className: string } {
+  if (trace.traceLevel === "assumption") {
+    return { label: "Asumsi", className: "assumption" };
+  }
+
+  if (trace.traceLevel === "bridge" || trace.traceLevel === "input") {
+    return { label: "Read-only", className: "readonly" };
+  }
+
+  return { label: "Formula", className: "formula" };
+}
+
+function resolveTraceSourceTabId(label: string): WorkflowTabId | null {
+  return traceSourceTabAliases.get(label) ?? workflowTabIdByLabel.get(label) ?? null;
+}
+
+function tokenizeTraceFormula(formula: string): Array<{ value: string; isOperator: boolean }> {
+  return formula
+    .split(/(\s(?:\+|-|x|X|\*|\/|>|<|>=|<=)\s)/g)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const operator = traceFormulaOperatorLabels[part];
+      return { value: operator ?? part, isOperator: Boolean(operator) };
+    });
+}
 
 const traceTreatmentDisplayLabels: Record<string, string> = {
   "Operating tangible asset base": "Basis aset berwujud operasional",

@@ -1077,6 +1077,14 @@ test("active EEM basis can switch to tax payable debt-like and flows to tax simu
   await expect(page.getByTestId("eem-sensitivity-grid").locator(".active-sensitivity")).toContainText("EEM - utang pajak debt-like");
   await expect(page.getByText("Penyesuaian basis aktif EEM")).toBeVisible();
   await expect(page.getByTestId("eem-trace-row")).toHaveCount(20);
+  await expect(page.getByTestId("eem-trace-table").getByRole("columnheader")).toHaveText([
+    "Komponen",
+    "Nilai aktif",
+    "Sumber dan akun",
+  ]);
+  await expect(page.getByTestId("eem-trace-table").getByRole("columnheader", { name: "Perlakuan" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Dari NTA ke equity value" })).toHaveCount(0);
+  await expect(page.getByText("Anchor workbook EEM", { exact: true })).toHaveCount(0);
   await expect(page.getByTestId("eem-trace-table")).toContainText("Equity Value (100%)");
   await expect(page.getByTestId("eem-trace-table")).toContainText("Acuan workbook");
   await expect(page.getByTestId("eem-trace-table")).not.toContainText("STAT_EEM");
@@ -1365,6 +1373,14 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await expect(page.getByTestId("eem-tax-payable-debt-like-equity-value")).toBeVisible();
   await expect(page.getByTestId("eem-tax-payable-difference-driver")).toContainText("Driver selisih");
   await expect(page.getByTestId("eem-trace-row")).toHaveCount(19);
+  await expect(page.getByTestId("eem-trace-table").getByRole("columnheader")).toHaveText([
+    "Komponen",
+    "Nilai aktif",
+    "Sumber dan akun",
+  ]);
+  await expect(page.getByTestId("eem-trace-table").getByRole("columnheader", { name: "Perlakuan" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Dari NTA ke equity value" })).toHaveCount(0);
+  await expect(page.getByText("Anchor workbook EEM", { exact: true })).toHaveCount(0);
   await expect(page.getByTestId("eem-trace-table")).toContainText("Nett Tangible Asset Value");
   await expect(page.getByTestId("eem-trace-table")).toContainText("total AAM disesuaikan tahun aktif");
   await expect(page.getByTestId("eem-trace-table")).toContainText("cash on hand/bank");
@@ -1380,6 +1396,9 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await expect(page.getByTestId("eem-trace-table")).not.toContainText("EEM!D");
   await expect(page.locator("#eem code")).toHaveCount(0);
   await expect(page.getByTestId("eem-sensitivity-grid").locator("code")).toHaveCount(0);
+  await page.getByTestId("eem-source-chip").filter({ hasText: "Neraca" }).first().click();
+  await expect(page.getByTestId("source-focus-strip")).toContainText("Neraca");
+  await expect(page.getByTestId("source-focus-strip")).toContainText("Nett Tangible Asset Value");
   await openWorkflowTab(page, "Penilaian DCF");
   await expect(page.getByRole("heading", { name: "Kesiapan DCF" })).toHaveCount(0);
   await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Manual WACC reviewer");
