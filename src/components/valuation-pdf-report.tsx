@@ -834,6 +834,10 @@ function formatTraceValue(trace: FormulaTrace): string {
   return formatIdr(trace.value);
 }
 
+function findTraceValueById(output: MethodOutput, id: string, fallback = 0): number {
+  return output.traces.find((trace) => trace.id === id)?.value ?? fallback;
+}
+
 function buildMethodSummaries(activeRows: TaxSimulationMethodRow[], baselineRows: TaxSimulationMethodRow[], methodOutputs: MethodOutput[]): MethodSummaryRow[] {
   return methodOutputs.map((output) => {
     const taxRow = activeRows.find((row) => row.method === output.method) ?? baselineRows.find((row) => row.method === output.method) ?? null;
@@ -867,7 +871,7 @@ function buildDriverMetrics(payload: ValuationPdfExportPayload, scope: Valuation
       { label: "Basis EEM aktif", value: input.activeEemBasisLabel || eemSensitivityContext.base.label, note: input.activeEemBasisSummary || eemSensitivityContext.base.note },
       { label: "Nilai aktif EEM", value: formatIdr(input.results.eem.equityValue), note: input.activeEemBasisLabel || eemSensitivityContext.base.label },
       { label: "Required return on NTA", value: formatPercent(input.snapshot.requiredReturnOnNta) },
-      { label: "Operating working capital", value: formatIdr(input.results.operatingWorkingCapital) },
+      { label: "Nett Tangible Asset Value", value: formatIdr(findTraceValueById(input.results.eem, "eem-net-tangible-asset-value")) },
       { label: "Non-operating assets", value: formatIdr(input.results.nonOperatingAssets) },
     );
   }

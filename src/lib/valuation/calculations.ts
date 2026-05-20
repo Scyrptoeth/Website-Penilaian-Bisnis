@@ -39,8 +39,19 @@ type AamOptions = {
   missingAdjustmentNotes?: number;
 };
 
+export type EemOptions = {
+  adjustedAssetsExcludingCash?: number;
+  adjustedLiabilitiesExcludingDebt?: number;
+  depreciationAddBack?: number;
+  currentAssetMovement?: number;
+  currentLiabilityMovement?: number;
+  capitalExpenditures?: number;
+  capitalizationRate?: number;
+};
+
 type CalculationOptions = {
   aam?: AamOptions;
+  eem?: EemOptions;
   dcf?: DcfOptions;
 };
 
@@ -302,23 +313,24 @@ export function calculateAam(snapshot: FinancialStatementSnapshot, options: AamO
   return { method: "AAM", equityValue, traces };
 }
 
-export function calculateEem(snapshot: FinancialStatementSnapshot): MethodOutput {
-  const operatingCurrentAssetValue = operatingCurrentAssets(snapshot);
-  const operatingCurrentLiabilityValue = operatingCurrentLiabilities(snapshot);
-  const nwc = operatingCurrentAssetValue - operatingCurrentLiabilityValue;
-  const netOperatingTangibleAssets = snapshot.fixedAssetsNet + nwc;
+export function calculateEem(snapshot: FinancialStatementSnapshot, options: EemOptions = {}): MethodOutput {
+  const adjustedAssetsExcludingCash =
+    options.adjustedAssetsExcludingCash ?? adjustedTotalAssets(snapshot) - snapshot.cashOnHand - snapshot.cashOnBankDeposit;
+  const adjustedLiabilitiesExcludingDebt =
+    options.adjustedLiabilitiesExcludingDebt ?? adjustedTotalLiabilities(snapshot) - interestBearingDebt(snapshot);
+  const netOperatingTangibleAssets = adjustedAssetsExcludingCash - adjustedLiabilitiesExcludingDebt;
   const noplat = normalizedNoplat(snapshot);
-  const depreciationAddBack = 0;
+  const depreciationAddBack = options.depreciationAddBack ?? Math.max(0, -snapshot.depreciation);
   const grossCashFlow = noplat + depreciationAddBack;
-  const currentAssetMovement = 0;
-  const currentLiabilityMovement = 0;
-  const totalNetChangesInWorkingCapital = currentAssetMovement + currentLiabilityMovement;
-  const capitalExpenditures = 0;
-  const grossInvestment = totalNetChangesInWorkingCapital - capitalExpenditures;
+  const currentAssetMovement = options.currentAssetMovement ?? 0;
+  const currentLiabilityMovement = options.currentLiabilityMovement ?? 0;
+  const totalNetChangesInWorkingCapital = currentAssetMovement - currentLiabilityMovement;
+  const capitalExpenditures = options.capitalExpenditures ?? 0;
+  const grossInvestment = totalNetChangesInWorkingCapital + capitalExpenditures;
   const freeCashFlow = grossCashFlow + grossInvestment;
   const requiredReturn = netOperatingTangibleAssets * snapshot.requiredReturnOnNta;
   const excessEarnings = freeCashFlow - requiredReturn;
-  const capitalizationRate = snapshot.wacc - snapshot.terminalGrowth;
+  const capitalizationRate = options.capitalizationRate ?? snapshot.wacc;
   const capitalizedExcess = capitalizationRate > 0 ? excessEarnings / capitalizationRate : 0;
   const enterpriseValue = netOperatingTangibleAssets + capitalizedExcess;
   const nonOperatingAssetValue = nonOperatingAssets(snapshot);
@@ -329,12 +341,19 @@ export function calculateEem(snapshot: FinancialStatementSnapshot): MethodOutput
     {
       id: "eem-net-tangible-asset-value",
       label: "Nett Tangible Asset Value",
-      formula: "Aset tetap neto + operating NWC",
+      formula: "Total aset disesuaikan AAM tanpa cash on hand/bank - total liabilitas disesuaikan AAM tanpa bank loan ST/LT",
       value: netOperatingTangibleAssets,
-      note: "Basis aset berwujud operasional EEM; kas, deposito, piutang karyawan, utang pajak, dan debt tidak masuk operating NWC.",
-      sourceTabs: ["Neraca", "Aset Tetap", "Kategorisasi Akun"],
-      accountCategories: eemTangibleAssetCategories,
-      workbookReference: "EEM!D7 / STAT_EEM!B7 / BALANCE SHEET!E21,E10,E12,E31,E33",
+      note: "Basis aset berwujud EEM memakai total AAM disesuaikan tahun aktif; cash on hand/bank dan bank loan short/long term dikeluarkan dari dasar NTA.",
+      sourceTabs: ["Penilaian AAM", "Neraca", "Aset Tetap", "Kategorisasi Akun"],
+      accountCategories: [
+        "TOTAL_ASSETS",
+        "TOTAL_LIABILITIES",
+        "CASH_ON_HAND",
+        "CASH_ON_BANK",
+        "BANK_LOAN_SHORT_TERM",
+        "BANK_LOAN_LONG_TERM",
+      ],
+      workbookReference: "EEM!D7 / AAM adjusted total assets/liabilities, excluding cash and bank loans",
       treatment: "Operating tangible asset base",
       traceLevel: "subtotal",
     },
@@ -377,13 +396,13 @@ export function calculateEem(snapshot: FinancialStatementSnapshot): MethodOutput
     {
       id: "eem-depreciation",
       label: "Depreciation",
-      formula: "Normalized single-period EEM add-back",
+      formula: "Penambahan pada B. Penyusutan tahun aktif",
       value: depreciationAddBack,
-      note: "Basis EEM saat ini memakai NOPLAT ternormalisasi; add-back depresiasi tidak dipakai sampai ada reinvestment/capex policy terpisah.",
+      note: "Add-back depresiasi mengikuti baris penambahan penyusutan pada jadwal aset tetap tahun aktif.",
       sourceTabs: ["Laba Rugi", "Aset Tetap", "Penilaian EEM"],
       accountCategories: ["DEPRECIATION_EXPENSE", "ACCUMULATED_DEPRECIATION"],
-      workbookReference: "EEM!D13",
-      treatment: "Policy-driven zero in base EEM",
+      workbookReference: "EEM!D13 / FIXED ASSET B. Depreciation - Additions",
+      treatment: "Fixed asset schedule add-back",
       traceLevel: "bridge",
     },
     {
@@ -391,7 +410,7 @@ export function calculateEem(snapshot: FinancialStatementSnapshot): MethodOutput
       label: "Gross Cash Flow",
       formula: "NOPLAT + depreciation",
       value: grossCashFlow,
-      note: "Arus kas bruto mengikuti NOPLAT karena depresiasi add-back base EEM bernilai nol.",
+      note: "Arus kas bruto EEM menjumlahkan NOPLAT dan add-back depresiasi tahun aktif.",
       sourceTabs: ["NOPLAT & FCF", "Penilaian EEM"],
       accountCategories: [...eemIncomeCategories, "DEPRECIATION_EXPENSE"],
       workbookReference: "EEM!D14",
@@ -399,47 +418,35 @@ export function calculateEem(snapshot: FinancialStatementSnapshot): MethodOutput
       traceLevel: "subtotal",
     },
     {
-      id: "eem-changes-in-working-capital",
-      label: "Changes in Working Capital",
-      formula: "(increase/decrease current asset) + increase/decrease current liabilities",
-      value: totalNetChangesInWorkingCapital,
-      note: "Single-period normalized EEM tidak mengambil perubahan historis CFS sebagai driver valuasi; operating NWC sudah masuk NTA.",
-      sourceTabs: ["Neraca", "Cash Flow Statement", "NOPLAT & FCF"],
-      accountCategories: ["ACCOUNT_RECEIVABLE", "INVENTORY", "ACCOUNT_PAYABLE", "OTHER_PAYABLE"],
-      workbookReference: "EEM!B16:D19",
-      treatment: "Normalized working-capital movement",
-      traceLevel: "bridge",
-    },
-    {
       id: "eem-increase-decrease-current-asset",
       label: "(Increase) Decrease in Current Asset",
-      formula: "Normalized movement of AR + inventory",
+      formula: "Baris CFS: (Kenaikan) penurunan aset lancar operasional",
       value: currentAssetMovement,
-      note: "AR dan inventory dipakai sebagai saldo operating current asset dalam NTA, bukan sebagai perubahan CFS historis pada base EEM.",
-      sourceTabs: ["Neraca", "Cash Flow Statement"],
+      note: "Mengambil nilai final tahun aktif dari Cash Flow Statement, termasuk override reviewer bila ada.",
+      sourceTabs: ["Cash Flow Statement"],
       accountCategories: ["ACCOUNT_RECEIVABLE", "INVENTORY"],
-      workbookReference: "EEM!D17",
-      treatment: "Policy-driven zero in base EEM",
+      workbookReference: "EEM!D17 / CASH FLOW STATEMENT working-capital OCA row",
+      treatment: "Cash-flow statement driver",
       traceLevel: "bridge",
     },
     {
       id: "eem-increase-decrease-current-liabilities",
       label: "Increase (Decrease) in Current Liabilities",
-      formula: "Normalized movement of AP + other payable",
+      formula: "Baris CFS: Kenaikan (penurunan) liabilitas lancar operasional",
       value: currentLiabilityMovement,
-      note: "AP dan utang lain-lain dipakai sebagai saldo operating current liabilities dalam NTA; utang pajak dan debt tetap dikeluarkan.",
-      sourceTabs: ["Neraca", "Cash Flow Statement"],
+      note: "Mengambil nilai final tahun aktif dari Cash Flow Statement, termasuk override reviewer bila ada.",
+      sourceTabs: ["Cash Flow Statement"],
       accountCategories: ["ACCOUNT_PAYABLE", "OTHER_PAYABLE"],
-      workbookReference: "EEM!D18",
-      treatment: "Policy-driven zero in base EEM",
+      workbookReference: "EEM!D18 / CASH FLOW STATEMENT working-capital OCL row",
+      treatment: "Cash-flow statement driver",
       traceLevel: "bridge",
     },
     {
       id: "eem-total-net-changes-working-capital",
       label: "Total Net Changes in Working Capital",
-      formula: "Current asset movement + current liability movement",
+      formula: "(Increase) decrease in current asset - increase (decrease) in current liabilities",
       value: totalNetChangesInWorkingCapital,
-      note: "Subtotal pergerakan modal kerja bersih untuk bridge EEM normalized.",
+      note: "Subtotal modal kerja bersih mengikuti instruksi workbook review: baris aset lancar dikurangi baris liabilitas lancar.",
       sourceTabs: ["NOPLAT & FCF", "Penilaian EEM"],
       accountCategories: ["ACCOUNT_RECEIVABLE", "INVENTORY", "ACCOUNT_PAYABLE", "OTHER_PAYABLE"],
       workbookReference: "EEM!D19",
@@ -449,19 +456,19 @@ export function calculateEem(snapshot: FinancialStatementSnapshot): MethodOutput
     {
       id: "eem-capital-expenditures",
       label: "Capital Expenditures",
-      formula: "Normalized EEM capex requirement",
+      formula: "Penambahan pada A. Biaya Perolehan tahun aktif",
       value: capitalExpenditures,
-      note: "Base EEM belum memakai capex proyeksi; kebutuhan reinvestment diuji di DCF/proyeksi aset tetap, bukan ditanam sebagai angka EEM.",
+      note: "Capex EEM mengikuti penambahan biaya perolehan aset tetap tahun aktif; nilai disajikan sebagai efek arus kas investasi.",
       sourceTabs: ["Aset Tetap", "Proyeksi Aset Tetap", "Penilaian EEM"],
       accountCategories: ["FIXED_ASSET", "FIXED_ASSET_ACQUISITION", "ACCUMULATED_DEPRECIATION"],
-      workbookReference: "EEM!D21",
-      treatment: "Policy-driven zero in base EEM",
+      workbookReference: "EEM!D21 / FIXED ASSET A. Acquisition Costs - Additions",
+      treatment: "Fixed asset schedule driver",
       traceLevel: "bridge",
     },
     {
       id: "eem-gross-investment",
       label: "Gross Investment",
-      formula: "Total net WC changes - capital expenditures",
+      formula: "Total net changes in working capital + capital expenditures",
       value: grossInvestment,
       note: "Signed reinvestment bridge yang ditambahkan ke gross cash flow untuk mendapat FCF EEM.",
       sourceTabs: ["NOPLAT & FCF", "Proyeksi Aset Tetap", "Penilaian EEM"],
@@ -497,12 +504,12 @@ export function calculateEem(snapshot: FinancialStatementSnapshot): MethodOutput
     {
       id: "eem-capitalization-rate",
       label: "Capitalization Rate",
-      formula: "WACC - terminal growth",
+      formula: "Basis WACC aktif",
       value: capitalizationRate,
-      note: "Rate kapitalisasi aktif mengikuti WACC dan terminal growth yang disetujui reviewer.",
+      note: "Rate kapitalisasi EEM mengikuti Basis WACC Aktif dari tab WACC.",
       valueFormat: "percent",
       sourceTabs: ["WACC", "Asumsi EEM/DCF"],
-      workbookReference: "EEM!C28 / STAT_EEM!B18 / WACC driver / terminal growth driver / DISCOUNT RATE H10",
+      workbookReference: "EEM!C28 / WACC active basis",
       treatment: "Assumption driver",
       traceLevel: "assumption",
     },
@@ -991,14 +998,15 @@ export function calculateAllMethods(snapshot: FinancialStatementSnapshot, option
   const dcfHistoricalDerivedProjection = calculateDcf(snapshot, { ...dcfOptions, projectionEngine: "historical-derived" });
   const projectionGovernance = buildDcfProjectionGovernance(snapshot, dcf, dcfHistoricalDerivedProjection);
   const incomeProjectionRelianceGovernance = buildIncomeProjectionRelianceGovernance(snapshot, dcf);
+  const eem = calculateEem(snapshot, options.eem);
   const eemTaxPayableDebtLike = {
-    ...calculateEem(snapshot),
-    equityValue: calculateEem(snapshot).equityValue - snapshot.taxPayable,
+    ...eem,
+    equityValue: eem.equityValue - snapshot.taxPayable,
   };
 
   return {
     aam: calculateAam(snapshot, options.aam),
-    eem: calculateEem(snapshot),
+    eem,
     dcf,
     sensitivities: {
       dcfTerminalDownside,

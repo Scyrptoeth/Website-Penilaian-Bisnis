@@ -19,7 +19,6 @@ import { assertAlmostEqual } from "./test-utils";
 
 const correctedTargets = {
   aam: 13_701_055_249,
-  eem: 19_886_438_291,
   dcf: 34_009_467_930,
 };
 
@@ -29,7 +28,9 @@ describe("governed valuation drivers", () => {
     const results = calculateAllMethods(snapshot);
 
     assertWithinSpread(results.aam.equityValue, correctedTargets.aam, 0.01);
-    assertWithinSpread(results.eem.equityValue, correctedTargets.eem, 0.2);
+    assertAlmostEqual(traceValue(results.eem, "eem-capitalization-rate"), snapshot.wacc, 1e-12);
+    assertAlmostEqual(traceValue(results.eem, "eem-equity-value-100"), results.eem.equityValue, 0.01);
+    assert.equal(results.eem.traces.some((trace) => trace.id === "eem-changes-in-working-capital"), false);
     assertWithinSpread(results.dcf.equityValue, correctedTargets.dcf, 0.2);
 
     assert.ok(snapshot.wacc >= 0.08);
@@ -91,7 +92,8 @@ describe("governed valuation drivers", () => {
     assertAlmostEqual(snapshot.revenueGrowth, sampleCase.revenueGrowth, 1e-8);
     assertAlmostEqual(snapshot.requiredReturnOnNta, sampleCase.requiredReturnOnNta, 1e-8);
     assertWithinSpread(results.aam.equityValue, correctedTargets.aam, 0.01);
-    assertWithinSpread(results.eem.equityValue, correctedTargets.eem, 0.01);
+    assertAlmostEqual(traceValue(results.eem, "eem-capitalization-rate"), snapshot.wacc, 1e-12);
+    assertAlmostEqual(traceValue(results.eem, "eem-equity-value-100"), results.eem.equityValue, 0.01);
     assertWithinSpread(results.dcf.equityValue, correctedTargets.dcf, 0.01);
   });
 });
@@ -270,4 +272,8 @@ function assertWithinSpread(actual: number, expected: number, maxSpread: number)
   const spread = Math.abs(actual - expected) / Math.abs(expected);
 
   assert.ok(spread <= maxSpread, `expected ${actual} to be within ${maxSpread * 100}% of ${expected}; spread ${spread * 100}%`);
+}
+
+function traceValue(output: ReturnType<typeof calculateAllMethods>["eem"], id: string): number {
+  return output.traces.find((trace) => trace.id === id)?.value ?? Number.NaN;
 }

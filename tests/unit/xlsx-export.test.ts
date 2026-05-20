@@ -16,6 +16,7 @@ import {
 } from "../../src/lib/valuation/case-model";
 import { buildSampleDlocPfcState, calculateDlocPfc } from "../../src/lib/valuation/dloc-pfc";
 import { buildSampleDlomState, calculateDlom } from "../../src/lib/valuation/dlom";
+import { buildEemCalculationOptions } from "../../src/lib/valuation/eem-drivers";
 import { buildSectionAnalysis } from "../../src/lib/valuation/section-analysis";
 import { buildSampleTaxSimulationState, calculateTaxSimulation } from "../../src/lib/valuation/tax-simulation";
 import { buildValidationChecks } from "../../src/lib/valuation/validation-checks";
@@ -90,7 +91,8 @@ describe("valuation XLSX export", () => {
     assert.match(String(baseRow?.[3]), /NTA \+ excess earnings yang dikapitalisasi/);
     assert.match(String(debtLikeRow?.[3]), /selisih terhadap dasar sama dengan saldo utang pajak/);
     assert.match(String(debtLikeRow?.[3]), /EEM skenario dasar - utang pajak/);
-    assert.equal(eemTraceRows.length, 20);
+    assert.equal(eemTraceRows.length, 19);
+    assert.equal(eemTraceRows.some((row) => row[1] === "Changes in Working Capital"), false);
     assert.equal(freeCashFlowTraceRow?.[4], "Formula");
     assert.equal(equityTraceRow?.[4], "Formula");
     assert.equal(typeof freeCashFlowTraceRow?.[3], "object");
@@ -198,12 +200,20 @@ function buildSampleExportInput(): ValuationPdfExportInput {
   const assumptions = buildSampleAssumptions();
   const snapshot = buildSnapshot(periods, activePeriodId, rows, assumptions, fixedAssetScheduleRows, { debtScheduleInputs });
   const aamAdjustmentModel = buildAamAdjustmentModel(snapshot, {});
+  const sectionAnalysis = buildSectionAnalysis(periods, rows, assumptions, fixedAssetScheduleRows, {}, debtScheduleInputs);
   const results = calculateAllMethods(snapshot, {
     aam: {
       assetAdjustment: aamAdjustmentModel.assetAdjustmentTotal,
       liabilityAdjustment: aamAdjustmentModel.liabilityAdjustmentTotal,
       missingAdjustmentNotes: aamAdjustmentModel.missingNoteCount,
     },
+    eem: buildEemCalculationOptions({
+      activePeriodId,
+      aamAdjustmentModel,
+      sectionAnalysis,
+      fixedAssetSchedule,
+      capitalizationRate: snapshot.wacc,
+    }),
   });
   const caseProfile = buildSampleCaseProfile();
   const caseProfileDerived = buildCaseProfileDerived(caseProfile);
@@ -219,7 +229,6 @@ function buildSampleExportInput(): ValuationPdfExportInput {
     caseProfileDerived,
     snapshot,
   });
-  const sectionAnalysis = buildSectionAnalysis(periods, rows, assumptions, fixedAssetScheduleRows, {}, debtScheduleInputs);
   const equityBookComponents =
     snapshot.paidUpCapital +
     snapshot.additionalPaidInCapital +

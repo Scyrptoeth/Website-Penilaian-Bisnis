@@ -68,7 +68,7 @@ describe("AAM adjustments", () => {
     assert.equal(model.equityLines.find((line) => line.id === "changes-on-asset-revaluation")?.requiresNote, false);
   });
 
-  it("keeps AAM adjustments scoped to AAM and leaves EEM/DCF unchanged", () => {
+  it("lets EEM consume AAM adjusted asset and liability bases while DCF remains unchanged", () => {
     const baseline = calculateAllMethods(snapshot);
     const model = buildAamAdjustmentModel(snapshot, {
       "fixed-assets-net": { adjustment: "1.000.000", note: "Independent appraisal uplift" },
@@ -84,10 +84,21 @@ describe("AAM adjustments", () => {
         adjustedBookEquityGap: model.adjustedBookEquityGap,
         missingAdjustmentNotes: model.missingNoteCount,
       },
+      eem: {
+        adjustedAssetsExcludingCash:
+          model.adjustedAssetTotal -
+          (model.assetLines.find((line) => line.id === "cash-on-hand")?.adjusted ?? 0) -
+          (model.assetLines.find((line) => line.id === "cash-on-bank-deposit")?.adjusted ?? 0),
+        adjustedLiabilitiesExcludingDebt:
+          model.adjustedLiabilityTotal -
+          (model.liabilityLines.find((line) => line.id === "bank-loan-short-term")?.adjusted ?? 0) -
+          (model.liabilityLines.find((line) => line.id === "bank-loan-long-term")?.adjusted ?? 0),
+        capitalizationRate: snapshot.wacc,
+      },
     });
 
     assertAlmostEqual(adjusted.aam.equityValue, baseline.aam.equityValue + 1_250_000, 0.01);
-    assertAlmostEqual(adjusted.eem.equityValue, baseline.eem.equityValue, 0.01);
+    assert.notEqual(adjusted.eem.equityValue, baseline.eem.equityValue);
     assertAlmostEqual(adjusted.dcf.equityValue, baseline.dcf.equityValue, 0.01);
   });
 });

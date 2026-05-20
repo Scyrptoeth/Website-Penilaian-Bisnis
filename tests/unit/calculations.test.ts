@@ -6,10 +6,11 @@ import {
   calculateDcf,
   calculateEem,
   buildDcfForecast,
+  adjustedTotalAssets,
+  adjustedTotalLiabilities,
   interestBearingDebt,
   nonOperatingAssets,
   normalizedNoplat,
-  operatingWorkingCapital,
 } from "../../src/lib/valuation/calculations";
 import { buildSampleAssumptions, buildSamplePeriods, buildSampleRows, buildSnapshot } from "../../src/lib/valuation/case-model";
 import { assertAlmostEqual } from "./test-utils";
@@ -52,9 +53,14 @@ describe("valuation calculations", () => {
 
   it("calculates EEM from NTA, required return, and non-operating bridge", () => {
     const eem = calculateEem(snapshot);
-    const nta = snapshot.fixedAssetsNet + operatingWorkingCapital(snapshot);
-    const excessEarnings = normalizedNoplat(snapshot) - nta * snapshot.requiredReturnOnNta;
-    const expected = nta + excessEarnings / (snapshot.wacc - snapshot.terminalGrowth) + nonOperatingAssets(snapshot) - interestBearingDebt(snapshot);
+    const nta =
+      adjustedTotalAssets(snapshot) -
+      snapshot.cashOnHand -
+      snapshot.cashOnBankDeposit -
+      (adjustedTotalLiabilities(snapshot) - interestBearingDebt(snapshot));
+    const depreciationAddBack = Math.max(0, -snapshot.depreciation);
+    const excessEarnings = normalizedNoplat(snapshot) + depreciationAddBack - nta * snapshot.requiredReturnOnNta;
+    const expected = nta + excessEarnings / snapshot.wacc + nonOperatingAssets(snapshot) - interestBearingDebt(snapshot);
 
     assert.equal(eem.method, "EEM");
     assertAlmostEqual(eem.equityValue, expected, 0.01);
@@ -73,7 +79,6 @@ describe("valuation calculations", () => {
         "eem-noplat",
         "eem-depreciation",
         "eem-gross-cash-flow",
-        "eem-changes-in-working-capital",
         "eem-increase-decrease-current-asset",
         "eem-increase-decrease-current-liabilities",
         "eem-total-net-changes-working-capital",
@@ -89,22 +94,28 @@ describe("valuation calculations", () => {
         "eem-equity-value-100",
       ],
     );
-    assert.equal(new Set(eem.traces.map((trace) => trace.id)).size, 20);
+    assert.equal(new Set(eem.traces.map((trace) => trace.id)).size, 19);
 
-    const nta = snapshot.fixedAssetsNet + operatingWorkingCapital(snapshot);
+    const nta =
+      adjustedTotalAssets(snapshot) -
+      snapshot.cashOnHand -
+      snapshot.cashOnBankDeposit -
+      (adjustedTotalLiabilities(snapshot) - interestBearingDebt(snapshot));
     const noplat = normalizedNoplat(snapshot);
+    const depreciationAddBack = Math.max(0, -snapshot.depreciation);
+    const grossCashFlow = noplat + depreciationAddBack;
     const requiredReturn = nta * snapshot.requiredReturnOnNta;
-    const excessEarning = noplat - requiredReturn;
-    const capitalizationRate = snapshot.wacc - snapshot.terminalGrowth;
+    const excessEarning = grossCashFlow - requiredReturn;
+    const capitalizationRate = snapshot.wacc;
     const capitalizedExcess = excessEarning / capitalizationRate;
 
     assertAlmostEqual(valueById("eem-net-tangible-asset-value"), nta, 0.01);
     assertAlmostEqual(valueById("eem-earning-return-on-nta"), requiredReturn, 0.01);
     assertAlmostEqual(valueById("eem-noplat"), noplat, 0.01);
-    assert.equal(valueById("eem-depreciation"), 0);
+    assertAlmostEqual(valueById("eem-depreciation"), depreciationAddBack, 0.01);
     assert.equal(valueById("eem-total-net-changes-working-capital"), 0);
     assert.equal(valueById("eem-capital-expenditures"), 0);
-    assertAlmostEqual(valueById("eem-free-cash-flow"), noplat, 0.01);
+    assertAlmostEqual(valueById("eem-free-cash-flow"), grossCashFlow, 0.01);
     assertAlmostEqual(valueById("eem-excess-earning"), excessEarning, 0.01);
     assertAlmostEqual(valueById("eem-capitalization-rate"), capitalizationRate, 1e-12);
     assertAlmostEqual(valueById("eem-capitalized-excess-earning"), capitalizedExcess, 0.01);
@@ -114,6 +125,34 @@ describe("valuation calculations", () => {
     assertAlmostEqual(valueById("eem-equity-value-100"), eem.equityValue, 0.01);
     assert.ok(eem.traces.every((trace) => trace.workbookReference || trace.traceLevel === "final"));
     assert.ok(eem.traces.some((trace) => trace.accountCategories?.includes("ACCOUNT_RECEIVABLE")));
+  });
+
+  it("uses AAM, CFS, fixed-asset, and active WACC drivers for EEM bridge rows", () => {
+    const eem = calculateEem(snapshot, {
+      adjustedAssetsExcludingCash: 1_000_000,
+      adjustedLiabilitiesExcludingDebt: 240_000,
+      depreciationAddBack: 30_000,
+      currentAssetMovement: -12_000,
+      currentLiabilityMovement: 5_000,
+      capitalExpenditures: -80_000,
+      capitalizationRate: 0.12,
+    });
+    const valueById = (id: string) => eem.traces.find((trace) => trace.id === id)?.value ?? Number.NaN;
+    const nta = 760_000;
+    const totalNetWorkingCapital = -17_000;
+    const grossInvestment = -97_000;
+    const freeCashFlow = normalizedNoplat(snapshot) + 30_000 + grossInvestment;
+    const excessEarning = freeCashFlow - nta * snapshot.requiredReturnOnNta;
+
+    assertAlmostEqual(valueById("eem-net-tangible-asset-value"), nta, 0.01);
+    assertAlmostEqual(valueById("eem-depreciation"), 30_000, 0.01);
+    assertAlmostEqual(valueById("eem-total-net-changes-working-capital"), totalNetWorkingCapital, 0.01);
+    assertAlmostEqual(valueById("eem-capital-expenditures"), -80_000, 0.01);
+    assertAlmostEqual(valueById("eem-gross-investment"), grossInvestment, 0.01);
+    assertAlmostEqual(valueById("eem-free-cash-flow"), freeCashFlow, 0.01);
+    assertAlmostEqual(valueById("eem-excess-earning"), excessEarning, 0.01);
+    assertAlmostEqual(valueById("eem-capitalization-rate"), 0.12, 1e-12);
+    assert.equal(eem.traces.some((trace) => trace.id === "eem-changes-in-working-capital"), false);
   });
 
   it("builds a deterministic five-year DCF forecast from valuation year", () => {

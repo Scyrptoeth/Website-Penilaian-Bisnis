@@ -1,6 +1,7 @@
 import { resolveAccountLabels } from "./account-labels";
 import { categoryLabelMap } from "./category-options";
 import { parseInputNumber, statementLabels } from "./case-model";
+import { buildEemDriverSummary } from "./eem-drivers";
 import { buildEemTaxPayableDebtLikeNote, eemSensitivityContext } from "./eem-sensitivity-context";
 import { resolveTaxRateRegime, type ProgressiveTaxBracket, type TaxpayerKind } from "./tax-rates";
 import { formatIdr } from "./format";
@@ -194,7 +195,7 @@ export function buildValuationXlsxWorkbook(
     });
   }
 
-  if (scope.methods.includes("AAM")) {
+  if (scope.methods.includes("AAM") || scope.methods.includes("EEM")) {
     sheets.push({
       name: aamAdjustmentsSheetName,
       rows: buildAamAdjustmentRows(input),
@@ -341,6 +342,14 @@ function buildCalculationModelRows(input: ValuationPdfExportInput, scope: Valuat
   const aamLastRow = Math.max(aamFirstRow, aamFirstRow + aamLineCount - 1);
   const reportedTransferOverride = parseInputNumber(input.taxSimulation.reportedTransferValue);
   const baseResults = input.baseResults ?? input.results;
+  const eemDriverSummary = scope.methods.includes("EEM")
+    ? buildEemDriverSummary({
+        activePeriodId: input.activePeriodId,
+        aamAdjustmentModel: input.aamAdjustmentModel,
+        sectionAnalysis: input.sectionAnalysis,
+        fixedAssetSchedule: input.fixedAssetSchedule,
+      })
+    : null;
 
   add("taxRate", "Input", "Tax rate", input.snapshot.taxRate, "Input", input.resolvedAssumptions.taxRateSource || input.assumptions.taxRateSource);
   add("wacc", "Input", "WACC", input.snapshot.wacc, "Input", input.activeWaccBasisLabel || input.resolvedAssumptions.waccSource || input.assumptions.waccSource);
@@ -370,7 +379,7 @@ function buildCalculationModelRows(input: ValuationPdfExportInput, scope: Valuat
   add("dlomRate", "Tax", "DLOM rate", formulaCell(sheetCell(dlomSheetName, "B9"), input.dlomCalculation.dlomRate), "Formula", "DLOM detail sheet.");
   add("dlocPfcSignedRate", "Tax", "DLOC/PFC signed rate", formulaCell(sheetCell(dlocPfcSheetName, "B10"), input.dlocPfcCalculation.signedRate), "Formula", "DLOC PFC detail sheet.");
 
-  if (scope.methods.includes("AAM")) {
+  if (scope.methods.includes("AAM") || scope.methods.includes("EEM")) {
     add("aamHistoricalAssets", "AAM", "Historical assets", formulaCell(`SUMIF(${sheetCell(aamAdjustmentsSheetName, `A${aamFirstRow}:A${aamLastRow}`)},"Aset",${sheetCell(aamAdjustmentsSheetName, `E${aamFirstRow}:E${aamLastRow}`)})`, input.aamAdjustmentModel.historicalAssetTotal), "Formula", "SUMIF AAM adjustment asset rows.");
     add("aamAssetAdjustment", "AAM", "Asset adjustment", formulaCell(`SUMIF(${sheetCell(aamAdjustmentsSheetName, `A${aamFirstRow}:A${aamLastRow}`)},"Aset",${sheetCell(aamAdjustmentsSheetName, `F${aamFirstRow}:F${aamLastRow}`)})`, input.aamAdjustmentModel.assetAdjustmentTotal), "Formula", "SUMIF AAM asset adjustment rows.");
     add("aamAdjustedAssets", "AAM", "Adjusted assets", formulaCell(`${refs.aamHistoricalAssets}+${refs.aamAssetAdjustment}`, input.aamAdjustmentModel.adjustedAssetTotal), "Formula", "Historical assets + asset adjustment.");
@@ -389,25 +398,45 @@ function buildCalculationModelRows(input: ValuationPdfExportInput, scope: Valuat
 
   if (scope.methods.includes("EEM")) {
     const activeDebtLikeTaxPayable = input.activeEemBasis === "taxPayableDebtLike" ? input.snapshot.taxPayable : 0;
+    const eemDrivers = eemDriverSummary ?? {
+      adjustedAssetsExcludingCash: input.snapshot.fixedAssetsNet + input.results.operatingWorkingCapital,
+      adjustedLiabilitiesExcludingDebt: 0,
+      depreciationAddBack: 0,
+      currentAssetMovement: 0,
+      currentLiabilityMovement: 0,
+      capitalExpenditures: 0,
+    };
+    const excludedCash = input.aamAdjustmentModel.adjustedAssetTotal - eemDrivers.adjustedAssetsExcludingCash;
+    const excludedDebt = input.aamAdjustmentModel.adjustedLiabilityTotal - eemDrivers.adjustedLiabilitiesExcludingDebt;
+    const eemNta = eemDrivers.adjustedAssetsExcludingCash - eemDrivers.adjustedLiabilitiesExcludingDebt;
+    const eemTotalNetChangesWorkingCapital = eemDrivers.currentAssetMovement - eemDrivers.currentLiabilityMovement;
+    const eemGrossInvestment = eemTotalNetChangesWorkingCapital + eemDrivers.capitalExpenditures;
+    const eemGrossCashFlow = input.results.normalizedNoplat + eemDrivers.depreciationAddBack;
+    const eemFreeCashFlow = eemGrossCashFlow + eemGrossInvestment;
+    const eemRequiredReturn = eemNta * input.snapshot.requiredReturnOnNta;
+    const eemExcessEarnings = eemFreeCashFlow - eemRequiredReturn;
+    const eemCapitalizedExcess = input.snapshot.wacc > 0 ? eemExcessEarnings / input.snapshot.wacc : 0;
+    const eemEnterpriseValue = eemNta + eemCapitalizedExcess;
 
-    add("eemOperatingCurrentAssets", "EEM", "Operating current assets", formulaCell(`${refs.accountReceivable}+${refs.inventory}`, input.snapshot.accountReceivable + input.snapshot.inventory), "Formula", "AR + inventory.");
-    add("eemOperatingCurrentLiabilities", "EEM", "Operating current liabilities", formulaCell(`${refs.accountPayable}+${refs.otherPayable}`, input.snapshot.accountPayable + input.snapshot.otherPayable), "Formula", "AP + other payable.");
-    add("eemOperatingNwc", "EEM", "Operating NWC", formulaCell(`${refs.eemOperatingCurrentAssets}-${refs.eemOperatingCurrentLiabilities}`, input.results.operatingWorkingCapital), "Formula", "Operating current assets - operating current liabilities.");
-    add("eemNta", "EEM", "Net operating tangible assets", formulaCell(`${refs.fixedAssetsNet}+${refs.eemOperatingNwc}`, input.snapshot.fixedAssetsNet + input.results.operatingWorkingCapital), "Formula", "Fixed assets net + operating NWC.");
+    add("eemExcludedCash", "EEM", "Excluded adjusted cash", excludedCash, "Formula", "Adjusted AAM cash on hand + cash on bank/deposit.");
+    add("eemExcludedDebt", "EEM", "Excluded adjusted bank debt", excludedDebt, "Formula", "Adjusted AAM bank loan short term + bank loan long term.");
+    add("eemAdjustedAssetsExCash", "EEM", "Adjusted assets excluding cash", formulaCell(`${refs.aamAdjustedAssets}-${refs.eemExcludedCash}`, eemDrivers.adjustedAssetsExcludingCash), "Formula", "AAM adjusted total assets less cash on hand and cash on bank.");
+    add("eemAdjustedLiabilitiesExDebt", "EEM", "Adjusted liabilities excluding bank debt", formulaCell(`${refs.aamAdjustedLiabilities}-${refs.eemExcludedDebt}`, eemDrivers.adjustedLiabilitiesExcludingDebt), "Formula", "AAM adjusted total liabilities less short-term and long-term bank loans.");
+    add("eemNta", "EEM", "Net tangible asset value", formulaCell(`${refs.eemAdjustedAssetsExCash}-${refs.eemAdjustedLiabilitiesExDebt}`, eemNta), "Formula", "Adjusted assets excluding cash - adjusted liabilities excluding bank debt.");
     add("eemNoplat", "EEM", "NOPLAT", formulaCell(`${refs.ebit}*(1-${refs.taxRate})`, input.results.normalizedNoplat), "Formula", "EBIT x (1 - tax rate).");
-    add("eemDepreciation", "EEM", "Depreciation add-back", 0, "System", "Normalized single-period EEM base policy.");
-    add("eemGrossCashFlow", "EEM", "Gross cash flow", formulaCell(`${refs.eemNoplat}+${refs.eemDepreciation}`, input.results.normalizedNoplat), "Formula", "NOPLAT + depreciation add-back.");
-    add("eemCurrentAssetMovement", "EEM", "Increase/decrease current asset", 0, "System", "Normalized single-period EEM base policy.");
-    add("eemCurrentLiabilityMovement", "EEM", "Increase/decrease current liabilities", 0, "System", "Normalized single-period EEM base policy.");
-    add("eemTotalNetChangesWorkingCapital", "EEM", "Total net changes in working capital", formulaCell(`${refs.eemCurrentAssetMovement}+${refs.eemCurrentLiabilityMovement}`, 0), "Formula", "Current asset movement + current liability movement.");
-    add("eemCapitalExpenditures", "EEM", "Capital expenditures", 0, "System", "Normalized single-period EEM base policy.");
-    add("eemGrossInvestment", "EEM", "Gross investment", formulaCell(`${refs.eemTotalNetChangesWorkingCapital}-${refs.eemCapitalExpenditures}`, 0), "Formula", "Total net WC changes - capital expenditures.");
-    add("eemFreeCashFlow", "EEM", "Free cash flow", formulaCell(`${refs.eemGrossCashFlow}+${refs.eemGrossInvestment}`, input.results.normalizedNoplat), "Formula", "Gross cash flow + gross investment.");
-    add("eemRequiredReturn", "EEM", "Required return charge", formulaCell(`${refs.eemNta}*${refs.requiredReturnOnNta}`, (input.snapshot.fixedAssetsNet + input.results.operatingWorkingCapital) * input.snapshot.requiredReturnOnNta), "Formula", "NTA x required return on NTA.");
-    add("eemExcessEarnings", "EEM", "Excess earnings", formulaCell(`${refs.eemFreeCashFlow}-${refs.eemRequiredReturn}`, input.results.normalizedNoplat - (input.snapshot.fixedAssetsNet + input.results.operatingWorkingCapital) * input.snapshot.requiredReturnOnNta), "Formula", "FCF - required return charge.");
-    add("eemCapitalizationRate", "EEM", "Capitalization rate", formulaCell(`${refs.wacc}-${refs.terminalGrowth}`, input.snapshot.wacc - input.snapshot.terminalGrowth), "Formula", "WACC - terminal growth.");
-    add("eemCapitalizedExcess", "EEM", "Capitalized excess earnings", formulaCell(`IF(${refs.eemCapitalizationRate}>0,${refs.eemExcessEarnings}/${refs.eemCapitalizationRate},0)`, baseResults.eem.equityValue - (input.snapshot.fixedAssetsNet + input.results.operatingWorkingCapital) - input.results.nonOperatingAssets + input.results.interestBearingDebt), "Formula", "Excess earnings / capitalization rate.");
-    add("eemEnterpriseValue", "EEM", "Enterprise value", formulaCell(`${refs.eemNta}+${refs.eemCapitalizedExcess}`, baseResults.eem.equityValue - input.results.nonOperatingAssets + input.results.interestBearingDebt), "Formula", "NTA + capitalized excess earnings.");
+    add("eemDepreciation", "EEM", "Depreciation add-back", eemDrivers.depreciationAddBack, "Formula", "Fixed asset schedule B. Depreciation additions for the active period.");
+    add("eemGrossCashFlow", "EEM", "Gross cash flow", formulaCell(`${refs.eemNoplat}+${refs.eemDepreciation}`, eemGrossCashFlow), "Formula", "NOPLAT + depreciation add-back.");
+    add("eemCurrentAssetMovement", "EEM", "Increase/decrease current asset", eemDrivers.currentAssetMovement, "Formula", "Cash Flow Statement active-period OCA movement.");
+    add("eemCurrentLiabilityMovement", "EEM", "Increase/decrease current liabilities", eemDrivers.currentLiabilityMovement, "Formula", "Cash Flow Statement active-period OCL movement.");
+    add("eemTotalNetChangesWorkingCapital", "EEM", "Total net changes in working capital", formulaCell(`${refs.eemCurrentAssetMovement}-${refs.eemCurrentLiabilityMovement}`, eemTotalNetChangesWorkingCapital), "Formula", "Current asset movement - current liability movement.");
+    add("eemCapitalExpenditures", "EEM", "Capital expenditures", eemDrivers.capitalExpenditures, "Formula", "Negative active-period additions in A. Acquisition Costs.");
+    add("eemGrossInvestment", "EEM", "Gross investment", formulaCell(`${refs.eemTotalNetChangesWorkingCapital}+${refs.eemCapitalExpenditures}`, eemGrossInvestment), "Formula", "Total net WC changes + capital expenditures.");
+    add("eemFreeCashFlow", "EEM", "Free cash flow", formulaCell(`${refs.eemGrossCashFlow}+${refs.eemGrossInvestment}`, eemFreeCashFlow), "Formula", "Gross cash flow + gross investment.");
+    add("eemRequiredReturn", "EEM", "Required return charge", formulaCell(`${refs.eemNta}*${refs.requiredReturnOnNta}`, eemRequiredReturn), "Formula", "NTA x required return on NTA.");
+    add("eemExcessEarnings", "EEM", "Excess earnings", formulaCell(`${refs.eemFreeCashFlow}-${refs.eemRequiredReturn}`, eemExcessEarnings), "Formula", "FCF - required return charge.");
+    add("eemCapitalizationRate", "EEM", "Capitalization rate", formulaCell(refs.wacc, input.snapshot.wacc), "Formula", "Active WACC basis.");
+    add("eemCapitalizedExcess", "EEM", "Capitalized excess earnings", formulaCell(`IF(${refs.eemCapitalizationRate}>0,${refs.eemExcessEarnings}/${refs.eemCapitalizationRate},0)`, eemCapitalizedExcess), "Formula", "Excess earnings / capitalization rate.");
+    add("eemEnterpriseValue", "EEM", "Enterprise value", formulaCell(`${refs.eemNta}+${refs.eemCapitalizedExcess}`, eemEnterpriseValue), "Formula", "NTA + capitalized excess earnings.");
     add("eemBaseEquityValue", "EEM", "Equity value 100% - EEM base", formulaCell(`${refs.eemEnterpriseValue}+${refs.nonOperatingAssets}-${refs.interestBearingDebt}`, baseResults.eem.equityValue), "Formula", eemSensitivityContext.base.note);
     add("eemActiveDebtLikeTaxPayable", "EEM", "Debt-like tax payable active", activeDebtLikeTaxPayable, "System", input.activeEemBasisSummary || "Applied only when active EEM basis is tax payable debt-like.");
     add("eemEquityValue", "EEM", "Equity value 100% - active EEM", formulaCell(`${refs.eemBaseEquityValue}-${refs.eemActiveDebtLikeTaxPayable}`, input.results.eem.equityValue), "Formula", input.activeEemBasisLabel || eemSensitivityContext.base.label);
@@ -503,7 +532,7 @@ function buildDriverMetrics(input: ValuationPdfExportInput, scope: ValuationExpo
       { label: "Basis EEM aktif", value: input.activeEemBasisLabel || eemSensitivityContext.base.label, note: input.activeEemBasisSummary || eemSensitivityContext.base.note },
       { label: "Nilai aktif EEM", value: formulaCell(refs.eemEquityValue, input.results.eem.equityValue), sourceType: "Formula", note: input.activeEemBasisLabel || eemSensitivityContext.base.label },
       { label: "Required return on NTA", value: formulaCell(refs.requiredReturnOnNta, input.snapshot.requiredReturnOnNta), sourceType: "Formula" },
-      { label: "Operating working capital", value: formulaCell(refs.eemOperatingNwc, input.results.operatingWorkingCapital), sourceType: "Formula" },
+      { label: "Nett Tangible Asset Value", value: formulaCell(refs.eemNta, findTraceValueById(input.results.eem, "eem-net-tangible-asset-value")), sourceType: "Formula" },
       { label: "Non-operating assets", value: formulaCell(refs.nonOperatingAssets, input.results.nonOperatingAssets), sourceType: "Formula" },
     );
   }
@@ -949,6 +978,10 @@ function buildFormulaTraceRows(methodOutputs: MethodOutput[], refs: Record<strin
   ];
 }
 
+function findTraceValueById(output: MethodOutput, id: string, fallback = 0): number {
+  return output.traces.find((trace) => trace.id === id)?.value ?? fallback;
+}
+
 function buildDlomRows(input: ValuationPdfExportInput): XlsxCellValue[][] {
   const calculation = input.dlomCalculation;
   const factorStartRow = 14;
@@ -1264,7 +1297,6 @@ function resolveTraceFormulaRef(method: ValuationMethod, trace: FormulaTrace, re
       "eem-noplat": refs.eemNoplat,
       "eem-depreciation": refs.eemDepreciation,
       "eem-gross-cash-flow": refs.eemGrossCashFlow,
-      "eem-changes-in-working-capital": refs.eemTotalNetChangesWorkingCapital,
       "eem-increase-decrease-current-asset": refs.eemCurrentAssetMovement,
       "eem-increase-decrease-current-liabilities": refs.eemCurrentLiabilityMovement,
       "eem-total-net-changes-working-capital": refs.eemTotalNetChangesWorkingCapital,

@@ -54,7 +54,6 @@ import {
   interestBearingDebt,
   nonOperatingAssets,
   normalizedNoplat,
-  operatingWorkingCapital,
   type DcfOptions,
   type DcfFixedAssetProjectionInput,
   type IncomeProjectionPresentationAssumptionsInput,
@@ -72,6 +71,7 @@ import {
   type AamAdjustmentModel,
   type AamAdjustmentState,
 } from "@/lib/valuation/aam-adjustments";
+import { buildEemCalculationOptions } from "@/lib/valuation/eem-drivers";
 import {
   buildFixedAssetScheduleSummary,
   buildSampleDebtScheduleInputs,
@@ -1048,6 +1048,21 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     () => buildDcfFixedAssetProjectionInput(fixedAssetProjection),
     [fixedAssetProjection],
   );
+  const sectionAnalysis = useMemo(
+    () => buildSectionAnalysis(periods, rows, assumptions, fixedAssetScheduleRows, cashFlowOverrides, debtScheduleInputs),
+    [periods, rows, assumptions, fixedAssetScheduleRows, cashFlowOverrides, debtScheduleInputs],
+  );
+  const eemCalculationOptions = useMemo(
+    () =>
+      buildEemCalculationOptions({
+        activePeriodId,
+        aamAdjustmentModel,
+        sectionAnalysis,
+        fixedAssetSchedule,
+        capitalizationRate: snapshot.wacc,
+      }),
+    [activePeriodId, aamAdjustmentModel, fixedAssetSchedule, sectionAnalysis, snapshot.wacc],
+  );
   const results = useMemo(
     () =>
       calculateAllMethods(snapshot, {
@@ -1060,6 +1075,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
           adjustedBookEquityGap: aamAdjustmentModel.adjustedBookEquityGap,
           missingAdjustmentNotes: aamAdjustmentModel.missingNoteCount,
         },
+        eem: eemCalculationOptions,
         dcf: dcfFixedAssetProjection
           ? {
               fixedAssetProjection: dcfFixedAssetProjection,
@@ -1076,6 +1092,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       aamAdjustmentModel.liabilityAdjustmentTotal,
       aamAdjustmentModel.missingNoteCount,
       dcfFixedAssetProjection,
+      eemCalculationOptions,
       fixedAssetProjection.source,
       snapshot,
     ],
@@ -1134,10 +1151,6 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       }),
     [activeDcf, activeEem, caseProfile, caseProfileDerived, dlocPfcCalculation, dlomCalculation, results.aam, snapshot, taxSimulation],
   );
-  const sectionAnalysis = useMemo(
-    () => buildSectionAnalysis(periods, rows, assumptions, fixedAssetScheduleRows, cashFlowOverrides, debtScheduleInputs),
-    [periods, rows, assumptions, fixedAssetScheduleRows, cashFlowOverrides, debtScheduleInputs],
-  );
   const balanceSheetView = useMemo(
     () => buildBalanceSheetView(periods, mappedRows, fixedAssetSchedule),
     [fixedAssetSchedule, mappedRows, periods],
@@ -1146,7 +1159,6 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     () => buildIncomeStatementView(periods, incomeStatementRows, fixedAssetSchedule),
     [fixedAssetSchedule, incomeStatementRows, periods],
   );
-  const eemOperatingWorkingCapital = operatingWorkingCapital(snapshot);
   const eemNetOperatingTangibleAssets = findTraceValueById(activeEem.traces, "eem-net-tangible-asset-value");
   const eemRequiredReturnAmount = findTraceValueById(activeEem.traces, "eem-earning-return-on-nta");
   const eemExcessEarnings = findTraceValueById(activeEem.traces, "eem-excess-earning");
@@ -3739,7 +3751,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               <span>NTA operasional</span>
             </div>
             <strong>{formatIdr(eemNetOperatingTangibleAssets)}</strong>
-            <p>Aset tetap neto + operating working capital; mengikuti anchor Nett Tangible Asset Value pada sheet EEM.</p>
+            <p>Total aset AAM disesuaikan tanpa kas dikurangi total liabilitas AAM disesuaikan tanpa utang bank.</p>
           </article>
           <article className="metric-card">
             <div className="card-title">
@@ -3855,7 +3867,8 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
             </div>
             <MetricTraceGrid
               metrics={[
-                ["Operating working capital", formatIdr(eemOperatingWorkingCapital)],
+                ["Aset AAM tanpa kas", formatIdr(eemCalculationOptions.adjustedAssetsExcludingCash ?? 0)],
+                ["Liabilitas AAM tanpa debt", formatIdr(eemCalculationOptions.adjustedLiabilitiesExcludingDebt ?? 0)],
                 ["Nett Tangible Asset Value", formatIdr(eemNetOperatingTangibleAssets)],
                 ["Return on Tangible Asset", formatPercent(snapshot.requiredReturnOnNta)],
                 ["Earning return on NTA", formatIdr(eemRequiredReturnAmount)],
@@ -12811,6 +12824,9 @@ const traceTreatmentDisplayLabels: Record<string, string> = {
   "Tangible asset capital charge": "Beban imbal hasil aset berwujud",
   "Operating after-tax earnings": "Laba operasi setelah pajak",
   "Policy-driven zero in base EEM": "Kebijakan dasar: tidak digunakan",
+  "Fixed asset schedule add-back": "Add-back dari jadwal aset tetap",
+  "Fixed asset schedule driver": "Driver jadwal aset tetap",
+  "Cash-flow statement driver": "Driver Cash Flow Statement",
   "Cash-flow bridge subtotal": "Subtotal jembatan arus kas",
   "Normalized working-capital movement": "Pergerakan modal kerja ternormalisasi",
   "EEM earning base": "Basis laba EEM",
@@ -12844,6 +12860,10 @@ function formatWorkbookReferenceForUser(trace: FormulaTrace): string {
     sourceParts.push("sheet EEM");
   }
 
+  if (reference.includes("AAM")) {
+    sourceParts.push("Penilaian AAM");
+  }
+
   if (reference.includes("STAT_EEM")) {
     sourceParts.push("layer statistik EEM");
   }
@@ -12854,6 +12874,14 @@ function formatWorkbookReferenceForUser(trace: FormulaTrace): string {
 
   if (reference.includes("INCOME STATEMENT")) {
     sourceParts.push("laba rugi");
+  }
+
+  if (reference.includes("CASH FLOW STATEMENT")) {
+    sourceParts.push("Cash Flow Statement");
+  }
+
+  if (reference.includes("FIXED ASSET")) {
+    sourceParts.push("Aset Tetap");
   }
 
   if (reference.includes("BORROWING CAP")) {
