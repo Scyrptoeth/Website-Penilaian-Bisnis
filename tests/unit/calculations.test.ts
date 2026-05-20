@@ -139,8 +139,8 @@ describe("valuation calculations", () => {
     });
     const valueById = (id: string) => eem.traces.find((trace) => trace.id === id)?.value ?? Number.NaN;
     const nta = 760_000;
-    const totalNetWorkingCapital = -17_000;
-    const grossInvestment = -97_000;
+    const totalNetWorkingCapital = -7_000;
+    const grossInvestment = -87_000;
     const freeCashFlow = normalizedNoplat(snapshot) + 30_000 + grossInvestment;
     const excessEarning = freeCashFlow - nta * snapshot.requiredReturnOnNta;
 

@@ -324,7 +324,7 @@ export function calculateEem(snapshot: FinancialStatementSnapshot, options: EemO
   const grossCashFlow = noplat + depreciationAddBack;
   const currentAssetMovement = options.currentAssetMovement ?? 0;
   const currentLiabilityMovement = options.currentLiabilityMovement ?? 0;
-  const totalNetChangesInWorkingCapital = currentAssetMovement - currentLiabilityMovement;
+  const totalNetChangesInWorkingCapital = currentAssetMovement + currentLiabilityMovement;
   const capitalExpenditures = options.capitalExpenditures ?? 0;
   const grossInvestment = totalNetChangesInWorkingCapital + capitalExpenditures;
   const freeCashFlow = grossCashFlow + grossInvestment;
@@ -444,9 +444,9 @@ export function calculateEem(snapshot: FinancialStatementSnapshot, options: EemO
     {
       id: "eem-total-net-changes-working-capital",
       label: "Total Net Changes in Working Capital",
-      formula: "(Increase) decrease in current asset - increase (decrease) in current liabilities",
+      formula: "(Increase) decrease in current asset + increase (decrease) in current liabilities",
       value: totalNetChangesInWorkingCapital,
-      note: "Subtotal modal kerja bersih mengikuti instruksi workbook review: baris aset lancar dikurangi baris liabilitas lancar.",
+      note: "Subtotal modal kerja bersih mengikuti instruksi workbook review: baris aset lancar ditambah baris liabilitas lancar.",
       sourceTabs: ["NOPLAT & FCF", "Penilaian EEM"],
       accountCategories: ["ACCOUNT_RECEIVABLE", "INVENTORY", "ACCOUNT_PAYABLE", "OTHER_PAYABLE"],
       workbookReference: "EEM!D19",

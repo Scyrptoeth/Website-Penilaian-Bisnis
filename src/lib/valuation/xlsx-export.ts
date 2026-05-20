@@ -409,7 +409,7 @@ function buildCalculationModelRows(input: ValuationPdfExportInput, scope: Valuat
     const excludedCash = input.aamAdjustmentModel.adjustedAssetTotal - eemDrivers.adjustedAssetsExcludingCash;
     const excludedDebt = input.aamAdjustmentModel.adjustedLiabilityTotal - eemDrivers.adjustedLiabilitiesExcludingDebt;
     const eemNta = eemDrivers.adjustedAssetsExcludingCash - eemDrivers.adjustedLiabilitiesExcludingDebt;
-    const eemTotalNetChangesWorkingCapital = eemDrivers.currentAssetMovement - eemDrivers.currentLiabilityMovement;
+    const eemTotalNetChangesWorkingCapital = eemDrivers.currentAssetMovement + eemDrivers.currentLiabilityMovement;
     const eemGrossInvestment = eemTotalNetChangesWorkingCapital + eemDrivers.capitalExpenditures;
     const eemGrossCashFlow = input.results.normalizedNoplat + eemDrivers.depreciationAddBack;
     const eemFreeCashFlow = eemGrossCashFlow + eemGrossInvestment;
@@ -428,7 +428,7 @@ function buildCalculationModelRows(input: ValuationPdfExportInput, scope: Valuat
     add("eemGrossCashFlow", "EEM", "Gross cash flow", formulaCell(`${refs.eemNoplat}+${refs.eemDepreciation}`, eemGrossCashFlow), "Formula", "NOPLAT + depreciation add-back.");
     add("eemCurrentAssetMovement", "EEM", "Increase/decrease current asset", eemDrivers.currentAssetMovement, "Formula", "Cash Flow Statement active-period OCA movement.");
     add("eemCurrentLiabilityMovement", "EEM", "Increase/decrease current liabilities", eemDrivers.currentLiabilityMovement, "Formula", "Cash Flow Statement active-period OCL movement.");
-    add("eemTotalNetChangesWorkingCapital", "EEM", "Total net changes in working capital", formulaCell(`${refs.eemCurrentAssetMovement}-${refs.eemCurrentLiabilityMovement}`, eemTotalNetChangesWorkingCapital), "Formula", "Current asset movement - current liability movement.");
+    add("eemTotalNetChangesWorkingCapital", "EEM", "Total net changes in working capital", formulaCell(`${refs.eemCurrentAssetMovement}+${refs.eemCurrentLiabilityMovement}`, eemTotalNetChangesWorkingCapital), "Formula", "Current asset movement + current liability movement.");
     add("eemCapitalExpenditures", "EEM", "Capital expenditures", eemDrivers.capitalExpenditures, "Formula", "Negative active-period additions in A. Acquisition Costs.");
     add("eemGrossInvestment", "EEM", "Gross investment", formulaCell(`${refs.eemTotalNetChangesWorkingCapital}+${refs.eemCapitalExpenditures}`, eemGrossInvestment), "Formula", "Total net WC changes + capital expenditures.");
     add("eemFreeCashFlow", "EEM", "Free cash flow", formulaCell(`${refs.eemGrossCashFlow}+${refs.eemGrossInvestment}`, eemFreeCashFlow), "Formula", "Gross cash flow + gross investment.");
