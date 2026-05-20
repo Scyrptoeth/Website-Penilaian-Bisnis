@@ -206,6 +206,8 @@ export function calculateAam(snapshot: FinancialStatementSnapshot, options: AamO
   const totalAssets = historicalAssets + assetAdjustment;
   const totalLiabilities = historicalLiabilities + liabilityAdjustment;
   const adjustedBookEquity = snapshot.bookEquity + equityAdjustment;
+  const totalLiabilitiesAndEquity = totalLiabilities + adjustedBookEquity;
+  const balanceGap = totalAssets - totalLiabilitiesAndEquity;
   const equityValue = totalAssets - totalLiabilities;
   const traces: FormulaTrace[] = [
     {
@@ -270,6 +272,21 @@ export function calculateAam(snapshot: FinancialStatementSnapshot, options: AamO
         options.adjustedBookEquityGap && Math.abs(options.adjustedBookEquityGap) >= 0.5
           ? `Masih terdapat selisih rekonsiliasi ekuitas ${options.adjustedBookEquityGap}.`
           : "Setelah revaluasi otomatis, ekuitas mengikuti perubahan bersih aset dan liabilitas.",
+    },
+    {
+      label: "Total liabilitas + ekuitas disesuaikan",
+      formula: "Total liabilitas disesuaikan + total ekuitas disesuaikan",
+      value: totalLiabilitiesAndEquity,
+      note: "Kontrol persamaan neraca AAM untuk memastikan sisi kredit terbaca utuh.",
+    },
+    {
+      label: "Selisih balance AAM",
+      formula: "Total aset disesuaikan - total liabilitas + ekuitas disesuaikan",
+      value: balanceGap,
+      note:
+        Math.abs(balanceGap) < 0.5
+          ? "Total aset sama dengan total liabilitas + ekuitas."
+          : "Selisih menunjukkan neraca sumber atau mapping AAM belum balance.",
     },
     {
       label: "Nilai Ekuitas 100% - AAM",

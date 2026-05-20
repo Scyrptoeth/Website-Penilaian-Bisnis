@@ -5209,6 +5209,38 @@ td span {
   line-height: 1.35;
 }
 
+.aam-balance-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+}
+
+.aam-balance-status span {
+  font-weight: 700;
+}
+
+.aam-balance-status small {
+  margin-left: auto;
+  color: var(--muted);
+  font-family: var(--font-mono), monospace;
+}
+
+.aam-balance-status.ok {
+  border-color: rgba(22, 101, 52, 0.25);
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.aam-balance-status.warning {
+  border-color: rgba(161, 98, 7, 0.24);
+  background: var(--review-soft);
+  color: var(--review);
+}
+
 .aam-adjustment-section {
   display: grid;
   gap: 8px;
@@ -5240,6 +5272,20 @@ td span {
 .aam-adjustment-table th:nth-child(4),
 .aam-adjustment-table th:nth-child(5) {
   width: 13%;
+}
+
+.aam-balance-table {
+  min-width: 820px;
+}
+
+.aam-balance-table th:nth-child(1) {
+  width: 24%;
+}
+
+.aam-balance-table th:nth-child(2),
+.aam-balance-table th:nth-child(3),
+.aam-balance-table th:nth-child(4) {
+  width: 18%;
 }
 
 .aam-adjustment-table input,

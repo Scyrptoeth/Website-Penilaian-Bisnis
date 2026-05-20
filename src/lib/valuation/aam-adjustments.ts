@@ -41,14 +41,19 @@ export type AamAdjustmentModel = {
   historicalAssetTotal: number;
   historicalLiabilityTotal: number;
   historicalEquityTotal: number;
+  historicalLiabilityEquityTotal: number;
+  historicalBalanceGap: number;
   assetAdjustmentTotal: number;
   liabilityAdjustmentTotal: number;
   equityManualAdjustmentTotal: number;
   equityRevaluationAdjustment: number;
   equityAdjustmentTotal: number;
+  liabilityEquityAdjustmentTotal: number;
   adjustedAssetTotal: number;
   adjustedLiabilityTotal: number;
   adjustedBookEquity: number;
+  adjustedLiabilityEquityTotal: number;
+  adjustedBalanceGap: number;
   historicalEquityValue: number;
   adjustedEquityValue: number;
   bookEquity: number;
@@ -356,6 +361,11 @@ export function buildAamAdjustmentModel(
   const adjustedLiabilityTotal = historicalLiabilityTotal + liabilityAdjustmentTotal;
   const adjustedEquityValue = adjustedAssetTotal - adjustedLiabilityTotal;
   const adjustedBookEquity = bookEquity + equityAdjustmentTotal;
+  const historicalLiabilityEquityTotal = historicalLiabilityTotal + bookEquity;
+  const liabilityEquityAdjustmentTotal = liabilityAdjustmentTotal + equityAdjustmentTotal;
+  const adjustedLiabilityEquityTotal = adjustedLiabilityTotal + adjustedBookEquity;
+  const historicalBalanceGap = historicalAssetTotal - historicalLiabilityEquityTotal;
+  const adjustedBalanceGap = adjustedAssetTotal - adjustedLiabilityEquityTotal;
 
   return {
     assetLines: bridgedAssetLines,
@@ -364,14 +374,19 @@ export function buildAamAdjustmentModel(
     historicalAssetTotal,
     historicalLiabilityTotal,
     historicalEquityTotal: bookEquity,
+    historicalLiabilityEquityTotal,
+    historicalBalanceGap,
     assetAdjustmentTotal,
     liabilityAdjustmentTotal,
     equityManualAdjustmentTotal,
     equityRevaluationAdjustment,
     equityAdjustmentTotal,
+    liabilityEquityAdjustmentTotal,
     adjustedAssetTotal,
     adjustedLiabilityTotal,
     adjustedBookEquity,
+    adjustedLiabilityEquityTotal,
+    adjustedBalanceGap,
     historicalEquityValue: historicalAssetTotal - historicalLiabilityTotal,
     adjustedEquityValue,
     bookEquity,

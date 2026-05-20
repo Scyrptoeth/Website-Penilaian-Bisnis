@@ -69,6 +69,7 @@ import {
   aamAdjustmentLineIds,
   buildAamAdjustmentModel,
   type AamAdjustmentLine,
+  type AamAdjustmentModel,
   type AamAdjustmentState,
 } from "@/lib/valuation/aam-adjustments";
 import {
@@ -3699,6 +3700,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
             adjustedTotal={aamAdjustmentModel.adjustedBookEquity}
             onUpdate={updateAamAdjustment}
           />
+          <AamBalanceControl model={aamAdjustmentModel} />
         </section>
 
         <section id="aam" className="split-panel">
@@ -11605,6 +11607,83 @@ function AamAdjustmentTable({
               <td />
             </tr>
           </tfoot>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+const aamBalanceTolerance = 0.5;
+
+function AamBalanceControl({ model }: { model: AamAdjustmentModel }) {
+  const isHistoricalBalanced = Math.abs(model.historicalBalanceGap) < aamBalanceTolerance;
+  const isAdjustedBalanced = Math.abs(model.adjustedBalanceGap) < aamBalanceTolerance;
+  const statusLabel = isHistoricalBalanced && isAdjustedBalanced ? "Balance" : "Tidak balance";
+  const statusClassName = isHistoricalBalanced && isAdjustedBalanced ? "ok" : "warning";
+  const liabilityEquityRows = [
+    {
+      label: "Total Aset",
+      historical: model.historicalAssetTotal,
+      adjustment: model.assetAdjustmentTotal,
+      adjusted: model.adjustedAssetTotal,
+      note: "Sisi aset AAM.",
+    },
+    {
+      label: "Total Liabilitas + Ekuitas",
+      historical: model.historicalLiabilityEquityTotal,
+      adjustment: model.liabilityEquityAdjustmentTotal,
+      adjusted: model.adjustedLiabilityEquityTotal,
+      note: "Sisi liabilitas dan ekuitas setelah revaluasi otomatis.",
+    },
+    {
+      label: "Selisih balance",
+      historical: model.historicalBalanceGap,
+      adjustment: model.adjustedBalanceGap - model.historicalBalanceGap,
+      adjusted: model.adjustedBalanceGap,
+      note: isAdjustedBalanced ? "Total aset sama dengan liabilitas + ekuitas." : "Selisih perlu ditinjau pada mapping atau input neraca.",
+    },
+  ];
+
+  return (
+    <div className="aam-adjustment-section aam-balance-control" data-testid="aam-adjustment-liabilitas-ekuitas">
+      <div className="subpanel-heading">
+        <div>
+          <span>Liabilitas + Ekuitas</span>
+          <h4>{formatIdr(model.adjustedLiabilityEquityTotal)}</h4>
+        </div>
+        <small>
+          {formatIdr(model.historicalLiabilityEquityTotal)} historis · {formatIdr(model.liabilityEquityAdjustmentTotal)} penyesuaian
+        </small>
+      </div>
+      <div className={`aam-balance-status ${statusClassName}`} role="status">
+        {statusClassName === "ok" ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+        <span>{statusLabel}</span>
+        <small>Selisih setelah penyesuaian: {formatIdr(model.adjustedBalanceGap)}</small>
+      </div>
+      <div className="table-wrap aam-adjustment-table-wrap">
+        <table className="aam-adjustment-table aam-balance-table" aria-label="Kontrol balance AAM">
+          <thead>
+            <tr>
+              <th>Komponen</th>
+              <th>Historis</th>
+              <th>Penyesuaian</th>
+              <th>Disesuaikan</th>
+              <th>Status / catatan</th>
+            </tr>
+          </thead>
+          <tbody>
+            {liabilityEquityRows.map((row) => (
+              <tr key={row.label}>
+                <td>
+                  <strong>{row.label}</strong>
+                </td>
+                <td className="numeric-cell">{formatIdr(row.historical)}</td>
+                <td className="numeric-cell">{formatIdr(row.adjustment)}</td>
+                <td className="numeric-cell">{formatIdr(row.adjusted)}</td>
+                <td>{row.note}</td>
+              </tr>
+            ))}
+          </tbody>
         </table>
       </div>
     </div>

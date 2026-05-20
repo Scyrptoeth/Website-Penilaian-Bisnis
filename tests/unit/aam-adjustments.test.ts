@@ -27,8 +27,11 @@ describe("AAM adjustments", () => {
     assert.equal(model.equityManualAdjustmentTotal, 0);
     assert.equal(model.equityRevaluationAdjustment, 1_250_000);
     assert.equal(model.equityAdjustmentTotal, 1_250_000);
+    assert.equal(model.liabilityEquityAdjustmentTotal, model.assetAdjustmentTotal);
     assert.equal(model.adjustedEquityValue, model.historicalEquityValue + 1_250_000);
     assert.equal(model.adjustedBookEquity, model.bookEquity + 1_250_000);
+    assert.equal(model.adjustedLiabilityEquityTotal, model.historicalLiabilityEquityTotal + model.assetAdjustmentTotal);
+    assert.equal(model.adjustedBalanceGap, model.historicalBalanceGap);
     assert.equal(model.missingNoteCount, 0);
   });
 
@@ -48,7 +51,9 @@ describe("AAM adjustments", () => {
     assert.equal(revaluationLine?.isReadOnly, true);
     assert.equal(revaluationLine?.adjustment, 850_000);
     assert.equal(model.equityAdjustmentTotal, 750_000);
+    assert.equal(model.liabilityEquityAdjustmentTotal, 1_000_000);
     assert.equal(model.adjustedBookEquity, model.bookEquity + 750_000);
+    assert.equal(model.adjustedBalanceGap, model.historicalBalanceGap);
   });
 
   it("flags non-zero adjustments without audit notes", () => {

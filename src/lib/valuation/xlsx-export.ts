@@ -382,6 +382,8 @@ function buildCalculationModelRows(input: ValuationPdfExportInput, scope: Valuat
     add("aamEquityRevaluationAdjustment", "AAM", "Changes on Asset Revaluation", formulaCell(`${refs.aamAssetAdjustment}-${refs.aamLiabilityAdjustment}-${refs.aamEquityManualAdjustment}`, input.aamAdjustmentModel.equityRevaluationAdjustment), "Formula", "Asset adjustment - liability adjustment - manual equity adjustment.");
     add("aamEquityAdjustment", "AAM", "Equity adjustment", formulaCell(`${refs.aamEquityManualAdjustment}+${refs.aamEquityRevaluationAdjustment}`, input.aamAdjustmentModel.equityAdjustmentTotal), "Formula", "Manual equity adjustment + automatic revaluation.");
     add("aamAdjustedBookEquity", "AAM", "Adjusted book equity", formulaCell(`${refs.aamHistoricalEquity}+${refs.aamEquityAdjustment}`, input.aamAdjustmentModel.adjustedBookEquity), "Formula", "Historical equity + equity adjustment.");
+    add("aamAdjustedLiabilitiesEquity", "AAM", "Adjusted liabilities + equity", formulaCell(`${refs.aamAdjustedLiabilities}+${refs.aamAdjustedBookEquity}`, input.aamAdjustmentModel.adjustedLiabilityEquityTotal), "Formula", "Adjusted liabilities + adjusted book equity.");
+    add("aamAdjustedBalanceGap", "AAM", "AAM balance gap", formulaCell(`${refs.aamAdjustedAssets}-${refs.aamAdjustedLiabilitiesEquity}`, input.aamAdjustmentModel.adjustedBalanceGap), "Formula", "Adjusted assets - adjusted liabilities + equity.");
     add("aamEquityValue", "AAM", "Equity value 100%", formulaCell(`${refs.aamAdjustedAssets}-${refs.aamAdjustedLiabilities}`, input.results.aam.equityValue), "Formula", "Adjusted assets - adjusted liabilities.");
   }
 
@@ -477,6 +479,16 @@ function buildDriverMetrics(input: ValuationPdfExportInput, scope: ValuationExpo
       { label: "Penyesuaian aset AAM", value: formulaCell(refs.aamAssetAdjustment, input.aamAdjustmentModel.assetAdjustmentTotal), sourceType: "Formula" },
       { label: "Penyesuaian liabilitas AAM", value: formulaCell(refs.aamLiabilityAdjustment, input.aamAdjustmentModel.liabilityAdjustmentTotal), sourceType: "Formula" },
       { label: "Ekuitas historis AAM", value: formulaCell(refs.aamHistoricalEquity, input.aamAdjustmentModel.historicalEquityTotal), sourceType: "Formula" },
+      {
+        label: "Liabilitas + Ekuitas AAM",
+        value: formulaCell(refs.aamAdjustedLiabilitiesEquity, input.aamAdjustmentModel.adjustedLiabilityEquityTotal),
+        sourceType: "Formula",
+      },
+      {
+        label: "Selisih balance AAM",
+        value: formulaCell(refs.aamAdjustedBalanceGap, input.aamAdjustmentModel.adjustedBalanceGap),
+        sourceType: "Formula",
+      },
       {
         label: "Changes on Asset Revaluation",
         value: formulaCell(refs.aamEquityRevaluationAdjustment, input.aamAdjustmentModel.equityRevaluationAdjustment),
@@ -799,6 +811,11 @@ function buildAamAdjustmentRows(input: ValuationPdfExportInput): XlsxCellValue[]
     ["Changes on Asset Revaluation", formulaCell(`SUMIF(${roleRange},"Aset",${adjustmentRange})-SUMIF(${roleRange},"Liabilitas",${adjustmentRange})-B${lines.length + 9}`, input.aamAdjustmentModel.equityRevaluationAdjustment)],
     ["Total penyesuaian ekuitas", formulaCell(`B${lines.length + 9}+B${lines.length + 10}`, input.aamAdjustmentModel.equityAdjustmentTotal)],
     ["Total ekuitas disesuaikan", formulaCell(`B${lines.length + 8}+B${lines.length + 11}`, input.aamAdjustmentModel.adjustedBookEquity)],
+    ["Total liabilitas + ekuitas historis", formulaCell(`SUMIF(${roleRange},"Liabilitas",${historicalRange})+SUMIF(${roleRange},"Ekuitas",${historicalRange})`, input.aamAdjustmentModel.historicalLiabilityEquityTotal)],
+    ["Total penyesuaian liabilitas + ekuitas", formulaCell(`SUMIF(${roleRange},"Liabilitas",${adjustmentRange})+SUMIF(${roleRange},"Ekuitas",${adjustmentRange})`, input.aamAdjustmentModel.liabilityEquityAdjustmentTotal)],
+    ["Total liabilitas + ekuitas disesuaikan", formulaCell(`SUMIF(${roleRange},"Liabilitas",${adjustedRange})+SUMIF(${roleRange},"Ekuitas",${adjustedRange})`, input.aamAdjustmentModel.adjustedLiabilityEquityTotal)],
+    ["Selisih balance historis", formulaCell(`SUMIF(${roleRange},"Aset",${historicalRange})-(SUMIF(${roleRange},"Liabilitas",${historicalRange})+SUMIF(${roleRange},"Ekuitas",${historicalRange}))`, input.aamAdjustmentModel.historicalBalanceGap)],
+    ["Selisih balance disesuaikan", formulaCell(`SUMIF(${roleRange},"Aset",${adjustedRange})-(SUMIF(${roleRange},"Liabilitas",${adjustedRange})+SUMIF(${roleRange},"Ekuitas",${adjustedRange}))`, input.aamAdjustmentModel.adjustedBalanceGap)],
     ["Nilai ekuitas AAM", formulaCell(`SUMIF(${roleRange},"Aset",${adjustedRange})-SUMIF(${roleRange},"Liabilitas",${adjustedRange})`, input.aamAdjustmentModel.adjustedEquityValue)],
     ["Catatan wajib belum lengkap", formulaCell(`COUNTIFS(H2:H${lines.length + 1},"Yes",I2:I${lines.length + 1},"")`, input.aamAdjustmentModel.missingNoteCount)],
   ];
@@ -1231,6 +1248,8 @@ function resolveTraceFormulaRef(method: ValuationMethod, trace: FormulaTrace, re
       "Penyesuaian ekuitas manual AAM": refs.aamEquityManualAdjustment,
       "Changes on Asset Revaluation": refs.aamEquityRevaluationAdjustment,
       "Total ekuitas disesuaikan": refs.aamAdjustedBookEquity,
+      "Total liabilitas + ekuitas disesuaikan": refs.aamAdjustedLiabilitiesEquity,
+      "Selisih balance AAM": refs.aamAdjustedBalanceGap,
       "Nilai Ekuitas 100% - AAM": refs.aamEquityValue,
     };
 

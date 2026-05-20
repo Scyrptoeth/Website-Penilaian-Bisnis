@@ -31,6 +31,8 @@ describe("valuation XLSX export", () => {
     const sheetNames = workbook.sheets.map((sheet) => sheet.name);
     const aamRows = workbook.sheets.find((sheet) => sheet.name === "AAM Adjustments")?.rows ?? [];
     const revaluationRow = aamRows.find((row) => row[2] === "Changes on Asset Revaluation");
+    const liabilityEquityRow = aamRows.find((row) => row[0] === "Total liabilitas + ekuitas disesuaikan");
+    const balanceGapRow = aamRows.find((row) => row[0] === "Selisih balance disesuaikan");
 
     assert.equal(workbook.scope.id, "aam");
     assert.ok(sheetNames.includes("Calculation Model"));
@@ -48,6 +50,9 @@ describe("valuation XLSX export", () => {
       String((revaluationRow?.[5] as { formula?: string }).formula),
       /SUMIF\(A2:A\d+,"Aset",F2:F\d+\)-SUMIF\(A2:A\d+,"Liabilitas",F2:F\d+\)-SUMIF\(A2:A\d+,"Ekuitas",F2:F\d+\)/,
     );
+    assert.equal(typeof liabilityEquityRow?.[1], "object");
+    assert.equal(typeof balanceGapRow?.[1], "object");
+    assert.match(String((balanceGapRow?.[1] as { formula?: string }).formula), /SUMIF\(A2:A\d+,"Aset",G2:G\d+\)-\(SUMIF\(A2:A\d+,"Liabilitas",G2:G\d+\)\+SUMIF\(A2:A\d+,"Ekuitas",G2:G\d+\)\)/);
     assert.ok(countFormulaCells(workbook.sheets.flatMap((sheet) => sheet.rows)) > 40);
   });
 

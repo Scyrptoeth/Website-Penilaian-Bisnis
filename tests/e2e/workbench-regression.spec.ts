@@ -471,6 +471,9 @@ test("AAM valuation remains available without WACC or EEM/DCF driver inputs", as
   await expect(page.getByTestId("aam-adjustment-aset")).toContainText("Kas di tangan");
   await expect(page.getByTestId("aam-adjustment-ekuitas")).toContainText("Changes on Asset Revaluation");
   await expect(page.getByTestId("aam-adjustment-ekuitas").locator('input[aria-label="Penyesuaian Changes on Asset Revaluation"]')).toHaveCount(0);
+  await expect(page.getByTestId("aam-adjustment-liabilitas-ekuitas")).toContainText("Liabilitas + Ekuitas");
+  await expect(page.getByTestId("aam-adjustment-liabilitas-ekuitas")).toContainText("Selisih balance");
+  await expect(page.getByTestId("aam-adjustment-liabilitas-ekuitas")).toContainText("Tidak balance");
   await page.getByLabel("Penyesuaian Kas di tangan").fill("100000");
   await expect(page.getByText("1 penyesuaian masih perlu catatan.")).toBeVisible();
   await expect(page.getByTestId("aam-adjustment-ekuitas")).toContainText("100.000");
@@ -492,6 +495,7 @@ test("AAM valuation remains available without WACC or EEM/DCF driver inputs", as
   await expect(page.getByLabel("Catatan Kas di tangan")).toHaveValue("FMV cash count after cut-off");
   await expect(page.getByTestId("aam-adjustment-ekuitas")).toContainText("Changes on Asset Revaluation");
   await expect(page.getByTestId("aam-adjustment-ekuitas")).toContainText("100.000");
+  await expect(page.getByTestId("aam-adjustment-liabilitas-ekuitas")).toContainText("Tidak balance");
 });
 
 test("added analysis sections use readiness gates before sample data and render formula-derived bridges after loading sample", async ({ page }) => {
