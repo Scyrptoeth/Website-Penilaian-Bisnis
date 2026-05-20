@@ -2338,6 +2338,85 @@ select {
   margin-top: 5px;
 }
 
+.cash-flow-account-disclosure {
+  margin-top: 8px;
+}
+
+.cash-flow-account-disclosure summary {
+  display: inline-flex;
+  max-width: 100%;
+  min-height: 32px;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 7px;
+  border: 1px solid rgba(15, 118, 110, 0.2);
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  cursor: pointer;
+  font-family: var(--font-mono), monospace;
+  font-size: 8.2px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.cash-flow-account-disclosure summary span,
+.cash-flow-account-disclosure summary strong {
+  display: inline;
+  margin: 0;
+  color: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.cash-flow-account-picker {
+  display: grid;
+  gap: 5px;
+  max-height: 220px;
+  margin-top: 7px;
+  overflow-y: auto;
+}
+
+.cash-flow-account-picker label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px;
+  align-items: start;
+  min-height: 44px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-raised);
+}
+
+.cash-flow-account-picker input {
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+}
+
+.cash-flow-account-picker span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  margin: 0;
+}
+
+.cash-flow-account-picker strong {
+  color: var(--ink);
+  font-size: 8.6px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.cash-flow-account-picker small,
+.cash-flow-account-picker p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.28;
+}
+
 .override-cell {
   text-align: left;
   vertical-align: top;

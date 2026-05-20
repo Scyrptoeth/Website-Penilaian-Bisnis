@@ -3,6 +3,7 @@ import {
   buildFixedAssetScheduleSummary,
   buildSnapshot,
   getChronologicalPeriods,
+  mapRow,
   parseInputNumber,
   type AccountRow,
   type AssumptionState,
@@ -12,15 +13,13 @@ import {
   type FixedAssetScheduleRow,
   type Period,
 } from "./case-model";
+import { categoryLabelMap } from "./category-options";
 import {
   interestBearingDebt,
   nonOperatingAssets,
   normalizedNoplat,
-  operatingCurrentAssets,
-  operatingCurrentLiabilities,
-  operatingWorkingCapital,
 } from "./calculations";
-import type { FinancialStatementSnapshot } from "./types";
+import type { AccountCategory, FinancialStatementSnapshot } from "./types";
 
 export type AnalysisValue = number | null;
 
@@ -49,6 +48,25 @@ export type CashFlowOverrideState = Record<string, Record<string, CashFlowOverri
 
 export type CashFlowOverrideStatus = "none" | "applied" | "not_allowed";
 
+export type CashFlowWorkingCapitalRowKey = "oca-change" | "ocl-change";
+
+export type CashFlowAccountInclusionState = Partial<Record<CashFlowWorkingCapitalRowKey, Record<string, boolean>>>;
+
+export type CashFlowWorkingCapitalAccountCandidate = {
+  rowId: string;
+  accountName: string;
+  effectiveCategory: AccountCategory;
+  categoryLabel: string;
+  defaultIncluded: boolean;
+  included: boolean;
+  values: Record<string, string>;
+};
+
+export type CashFlowWorkingCapitalAccountCandidates = Record<
+  CashFlowWorkingCapitalRowKey,
+  CashFlowWorkingCapitalAccountCandidate[]
+>;
+
 export type CashFlowStatementSection =
   | "operating"
   | "working_capital"
@@ -75,6 +93,37 @@ export type RatioRow = AnalysisRow & {
   average: AnalysisValue;
 };
 
+export const cashFlowWorkingCapitalRowKeys = ["oca-change", "ocl-change"] as const;
+
+const ocaCandidateCategories = new Set<AccountCategory>([
+  "CURRENT_ASSET",
+  "CASH",
+  "CASH_ON_HAND",
+  "CASH_ON_BANK",
+  "ACCOUNT_RECEIVABLE",
+  "EMPLOYEE_RECEIVABLE",
+  "INVENTORY",
+  "EXCESS_CASH",
+  "MARKETABLE_SECURITIES",
+  "SURPLUS_ASSET_CASH",
+]);
+
+const oclCandidateCategories = new Set<AccountCategory>([
+  "CURRENT_LIABILITIES",
+  "BANK_LOAN_SHORT_TERM",
+  "ACCOUNT_PAYABLE",
+  "TAX_PAYABLE",
+  "OTHER_PAYABLE",
+  "INTEREST_PAYABLE",
+  "BANK_LOAN_LONG_TERM",
+  "INTEREST_BEARING_DEBT",
+]);
+
+const defaultIncludedWorkingCapitalCategories: Record<CashFlowWorkingCapitalRowKey, Set<AccountCategory>> = {
+  "oca-change": new Set(["ACCOUNT_RECEIVABLE", "INVENTORY"]),
+  "ocl-change": new Set(["ACCOUNT_PAYABLE", "OTHER_PAYABLE"]),
+};
+
 export type PeriodAnalysis = {
   period: Period;
   snapshot: FinancialStatementSnapshot;
@@ -82,6 +131,8 @@ export type PeriodAnalysis = {
   operatingCurrentAssets: number;
   operatingCurrentLiabilities: number;
   operatingWorkingCapital: number;
+  changeInOperatingCurrentAssets: number;
+  changeInOperatingCurrentLiabilities: number;
   depreciationAddback: number;
   capitalExpenditure: number;
   normalizedTaxOnEbit: number;
@@ -121,6 +172,57 @@ export type SectionAnalysis = {
   roicRows: AnalysisRow[];
 };
 
+export function isCashFlowWorkingCapitalRowKey(value: string): value is CashFlowWorkingCapitalRowKey {
+  return cashFlowWorkingCapitalRowKeys.includes(value as CashFlowWorkingCapitalRowKey);
+}
+
+export function buildCashFlowWorkingCapitalAccountCandidates(
+  rows: AccountRow[],
+  inclusions: CashFlowAccountInclusionState = {},
+): CashFlowWorkingCapitalAccountCandidates {
+  const mappedBalanceRows = rows.map(mapRow).filter((item) => item.row.statement === "balance_sheet");
+
+  return {
+    "oca-change": mappedBalanceRows
+      .filter((item) => ocaCandidateCategories.has(item.effectiveCategory) || item.row.balanceSheetClassification === "current_asset")
+      .map((item) => buildCashFlowWorkingCapitalCandidate("oca-change", item.row, item.effectiveCategory, inclusions)),
+    "ocl-change": mappedBalanceRows
+      .filter(
+        (item) =>
+          oclCandidateCategories.has(item.effectiveCategory) ||
+          item.row.balanceSheetClassification === "current_liability",
+      )
+      .map((item) => buildCashFlowWorkingCapitalCandidate("ocl-change", item.row, item.effectiveCategory, inclusions)),
+  };
+}
+
+function buildCashFlowWorkingCapitalCandidate(
+  rowKey: CashFlowWorkingCapitalRowKey,
+  row: AccountRow,
+  effectiveCategory: AccountCategory,
+  inclusions: CashFlowAccountInclusionState,
+): CashFlowWorkingCapitalAccountCandidate {
+  const explicitIncluded = inclusions[rowKey]?.[row.id];
+  const defaultIncluded = defaultIncludedWorkingCapitalCategories[rowKey].has(effectiveCategory);
+
+  return {
+    rowId: row.id,
+    accountName: row.accountName || "(Akun tanpa nama)",
+    effectiveCategory,
+    categoryLabel: categoryLabelMap.get(effectiveCategory) ?? effectiveCategory,
+    defaultIncluded,
+    included: typeof explicitIncluded === "boolean" ? explicitIncluded : defaultIncluded,
+    values: row.values,
+  };
+}
+
+function sumIncludedWorkingCapitalAccounts(candidates: CashFlowWorkingCapitalAccountCandidate[], periodId: string): number {
+  return candidates.reduce(
+    (sum, candidate) => sum + (candidate.included ? parseInputNumber(candidate.values[periodId] ?? "") : 0),
+    0,
+  );
+}
+
 export function buildSectionAnalysis(
   periods: Period[],
   rows: AccountRow[],
@@ -128,10 +230,12 @@ export function buildSectionAnalysis(
   fixedAssetScheduleRows: FixedAssetScheduleRow[] = [],
   cashFlowOverrides: CashFlowOverrideState = {},
   debtScheduleInputs: DebtScheduleInputState = {},
+  cashFlowAccountInclusions: CashFlowAccountInclusionState = {},
 ): SectionAnalysis {
   const chronologicalPeriods = getChronologicalPeriods(periods);
   const fixedAssetSchedule = buildFixedAssetScheduleSummary(periods, fixedAssetScheduleRows);
   const debtSchedule = buildDebtScheduleSummary(periods, rows, debtScheduleInputs);
+  const workingCapitalAccountCandidates = buildCashFlowWorkingCapitalAccountCandidates(rows, cashFlowAccountInclusions);
   const snapshots = new Map(
     chronologicalPeriods.map((period) => [
       period.id,
@@ -149,10 +253,14 @@ export function buildSectionAnalysis(
     const capitalExpenditure = fixedAssetSchedule.hasInput
       ? Math.abs(scheduleAmounts?.acquisitionAdditions ?? 0)
       : inferCapitalExpenditure(snapshot, previousSnapshot, depreciationAddback);
-    const currentOperatingAssets = operatingCurrentAssets(snapshot);
-    const currentOperatingLiabilities = operatingCurrentLiabilities(snapshot);
-    const previousOperatingAssets = previousSnapshot ? operatingCurrentAssets(previousSnapshot) : currentOperatingAssets;
-    const previousOperatingLiabilities = previousSnapshot ? operatingCurrentLiabilities(previousSnapshot) : currentOperatingLiabilities;
+    const currentOperatingAssets = sumIncludedWorkingCapitalAccounts(workingCapitalAccountCandidates["oca-change"], period.id);
+    const currentOperatingLiabilities = sumIncludedWorkingCapitalAccounts(workingCapitalAccountCandidates["ocl-change"], period.id);
+    const previousOperatingAssets = previousPeriod
+      ? sumIncludedWorkingCapitalAccounts(workingCapitalAccountCandidates["oca-change"], previousPeriod.id)
+      : currentOperatingAssets;
+    const previousOperatingLiabilities = previousPeriod
+      ? sumIncludedWorkingCapitalAccounts(workingCapitalAccountCandidates["ocl-change"], previousPeriod.id)
+      : currentOperatingLiabilities;
     const changeInOperatingCurrentAssets = previousSnapshot ? -(currentOperatingAssets - previousOperatingAssets) : 0;
     const changeInOperatingCurrentLiabilities = previousSnapshot ? currentOperatingLiabilities - previousOperatingLiabilities : 0;
     const workingCapitalCashFlowEffect = changeInOperatingCurrentAssets + changeInOperatingCurrentLiabilities;
@@ -163,8 +271,12 @@ export function buildSectionAnalysis(
     const cashFlowFromOperations = ebitda + operatingTaxCashFlow + workingCapitalCashFlowEffect;
     const capitalExpenditureCashFlow = -capitalExpenditure;
     const freeCashFlow = noplat + depreciationAddback + workingCapitalCashFlowEffect + capitalExpenditureCashFlow;
-    const investedCapitalEnd = snapshot.fixedAssetsNet + operatingWorkingCapital(snapshot);
-    const previousInvestedCapitalEnd = previousSnapshot ? previousSnapshot.fixedAssetsNet + operatingWorkingCapital(previousSnapshot) : null;
+    const selectedOperatingWorkingCapital = currentOperatingAssets - currentOperatingLiabilities;
+    const previousSelectedOperatingWorkingCapital = previousSnapshot ? previousOperatingAssets - previousOperatingLiabilities : null;
+    const investedCapitalEnd = snapshot.fixedAssetsNet + selectedOperatingWorkingCapital;
+    const previousInvestedCapitalEnd = previousSnapshot
+      ? previousSnapshot.fixedAssetsNet + (previousSelectedOperatingWorkingCapital ?? 0)
+      : null;
     const cashTotal = snapshot.cashOnHand + snapshot.cashOnBankDeposit;
     const previousCashTotal = previousSnapshot ? previousSnapshot.cashOnHand + previousSnapshot.cashOnBankDeposit : null;
     const cashMovement = previousCashTotal === null ? null : cashTotal - previousCashTotal;
@@ -186,7 +298,9 @@ export function buildSectionAnalysis(
       previousSnapshot,
       operatingCurrentAssets: currentOperatingAssets,
       operatingCurrentLiabilities: currentOperatingLiabilities,
-      operatingWorkingCapital: operatingWorkingCapital(snapshot),
+      operatingWorkingCapital: selectedOperatingWorkingCapital,
+      changeInOperatingCurrentAssets,
+      changeInOperatingCurrentLiabilities,
       depreciationAddback,
       capitalExpenditure,
       normalizedTaxOnEbit,
@@ -236,13 +350,13 @@ function buildPayablesRows(periodAnalyses: PeriodAnalysis[]): AnalysisRow[] {
       sourceType: "interoperable",
       lockReason: "Diambil dari Neraca agar operating working capital tetap konsisten.",
     }),
-    valueRow(periodAnalyses, "operating-current-liabilities", "Utang operasi", "Operating working capital bridge", "Utang usaha + utang lain-lain", (item) =>
-      operatingCurrentLiabilities(item.snapshot),
+    valueRow(periodAnalyses, "operating-current-liabilities", "Utang operasi", "Operating working capital bridge", "Akun liabilitas terpilih CFS", (item) =>
+      item.operatingCurrentLiabilities,
       "subtotal",
       undefined,
       {
         sourceType: "formula",
-        lockReason: "Formula operating WC: AP + utang lain-lain.",
+        lockReason: "Formula operating WC mengikuti checklist CFS liabilitas lancar operasional.",
       },
     ),
     sectionRow("bank-loan-short-section", "Pinjaman bank jangka pendek"),
@@ -334,11 +448,11 @@ function buildCashFlowRows(periodAnalyses: PeriodAnalysis[]): AnalysisRow[] {
     valueRow(periodAnalyses, "ebitda", "EBITDA", "Model terkoreksi", "EBIT komersial + add-back penyusutan", (item) => item.ebitda),
     valueRow(periodAnalyses, "operating-tax", "Arus kas pajak operasional", "Input atau fallback ternormalisasi", "Input pajak badan, jika kosong -(EBIT x tarif pajak)", (item) => item.snapshot.corporateTax || -item.normalizedTaxOnEbit),
     sectionRow("wc-section", "Perubahan Operating Working Capital"),
-    valueRow(periodAnalyses, "oca-change", "Aset lancar operasional", "Mutasi AR + persediaan", "-(OCA kini - OCA sebelumnya)", (item) =>
-      item.previousSnapshot ? -(operatingCurrentAssets(item.snapshot) - operatingCurrentAssets(item.previousSnapshot)) : null,
+    valueRow(periodAnalyses, "oca-change", "Aset lancar operasional", "Mutasi akun aset lancar terpilih", "-(OCA terpilih kini - OCA terpilih sebelumnya)", (item) =>
+      item.previousSnapshot ? item.changeInOperatingCurrentAssets : null,
     ),
-    valueRow(periodAnalyses, "ocl-change", "Liabilitas lancar operasional", "Mutasi AP + utang lain-lain", "OCL kini - OCL sebelumnya", (item) =>
-      item.previousSnapshot ? operatingCurrentLiabilities(item.snapshot) - operatingCurrentLiabilities(item.previousSnapshot) : null,
+    valueRow(periodAnalyses, "ocl-change", "Liabilitas lancar operasional", "Mutasi akun liabilitas terpilih", "OCL terpilih kini - OCL terpilih sebelumnya", (item) =>
+      item.previousSnapshot ? item.changeInOperatingCurrentLiabilities : null,
     ),
     valueRow(periodAnalyses, "wc-change", "Dampak arus kas modal kerja", "Operating WC terkoreksi", "Perubahan OCA + perubahan OCL", (item) =>
       item.previousSnapshot ? item.workingCapitalCashFlowEffect : null,
@@ -427,25 +541,23 @@ const cashFlowStatementRowSpecs: CashFlowStatementRowSpec[] = [
     key: "oca-change",
     label: "(Kenaikan) penurunan aset lancar operasional",
     section: "working_capital",
-    source: "Balance Sheet AR + inventory",
-    formula: "-((AR + inventory) kini - (AR + inventory) sebelumnya)",
-    workbookReference: "CFS!8; BALANCE SHEET!10,12",
+    source: "Akun aset lancar terpilih dari Neraca",
+    formula: "-(OCA terpilih kini - OCA terpilih sebelumnya)",
+    workbookReference: "CFS!8; BALANCE SHEET current-asset inclusion policy",
     reliability: "derived",
     isOverridable: true,
-    calculate: (item) =>
-      item.previousSnapshot ? -(operatingCurrentAssets(item.snapshot) - operatingCurrentAssets(item.previousSnapshot)) : null,
+    calculate: (item) => (item.previousSnapshot ? item.changeInOperatingCurrentAssets : null),
   },
   {
     key: "ocl-change",
     label: "Kenaikan (penurunan) liabilitas lancar operasional",
     section: "working_capital",
-    source: "Balance Sheet AP + utang lain-lain",
-    formula: "(AP + other payable) kini - (AP + other payable) sebelumnya",
-    workbookReference: "CFS!9; BALANCE SHEET!31,33",
+    source: "Akun liabilitas terpilih dari Neraca",
+    formula: "OCL terpilih kini - OCL terpilih sebelumnya",
+    workbookReference: "CFS!9; BALANCE SHEET current-liability inclusion policy",
     reliability: "derived",
     isOverridable: true,
-    calculate: (item) =>
-      item.previousSnapshot ? operatingCurrentLiabilities(item.snapshot) - operatingCurrentLiabilities(item.previousSnapshot) : null,
+    calculate: (item) => (item.previousSnapshot ? item.changeInOperatingCurrentLiabilities : null),
   },
   {
     key: "working-capital-effect",
@@ -751,11 +863,11 @@ function buildFcfRows(periodAnalyses: PeriodAnalysis[]): AnalysisRow[] {
     valueRow(periodAnalyses, "depreciation", "Tambah: penyusutan", "Penyusutan terpetakan / jadwal aset tetap", "-beban penyusutan", (item) => item.depreciationAddback),
     valueRow(periodAnalyses, "gross-cash-flow", "Arus kas bruto", "Model terkoreksi", "NOPLAT + penyusutan", (item) => item.normalizedNoplat + item.depreciationAddback, "subtotal"),
     sectionRow("wc-section", "Perubahan Working Capital"),
-    valueRow(periodAnalyses, "oca-change", "(Kenaikan) penurunan aset lancar operasional", "Mutasi AR + persediaan", "-(OCA kini - OCA sebelumnya)", (item) =>
-      item.previousSnapshot ? -(operatingCurrentAssets(item.snapshot) - operatingCurrentAssets(item.previousSnapshot)) : null,
+    valueRow(periodAnalyses, "oca-change", "(Kenaikan) penurunan aset lancar operasional", "Mutasi akun aset lancar terpilih", "-(OCA terpilih kini - sebelumnya)", (item) =>
+      item.previousSnapshot ? item.changeInOperatingCurrentAssets : null,
     ),
-    valueRow(periodAnalyses, "ocl-change", "Kenaikan (penurunan) liabilitas lancar operasional", "Mutasi AP + utang lain-lain", "OCL kini - OCL sebelumnya", (item) =>
-      item.previousSnapshot ? operatingCurrentLiabilities(item.snapshot) - operatingCurrentLiabilities(item.previousSnapshot) : null,
+    valueRow(periodAnalyses, "ocl-change", "Kenaikan (penurunan) liabilitas lancar operasional", "Mutasi akun liabilitas terpilih", "OCL terpilih kini - sebelumnya", (item) =>
+      item.previousSnapshot ? item.changeInOperatingCurrentLiabilities : null,
     ),
     valueRow(periodAnalyses, "wc-total", "Total perubahan neto working capital", "Operating WC terkoreksi", "Perubahan OCA + perubahan OCL", (item) =>
       item.previousSnapshot ? item.workingCapitalCashFlowEffect : null,
@@ -847,7 +959,7 @@ function buildRoicRows(periodAnalyses: PeriodAnalysis[]): AnalysisRow[] {
     valueRow(periodAnalyses, "non-operating-assets", "Kurang: aset non-operasional", "Klasifikasi terkoreksi", "Kas/deposito + piutang karyawan + aset surplus + aset tetap non-operasional", (item) =>
       -nonOperatingAssets(item.snapshot),
     ),
-    valueRow(periodAnalyses, "operating-nwc", "Operating working capital", "Klasifikasi terkoreksi", "AR + persediaan - AP - utang lain-lain", (item) => item.operatingWorkingCapital),
+    valueRow(periodAnalyses, "operating-nwc", "Operating working capital", "Klasifikasi CFS terkoreksi", "OCA terpilih - OCL terpilih", (item) => item.operatingWorkingCapital),
     valueRow(periodAnalyses, "fixed-assets-net", "Aset tetap operasional neto", "Model aset tetap", "Aset tetap neto kecuali aset idle teridentifikasi", (item) => item.snapshot.fixedAssetsNet),
     valueRow(periodAnalyses, "invested-capital-end", "Invested capital akhir tahun", "Model terkoreksi", "Aset tetap neto + operating working capital", (item) => item.investedCapitalEnd, "subtotal"),
     valueRow(periodAnalyses, "invested-capital-beginning", "Invested capital awal tahun", "Model terkoreksi", "Invested capital akhir periode sebelumnya", (item) => item.investedCapitalBeginning),

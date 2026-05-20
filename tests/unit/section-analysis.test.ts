@@ -9,7 +9,7 @@ import {
   type AccountRow,
   type DebtScheduleInputState,
 } from "../../src/lib/valuation/case-model";
-import { buildSectionAnalysis } from "../../src/lib/valuation/section-analysis";
+import { buildCashFlowWorkingCapitalAccountCandidates, buildSectionAnalysis } from "../../src/lib/valuation/section-analysis";
 import { assertAlmostEqual } from "./test-utils";
 
 const periods = buildSamplePeriods();
@@ -132,6 +132,55 @@ describe("section analysis", () => {
     assert.equal(
       beforeFinancing.values.p2021,
       Number(withOverride.cashFlowStatementRows.find((row) => row.key === "cfo")?.values.p2021) + 100_000_000 + Number(withOverride.cashFlowStatementRows.find((row) => row.key === "capex")?.values.p2021),
+    );
+  });
+
+  it("recomputes cash-flow working-capital rows from selected balance-sheet accounts", () => {
+    const withCashAndTax = buildSectionAnalysis(periods, rows, assumptions, [], {}, {}, {
+      "oca-change": {
+        "sample-cash-hand": true,
+        "sample-cash-bank": true,
+      },
+      "ocl-change": {
+        "sample-tax": true,
+      },
+    });
+    const candidates = buildCashFlowWorkingCapitalAccountCandidates(rows, {
+      "oca-change": {
+        "sample-cash-hand": true,
+        "sample-cash-bank": true,
+      },
+      "ocl-change": {
+        "sample-tax": true,
+      },
+    });
+    const baseOca = Number(analysis.cashFlowStatementRows.find((row) => row.key === "oca-change")?.values.p2021);
+    const baseOcl = Number(analysis.cashFlowStatementRows.find((row) => row.key === "ocl-change")?.values.p2021);
+    const oca = withCashAndTax.cashFlowStatementRows.find((row) => row.key === "oca-change");
+    const ocl = withCashAndTax.cashFlowStatementRows.find((row) => row.key === "ocl-change");
+    const cfo = withCashAndTax.cashFlowStatementRows.find((row) => row.key === "cfo");
+    const expectedCashEffect =
+      -(
+        snapshot.cashOnHand +
+        snapshot.cashOnBankDeposit -
+        (buildSnapshot(periods, "p2020", rows, assumptions).cashOnHand + buildSnapshot(periods, "p2020", rows, assumptions).cashOnBankDeposit)
+      );
+    const expectedTaxPayableEffect = snapshot.taxPayable - buildSnapshot(periods, "p2020", rows, assumptions).taxPayable;
+
+    assert.ok(oca);
+    assert.ok(ocl);
+    assert.ok(cfo);
+    assert.equal(candidates["oca-change"].find((candidate) => candidate.rowId === "sample-cash-hand")?.included, true);
+    assert.equal(candidates["ocl-change"].find((candidate) => candidate.rowId === "sample-tax")?.included, true);
+    assertAlmostEqual(Number(oca.values.p2021), baseOca + expectedCashEffect, 0.01);
+    assertAlmostEqual(Number(ocl.values.p2021), baseOcl + expectedTaxPayableEffect, 0.01);
+    assertAlmostEqual(
+      Number(cfo.values.p2021),
+      Number(withCashAndTax.cashFlowStatementRows.find((row) => row.key === "ebitda")?.values.p2021) +
+        Number(withCashAndTax.cashFlowStatementRows.find((row) => row.key === "operating-tax")?.values.p2021) +
+        Number(oca.values.p2021) +
+        Number(ocl.values.p2021),
+      0.01,
     );
   });
 

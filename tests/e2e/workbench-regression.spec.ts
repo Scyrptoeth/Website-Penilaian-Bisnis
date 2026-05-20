@@ -121,6 +121,7 @@ test("JSON export and import round-trip the full workbench draft", async ({ page
       fixedAssetProjectionMode?: string;
       debtScheduleInputs?: Record<string, Record<string, string>>;
       cashFlowOverrides?: unknown;
+      cashFlowAccountInclusions?: unknown;
       incomeProjectionControls?: unknown;
       caseProfile?: { objectTaxpayerName?: string };
       rows?: unknown[];
@@ -129,7 +130,7 @@ test("JSON export and import round-trip the full workbench draft", async ({ page
 
   expect(payload.schema).toBe("penilaian-valuasi-bisnis.full-workbench-json");
   expect(payload.schemaVersion).toBe(1);
-  expect(payload.data?.version).toBe(18);
+  expect(payload.data?.version).toBe(19);
   expect(payload.data?.caseProfile?.objectTaxpayerName).toBe("Makmur Jaya Sejati Raya");
   expect(payload.data?.rows?.length).toBeGreaterThan(0);
   expect(payload.data?.fixedAssetProjectionMode).toBe("workbook-formula");
@@ -137,6 +138,7 @@ test("JSON export and import round-trip the full workbench draft", async ({ page
   expect(payload.data?.activeEemBasis).toBe("base");
   expect(payload.data?.activeDcfBasis).toBe("base");
   expect(payload.data).toHaveProperty("cashFlowOverrides");
+  expect(payload.data).toHaveProperty("cashFlowAccountInclusions");
   expect(payload.data).toHaveProperty("incomeProjectionControls");
 
   await page.locator(".toolbar").getByRole("button", { name: "Reset" }).click();
@@ -520,6 +522,36 @@ test("added analysis sections use readiness gates before sample data and render 
   const cashFlowStatementTable = page.locator("table.cash-flow-statement-table");
   await expect(cashFlowStatementTable).not.toContainText(/CFS!\d/);
   await expect(cashFlowStatementTable).not.toContainText("Auto");
+  const ocaRow = page.getByTestId("cash-flow-row-oca-change");
+  const oclRow = page.getByTestId("cash-flow-row-ocl-change");
+  await expect(ocaRow.getByTestId("cash-flow-account-disclosure-oca-change")).toContainText("2/5 disertakan");
+  await expect(oclRow.getByTestId("cash-flow-account-disclosure-ocl-change")).toContainText("2/3 disertakan");
+  const ocaFinalBefore = parseDisplayedNumber((await page.getByTestId("cash-flow-oca-change-p2021-final").textContent()) ?? "");
+  await ocaRow.locator("summary").click();
+  await ocaRow.getByLabel("Sertakan Kas dalam (Kenaikan) penurunan aset lancar operasional").check();
+  await expect(ocaRow.getByTestId("cash-flow-account-disclosure-oca-change")).toContainText("3/5 disertakan");
+  await expect
+    .poll(async () => parseDisplayedNumber((await page.getByTestId("cash-flow-oca-change-p2021-final").textContent()) ?? ""))
+    .not.toBe(ocaFinalBefore);
+  await oclRow.locator("summary").click();
+  await oclRow.getByLabel("Sertakan Utang pajak dalam Kenaikan (penurunan) liabilitas lancar operasional").check();
+  await expect(oclRow.getByTestId("cash-flow-account-disclosure-ocl-change")).toContainText("3/3 disertakan");
+  await expect
+    .poll(() =>
+      page.evaluate((key) => {
+        const raw = window.localStorage.getItem(key);
+        const state = raw ? JSON.parse(raw) : {};
+        return state?.cashFlowAccountInclusions?.["oca-change"]?.["sample-cash-hand"];
+      }, workbenchStorageKey),
+    )
+    .toBe(true);
+  await page.reload();
+  await expect(page.getByTestId("valuation-workbench")).toBeVisible();
+  await openWorkflowTab(page, "Cash Flow Statement");
+  await page.getByTestId("cash-flow-row-oca-change").locator("summary").click();
+  await page.getByTestId("cash-flow-row-ocl-change").locator("summary").click();
+  await expect(page.getByLabel("Sertakan Kas dalam (Kenaikan) penurunan aset lancar operasional")).toBeChecked();
+  await expect(page.getByLabel("Sertakan Utang pajak dalam Kenaikan (penurunan) liabilitas lancar operasional")).toBeChecked();
   await expect(page.getByLabel("Alasan override Non-operating cash flow 2021")).toHaveCount(0);
   await page.getByRole("textbox", { name: "Override Non-operating cash flow 2021", exact: true }).fill("100000000");
   await expect(cashFlowStatementTable.getByText("Override diterapkan", { exact: true })).toBeVisible();
@@ -966,7 +998,7 @@ test("legacy workbook-like DLOM drafts migrate to workbook UPDATE basis without 
   await expect(page.getByTestId("dlom-basis-grid")).not.toContainText("Workbook UPDATE DLOM!C31");
   await expect(page.getByTestId("dlom-basis-grid")).not.toContainText("Formula");
   await expect(page.getByTestId("dlom-summary")).toContainText("35%");
-  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(18);
+  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(19);
 });
 
 test("exports the active workbench state to a print-ready PDF report view", async ({ page }) => {
@@ -1432,7 +1464,7 @@ test("legacy positive income-statement expense drafts migrate once and remain us
   await amountInput.press("Home");
   await amountInput.press("Delete");
   await expect(amountInput).toHaveValue("100");
-  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(18);
+  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(19);
 
   await page.reload();
   await openWorkflowTab(page, "Laba Rugi");

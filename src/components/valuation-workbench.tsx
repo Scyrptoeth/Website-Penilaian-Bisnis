@@ -154,12 +154,18 @@ import {
 } from "@/lib/valuation/readiness";
 import {
   buildSectionAnalysis,
+  buildCashFlowWorkingCapitalAccountCandidates,
+  isCashFlowWorkingCapitalRowKey,
   type AnalysisRow,
   type AnalysisValue,
+  type CashFlowAccountInclusionState,
   type CashFlowOverrideEntry,
   type CashFlowOverrideState,
   type CashFlowOverrideStatus,
   type CashFlowStatementRow,
+  type CashFlowWorkingCapitalAccountCandidates,
+  type CashFlowWorkingCapitalAccountCandidate,
+  type CashFlowWorkingCapitalRowKey,
   type RatioRow,
   type SectionAnalysis,
 } from "@/lib/valuation/section-analysis";
@@ -448,7 +454,7 @@ const requiredReturnSuggestionOrder: RequiredReturnOnNtaSuggestionKey[] = [
 const WORKBENCH_STORAGE_KEY = "penilaian-valuasi-bisnis.workbench.v1";
 const WORKBENCH_SCROLL_STORAGE_KEY = "penilaian-valuasi-bisnis.scroll.v1";
 const WORKBENCH_SIDEBAR_STORAGE_KEY = "penilaian-valuasi-bisnis.sidebar.v1";
-const WORKBENCH_STORAGE_VERSION = 18;
+const WORKBENCH_STORAGE_VERSION = 19;
 const WORKSPACE_MANIFEST_STORAGE_KEY = "penilaian-valuasi-bisnis.workspaces.v1";
 const WORKSPACE_DATA_STORAGE_PREFIX = "penilaian-valuasi-bisnis.workspace.";
 const WORKSPACE_DATA_STORAGE_SUFFIX = ".v1";
@@ -576,6 +582,7 @@ type PersistedWorkbenchState = {
   dlocPfc: DlocPfcState;
   taxSimulation: TaxSimulationState;
   cashFlowOverrides: CashFlowOverrideState;
+  cashFlowAccountInclusions: CashFlowAccountInclusionState;
   incomeProjectionControls: IncomeProjectionControlState;
 };
 
@@ -927,6 +934,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   const [dlocPfc, setDlocPfc] = useState<DlocPfcState>(createEmptyDlocPfcState);
   const [taxSimulation, setTaxSimulation] = useState<TaxSimulationState>(createEmptyTaxSimulationState);
   const [cashFlowOverrides, setCashFlowOverrides] = useState<CashFlowOverrideState>({});
+  const [cashFlowAccountInclusions, setCashFlowAccountInclusions] = useState<CashFlowAccountInclusionState>({});
   const [incomeProjectionControls, setIncomeProjectionControls] = useState<IncomeProjectionControlState>(
     createEmptyIncomeProjectionControls,
   );
@@ -1049,8 +1057,21 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     [fixedAssetProjection],
   );
   const sectionAnalysis = useMemo(
-    () => buildSectionAnalysis(periods, rows, assumptions, fixedAssetScheduleRows, cashFlowOverrides, debtScheduleInputs),
-    [periods, rows, assumptions, fixedAssetScheduleRows, cashFlowOverrides, debtScheduleInputs],
+    () =>
+      buildSectionAnalysis(
+        periods,
+        rows,
+        assumptions,
+        fixedAssetScheduleRows,
+        cashFlowOverrides,
+        debtScheduleInputs,
+        cashFlowAccountInclusions,
+      ),
+    [periods, rows, assumptions, fixedAssetScheduleRows, cashFlowOverrides, debtScheduleInputs, cashFlowAccountInclusions],
+  );
+  const cashFlowWorkingCapitalAccountCandidates = useMemo(
+    () => buildCashFlowWorkingCapitalAccountCandidates(rows, cashFlowAccountInclusions),
+    [cashFlowAccountInclusions, rows],
   );
   const eemCalculationOptions = useMemo(
     () =>
@@ -1282,6 +1303,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     Object.values(assumptions).some((value) => value.trim() !== "") ||
     hasDebtScheduleInput(debtScheduleInputs) ||
     hasCashFlowOverrideInput(cashFlowOverrides) ||
+    hasCashFlowAccountInclusionInput(cashFlowAccountInclusions) ||
     hasIncomeProjectionControlInput(incomeProjectionControls) ||
     activeWaccBasis !== defaultActiveWaccBasis ||
     activeEemBasis !== defaultActiveEemBasis ||
@@ -1342,6 +1364,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       dlocPfc,
       taxSimulation,
       cashFlowOverrides,
+      cashFlowAccountInclusions,
       incomeProjectionControls,
     };
   }
@@ -1364,6 +1387,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     setDlocPfc(state.dlocPfc);
     setTaxSimulation(state.taxSimulation);
     setCashFlowOverrides(state.cashFlowOverrides);
+    setCashFlowAccountInclusions(state.cashFlowAccountInclusions);
     setIncomeProjectionControls(state.incomeProjectionControls);
   }
 
@@ -1774,6 +1798,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         dlocPfc,
         taxSimulation,
         cashFlowOverrides,
+        cashFlowAccountInclusions,
         incomeProjectionControls,
       },
       savedAt,
@@ -1795,6 +1820,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     activePeriodId,
     activeWorkspaceId,
     assumptions,
+    cashFlowAccountInclusions,
     cashFlowOverrides,
     caseProfile,
     debtScheduleInputs,
@@ -2315,6 +2341,21 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     });
   }
 
+  function toggleCashFlowAccountInclusion(rowKey: CashFlowWorkingCapitalRowKey, accountRowId: string, included: boolean) {
+    commitCoreState((current) => {
+      const nextInclusions: CashFlowAccountInclusionState = { ...current.cashFlowAccountInclusions };
+      nextInclusions[rowKey] = {
+        ...(nextInclusions[rowKey] ?? {}),
+        [accountRowId]: included,
+      };
+
+      return {
+        ...current,
+        cashFlowAccountInclusions: nextInclusions,
+      };
+    });
+  }
+
   function updateDebtScheduleInput(periodId: string, key: DebtScheduleInputKey, value: string) {
     commitCoreState((current) => {
       const nextInputs = { ...current.debtScheduleInputs };
@@ -2695,6 +2736,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       dlocPfc: buildSampleDlocPfcState(),
       taxSimulation: buildSampleTaxSimulationState(),
       cashFlowOverrides: {},
+      cashFlowAccountInclusions: {},
       incomeProjectionControls: createEmptyIncomeProjectionControls(),
     }));
   }
@@ -4230,8 +4272,10 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
           readiness.cashFlowStatement.isReady ? (
             <CashFlowStatementSection
               analysis={sectionAnalysis}
+              accountCandidates={cashFlowWorkingCapitalAccountCandidates}
               readiness={readiness.cashFlowStatement}
               onNavigate={navigateToWorkflowTab}
+              onToggleAccountInclusion={toggleCashFlowAccountInclusion}
               onUpdateOverride={updateCashFlowOverride}
             />
           ) : (
@@ -7607,13 +7651,17 @@ const cashFlowStatementSectionLabels: Record<CashFlowStatementRow["section"], st
 
 function CashFlowStatementSection({
   analysis,
+  accountCandidates,
   readiness,
   onNavigate,
+  onToggleAccountInclusion,
   onUpdateOverride,
 }: {
   analysis: SectionAnalysis;
+  accountCandidates: CashFlowWorkingCapitalAccountCandidates;
   readiness: SectionReadiness;
   onNavigate: (tabId: WorkflowTabId) => void;
+  onToggleAccountInclusion: (rowKey: CashFlowWorkingCapitalRowKey, accountRowId: string, included: boolean) => void;
   onUpdateOverride: (rowKey: string, periodId: string, patch: Partial<CashFlowOverrideEntry>) => void;
 }) {
   return (
@@ -7628,7 +7676,13 @@ function CashFlowStatementSection({
           </div>
           <span className="status-pill muted">Audit-ready table</span>
         </div>
-        <CashFlowStatementTable rows={analysis.cashFlowStatementRows} periods={analysis.periods} onUpdateOverride={onUpdateOverride} />
+        <CashFlowStatementTable
+          rows={analysis.cashFlowStatementRows}
+          periods={analysis.periods}
+          accountCandidates={accountCandidates}
+          onToggleAccountInclusion={onToggleAccountInclusion}
+          onUpdateOverride={onUpdateOverride}
+        />
       </section>
     </>
   );
@@ -7637,10 +7691,14 @@ function CashFlowStatementSection({
 function CashFlowStatementTable({
   rows,
   periods,
+  accountCandidates,
+  onToggleAccountInclusion,
   onUpdateOverride,
 }: {
   rows: CashFlowStatementRow[];
   periods: Period[];
+  accountCandidates: CashFlowWorkingCapitalAccountCandidates;
+  onToggleAccountInclusion: (rowKey: CashFlowWorkingCapitalRowKey, accountRowId: string, included: boolean) => void;
   onUpdateOverride: (rowKey: string, periodId: string, patch: Partial<CashFlowOverrideEntry>) => void;
 }) {
   return (
@@ -7686,11 +7744,19 @@ function CashFlowStatementTable({
             const sectionChanged = index === 0 || rows[index - 1]?.section !== row.section;
             const rowClassName =
               row.kind === "subtotal" ? "analysis-total-row" : row.kind === "warning" ? "analysis-warning-row" : "";
+            const workingCapitalRowKey = isCashFlowWorkingCapitalRowKey(row.key) ? row.key : null;
             const rowCells = (
-              <tr className={rowClassName} key={row.key}>
+              <tr className={rowClassName} data-testid={`cash-flow-row-${row.key}`} key={row.key}>
                 <td>
                   <strong>{row.label}</strong>
                   {row.note ? <span>{row.note}</span> : null}
+                  {workingCapitalRowKey ? (
+                    <CashFlowAccountInclusionDisclosure
+                      rowKey={workingCapitalRowKey}
+                      candidates={accountCandidates[workingCapitalRowKey]}
+                      onToggle={onToggleAccountInclusion}
+                    />
+                  ) : null}
                 </td>
                 <td>
                   <span>{row.source}</span>
@@ -7705,7 +7771,7 @@ function CashFlowStatementTable({
                   const statusLabel = cashFlowOverrideStatusLabel(status);
 
                   return [
-                    <td className="numeric-cell period-column" key={`${row.key}-${period.id}-calculated`}>
+                    <td className="numeric-cell period-column" data-testid={`cash-flow-${row.key}-${period.id}-calculated`} key={`${row.key}-${period.id}-calculated`}>
                       {formatAnalysisValue(row.calculatedValues[period.id] ?? null, "currency")}
                     </td>,
                     <td className="override-cell period-column" key={`${row.key}-${period.id}-override`}>
@@ -7725,7 +7791,7 @@ function CashFlowStatementTable({
                         <span className="status-pill muted">Formula locked</span>
                       )}
                     </td>,
-                    <td className="numeric-cell period-column" key={`${row.key}-${period.id}-final`}>
+                    <td className="numeric-cell period-column" data-testid={`cash-flow-${row.key}-${period.id}-final`} key={`${row.key}-${period.id}-final`}>
                       <strong>{formatAnalysisValue(row.values[period.id] ?? null, "currency")}</strong>
                     </td>,
                   ];
@@ -7745,6 +7811,51 @@ function CashFlowStatementTable({
         </tbody>
       </table>
     </div>
+  );
+}
+
+function CashFlowAccountInclusionDisclosure({
+  rowKey,
+  candidates,
+  onToggle,
+}: {
+  rowKey: CashFlowWorkingCapitalRowKey;
+  candidates: CashFlowWorkingCapitalAccountCandidate[];
+  onToggle: (rowKey: CashFlowWorkingCapitalRowKey, accountRowId: string, included: boolean) => void;
+}) {
+  const includedCount = candidates.filter((candidate) => candidate.included).length;
+  const rowLabel =
+    rowKey === "oca-change"
+      ? "(Kenaikan) penurunan aset lancar operasional"
+      : "Kenaikan (penurunan) liabilitas lancar operasional";
+
+  return (
+    <details className="cash-flow-account-disclosure" data-testid={`cash-flow-account-disclosure-${rowKey}`}>
+      <summary>
+        <span>Basis akun Neraca</span>
+        <strong>{`${includedCount}/${candidates.length} disertakan`}</strong>
+      </summary>
+      <div className="cash-flow-account-picker">
+        {candidates.length > 0 ? (
+          candidates.map((candidate) => (
+            <label data-testid={`cash-flow-account-option-${rowKey}-${candidate.rowId}`} key={candidate.rowId}>
+              <input
+                aria-label={`Sertakan ${candidate.accountName} dalam ${rowLabel}`}
+                checked={candidate.included}
+                type="checkbox"
+                onChange={(event) => onToggle(rowKey, candidate.rowId, event.target.checked)}
+              />
+              <span>
+                <strong>{candidate.accountName}</strong>
+                <small>{candidate.categoryLabel}</small>
+              </span>
+            </label>
+          ))
+        ) : (
+          <p>Tidak ada akun kandidat di Neraca.</p>
+        )}
+      </div>
+    </details>
   );
 }
 
@@ -8290,6 +8401,7 @@ function normalizeWorkbenchStatePayload(value: unknown): PersistedWorkbenchState
   const dlocPfc = sanitizeDlocPfcState(value.dlocPfc);
   const taxSimulation = sanitizeTaxSimulationState(value.taxSimulation);
   const cashFlowOverrides = sanitizeCashFlowOverrides(value.cashFlowOverrides);
+  const cashFlowAccountInclusions = sanitizeCashFlowAccountInclusions(value.cashFlowAccountInclusions);
   const incomeProjectionControls = sanitizeIncomeProjectionControls(value.incomeProjectionControls);
   const activePeriodId = typeof value.activePeriodId === "string" ? value.activePeriodId : "";
   const fixedAssetProjectionMode = sanitizeFixedAssetProjectionMode(value.fixedAssetProjectionMode);
@@ -8322,6 +8434,7 @@ function normalizeWorkbenchStatePayload(value: unknown): PersistedWorkbenchState
     dlocPfc,
     taxSimulation,
     cashFlowOverrides,
+    cashFlowAccountInclusions,
     incomeProjectionControls,
   };
 }
@@ -8363,6 +8476,7 @@ function buildEmptyCoreState(): WorkbenchCoreState {
     dlocPfc: createEmptyDlocPfcState(),
     taxSimulation: createEmptyTaxSimulationState(),
     cashFlowOverrides: {},
+    cashFlowAccountInclusions: {},
     incomeProjectionControls: createEmptyIncomeProjectionControls(),
   };
 }
@@ -8552,6 +8666,7 @@ function buildRestoredCoreState(state: PersistedWorkbenchState): WorkbenchCoreSt
     dlocPfc: state.dlocPfc,
     taxSimulation: state.taxSimulation,
     cashFlowOverrides: state.cashFlowOverrides,
+    cashFlowAccountInclusions: state.cashFlowAccountInclusions,
     incomeProjectionControls: state.incomeProjectionControls,
   };
 }
@@ -9115,6 +9230,32 @@ function hasCashFlowOverrideInput(value: CashFlowOverrideState): boolean {
   return Object.values(value).some((row) =>
     Object.values(row).some((entry) => entry.value.trim() !== "" || entry.reason.trim() !== ""),
   );
+}
+
+function sanitizeCashFlowAccountInclusions(value: unknown): CashFlowAccountInclusionState {
+  if (!isRecord(value)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).flatMap(([rowKey, accountEntries]) => {
+      if (!isCashFlowWorkingCapitalRowKey(rowKey) || !isRecord(accountEntries)) {
+        return [];
+      }
+
+      const sanitizedAccountEntries = Object.fromEntries(
+        Object.entries(accountEntries).flatMap(([accountRowId, included]) =>
+          typeof included === "boolean" ? [[accountRowId, included]] : [],
+        ),
+      );
+
+      return Object.keys(sanitizedAccountEntries).length > 0 ? [[rowKey, sanitizedAccountEntries]] : [];
+    }),
+  );
+}
+
+function hasCashFlowAccountInclusionInput(value: CashFlowAccountInclusionState): boolean {
+  return Object.values(value).some((row) => row && Object.keys(row).length > 0);
 }
 
 function hasDebtScheduleInput(value: DebtScheduleInputState): boolean {
