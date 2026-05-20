@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
-  aamLiabilityBasis,
   calculateAam,
   calculateAllMethods,
   calculateDcf,
@@ -25,27 +24,7 @@ describe("valuation calculations", () => {
     const aam = calculateAam(snapshot);
 
     assert.equal(aam.method, "AAM");
-    assert.equal(aam.equityValue, snapshot.totalAssets - aamLiabilityBasis(snapshot));
-  });
-
-  it("uses only balance-sheet bank loan categories as the AAM liability basis", () => {
-    const aamSnapshot = {
-      ...snapshot,
-      bankLoanShortTerm: 700_000,
-      bankLoanLongTerm: 1_300_000,
-      aamBankLoanShortTerm: 700_000,
-      aamBankLoanLongTerm: 500_000,
-      accountPayable: 2_000_000,
-      taxPayable: 900_000,
-      otherPayable: 800_000,
-      interestPayable: 300_000,
-      totalLiabilities: 9_999_999,
-    };
-    const aam = calculateAam(aamSnapshot);
-
-    assert.equal(aamLiabilityBasis(aamSnapshot), 1_200_000);
-    assert.equal(aam.equityValue, aamSnapshot.totalAssets - 1_200_000);
-    assert.equal(aam.traces.find((trace) => trace.label === "Liabilitas historis basis AAM")?.value, 1_200_000);
+    assert.equal(aam.equityValue, snapshot.totalAssets - snapshot.totalLiabilities);
   });
 
   it("calculates EEM from NTA, required return, and non-operating bridge", () => {

@@ -371,10 +371,10 @@ function buildCalculationModelRows(input: ValuationPdfExportInput, scope: Valuat
     add("aamHistoricalAssets", "AAM", "Historical assets", formulaCell(`SUMIF(${sheetCell(aamAdjustmentsSheetName, `A${aamFirstRow}:A${aamLastRow}`)},"Aset",${sheetCell(aamAdjustmentsSheetName, `E${aamFirstRow}:E${aamLastRow}`)})`, input.aamAdjustmentModel.historicalAssetTotal), "Formula", "SUMIF AAM adjustment asset rows.");
     add("aamAssetAdjustment", "AAM", "Asset adjustment", formulaCell(`SUMIF(${sheetCell(aamAdjustmentsSheetName, `A${aamFirstRow}:A${aamLastRow}`)},"Aset",${sheetCell(aamAdjustmentsSheetName, `F${aamFirstRow}:F${aamLastRow}`)})`, input.aamAdjustmentModel.assetAdjustmentTotal), "Formula", "SUMIF AAM asset adjustment rows.");
     add("aamAdjustedAssets", "AAM", "Adjusted assets", formulaCell(`${refs.aamHistoricalAssets}+${refs.aamAssetAdjustment}`, input.aamAdjustmentModel.adjustedAssetTotal), "Formula", "Historical assets + asset adjustment.");
-    add("aamHistoricalLiabilities", "AAM", "AAM bank-loan liabilities", formulaCell(`SUMIF(${sheetCell(aamAdjustmentsSheetName, `A${aamFirstRow}:A${aamLastRow}`)},"Liabilitas",${sheetCell(aamAdjustmentsSheetName, `E${aamFirstRow}:E${aamLastRow}`)})`, input.aamAdjustmentModel.historicalLiabilityTotal), "Formula", "SUMIF AAM bank-loan liability rows.");
-    add("aamLiabilityAdjustment", "AAM", "AAM bank-loan liability adjustment", formulaCell(`SUMIF(${sheetCell(aamAdjustmentsSheetName, `A${aamFirstRow}:A${aamLastRow}`)},"Liabilitas",${sheetCell(aamAdjustmentsSheetName, `F${aamFirstRow}:F${aamLastRow}`)})`, input.aamAdjustmentModel.liabilityAdjustmentTotal), "Formula", "SUMIF AAM bank-loan liability adjustment rows.");
-    add("aamAdjustedLiabilities", "AAM", "Adjusted AAM bank-loan liabilities", formulaCell(`${refs.aamHistoricalLiabilities}+${refs.aamLiabilityAdjustment}`, input.aamAdjustmentModel.adjustedLiabilityTotal), "Formula", "AAM bank-loan liabilities + liability adjustment.");
-    add("aamEquityValue", "AAM", "Equity value 100%", formulaCell(`${refs.aamAdjustedAssets}-${refs.aamAdjustedLiabilities}`, input.results.aam.equityValue), "Formula", "Adjusted assets - adjusted AAM bank-loan liabilities.");
+    add("aamHistoricalLiabilities", "AAM", "Historical liabilities", formulaCell(`SUMIF(${sheetCell(aamAdjustmentsSheetName, `A${aamFirstRow}:A${aamLastRow}`)},"Liabilitas",${sheetCell(aamAdjustmentsSheetName, `E${aamFirstRow}:E${aamLastRow}`)})`, input.aamAdjustmentModel.historicalLiabilityTotal), "Formula", "SUMIF AAM liability rows.");
+    add("aamLiabilityAdjustment", "AAM", "Liability adjustment", formulaCell(`SUMIF(${sheetCell(aamAdjustmentsSheetName, `A${aamFirstRow}:A${aamLastRow}`)},"Liabilitas",${sheetCell(aamAdjustmentsSheetName, `F${aamFirstRow}:F${aamLastRow}`)})`, input.aamAdjustmentModel.liabilityAdjustmentTotal), "Formula", "SUMIF AAM liability adjustment rows.");
+    add("aamAdjustedLiabilities", "AAM", "Adjusted liabilities", formulaCell(`${refs.aamHistoricalLiabilities}+${refs.aamLiabilityAdjustment}`, input.aamAdjustmentModel.adjustedLiabilityTotal), "Formula", "Historical liabilities + liability adjustment.");
+    add("aamEquityValue", "AAM", "Equity value 100%", formulaCell(`${refs.aamAdjustedAssets}-${refs.aamAdjustedLiabilities}`, input.results.aam.equityValue), "Formula", "Adjusted assets - adjusted liabilities.");
   }
 
   if (scope.methods.includes("EEM")) {
@@ -457,9 +457,9 @@ function buildDriverMetrics(input: ValuationPdfExportInput, scope: ValuationExpo
   if (scope.methods.includes("AAM")) {
     metrics.push(
       { label: "Aset historis AAM", value: formulaCell(refs.aamHistoricalAssets, input.aamAdjustmentModel.historicalAssetTotal), sourceType: "Formula" },
-      { label: "Pinjaman bank historis AAM", value: formulaCell(refs.aamHistoricalLiabilities, input.aamAdjustmentModel.historicalLiabilityTotal), sourceType: "Formula" },
+      { label: "Liabilitas historis AAM", value: formulaCell(refs.aamHistoricalLiabilities, input.aamAdjustmentModel.historicalLiabilityTotal), sourceType: "Formula" },
       { label: "Penyesuaian aset AAM", value: formulaCell(refs.aamAssetAdjustment, input.aamAdjustmentModel.assetAdjustmentTotal), sourceType: "Formula" },
-      { label: "Penyesuaian pinjaman bank AAM", value: formulaCell(refs.aamLiabilityAdjustment, input.aamAdjustmentModel.liabilityAdjustmentTotal), sourceType: "Formula" },
+      { label: "Penyesuaian liabilitas AAM", value: formulaCell(refs.aamLiabilityAdjustment, input.aamAdjustmentModel.liabilityAdjustmentTotal), sourceType: "Formula" },
     );
   }
 
@@ -747,8 +747,8 @@ function buildAamAdjustmentRows(input: ValuationPdfExportInput): XlsxCellValue[]
     ["Metric", "Value"],
     ["Total aset historis", formulaCell(`SUMIF(A2:A${lines.length + 1},"Aset",E2:E${lines.length + 1})`, input.aamAdjustmentModel.historicalAssetTotal)],
     ["Total penyesuaian aset", formulaCell(`SUMIF(A2:A${lines.length + 1},"Aset",F2:F${lines.length + 1})`, input.aamAdjustmentModel.assetAdjustmentTotal)],
-    ["Total pinjaman bank historis AAM", formulaCell(`SUMIF(A2:A${lines.length + 1},"Liabilitas",E2:E${lines.length + 1})`, input.aamAdjustmentModel.historicalLiabilityTotal)],
-    ["Total penyesuaian pinjaman bank AAM", formulaCell(`SUMIF(A2:A${lines.length + 1},"Liabilitas",F2:F${lines.length + 1})`, input.aamAdjustmentModel.liabilityAdjustmentTotal)],
+    ["Total liabilitas historis", formulaCell(`SUMIF(A2:A${lines.length + 1},"Liabilitas",E2:E${lines.length + 1})`, input.aamAdjustmentModel.historicalLiabilityTotal)],
+    ["Total penyesuaian liabilitas", formulaCell(`SUMIF(A2:A${lines.length + 1},"Liabilitas",F2:F${lines.length + 1})`, input.aamAdjustmentModel.liabilityAdjustmentTotal)],
     ["Nilai ekuitas AAM", formulaCell(`B${lines.length + 4}+B${lines.length + 5}-B${lines.length + 6}-B${lines.length + 7}`, input.aamAdjustmentModel.adjustedEquityValue)],
     ["Catatan wajib belum lengkap", formulaCell(`COUNTIFS(H2:H${lines.length + 1},"Yes",I2:I${lines.length + 1},"")`, input.aamAdjustmentModel.missingNoteCount)],
   ];

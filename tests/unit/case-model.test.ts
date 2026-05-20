@@ -14,7 +14,6 @@ import {
   parseInputNumber,
   type FixedAssetScheduleRow,
 } from "../../src/lib/valuation/case-model";
-import { aamLiabilityBasis } from "../../src/lib/valuation/calculations";
 import { assertAlmostEqual, basePeriods, rowFixture } from "./test-utils";
 
 describe("case model", () => {
@@ -73,21 +72,6 @@ describe("case model", () => {
 
     assert.equal(snapshot.fixedAssetsNet, 147);
     assert.equal(snapshot.totalAssets, 147);
-  });
-
-  it("keeps the AAM bank-loan basis separate from generic interest-bearing debt", () => {
-    const rows = [
-      rowFixture({ id: "bank-short", accountName: "Pinjaman bank jangka pendek", category: "BANK_LOAN_SHORT_TERM", values: { p1: "50" } }),
-      rowFixture({ id: "bank-long", accountName: "Pinjaman bank jangka panjang", category: "BANK_LOAN_LONG_TERM", values: { p1: "300" } }),
-      rowFixture({ id: "bond", accountName: "Obligasi", category: "INTEREST_BEARING_DEBT", values: { p1: "700" } }),
-      rowFixture({ id: "ap", accountName: "Utang usaha", category: "ACCOUNT_PAYABLE", values: { p1: "250" } }),
-    ];
-    const snapshot = buildSnapshot(basePeriods, "p1", rows, emptyAssumptions);
-
-    assert.equal(snapshot.bankLoanLongTerm, 1_000);
-    assert.equal(snapshot.aamBankLoanLongTerm, 300);
-    assert.equal(aamLiabilityBasis(snapshot), 350);
-    assert.equal(snapshot.totalLiabilities, 1_300);
   });
 
   it("keeps historical periods ordered by yearOffset, not mutable labels", () => {

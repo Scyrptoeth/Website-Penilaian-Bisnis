@@ -531,8 +531,8 @@ export const accountMappingRules: AccountMappingRule[] = [
     aliases: ["total liabilities", "jumlah kewajiban", "total kewajiban", "total liabilitas", "jumlah liabilitas"],
     includeKeywords: ["total liabilities", "jumlah kewajiban", "total kewajiban", "total liabilitas", "jumlah liabilitas", "liabilities"],
     treatment: "liability",
-    valuationImpact: ["balance sheet control"],
-    reviewNote: "Gunakan sebagai kontrol total Neraca. Total liabilitas tidak menjadi basis pengurang AAM; AAM hanya memakai pinjaman bank jangka pendek dan panjang.",
+    valuationImpact: ["AAM"],
+    reviewNote: "Gunakan sebagai override total liabilitas hanya jika rincian komponen liabilitas tidak tersedia atau sudah direkonsiliasi.",
   },
   {
     category: "CURRENT_LIABILITIES",
@@ -564,7 +564,7 @@ export const accountMappingRules: AccountMappingRule[] = [
       "uang muka pelanggan",
     ],
     treatment: "liability",
-    valuationImpact: ["working capital support", "balance sheet control"],
+    valuationImpact: ["AAM", "working capital support"],
     reviewNote: "Petakan ke kategori liabilitas yang lebih rinci jika subledger tersedia; contract liability dan customer advances umumnya operasional.",
   },
   {
@@ -604,7 +604,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     ],
     excludeKeywords: ["bank", "loan", "pinjaman", "bunga", "interest", "tax", "pajak", "sewa", "lease"],
     treatment: "operating",
-    valuationImpact: ["working capital", "DCF WC days"],
+    valuationImpact: ["AAM", "working capital", "DCF WC days"],
     reviewNote: "Liabilitas lancar operasional untuk working capital.",
   },
   {
@@ -643,8 +643,8 @@ export const accountMappingRules: AccountMappingRule[] = [
       "ppn keluaran",
     ],
     treatment: "liability",
-    valuationImpact: ["debt-like sensitivity"],
-    reviewNote: "Utang pajak tidak mengurangi AAM dasar; keluarkan dari operating WC kecuali ada justifikasi khusus dan tampilkan sebagai sensitivitas debt-like bila relevan.",
+    valuationImpact: ["AAM", "debt-like sensitivity"],
+    reviewNote: "Liabilitas untuk AAM; keluarkan dari operating WC kecuali ada justifikasi khusus.",
   },
   {
     category: "OTHER_PAYABLE",
@@ -685,7 +685,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     ],
     excludeKeywords: ["bank", "loan", "pinjaman", "tax", "pajak", "lease", "sewa", "interest", "bunga"],
     treatment: "operating",
-    valuationImpact: ["working capital", "DCF WC days"],
+    valuationImpact: ["AAM", "working capital", "DCF WC days"],
     reviewNote: "Tinjau apakah merupakan utang operasional atau utang setara debt-like.",
   },
   {
@@ -718,8 +718,8 @@ export const accountMappingRules: AccountMappingRule[] = [
       "jangka pendek",
     ],
     treatment: "debt",
-    valuationImpact: ["AAM liability basis", "interest bearing debt", "EV to equity bridge"],
-    reviewNote: "Keluarkan dari operating working capital; kurangkan sebagai basis liabilitas AAM bila saldo tidak nol.",
+    valuationImpact: ["interest bearing debt", "EV to equity bridge"],
+    reviewNote: "Keluarkan dari operating working capital; kurangkan sebagai utang bila saldo tidak nol.",
   },
   {
     category: "BANK_LOAN_LONG_TERM",
@@ -747,8 +747,8 @@ export const accountMappingRules: AccountMappingRule[] = [
       "jangka panjang",
     ],
     treatment: "debt",
-    valuationImpact: ["AAM liability basis", "interest bearing debt", "EV to equity bridge"],
-    reviewNote: "Keluarkan dari operating working capital; kurangkan sebagai basis liabilitas AAM bila saldo tidak nol.",
+    valuationImpact: ["interest bearing debt", "EV to equity bridge"],
+    reviewNote: "Keluarkan dari operating working capital; kurangkan sebagai utang jika saldo tidak nol.",
   },
   {
     category: "INTEREST_PAYABLE",
@@ -756,8 +756,8 @@ export const accountMappingRules: AccountMappingRule[] = [
     aliases: ["interest payable", "utang bunga", "hutang bunga", "bunga masih harus dibayar", "bunga pinjaman masih harus dibayar", "accrued interest"],
     includeKeywords: ["bunga", "interest", "harus dibayar", "accrued"],
     treatment: "liability",
-    valuationImpact: ["debt-like liability review"],
-    reviewNote: "Item liabilitas non-bank; tidak mengurangi AAM dasar dan hanya masuk debt-like jika ada justifikasi.",
+    valuationImpact: ["AAM", "debt-like liability review"],
+    reviewNote: "Item liabilitas; tinjau apakah perlu dimasukkan dalam penyesuaian debt-like.",
   },
   {
     category: "INTEREST_BEARING_DEBT",
@@ -833,7 +833,7 @@ export const accountMappingRules: AccountMappingRule[] = [
       "utang jangka panjang lainnya",
     ],
     treatment: "liability",
-    valuationImpact: ["debt-like liability review", "balance sheet control"],
+    valuationImpact: ["AAM", "debt-like liability review"],
     reviewNote: "Kategori liabilitas tidak lancar umum; tinjau apakah bersifat operasional, provisi, pajak tangguhan, atau debt-like.",
   },
   {

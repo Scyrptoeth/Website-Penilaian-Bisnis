@@ -125,13 +125,6 @@ export function adjustedTotalLiabilities(snapshot: FinancialStatementSnapshot): 
   return snapshot.totalLiabilities || componentTotal;
 }
 
-export function aamLiabilityBasis(snapshot: FinancialStatementSnapshot): number {
-  const shortTermBankLoan = snapshot.aamBankLoanShortTerm ?? snapshot.bankLoanShortTerm;
-  const longTermBankLoan = snapshot.aamBankLoanLongTerm ?? snapshot.bankLoanLongTerm;
-
-  return shortTermBankLoan + longTermBankLoan;
-}
-
 export function operatingCurrentAssets(snapshot: FinancialStatementSnapshot): number {
   return snapshot.accountReceivable + snapshot.inventory;
 }
@@ -166,7 +159,7 @@ export function normalizedNoplat(snapshot: FinancialStatementSnapshot): number {
 
 export function calculateAam(snapshot: FinancialStatementSnapshot, options: AamOptions = {}): MethodOutput {
   const historicalAssets = adjustedTotalAssets(snapshot);
-  const historicalLiabilities = aamLiabilityBasis(snapshot);
+  const historicalLiabilities = adjustedTotalLiabilities(snapshot);
   const assetAdjustment = options.assetAdjustment ?? 0;
   const liabilityAdjustment = options.liabilityAdjustment ?? 0;
   const totalAssets = historicalAssets + assetAdjustment;
@@ -187,15 +180,15 @@ export function calculateAam(snapshot: FinancialStatementSnapshot, options: AamO
     },
     {
       label: "Liabilitas historis basis AAM",
-      formula: "Pinjaman bank jangka pendek + pinjaman bank jangka panjang dari Neraca",
+      formula: "Input total liabilitas atau jumlah komponen liabilitas bila total liabilitas kosong",
       value: historicalLiabilities,
-      note: "Liabilitas AAM hanya memakai kategori utama Pinjaman Bank Jangka Pendek dan Pinjaman Bank Jangka Panjang.",
+      note: "AAM mengurangkan seluruh liabilitas, termasuk utang pajak dan utang berbunga.",
     },
     {
       label: "Penyesuaian liabilitas AAM",
       formula: "Jumlah kolom Penyesuaian untuk pos liabilitas AAM",
       value: liabilityAdjustment,
-      note: "Penyesuaian hanya berlaku untuk pos pinjaman bank yang termasuk basis liabilitas AAM.",
+      note: "Nilai positif menaikkan liabilitas; nilai negatif menurunkan liabilitas.",
     },
     {
       label: "Total aset disesuaikan",
@@ -205,13 +198,13 @@ export function calculateAam(snapshot: FinancialStatementSnapshot, options: AamO
     },
     {
       label: "Total liabilitas disesuaikan",
-      formula: "Pinjaman bank historis AAM + penyesuaian liabilitas pinjaman bank",
+      formula: "Liabilitas historis + penyesuaian liabilitas",
       value: totalLiabilities,
-      note: "Liabilitas non-bank tetap di Neraca tetapi tidak mengurangi nilai ekuitas AAM.",
+      note: "Adjustment AAM hanya berlaku di metode AAM dan jejak audit AAM.",
     },
     {
       label: "Nilai Ekuitas 100% - AAM",
-      formula: "Total aset disesuaikan - total pinjaman bank disesuaikan",
+      formula: "Total aset disesuaikan - total liabilitas disesuaikan",
       value: equityValue,
       note:
         options.missingAdjustmentNotes && options.missingAdjustmentNotes > 0

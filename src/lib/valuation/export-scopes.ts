@@ -65,7 +65,7 @@ export function isMappedRowRelevantToMethods(item: MappedRow, methods: Valuation
 
   return methods.some((method) => {
     if (method === "AAM") {
-      return item.row.statement === "balance_sheet" || item.row.statement === "fixed_asset";
+      return labels.has("formula:aam") || item.row.statement === "fixed_asset";
     }
 
     if (method === "EEM") {

@@ -27,12 +27,8 @@ const exportedAt = new Date("2026-05-07T10:00:00.000Z");
 
 describe("valuation XLSX export", () => {
   it("builds AAM-only workbook sheets without EEM or DCF sections", () => {
-    const input = buildSampleExportInput();
-    const workbook = buildValuationXlsxWorkbook(input, "aam", exportedAt);
+    const workbook = buildValuationXlsxWorkbook(buildSampleExportInput(), "aam", exportedAt);
     const sheetNames = workbook.sheets.map((sheet) => sheet.name);
-    const aamAdjustmentRows = workbook.sheets.find((sheet) => sheet.name === "AAM Adjustments")?.rows ?? [];
-    const aamLiabilityRows = aamAdjustmentRows.slice(1).filter((row) => row[0] === "Liabilitas");
-    const bankLoanMetric = aamAdjustmentRows.find((row) => row[0] === "Total pinjaman bank historis AAM");
 
     assert.equal(workbook.scope.id, "aam");
     assert.ok(sheetNames.includes("Calculation Model"));
@@ -44,14 +40,6 @@ describe("valuation XLSX export", () => {
     assert.equal(sheetNames.includes("DCF Sensitivity"), false);
     assert.equal(sheetNames.includes("DCF Forecast"), false);
     assert.equal(workbook.sheets.find((sheet) => sheet.name === "Formula Trace")?.rows.slice(1).every((row) => row[0] === "AAM"), true);
-    assert.deepEqual(aamLiabilityRows.map((row) => row[2]), ["Pinjaman bank jangka pendek", "Pinjaman bank jangka panjang"]);
-    assert.equal(aamAdjustmentRows.some((row) => row.includes("Utang usaha")), false);
-    assert.equal(readFormulaValue(bankLoanMetric?.[1]), input.aamAdjustmentModel.historicalLiabilityTotal);
-    assert.equal(
-      input.aamAdjustmentModel.historicalLiabilityTotal,
-      (input.snapshot.aamBankLoanShortTerm ?? input.snapshot.bankLoanShortTerm) +
-        (input.snapshot.aamBankLoanLongTerm ?? input.snapshot.bankLoanLongTerm),
-    );
     assert.ok(countFormulaCells(workbook.sheets.flatMap((sheet) => sheet.rows)) > 40);
   });
 

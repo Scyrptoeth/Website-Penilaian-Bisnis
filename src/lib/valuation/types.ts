@@ -138,13 +138,11 @@ export interface FinancialStatementSnapshot {
   nonCurrentAssets: number;
   totalAssets: number;
   bankLoanShortTerm: number;
-  aamBankLoanShortTerm?: number;
   accountPayable: number;
   taxPayable: number;
   otherPayable: number;
   interestPayable: number;
   bankLoanLongTerm: number;
-  aamBankLoanLongTerm?: number;
   currentLiabilities: number;
   nonCurrentLiabilities: number;
   totalLiabilities: number;
