@@ -1333,6 +1333,9 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await expect(page.getByLabel("After-tax debt cost")).toHaveValue("0,06864");
   await expect(page.getByTestId("required-return-on-nta-calculator")).toContainText("BORROWING CAP");
   await expect(page.getByTestId("required-return-on-nta-calculator")).toContainText("DISCOUNT RATE");
+  await expect(page.getByTestId("required-return-meaning-note")).toContainText("Kalkulator required return on NTA");
+  await expect(page.getByTestId("required-return-meaning-note")).toContainText("Return ekuitas aset berwujud");
+  await expect(page.getByTestId("required-return-meaning-note")).toContainText("dapat dipilih juga sebagai Return on Tangible Asset");
   await expect(page.getByTestId("required-return-equity-cost-trace")).toContainText("Return ekuitas aset berwujud");
 
   const receivablesCapacityAppliedButton = page.getByRole("button", {
@@ -1375,8 +1378,11 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await openWorkflowTab(page, "Penilaian EEM");
   await expect(page.getByRole("heading", { name: "Excess Earnings Method (EEM)" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Kesiapan EEM" })).toHaveCount(0);
+  await expect(page.getByTestId("eem-return-on-tangible-asset-basis-control")).toContainText("Kalkulator required return on NTA");
+  await expect(page.getByTestId("eem-return-on-tangible-asset-basis-control")).toContainText("Return ekuitas aset berwujud");
+  await expect(page.getByTestId("eem-return-on-tangible-asset-basis-control")).toContainText("Rate aktif");
   await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Manual WACC reviewer");
-  await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Model kapasitas BORROWING CAP");
+  await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Kalkulator required return on NTA");
   await expect(page.getByTestId("eem-sensitivity-grid")).toContainText("EEM - skenario dasar");
   await expect(page.getByTestId("eem-sensitivity-grid")).toContainText("EEM - utang pajak debt-like");
   await expect(page.getByTestId("eem-sensitivity-grid")).toContainText("sebelum utang pajak diperlakukan sebagai kewajiban debt-like");
@@ -1448,6 +1454,23 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await expect(page.getByTestId("source-focus-strip")).toContainText("WACC");
   await expect(page.getByTestId("source-focus-strip")).toContainText("Return on Tangible Asset");
   await expect(page.getByTestId("wacc-basis-control")).toHaveClass(/source-focus-target/);
+
+  await openWorkflowTab(page, "Penilaian EEM");
+  await page.getByLabel("Basis Return on Tangible Asset").selectOption("equityCost");
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const raw = window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}";
+        return JSON.parse(raw).eemReturnOnTangibleAssetBasis;
+      }),
+    )
+    .toBe("equityCost");
+  await expect(page.getByTestId("eem-return-on-tangible-asset-basis-control")).toContainText("Return ekuitas aset berwujud");
+  await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Return ekuitas aset berwujud");
+  const equityCostReturnOnTangibleAssetRow = page.getByTestId("eem-trace-row").filter({
+    has: page.locator(".eem-trace-component strong").filter({ hasText: /^Return on Tangible Asset$/ }),
+  });
+  await expect(equityCostReturnOnTangibleAssetRow).toContainText("Ke / biaya modal ekuitas aset berwujud");
 
   await openWorkflowTab(page, "Penilaian DCF");
   await expect(page.getByRole("heading", { name: "Kesiapan DCF" })).toHaveCount(0);

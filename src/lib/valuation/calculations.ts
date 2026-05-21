@@ -47,6 +47,9 @@ export type EemOptions = {
   currentLiabilityMovement?: number;
   capitalExpenditures?: number;
   capitalizationRate?: number;
+  returnOnTangibleAsset?: number;
+  returnOnTangibleAssetLabel?: string;
+  returnOnTangibleAssetSource?: "required-return-on-nta" | "equity-cost";
 };
 
 type CalculationOptions = {
@@ -332,7 +335,10 @@ export function calculateEem(snapshot: FinancialStatementSnapshot, options: EemO
   const capitalExpenditures = options.capitalExpenditures ?? 0;
   const grossInvestment = totalNetChangesInWorkingCapital + capitalExpenditures;
   const freeCashFlow = grossCashFlow + grossInvestment;
-  const requiredReturn = netOperatingTangibleAssets * snapshot.requiredReturnOnNta;
+  const returnOnTangibleAsset = options.returnOnTangibleAsset ?? snapshot.requiredReturnOnNta;
+  const returnOnTangibleAssetLabel = options.returnOnTangibleAssetLabel ?? "Kalkulator required return on NTA";
+  const isEquityCostReturnOnTangibleAsset = options.returnOnTangibleAssetSource === "equity-cost";
+  const requiredReturn = netOperatingTangibleAssets * returnOnTangibleAsset;
   const excessEarnings = freeCashFlow - requiredReturn;
   const capitalizationRate = options.capitalizationRate ?? snapshot.wacc;
   const capitalizedExcess = capitalizationRate > 0 ? excessEarnings / capitalizationRate : 0;
@@ -364,13 +370,19 @@ export function calculateEem(snapshot: FinancialStatementSnapshot, options: EemO
     {
       id: "eem-return-on-tangible-asset",
       label: "Return on Tangible Asset",
-      formula: "Required return on NTA aktif",
-      value: snapshot.requiredReturnOnNta,
-      note: "Rate berasal dari asumsi/reviewer governance, bukan angka workbook yang ditanam di runtime.",
+      formula: isEquityCostReturnOnTangibleAsset
+        ? "Return ekuitas aset berwujud aktif"
+        : "Kalkulator required return on NTA aktif",
+      value: returnOnTangibleAsset,
+      note: isEquityCostReturnOnTangibleAsset
+        ? "Rate memakai Ke / biaya modal ekuitas aset berwujud dari WACC, sesuai pilihan reviewer di Penilaian EEM."
+        : "Rate memakai blended return dari kapasitas utang dan ekuitas atas NTA, sesuai pilihan reviewer di Penilaian EEM.",
       valueFormat: "percent",
-      sourceTabs: ["Asumsi EEM/DCF", "WACC"],
-      workbookReference: "EEM!C8 / STAT_EEM!B15 / assumptions driver / BORROWING CAP F14",
-      treatment: "Assumption driver",
+      sourceTabs: isEquityCostReturnOnTangibleAsset ? ["WACC", "Asumsi EEM/DCF"] : ["Asumsi EEM/DCF", "WACC"],
+      workbookReference: isEquityCostReturnOnTangibleAsset
+        ? "DISCOUNT RATE Ke / BORROWING CAP equity cost"
+        : "EEM!C8 / STAT_EEM!B15 / assumptions driver / BORROWING CAP F14",
+      treatment: returnOnTangibleAssetLabel,
       traceLevel: "assumption",
     },
     {

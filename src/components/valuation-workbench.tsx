@@ -459,7 +459,7 @@ const requiredReturnSuggestionOrder: RequiredReturnOnNtaSuggestionKey[] = [
 const WORKBENCH_STORAGE_KEY = "penilaian-valuasi-bisnis.workbench.v1";
 const WORKBENCH_SCROLL_STORAGE_KEY = "penilaian-valuasi-bisnis.scroll.v1";
 const WORKBENCH_SIDEBAR_STORAGE_KEY = "penilaian-valuasi-bisnis.sidebar.v1";
-const WORKBENCH_STORAGE_VERSION = 19;
+const WORKBENCH_STORAGE_VERSION = 20;
 const WORKSPACE_MANIFEST_STORAGE_KEY = "penilaian-valuasi-bisnis.workspaces.v1";
 const WORKSPACE_DATA_STORAGE_PREFIX = "penilaian-valuasi-bisnis.workspace.";
 const WORKSPACE_DATA_STORAGE_SUFFIX = ".v1";
@@ -472,6 +472,7 @@ const defaultFixedAssetProjectionMode: FixedAssetProjectionMode = "workbook-form
 const defaultActiveWaccBasis: WaccBasis = "governed";
 
 type ActiveEemBasis = "base" | "taxPayableDebtLike";
+type EemReturnOnTangibleAssetBasis = "requiredReturnOnNta" | "equityCost";
 
 type ActiveDcfBasis =
   | "base"
@@ -501,6 +502,17 @@ type ActiveEemSelection = {
   summary: string;
   eem: MethodOutput;
   debtLikeTaxPayable: number;
+};
+type EemReturnOnTangibleAssetChoice = {
+  value: EemReturnOnTangibleAssetBasis;
+  label: string;
+  shortLabel: string;
+  summary: string;
+  formula: string;
+};
+type EemReturnOnTangibleAssetSelection = EemReturnOnTangibleAssetChoice & {
+  rate: number;
+  sourceLabel: string;
 };
 
 type IncomeProjectionOverrideField = "revenueGrowth" | "grossProfitMargin" | "operatingExpenseMargin" | "depreciationMargin";
@@ -578,6 +590,7 @@ type PersistedWorkbenchState = {
   debtScheduleInputs: DebtScheduleInputState;
   fixedAssetProjectionMode: FixedAssetProjectionMode;
   activeWaccBasis: WaccBasis;
+  eemReturnOnTangibleAssetBasis: EemReturnOnTangibleAssetBasis;
   activeEemBasis: ActiveEemBasis;
   activeDcfBasis: ActiveDcfBasis;
   aamAdjustments: AamAdjustmentState;
@@ -727,6 +740,27 @@ const activeEemBasisLabels = Object.fromEntries(activeEemBasisOptions.map((optio
   (typeof activeEemBasisOptions)[number]
 >;
 const defaultActiveEemBasis: ActiveEemBasis = "base";
+
+const eemReturnOnTangibleAssetChoices: EemReturnOnTangibleAssetChoice[] = [
+  {
+    value: "requiredReturnOnNta",
+    label: "Kalkulator required return on NTA",
+    shortLabel: "Blended NTA",
+    summary: "Weighted return dari kapasitas utang dan ekuitas atas operating net tangible assets.",
+    formula: "Bobot utang kapasitas x Kd + bobot ekuitas x Ke",
+  },
+  {
+    value: "equityCost",
+    label: "Return ekuitas aset berwujud",
+    shortLabel: "Ke aset berwujud",
+    summary: "Biaya modal ekuitas aset berwujud dari WACC/DISCOUNT RATE.",
+    formula: "Ke = risk-free rate + beta x ERP + risk adjustment",
+  },
+];
+const eemReturnOnTangibleAssetChoiceLabels = Object.fromEntries(
+  eemReturnOnTangibleAssetChoices.map((choice) => [choice.value, choice]),
+) as Record<EemReturnOnTangibleAssetBasis, EemReturnOnTangibleAssetChoice>;
+const defaultEemReturnOnTangibleAssetBasis: EemReturnOnTangibleAssetBasis = "requiredReturnOnNta";
 
 const activeDcfBasisOptions: Array<{
   value: ActiveDcfBasis;
@@ -953,6 +987,9 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   const [debtScheduleInputs, setDebtScheduleInputs] = useState<DebtScheduleInputState>(() => createEmptyDebtScheduleInputs(initialPeriods));
   const [fixedAssetProjectionMode, setFixedAssetProjectionMode] = useState<FixedAssetProjectionMode>(defaultFixedAssetProjectionMode);
   const [activeWaccBasis, setActiveWaccBasis] = useState<WaccBasis>(defaultActiveWaccBasis);
+  const [eemReturnOnTangibleAssetBasis, setEemReturnOnTangibleAssetBasis] = useState<EemReturnOnTangibleAssetBasis>(
+    defaultEemReturnOnTangibleAssetBasis,
+  );
   const [activeEemBasis, setActiveEemBasis] = useState<ActiveEemBasis>(defaultActiveEemBasis);
   const [activeDcfBasis, setActiveDcfBasis] = useState<ActiveDcfBasis>(defaultActiveDcfBasis);
   const [aamAdjustments, setAamAdjustments] = useState<AamAdjustmentState>({});
@@ -1085,6 +1122,20 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     () => buildDcfFixedAssetProjectionInput(fixedAssetProjection),
     [fixedAssetProjection],
   );
+  const eemEquityCostRate = useMemo(
+    () => readRateInput(resolvedAssumptions.requiredReturnEquityCost),
+    [resolvedAssumptions.requiredReturnEquityCost],
+  );
+  const eemReturnOnTangibleAssetSelection = useMemo(
+    () =>
+      buildEemReturnOnTangibleAssetSelection({
+        basis: eemReturnOnTangibleAssetBasis,
+        requiredReturnOnNta: snapshot.requiredReturnOnNta,
+        equityCost: eemEquityCostRate,
+        hasEquityCostOverride: assumptions.requiredReturnEquityCost.trim() !== "",
+      }),
+    [assumptions.requiredReturnEquityCost, eemEquityCostRate, eemReturnOnTangibleAssetBasis, snapshot.requiredReturnOnNta],
+  );
   const sectionAnalysis = useMemo(
     () =>
       buildSectionAnalysis(
@@ -1110,8 +1161,12 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         sectionAnalysis,
         fixedAssetSchedule,
         capitalizationRate: snapshot.wacc,
+        returnOnTangibleAsset: eemReturnOnTangibleAssetSelection.rate,
+        returnOnTangibleAssetLabel: eemReturnOnTangibleAssetSelection.label,
+        returnOnTangibleAssetSource:
+          eemReturnOnTangibleAssetSelection.value === "equityCost" ? "equity-cost" : "required-return-on-nta",
       }),
-    [activePeriodId, aamAdjustmentModel, fixedAssetSchedule, sectionAnalysis, snapshot.wacc],
+    [activePeriodId, aamAdjustmentModel, eemReturnOnTangibleAssetSelection, fixedAssetSchedule, sectionAnalysis, snapshot.wacc],
   );
   const results = useMemo(
     () =>
@@ -1325,6 +1380,16 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       : requiredReturnCalculation ? requiredReturnCalculation.basisLabel : sourceLabelFromManual(assumptions.requiredReturnOnNta),
     ),
   ];
+  const eemDriverSummaries = assumptionDriverSummaries.map((driver) =>
+    driver.label === "Required return on NTA"
+      ? {
+          ...driver,
+          label: "Return on Tangible Asset",
+          valueLabel: formatPercentFixed(eemReturnOnTangibleAssetSelection.rate, 2),
+          sourceLabel: eemReturnOnTangibleAssetSelection.label,
+        }
+      : driver,
+  );
   const dcfDriverSummaries = assumptionDriverSummaries.map((driver) =>
     driver.label === "Terminal growth"
       ? {
@@ -1360,6 +1425,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     hasCashFlowAccountInclusionInput(cashFlowAccountInclusions) ||
     hasIncomeProjectionControlInput(incomeProjectionControls) ||
     activeWaccBasis !== defaultActiveWaccBasis ||
+    eemReturnOnTangibleAssetBasis !== defaultEemReturnOnTangibleAssetBasis ||
     activeEemBasis !== defaultActiveEemBasis ||
     activeDcfBasis !== defaultActiveDcfBasis ||
     hasDlomInput(dlom) ||
@@ -1409,6 +1475,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       debtScheduleInputs,
       fixedAssetProjectionMode,
       activeWaccBasis,
+      eemReturnOnTangibleAssetBasis,
       activeEemBasis,
       activeDcfBasis,
       aamAdjustments,
@@ -1432,6 +1499,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     setDebtScheduleInputs(state.debtScheduleInputs);
     setFixedAssetProjectionMode(state.fixedAssetProjectionMode);
     setActiveWaccBasis(state.activeWaccBasis);
+    setEemReturnOnTangibleAssetBasis(state.eemReturnOnTangibleAssetBasis);
     setActiveEemBasis(state.activeEemBasis);
     setActiveDcfBasis(state.activeDcfBasis);
     setAamAdjustments(state.aamAdjustments);
@@ -1881,6 +1949,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         debtScheduleInputs,
         fixedAssetProjectionMode,
         activeWaccBasis,
+        eemReturnOnTangibleAssetBasis,
         activeDcfBasis,
         activeEemBasis,
         aamAdjustments,
@@ -1907,6 +1976,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   }, [
     aamAdjustments,
     activeWaccBasis,
+    eemReturnOnTangibleAssetBasis,
     activeDcfBasis,
     activeEemBasis,
     activePeriodId,
@@ -2819,6 +2889,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       debtScheduleInputs: buildSampleDebtScheduleInputs(),
       fixedAssetProjectionMode: defaultFixedAssetProjectionMode,
       activeWaccBasis: inferInitialWaccBasis(sampleAssumptions),
+      eemReturnOnTangibleAssetBasis: defaultEemReturnOnTangibleAssetBasis,
       activeEemBasis: defaultActiveEemBasis,
       activeDcfBasis: defaultActiveDcfBasis,
       aamAdjustments: {},
@@ -2866,6 +2937,9 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       activeWaccBasis: effectiveActiveWaccBasis,
       activeWaccBasisLabel: activeWaccBasisLabels[effectiveActiveWaccBasis].label,
       activeWaccBasisSummary: activeWaccBasisLabels[effectiveActiveWaccBasis].summary,
+      activeEemReturnOnTangibleAssetBasis: eemReturnOnTangibleAssetSelection.value,
+      activeEemReturnOnTangibleAssetLabel: eemReturnOnTangibleAssetSelection.label,
+      activeEemReturnOnTangibleAssetSummary: eemReturnOnTangibleAssetSelection.summary,
       activeEemBasis,
       activeEemBasisLabel: activeEemSelection.label,
       activeEemBasisSummary: activeEemSelection.summary,
@@ -3929,13 +4003,82 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
           </article>
         </section>
 
+        <section className="panel eem-return-basis-panel" data-testid="eem-return-on-tangible-asset-basis-control">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Return on Tangible Asset</p>
+              <h3>Pilihan rate aktif EEM</h3>
+            </div>
+            <Calculator size={22} />
+          </div>
+          <div className="eem-return-basis-control">
+            <label className="field">
+              <span>Basis Return on Tangible Asset</span>
+              <select
+                aria-label="Basis Return on Tangible Asset"
+                value={eemReturnOnTangibleAssetBasis}
+                onChange={(event) =>
+                  commitCoreState((current) => ({
+                    ...current,
+                    eemReturnOnTangibleAssetBasis: sanitizeEemReturnOnTangibleAssetBasis(event.target.value),
+                  }))
+                }
+              >
+                {eemReturnOnTangibleAssetChoices.map((choice) => (
+                  <option key={choice.value} value={choice.value}>
+                    {choice.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div>
+              <span>Rate aktif</span>
+              <strong data-testid="eem-active-return-on-tangible-asset">
+                {formatPercentFixed(eemReturnOnTangibleAssetSelection.rate, 2)}
+              </strong>
+              <small>{eemReturnOnTangibleAssetSelection.summary}</small>
+            </div>
+            <div>
+              <span>Dampak formula</span>
+              <strong>NTA x rate aktif</strong>
+              <small>{eemReturnOnTangibleAssetSelection.formula}</small>
+            </div>
+          </div>
+          <div className="eem-return-basis-options" aria-label="Opsi Return on Tangible Asset EEM">
+            {eemReturnOnTangibleAssetChoices.map((choice) => {
+              const isActive = choice.value === eemReturnOnTangibleAssetSelection.value;
+              const displayRate = choice.value === "equityCost"
+                ? eemEquityCostRate
+                : snapshot.requiredReturnOnNta;
+
+              return (
+                <button
+                  key={choice.value}
+                  type="button"
+                  className={isActive ? "active" : ""}
+                  onClick={() =>
+                    commitCoreState((current) => ({
+                      ...current,
+                      eemReturnOnTangibleAssetBasis: choice.value,
+                    }))
+                  }
+                >
+                  <span>{choice.label}</span>
+                  <strong>{displayRate === null ? "Belum tersedia" : formatPercentFixed(displayRate, 2)}</strong>
+                  <small>{choice.summary}</small>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
         <section className="active-driver-strip" aria-label="Driver aktif penilaian">
           <div>
             <span>Basis EEM aktif</span>
             <strong data-testid="eem-active-basis-label">{activeEemSelection.shortLabel}</strong>
             <small>{activeEemBasis === "base" ? "Default sistem dipertahankan" : "Skenario terpilih user menjadi basis aktif"}</small>
           </div>
-          {assumptionDriverSummaries.map((driver) => (
+          {eemDriverSummaries.map((driver) => (
             <div key={driver.label}>
               <span>{driver.label}</span>
               <strong>{driver.valueLabel}</strong>
@@ -7379,6 +7522,38 @@ function buildActiveEemSelection(
   };
 }
 
+function buildEemReturnOnTangibleAssetSelection({
+  basis,
+  requiredReturnOnNta,
+  equityCost,
+  hasEquityCostOverride,
+}: {
+  basis: EemReturnOnTangibleAssetBasis;
+  requiredReturnOnNta: number;
+  equityCost: number | null;
+  hasEquityCostOverride: boolean;
+}): EemReturnOnTangibleAssetSelection {
+  const requestedChoice =
+    eemReturnOnTangibleAssetChoiceLabels[basis] ??
+    eemReturnOnTangibleAssetChoiceLabels[defaultEemReturnOnTangibleAssetBasis];
+
+  if (requestedChoice.value === "equityCost" && equityCost !== null) {
+    return {
+      ...requestedChoice,
+      rate: equityCost,
+      sourceLabel: hasEquityCostOverride ? "Override Return ekuitas aset berwujud" : "Auto WACC/DISCOUNT RATE",
+    };
+  }
+
+  return {
+    ...requestedChoice,
+    rate: requiredReturnOnNta,
+    sourceLabel: requestedChoice.value === "requiredReturnOnNta"
+      ? "Model kapasitas BORROWING CAP"
+      : "Fallback ke kalkulator required return on NTA",
+  };
+}
+
 function buildActiveDcfBasisDcfOptions(basis: ActiveDcfBasis, snapshot: FinancialStatementSnapshot): DcfOptions {
   if (basis === "terminalDownside") {
     return { terminalGrowth: snapshot.terminalGrowthDownside ?? snapshot.terminalGrowth };
@@ -8476,6 +8651,7 @@ function normalizeWorkbenchStatePayload(value: unknown): PersistedWorkbenchState
     value.activeWaccBasis === undefined
       ? inferInitialWaccBasis(assumptions)
       : sanitizeWaccBasis(value.activeWaccBasis);
+  const eemReturnOnTangibleAssetBasis = sanitizeEemReturnOnTangibleAssetBasis(value.eemReturnOnTangibleAssetBasis);
   const activeEemBasis = sanitizeActiveEemBasis(value.activeEemBasis);
   const activeDcfBasis = sanitizeActiveDcfBasis(value.activeDcfBasis);
   const isFixedAssetScheduleEnabled =
@@ -8492,6 +8668,7 @@ function normalizeWorkbenchStatePayload(value: unknown): PersistedWorkbenchState
     debtScheduleInputs,
     fixedAssetProjectionMode,
     activeWaccBasis,
+    eemReturnOnTangibleAssetBasis,
     activeEemBasis,
     activeDcfBasis,
     aamAdjustments,
@@ -8534,6 +8711,7 @@ function buildEmptyCoreState(): WorkbenchCoreState {
     debtScheduleInputs: createEmptyDebtScheduleInputs(initialPeriods),
     fixedAssetProjectionMode: defaultFixedAssetProjectionMode,
     activeWaccBasis: defaultActiveWaccBasis,
+    eemReturnOnTangibleAssetBasis: defaultEemReturnOnTangibleAssetBasis,
     activeEemBasis: defaultActiveEemBasis,
     activeDcfBasis: defaultActiveDcfBasis,
     aamAdjustments: {},
@@ -8724,6 +8902,7 @@ function buildRestoredCoreState(state: PersistedWorkbenchState): WorkbenchCoreSt
     debtScheduleInputs: ensureDebtScheduleInputPeriods(state.debtScheduleInputs, nextPeriods),
     fixedAssetProjectionMode: state.fixedAssetProjectionMode,
     activeWaccBasis: state.activeWaccBasis,
+    eemReturnOnTangibleAssetBasis: state.eemReturnOnTangibleAssetBasis,
     activeEemBasis: state.activeEemBasis,
     activeDcfBasis: state.activeDcfBasis,
     aamAdjustments: state.aamAdjustments,
@@ -8955,6 +9134,12 @@ function sanitizeActiveEemBasis(value: unknown): ActiveEemBasis {
   return typeof value === "string" && value in activeEemBasisLabels
     ? (value as ActiveEemBasis)
     : defaultActiveEemBasis;
+}
+
+function sanitizeEemReturnOnTangibleAssetBasis(value: unknown): EemReturnOnTangibleAssetBasis {
+  return typeof value === "string" && value in eemReturnOnTangibleAssetChoiceLabels
+    ? (value as EemReturnOnTangibleAssetBasis)
+    : defaultEemReturnOnTangibleAssetBasis;
 }
 
 function sanitizeActiveDcfBasis(value: unknown): ActiveDcfBasis {
@@ -11589,6 +11774,8 @@ function RequiredReturnOnNtaPanel({
   const afterTaxDebtCostIsAuto = Boolean(!assumptions.requiredReturnAfterTaxDebtCost.trim() && afterTaxDebtCostSuggestion?.value.trim());
   const equityCostIsAuto = Boolean(!assumptions.requiredReturnEquityCost.trim() && equityCostSuggestion?.value.trim());
   const receivablesBase = Math.max(0, balances.accountReceivable) + Math.max(0, balances.employeeReceivable);
+  const equityCostValue =
+    readRateInput(assumptions.requiredReturnEquityCost) ?? suggestion.fields.requiredReturnEquityCost?.value ?? waccCalculation?.costOfEquity ?? null;
 
   return (
     <article className="assumption-calculator-card wide" data-testid="required-return-on-nta-calculator">
@@ -11611,6 +11798,18 @@ function RequiredReturnOnNtaPanel({
         <div>
           <span>Aset tetap neto</span>
           <strong>{formatIdr(balances.fixedAssetsNet)}</strong>
+        </div>
+      </div>
+      <div className="required-return-meaning-note" data-testid="required-return-meaning-note">
+        <div>
+          <span>Kalkulator required return on NTA</span>
+          <strong>{calculation ? formatPercentFixed(calculation.requiredReturn, 2) : "Belum dihitung"}</strong>
+          <small>Blended return: bobot utang kapasitas x Kd + bobot ekuitas x Ke. Nilai ini menjadi default Return on Tangible Asset EEM.</small>
+        </div>
+        <div>
+          <span>Return ekuitas aset berwujud</span>
+          <strong>{equityCostValue === null ? "Belum tersedia" : formatPercentFixed(equityCostValue, 2)}</strong>
+          <small>Ke / biaya modal ekuitas aset berwujud dari WACC. Nilai ini dapat dipilih juga sebagai Return on Tangible Asset di Penilaian EEM.</small>
         </div>
       </div>
       <RequiredReturnOnNtaSuggestionBlock suggestion={suggestion} />

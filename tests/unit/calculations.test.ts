@@ -66,6 +66,29 @@ describe("valuation calculations", () => {
     assertAlmostEqual(eem.equityValue, expected, 0.01);
   });
 
+  it("allows EEM return on tangible asset to use equity cost instead of blended NTA return", () => {
+    const equityCostReturn = snapshot.requiredReturnOnNta + 0.01;
+    const eem = calculateEem(snapshot, {
+      returnOnTangibleAsset: equityCostReturn,
+      returnOnTangibleAssetLabel: "Return ekuitas aset berwujud",
+      returnOnTangibleAssetSource: "equity-cost",
+    });
+    const nta =
+      adjustedTotalAssets(snapshot) -
+      snapshot.cashOnHand -
+      snapshot.cashOnBankDeposit -
+      (adjustedTotalLiabilities(snapshot) - interestBearingDebt(snapshot));
+    const depreciationAddBack = Math.max(0, -snapshot.depreciation);
+    const excessEarnings = normalizedNoplat(snapshot) + depreciationAddBack - nta * equityCostReturn;
+    const expected = nta + excessEarnings / snapshot.wacc + nonOperatingAssets(snapshot) - interestBearingDebt(snapshot);
+    const returnTrace = eem.traces.find((trace) => trace.id === "eem-return-on-tangible-asset");
+
+    assertAlmostEqual(eem.equityValue, expected, 0.01);
+    assert.equal(returnTrace?.value, equityCostReturn);
+    assert.equal(returnTrace?.treatment, "Return ekuitas aset berwujud");
+    assert.equal(returnTrace?.formula, "Return ekuitas aset berwujud aktif");
+  });
+
   it("builds granular workbook-aligned EEM traces from engine values", () => {
     const eem = calculateEem(snapshot);
     const valueById = (id: string) => eem.traces.find((trace) => trace.id === id)?.value ?? Number.NaN;

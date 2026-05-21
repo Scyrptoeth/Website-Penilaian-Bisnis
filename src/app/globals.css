@@ -3581,6 +3581,47 @@ select {
   overflow-wrap: anywhere;
 }
 
+.required-return-meaning-note {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.required-return-meaning-note > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  border-radius: var(--radius);
+  background: rgba(239, 246, 255, 0.7);
+}
+
+.required-return-meaning-note span,
+.eem-return-basis-control span,
+.eem-return-basis-options span {
+  color: var(--ink-soft);
+  font-size: 9.4px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.required-return-meaning-note strong,
+.eem-return-basis-control strong,
+.eem-return-basis-options strong {
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono), monospace;
+}
+
+.required-return-meaning-note small,
+.eem-return-basis-control small,
+.eem-return-basis-options small {
+  color: var(--muted);
+  line-height: 1.35;
+}
+
 .required-return-equity-trace {
   display: grid;
   gap: 8px;
@@ -4274,6 +4315,51 @@ select {
 .dcf-active-basis-control small {
   color: var(--muted);
   line-height: 1.35;
+}
+
+.eem-return-basis-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.eem-return-basis-control {
+  display: grid;
+  grid-template-columns: 1.15fr repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.eem-return-basis-control > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-raised);
+}
+
+.eem-return-basis-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.eem-return-basis-options button {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px;
+  text-align: left;
+  border: 1px solid rgba(15, 118, 110, 0.18);
+  border-radius: var(--radius);
+  background: rgba(240, 253, 250, 0.45);
+  cursor: pointer;
+}
+
+.eem-return-basis-options button.active {
+  border-color: rgba(15, 118, 110, 0.55);
+  box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.16);
+  background: rgba(240, 253, 250, 0.86);
 }
 
 .projection-governance-panel {
@@ -6032,9 +6118,12 @@ td span {
   .metric-trace-grid,
   .driver-basis-strip,
   .bank-loan-rate-strip,
+  .required-return-meaning-note,
   .assumption-reference-list,
   .terminal-growth-suggestion-grid,
   .dcf-active-basis-control,
+  .eem-return-basis-control,
+  .eem-return-basis-options,
   .sensitivity-grid,
   .eem-sensitivity-bridge,
   .projection-governance-grid,

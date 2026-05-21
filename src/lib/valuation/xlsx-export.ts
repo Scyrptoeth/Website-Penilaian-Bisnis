@@ -312,6 +312,8 @@ function buildSummaryRows(input: ValuationPdfExportInput, scope: ValuationExport
     [],
     ["Active WACC Basis", input.activeWaccBasisLabel || input.activeWaccBasis || "-"],
     ["Active WACC Summary", input.activeWaccBasisSummary || "-"],
+    ["Active EEM Return on Tangible Asset", scope.methods.includes("EEM") ? input.activeEemReturnOnTangibleAssetLabel || input.activeEemReturnOnTangibleAssetBasis || "-" : "Tidak termasuk scope"],
+    ["Active EEM Return Summary", scope.methods.includes("EEM") ? input.activeEemReturnOnTangibleAssetSummary || "-" : "Tidak termasuk scope"],
     ["Active EEM Basis", scope.methods.includes("EEM") ? input.activeEemBasisLabel || input.activeEemBasis || "-" : "Tidak termasuk scope"],
     ["Active EEM Summary", scope.methods.includes("EEM") ? input.activeEemBasisSummary || "-" : "Tidak termasuk scope"],
     ["Active DCF Basis", scope.methods.includes("DCF") ? input.activeDcfBasisLabel || input.activeDcfBasis || "-" : "Tidak termasuk scope"],
@@ -342,6 +344,9 @@ function buildCalculationModelRows(input: ValuationPdfExportInput, scope: Valuat
   const aamLastRow = Math.max(aamFirstRow, aamFirstRow + aamLineCount - 1);
   const reportedTransferOverride = parseInputNumber(input.taxSimulation.reportedTransferValue);
   const baseResults = input.baseResults ?? input.results;
+  const activeEemReturnOnTangibleAsset = scope.methods.includes("EEM")
+    ? findTraceValueById(input.results.eem, "eem-return-on-tangible-asset", input.snapshot.requiredReturnOnNta)
+    : input.snapshot.requiredReturnOnNta;
   const eemDriverSummary = scope.methods.includes("EEM")
     ? buildEemDriverSummary({
         activePeriodId: input.activePeriodId,
@@ -359,6 +364,14 @@ function buildCalculationModelRows(input: ValuationPdfExportInput, scope: Valuat
   add("dcfTerminalGrowth", "Input", "Active DCF terminal growth", resolveActiveDcfTerminalGrowth(input), "Input", input.activeDcfBasisSummary || "DCF active basis.");
   add("revenueGrowth", "Input", "Revenue growth", input.snapshot.revenueGrowth, "Input", "DCF forecast driver.");
   add("requiredReturnOnNta", "Input", "Required return on NTA", input.snapshot.requiredReturnOnNta, "Input", input.resolvedAssumptions.requiredReturnOnNtaSource || input.assumptions.requiredReturnOnNtaSource);
+  add(
+    "eemReturnOnTangibleAsset",
+    "Input",
+    "Active EEM Return on Tangible Asset",
+    activeEemReturnOnTangibleAsset,
+    "Input",
+    input.activeEemReturnOnTangibleAssetLabel || "Kalkulator required return on NTA",
+  );
   add("revenueBase", "Source", "Revenue active period", input.snapshot.revenue, "Input", "Mapped source accounts.");
   add("cogsMargin", "Source", "COGS margin", input.snapshot.cogsMargin, "System", "Derived from source accounts.");
   add("operatingExpenseMargin", "Source", "Operating expense margin", input.snapshot.gaMargin, "System", "Derived from source accounts.");
@@ -421,7 +434,7 @@ function buildCalculationModelRows(input: ValuationPdfExportInput, scope: Valuat
     const eemGrossInvestment = eemTotalNetChangesWorkingCapital + eemDrivers.capitalExpenditures;
     const eemGrossCashFlow = input.results.normalizedNoplat + eemDrivers.depreciationAddBack;
     const eemFreeCashFlow = eemGrossCashFlow + eemGrossInvestment;
-    const eemRequiredReturn = eemNta * input.snapshot.requiredReturnOnNta;
+    const eemRequiredReturn = eemNta * activeEemReturnOnTangibleAsset;
     const eemExcessEarnings = eemFreeCashFlow - eemRequiredReturn;
     const eemCapitalizedExcess = input.snapshot.wacc > 0 ? eemExcessEarnings / input.snapshot.wacc : 0;
     const eemEnterpriseValue = eemNta + eemCapitalizedExcess;
@@ -440,7 +453,7 @@ function buildCalculationModelRows(input: ValuationPdfExportInput, scope: Valuat
     add("eemCapitalExpenditures", "EEM", "Capital expenditures", eemDrivers.capitalExpenditures, "Formula", "Negative active-period additions in A. Acquisition Costs.");
     add("eemGrossInvestment", "EEM", "Gross investment", formulaCell(`${refs.eemTotalNetChangesWorkingCapital}+${refs.eemCapitalExpenditures}`, eemGrossInvestment), "Formula", "Total net WC changes + capital expenditures.");
     add("eemFreeCashFlow", "EEM", "Free cash flow", formulaCell(`${refs.eemGrossCashFlow}+${refs.eemGrossInvestment}`, eemFreeCashFlow), "Formula", "Gross cash flow + gross investment.");
-    add("eemRequiredReturn", "EEM", "Required return charge", formulaCell(`${refs.eemNta}*${refs.requiredReturnOnNta}`, eemRequiredReturn), "Formula", "NTA x required return on NTA.");
+    add("eemRequiredReturn", "EEM", "Required return charge", formulaCell(`${refs.eemNta}*${refs.eemReturnOnTangibleAsset}`, eemRequiredReturn), "Formula", "NTA x active Return on Tangible Asset.");
     add("eemExcessEarnings", "EEM", "Excess earnings", formulaCell(`${refs.eemFreeCashFlow}-${refs.eemRequiredReturn}`, eemExcessEarnings), "Formula", "FCF - required return charge.");
     add("eemCapitalizationRate", "EEM", "Capitalization rate", formulaCell(refs.wacc, input.snapshot.wacc), "Formula", "Active WACC basis.");
     add("eemCapitalizedExcess", "EEM", "Capitalized excess earnings", formulaCell(`IF(${refs.eemCapitalizationRate}>0,${refs.eemExcessEarnings}/${refs.eemCapitalizationRate},0)`, eemCapitalizedExcess), "Formula", "Excess earnings / capitalization rate.");
@@ -540,6 +553,12 @@ function buildDriverMetrics(input: ValuationPdfExportInput, scope: ValuationExpo
       { label: "Basis EEM aktif", value: input.activeEemBasisLabel || eemSensitivityContext.base.label, note: input.activeEemBasisSummary || eemSensitivityContext.base.note },
       { label: "Nilai aktif EEM", value: formulaCell(refs.eemEquityValue, input.results.eem.equityValue), sourceType: "Formula", note: input.activeEemBasisLabel || eemSensitivityContext.base.label },
       { label: "Required return on NTA", value: formulaCell(refs.requiredReturnOnNta, input.snapshot.requiredReturnOnNta), sourceType: "Formula" },
+      {
+        label: "Return on Tangible Asset aktif",
+        value: formulaCell(refs.eemReturnOnTangibleAsset, findTraceValueById(input.results.eem, "eem-return-on-tangible-asset", input.snapshot.requiredReturnOnNta)),
+        sourceType: "Formula",
+        note: input.activeEemReturnOnTangibleAssetLabel || "Kalkulator required return on NTA",
+      },
       { label: "Nett Tangible Asset Value", value: formulaCell(refs.eemNta, findTraceValueById(input.results.eem, "eem-net-tangible-asset-value")), sourceType: "Formula" },
       { label: "Non-operating assets", value: formulaCell(refs.nonOperatingAssets, input.results.nonOperatingAssets), sourceType: "Formula" },
     );
@@ -1300,7 +1319,7 @@ function resolveTraceFormulaRef(method: ValuationMethod, trace: FormulaTrace, re
   if (method === "EEM") {
     const eemTraceRefs: Record<string, string | undefined> = {
       "eem-net-tangible-asset-value": refs.eemNta,
-      "eem-return-on-tangible-asset": refs.requiredReturnOnNta,
+      "eem-return-on-tangible-asset": refs.eemReturnOnTangibleAsset,
       "eem-earning-return-on-nta": refs.eemRequiredReturn,
       "eem-noplat": refs.eemNoplat,
       "eem-depreciation": refs.eemDepreciation,

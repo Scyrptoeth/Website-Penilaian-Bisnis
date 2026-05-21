@@ -50,10 +50,18 @@ export function buildEemDriverSummary({
   };
 }
 
-export function buildEemCalculationOptions(input: EemDriverInput & { capitalizationRate: number }): EemOptions {
+export function buildEemCalculationOptions(
+  input: EemDriverInput & Pick<
+    EemOptions,
+    "capitalizationRate" | "returnOnTangibleAsset" | "returnOnTangibleAssetLabel" | "returnOnTangibleAssetSource"
+  >,
+): EemOptions {
   return {
     ...buildEemDriverSummary(input),
     capitalizationRate: input.capitalizationRate,
+    returnOnTangibleAsset: input.returnOnTangibleAsset,
+    returnOnTangibleAssetLabel: input.returnOnTangibleAssetLabel,
+    returnOnTangibleAssetSource: input.returnOnTangibleAssetSource,
   };
 }
 

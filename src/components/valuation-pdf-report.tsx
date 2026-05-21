@@ -867,10 +867,17 @@ function buildDriverMetrics(payload: ValuationPdfExportPayload, scope: Valuation
   }
 
   if (scope.methods.includes("EEM")) {
+    const activeReturnOnTangibleAsset = findTraceValueById(input.results.eem, "eem-return-on-tangible-asset", input.snapshot.requiredReturnOnNta);
+
     metrics.push(
       { label: "Basis EEM aktif", value: input.activeEemBasisLabel || eemSensitivityContext.base.label, note: input.activeEemBasisSummary || eemSensitivityContext.base.note },
       { label: "Nilai aktif EEM", value: formatIdr(input.results.eem.equityValue), note: input.activeEemBasisLabel || eemSensitivityContext.base.label },
       { label: "Required return on NTA", value: formatPercent(input.snapshot.requiredReturnOnNta) },
+      {
+        label: "Return on Tangible Asset aktif",
+        value: formatPercent(activeReturnOnTangibleAsset),
+        note: input.activeEemReturnOnTangibleAssetLabel || "Kalkulator required return on NTA",
+      },
       { label: "Nett Tangible Asset Value", value: formatIdr(findTraceValueById(input.results.eem, "eem-net-tangible-asset-value")) },
       { label: "Non-operating assets", value: formatIdr(input.results.nonOperatingAssets) },
     );
