@@ -19,6 +19,6 @@ export const valuationDriverGovernancePolicy = {
     inventoryCapacityProxy: 1,
     fixedAssetCapacityProxy: 0.7,
     fixedAssetCapacityReference:
-      "PBI 14/15/PBI/2012 Article 46 allows up to 70% collateral recognition for recently appraised non-residential land/buildings, machinery unified with land, inventories, ships, aircraft, and warehouse receipts; use as a reviewable proxy, not a case-specific lender covenant.",
+      "POJK No. 40/POJK.03/2019 Article 48 allows up to 70% collateral recognition for non-residential land/buildings, machinery attached to land, vehicles, inventories, and warehouse receipts when appraisal-age conditions are met; use as a reviewable proxy, not a case-specific lender covenant.",
   },
 } as const;

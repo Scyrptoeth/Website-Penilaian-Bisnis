@@ -69,7 +69,7 @@ export const requiredReturnOnNtaInputReferences: AssumptionReference[] = [
   },
   {
     label: "Rujukan agunan aset tetap",
-    treatment: "PBI/OJK collateral-recognition 70% dipakai sebagai proxy reviewable untuk aset tetap bila appraisal/covenant khusus belum tersedia; bukan pengganti judgement penilai.",
+    treatment: "POJK No. 40/POJK.03/2019 Pasal 48 collateral-recognition 70% dipakai sebagai proxy reviewable untuk aset tetap bila appraisal/covenant khusus belum tersedia; bukan pengganti judgement penilai.",
   },
   {
     label: "Capital charge",
