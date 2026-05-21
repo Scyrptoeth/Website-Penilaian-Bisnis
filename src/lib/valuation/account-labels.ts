@@ -74,6 +74,7 @@ const currentAssetCategories = new Set<AccountCategory>([
   "CASH_ON_HAND",
   "CASH_ON_BANK",
   "ACCOUNT_RECEIVABLE",
+  "OTHER_RECEIVABLE",
   "EMPLOYEE_RECEIVABLE",
   "INVENTORY",
   "EXCESS_CASH",
@@ -142,6 +143,7 @@ const operatingCategories = new Set<AccountCategory>([
 
 const nonOperatingCategories = new Set<AccountCategory>([
   "CASH_ON_BANK",
+  "OTHER_RECEIVABLE",
   "EMPLOYEE_RECEIVABLE",
   "NON_OPERATING_FIXED_ASSETS",
   "EXCESS_CASH",

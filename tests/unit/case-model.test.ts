@@ -118,6 +118,23 @@ describe("case model", () => {
     assertAlmostEqual(drivers.apDays, 73, 1e-12);
   });
 
+  it("reclasses current-asset other receivables into the non-trade receivable bucket", () => {
+    const snapshot = buildSnapshot(
+      basePeriods,
+      "p1",
+      [
+        rowFixture({ id: "cash", accountName: "Cash on hands", category: "CASH_ON_HAND", values: { p0: "8", p1: "10" } }),
+        rowFixture({ id: "other-receivable", accountName: "Other Receivable", category: "CURRENT_ASSET", values: { p0: "90", p1: "115" } }),
+        rowFixture({ id: "other-current", accountName: "Others", category: "CURRENT_ASSET", values: { p0: "4", p1: "5" } }),
+      ],
+      emptyAssumptions,
+    );
+
+    assert.equal(snapshot.employeeReceivable, 115);
+    assert.equal(snapshot.currentAssets, 130);
+    assert.equal(snapshot.totalAssets, 130);
+  });
+
   it("derives depreciation margin from the fixed asset schedule when depreciation rows are absent", () => {
     const mappedRows = [
       rowFixture({ id: "revenue", statement: "income_statement", accountName: "Penjualan", category: "REVENUE", values: { p0: "100", p1: "120" } }),

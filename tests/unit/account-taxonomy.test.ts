@@ -14,6 +14,15 @@ describe("account taxonomy mapping", () => {
     assert.equal(shouldAutoApplyMapping(mapping), true);
   });
 
+  it("maps generic other receivables separately from trade receivables", () => {
+    const mapping = mapAccount("Other Receivable", "balance_sheet");
+
+    assert.equal(mapping.category, "OTHER_RECEIVABLE");
+    assert.equal(mapping.confidenceBand, "high");
+    assert.equal(mapping.treatment, "non_operating");
+    assert.equal(shouldAutoApplyMapping(mapping), true);
+  });
+
   it("normalizes common accounting abbreviations before mapping", () => {
     assert.equal(normalizeAccountLabel("A/R"), "account receivable");
 

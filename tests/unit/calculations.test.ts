@@ -272,6 +272,63 @@ describe("valuation calculations", () => {
     });
   });
 
+  it("keeps minimum operating cash in balance-reconciled DCF forecasts", () => {
+    const forecast = buildDcfForecast({
+      ...snapshot,
+      valuationDate: "2023-12-31",
+      revenue: 1_000,
+      revenueGrowth: 0,
+      cashOnHand: 100,
+      cashOnBankDeposit: 0,
+      cashToRevenueRatio: 0.1,
+      accountReceivable: 10_000,
+      employeeReceivable: 0,
+      inventory: 0,
+      fixedAssetsNet: 0,
+      fixedAssetAcquisition: 0,
+      accumulatedDepreciation: 0,
+      nonOperatingFixedAssets: 0,
+      intangibleAssets: 0,
+      currentAssets: 10_100,
+      nonCurrentAssets: 0,
+      totalAssets: 10_100,
+      bankLoanShortTerm: 0,
+      accountPayable: 0,
+      taxPayable: 0,
+      otherPayable: 0,
+      interestPayable: 0,
+      bankLoanLongTerm: 0,
+      currentLiabilities: 0,
+      nonCurrentLiabilities: 0,
+      totalLiabilities: 0,
+      paidUpCapital: 0,
+      additionalPaidInCapital: 0,
+      retainedEarningsSurplus: 0,
+      retainedEarningsCurrentProfit: 0,
+      bookEquity: 100,
+      cogsMargin: 0,
+      gaMargin: 0,
+      depreciationMargin: 0,
+      arDays: 3_650,
+      inventoryDays: 0,
+      apDays: 0,
+      otherPayableDays: 0,
+      interestIncomeCashYield: 0,
+      interestIncomeRevenueMargin: 0,
+      interestExpenseDebtRate: 0,
+      interestExpenseRevenueMargin: 0,
+      nonOperatingIncomeRevenueMargin: 0,
+    });
+    const firstYear = forecast[0];
+
+    assert.equal(firstYear.cashOnHand, 100);
+    assert.equal(firstYear.cashOnBankDeposit, 0);
+    assert.equal(firstYear.cashPolicyTarget, 100);
+    assert.equal(firstYear.cashPolicyFundingNeed, 0);
+    assert.ok(firstYear.bankLoanShortTerm > 0);
+    assertAlmostEqual(firstYear.balanceControl, 0, 0.01);
+  });
+
   it("keeps interest and non-operating projection lines presentation-only for DCF value", () => {
     const base = calculateDcf(snapshot);
     const presentationAdjusted = calculateDcf({

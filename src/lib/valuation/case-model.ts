@@ -1000,7 +1000,9 @@ export function buildSnapshot(
   const cashOnHand = amount(activeAggregate("CASH_ON_HAND"));
   const cashOnBankDeposit = amount(activeAggregate("CASH_ON_BANK"));
   const accountReceivable = amount(activeAggregate("ACCOUNT_RECEIVABLE"));
-  const employeeReceivable = amount(activeAggregate("EMPLOYEE_RECEIVABLE"));
+  const broadCurrentAssetOtherReceivable = amount(aggregateCurrentAssetOtherReceivables(mappedRows, effectiveActivePeriodId));
+  const employeeReceivable =
+    amount(activeAggregate("EMPLOYEE_RECEIVABLE", "OTHER_RECEIVABLE")) + broadCurrentAssetOtherReceivable;
   const inventory = amount(activeAggregate("INVENTORY"));
   const fixedAssetNetDirect = amount(activeAggregate("FIXED_ASSET"));
   const fixedAssetScheduleNet = fixedAssetSchedule.hasInput ? amount(fixedAssetScheduleAmounts?.netValue ?? 0) : 0;
@@ -1014,7 +1016,7 @@ export function buildSnapshot(
   const excessCash = amount(activeAggregate("EXCESS_CASH"));
   const marketableSecurities = amount(activeAggregate("MARKETABLE_SECURITIES"));
   const surplusAssetCash = amount(activeAggregate("SURPLUS_ASSET_CASH"));
-  const broadCurrentAssets = amount(activeAggregate("CURRENT_ASSET"));
+  const broadCurrentAssets = Math.max(0, amount(activeAggregate("CURRENT_ASSET")) - broadCurrentAssetOtherReceivable);
   const broadNonCurrentAssets = amount(activeAggregate("NON_CURRENT_ASSET"));
   const totalAssetsOverride = amount(activeAggregate("TOTAL_ASSETS"));
   const derivedCurrentAssets =
@@ -1208,6 +1210,16 @@ function debtScheduleSampleValues(): DebtSchedulePeriodInput {
 export function aggregateForPeriod(mappedRows: MappedRow[], periodId: string, categories: AccountCategory[]): number {
   return mappedRows.reduce((sum, item) => {
     if (!categories.includes(item.effectiveCategory)) {
+      return sum;
+    }
+
+    return sum + parseInputNumber(item.row.values[periodId] ?? "");
+  }, 0);
+}
+
+function aggregateCurrentAssetOtherReceivables(mappedRows: MappedRow[], periodId: string): number {
+  return mappedRows.reduce((sum, item) => {
+    if (item.effectiveCategory !== "CURRENT_ASSET" || item.mapping.category !== "OTHER_RECEIVABLE") {
       return sum;
     }
 

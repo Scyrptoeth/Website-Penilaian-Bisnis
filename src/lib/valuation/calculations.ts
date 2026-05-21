@@ -299,6 +299,7 @@ const eemIncomeCategories: AccountCategory[] = [
 const eemNonOperatingAssetCategories: AccountCategory[] = [
   "CASH_ON_HAND",
   "CASH_ON_BANK",
+  "OTHER_RECEIVABLE",
   "EMPLOYEE_RECEIVABLE",
   "EXCESS_CASH",
   "SURPLUS_ASSET_CASH",
@@ -544,6 +545,7 @@ export function calculateEem(snapshot: FinancialStatementSnapshot, options: EemO
         "CASH_ON_HAND",
         "CASH_ON_BANK",
         "ACCOUNT_RECEIVABLE",
+        "OTHER_RECEIVABLE",
         "EMPLOYEE_RECEIVABLE",
         "INVENTORY",
         "EXCESS_CASH",
@@ -587,6 +589,7 @@ export function calculateEem(snapshot: FinancialStatementSnapshot, options: EemO
         "CASH_ON_HAND",
         "CASH_ON_BANK",
         "ACCOUNT_RECEIVABLE",
+        "OTHER_RECEIVABLE",
         "EMPLOYEE_RECEIVABLE",
         "INVENTORY",
         "EXCESS_CASH",
@@ -847,7 +850,8 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
     const nonCashAssets =
       ar + employeeReceivable + inventory + otherCurrentAssets + fixedAssetsEnding + otherNonCurrentAssets + intangibleAssets;
     const baseCashPolicyRatio = snapshot.cashToRevenueRatio || (previousRevenue ? baseCash / previousRevenue : 0);
-    let cashTotal = useHistoricalDerivedProjection ? Math.max(0, revenue * baseCashPolicyRatio) : 0;
+    const cashPolicyTarget = Math.max(0, revenue * baseCashPolicyRatio);
+    let cashTotal = useHistoricalDerivedProjection ? cashPolicyTarget : 0;
     let financingPlug = 0;
 
     if (useHistoricalDerivedProjection) {
@@ -867,8 +871,8 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
       const baseLiabilitiesAndEquity =
         snapshot.bankLoanShortTerm + ap + taxPayable + projectedOtherPayable + nonCurrentLiabilities + shareholdersEquity;
       const balancingCash = baseLiabilitiesAndEquity - nonCashAssets;
-      cashTotal = Math.max(0, balancingCash);
-      financingPlug = Math.max(0, -balancingCash);
+      cashTotal = Math.max(cashPolicyTarget, balancingCash);
+      financingPlug = Math.max(0, cashTotal + nonCashAssets - baseLiabilitiesAndEquity);
     }
 
     const cashOnHand = cashTotal * cashOnHandShare;
@@ -974,7 +978,6 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
     const discountBase = 1 + wacc;
     const discountFactor = discountBase > 0 ? 1 / Math.pow(discountBase, period) : 0;
     const presentValue = freeCashFlow * discountFactor;
-    const cashPolicyTarget = Math.max(0, revenue * baseCashPolicyRatio);
     const cashPolicyGap = cashEndingBalance - cashPolicyTarget;
     const cashPolicySurplus = Math.max(0, cashPolicyGap);
     const cashPolicyFundingNeed = Math.max(0, -cashPolicyGap);

@@ -102,6 +102,7 @@ const ocaCandidateCategories = new Set<AccountCategory>([
   "CASH_ON_HAND",
   "CASH_ON_BANK",
   "ACCOUNT_RECEIVABLE",
+  "OTHER_RECEIVABLE",
   "EMPLOYEE_RECEIVABLE",
   "INVENTORY",
   "EXCESS_CASH",

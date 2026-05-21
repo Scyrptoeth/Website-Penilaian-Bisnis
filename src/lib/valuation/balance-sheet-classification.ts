@@ -19,6 +19,7 @@ export const assetCategories = new Set<AccountCategory>([
   "CASH_ON_HAND",
   "CASH_ON_BANK",
   "ACCOUNT_RECEIVABLE",
+  "OTHER_RECEIVABLE",
   "EMPLOYEE_RECEIVABLE",
   "INVENTORY",
   "CURRENT_ASSET",
@@ -84,6 +85,7 @@ export function inferBalanceSheetClassification(category: AccountCategory): Bala
     category === "CASH_ON_HAND" ||
     category === "CASH_ON_BANK" ||
     category === "ACCOUNT_RECEIVABLE" ||
+    category === "OTHER_RECEIVABLE" ||
     category === "EMPLOYEE_RECEIVABLE" ||
     category === "INVENTORY" ||
     category === "EXCESS_CASH" ||
