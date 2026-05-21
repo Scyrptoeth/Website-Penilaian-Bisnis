@@ -1086,7 +1086,10 @@ test("active EEM basis can switch to tax payable debt-like and flows to tax simu
   await expect(page.getByRole("heading", { name: "Dari NTA ke equity value" })).toHaveCount(0);
   await expect(page.getByText("Anchor workbook EEM", { exact: true })).toHaveCount(0);
   await expect(page.getByTestId("eem-trace-table")).toContainText("Equity Value (100%)");
-  await expect(page.getByTestId("eem-trace-table")).toContainText("Acuan workbook");
+  await expect(page.getByTestId("eem-trace-table").locator(".eem-trace-meta-row span")).toHaveCount(20);
+  await expect(page.getByTestId("eem-trace-table")).not.toContainText("Acuan workbook");
+  await expect(page.getByTestId("eem-trace-table")).not.toContainText("Akun aktif");
+  await expect(page.getByTestId("eem-trace-table")).not.toContainText("Kategorisasi Akun");
   await expect(page.getByTestId("eem-trace-table")).not.toContainText("STAT_EEM");
   await expect(page.getByTestId("eem-trace-table")).not.toContainText("EEM!D");
   await expect(page.locator("#eem code")).toHaveCount(0);
@@ -1385,20 +1388,58 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await expect(page.getByTestId("eem-trace-table")).toContainText("total AAM disesuaikan tahun aktif");
   await expect(page.getByTestId("eem-trace-table")).toContainText("cash on hand/bank");
   await expect(page.getByTestId("eem-trace-table")).toContainText("Basis WACC Aktif");
+  await expect(page.getByTestId("eem-trace-table").locator(".eem-trace-component > span")).toHaveCount(0);
+  await expect(page.getByTestId("eem-trace-table").locator(".eem-trace-meta-row span")).toHaveCount(19);
   await expect(
     page.getByTestId("eem-trace-row").filter({
       has: page.locator(".eem-trace-component strong").filter({ hasText: /^Changes in Working Capital$/ }),
     }),
   ).toHaveCount(0);
-  await expect(page.getByTestId("eem-trace-table")).toContainText("Acuan workbook");
-  await expect(page.getByTestId("eem-trace-table")).toContainText("Akun aktif");
+  await expect(page.getByTestId("eem-trace-table")).not.toContainText("Acuan workbook");
+  await expect(page.getByTestId("eem-trace-table")).not.toContainText("Akun aktif");
+  await expect(page.getByTestId("eem-trace-table")).not.toContainText("Kategorisasi Akun");
   await expect(page.getByTestId("eem-trace-table")).not.toContainText("STAT_EEM");
   await expect(page.getByTestId("eem-trace-table")).not.toContainText("EEM!D");
   await expect(page.locator("#eem code")).toHaveCount(0);
   await expect(page.getByTestId("eem-sensitivity-grid").locator("code")).toHaveCount(0);
-  await page.getByTestId("eem-source-chip").filter({ hasText: "Neraca" }).first().click();
-  await expect(page.getByTestId("source-focus-strip")).toContainText("Neraca");
+
+  const ntaTraceRow = page.getByTestId("eem-trace-row").filter({
+    has: page.locator(".eem-trace-component strong").filter({ hasText: /^Nett Tangible Asset Value$/ }),
+  });
+  await expect(ntaTraceRow.locator(".eem-trace-origin-badge")).toHaveText("Perhitungan");
+  await expect(ntaTraceRow.getByTestId("eem-source-chip")).toHaveText(["Penilaian AAM"]);
+  await expect(ntaTraceRow).not.toContainText("Neraca");
+  await expect(ntaTraceRow).not.toContainText("Aset Tetap");
+
+  const returnOnTangibleAssetRow = page.getByTestId("eem-trace-row").filter({
+    has: page.locator(".eem-trace-component strong").filter({ hasText: /^Return on Tangible Asset$/ }),
+  });
+  await expect(returnOnTangibleAssetRow.locator(".eem-trace-origin-badge")).toHaveText("Asumsi");
+  await expect(returnOnTangibleAssetRow.getByTestId("eem-source-chip")).toHaveText(["Asumsi EEM/DCF", "WACC"]);
+
+  await ntaTraceRow.getByTestId("eem-source-chip").filter({ hasText: "Penilaian AAM" }).click();
+  await expect(page.getByTestId("source-focus-strip")).toContainText("Penilaian AAM");
   await expect(page.getByTestId("source-focus-strip")).toContainText("Nett Tangible Asset Value");
+  await expect(page.getByTestId("aam-nta-source-target")).toHaveClass(/source-focus-target/);
+
+  await openWorkflowTab(page, "Penilaian EEM");
+  const returnOnTangibleAssetRowForAssumption = page.getByTestId("eem-trace-row").filter({
+    has: page.locator(".eem-trace-component strong").filter({ hasText: /^Return on Tangible Asset$/ }),
+  });
+  await returnOnTangibleAssetRowForAssumption.getByTestId("eem-source-chip").filter({ hasText: "Asumsi EEM/DCF" }).click();
+  await expect(page.getByTestId("source-focus-strip")).toContainText("Asumsi EEM/DCF");
+  await expect(page.getByTestId("source-focus-strip")).toContainText("Return on Tangible Asset");
+  await expect(page.getByTestId("required-return-source-target")).toHaveClass(/source-focus-target/);
+
+  await openWorkflowTab(page, "Penilaian EEM");
+  const returnOnTangibleAssetRowForWacc = page.getByTestId("eem-trace-row").filter({
+    has: page.locator(".eem-trace-component strong").filter({ hasText: /^Return on Tangible Asset$/ }),
+  });
+  await returnOnTangibleAssetRowForWacc.getByTestId("eem-source-chip").filter({ hasText: "WACC" }).click();
+  await expect(page.getByTestId("source-focus-strip")).toContainText("WACC");
+  await expect(page.getByTestId("source-focus-strip")).toContainText("Return on Tangible Asset");
+  await expect(page.getByTestId("wacc-basis-control")).toHaveClass(/source-focus-target/);
+
   await openWorkflowTab(page, "Penilaian DCF");
   await expect(page.getByRole("heading", { name: "Kesiapan DCF" })).toHaveCount(0);
   await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Manual WACC reviewer");

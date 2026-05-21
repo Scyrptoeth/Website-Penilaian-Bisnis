@@ -658,11 +658,21 @@ type WorkflowTabGroup = {
   label: string;
   tabs: WorkflowTab[];
 };
+type SourceFocusKey =
+  | "aam-nta-source"
+  | "assumption-required-return-on-nta"
+  | "wacc-required-return-on-nta";
 type SourceFocusTarget = {
   tabId: WorkflowTabId;
   sourceLabel: string;
   traceId: string;
   traceLabel: string;
+  targetKey?: SourceFocusKey;
+};
+type TraceSourceChip = {
+  label: string;
+  tabId: WorkflowTabId;
+  targetKey?: SourceFocusKey;
 };
 
 declare global {
@@ -1779,11 +1789,21 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   }, [activeWorkflowTab, guidanceTarget]);
 
   useEffect(() => {
-    if (!sourceFocusTarget || activeWorkflowTab !== "valuationEem" || sourceFocusTarget.tabId !== "valuationEem") {
+    if (!sourceFocusTarget || activeWorkflowTab !== sourceFocusTarget.tabId) {
       return;
     }
 
-    const target = document.querySelector<HTMLElement>(`[data-source-focus-row="${sourceFocusTarget.traceId}"]`);
+    const selector = sourceFocusTarget.targetKey
+      ? `[data-source-focus-target="${sourceFocusTarget.targetKey}"]`
+      : activeWorkflowTab === "valuationEem"
+        ? `[data-source-focus-row="${sourceFocusTarget.traceId}"]`
+        : "";
+
+    if (!selector) {
+      return;
+    }
+
+    const target = document.querySelector<HTMLElement>(selector);
     if (!target) {
       return;
     }
@@ -3544,6 +3564,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
             effectiveBasis={effectiveActiveWaccBasis}
             activeWacc={snapshot.wacc}
             guidanceTarget={guidanceTarget === "wacc-active-basis" ? "wacc-active-basis" : undefined}
+            sourceFocusTarget={sourceFocusTarget}
             rawCalculation={rawWaccCalculation}
             governedCalculation={resolveWaccCalculationForBasis(waccResolvedAssumptions, "governed", rawWaccCalculation)}
             manualWacc={readRateInput(assumptions.wacc)}
@@ -3596,7 +3617,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
             </div>
           </div>
           <ReadinessPanel status={readiness.eemDcfAssumptions} onNavigate={navigateToWorkflowTab} onAction={handleReadinessAction} />
-          <AssumptionDriverMatrix drivers={assumptionDriverSummaries} />
+          <AssumptionDriverMatrix drivers={assumptionDriverSummaries} sourceFocusTarget={sourceFocusTarget} />
           <div className="assumption-tax-row">
             <AssumptionDriverCard
               label="Tarif pajak"
@@ -3768,7 +3789,19 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
           </article>
         </section>
 
-        <section id="aam-adjustments" className="panel aam-adjustment-panel">
+        <section
+          id="aam-adjustments"
+          className={[
+            "panel aam-adjustment-panel",
+            sourceFocusTarget?.tabId === "valuationAam" && sourceFocusTarget.targetKey === "aam-nta-source"
+              ? "source-focus-target"
+              : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          data-source-focus-target="aam-nta-source"
+          data-testid="aam-nta-source-target"
+        >
           <div className="panel-heading">
             <div>
               <p className="eyebrow">Penyesuaian AAM</p>
@@ -3951,7 +3984,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
             </div>
             <EemTraceTable
               traces={activeEem.traces}
-              mappedRows={mappedRows}
+              requiredReturnCalculation={requiredReturnCalculation}
               sourceFocusTarget={sourceFocusTarget}
               onSourceNavigate={navigateToTraceSource}
             />
@@ -10027,18 +10060,33 @@ function MappingTable({ mappedRows }: { mappedRows: MappedRow[] }) {
 
 function AssumptionDriverMatrix({
   drivers,
+  sourceFocusTarget,
 }: {
   drivers: Array<{ label: string; valueLabel: string; sourceLabel: string }>;
+  sourceFocusTarget: SourceFocusTarget | null;
 }) {
   return (
     <section className="assumption-driver-matrix" aria-label="Ringkasan driver penilaian" data-testid="assumption-driver-matrix">
-      {drivers.map((driver) => (
-        <div key={driver.label}>
-          <span>{driver.label}</span>
-          <strong>{driver.valueLabel}</strong>
-          <small>{driver.sourceLabel}</small>
-        </div>
-      ))}
+      {drivers.map((driver) => {
+        const isRequiredReturnDriver = driver.label === "Required return on NTA";
+        const isSourceFocusTarget =
+          isRequiredReturnDriver &&
+          sourceFocusTarget?.tabId === "eemDcfAssumptions" &&
+          sourceFocusTarget.targetKey === "assumption-required-return-on-nta";
+
+        return (
+          <div
+            className={isSourceFocusTarget ? "source-focus-target" : undefined}
+            data-source-focus-target={isRequiredReturnDriver ? "assumption-required-return-on-nta" : undefined}
+            data-testid={isRequiredReturnDriver ? "required-return-source-target" : undefined}
+            key={driver.label}
+          >
+            <span>{driver.label}</span>
+            <strong>{driver.valueLabel}</strong>
+            <small>{driver.sourceLabel}</small>
+          </div>
+        );
+      })}
     </section>
   );
 }
@@ -10507,6 +10555,7 @@ function WaccBasisControl({
   effectiveBasis,
   activeWacc,
   guidanceTarget,
+  sourceFocusTarget,
   rawCalculation,
   governedCalculation,
   manualWacc,
@@ -10518,6 +10567,7 @@ function WaccBasisControl({
   effectiveBasis: WaccBasis;
   activeWacc: number;
   guidanceTarget?: GuidanceTarget;
+  sourceFocusTarget: SourceFocusTarget | null;
   rawCalculation: WaccCalculation | null;
   governedCalculation: WaccCalculation | null;
   manualWacc: number | null;
@@ -10526,6 +10576,8 @@ function WaccBasisControl({
   onManualWaccChange: (value: string) => void;
 }) {
   const manualIsWaiting = activeBasis === "manual" && manualWacc === null;
+  const isSourceFocusTarget =
+    sourceFocusTarget?.tabId === "wacc" && sourceFocusTarget.targetKey === "wacc-required-return-on-nta";
   const optionValue = (basis: WaccBasis) => {
     if (basis === "raw") {
       return rawCalculation ? formatPercent(rawCalculation.wacc) : "Belum dihitung";
@@ -10539,7 +10591,16 @@ function WaccBasisControl({
   };
 
   return (
-    <article className="assumption-calculator-card wide wacc-basis-card" data-testid="wacc-basis-control">
+    <article
+      className={[
+        "assumption-calculator-card wide wacc-basis-card",
+        isSourceFocusTarget ? "source-focus-target" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      data-source-focus-target="wacc-required-return-on-nta"
+      data-testid="wacc-basis-control"
+    >
       <AssumptionCalculatorHeader
         label="Basis WACC aktif"
         value={formatPercent(activeWacc)}
@@ -12885,12 +12946,12 @@ function AamFormulaList({ traces }: { traces: FormulaTrace[] }) {
 
 function EemTraceTable({
   traces,
-  mappedRows,
+  requiredReturnCalculation,
   sourceFocusTarget,
   onSourceNavigate,
 }: {
   traces: FormulaTrace[];
-  mappedRows: MappedRow[];
+  requiredReturnCalculation: RequiredReturnOnNtaCalculation | null;
   sourceFocusTarget: SourceFocusTarget | null;
   onSourceNavigate: (target: SourceFocusTarget) => void;
 }) {
@@ -12905,14 +12966,10 @@ function EemTraceTable({
           </tr>
         </thead>
         <tbody>
-          {traces.map((trace, index) => {
+          {traces.map((trace) => {
             const traceId = trace.id ?? trace.label;
-            const sourceTabs = trace.sourceTabs ?? [];
-            const categoryLabels = getTraceCategoryLabels(trace);
-            const sourceAccounts = getTraceSourceAccountNames(trace, mappedRows);
-            const levelLabel = trace.traceLevel ? formulaTraceLevelLabels[trace.traceLevel] : "Trace";
+            const sourceChips = getPrimaryTraceSourceChips(trace, { requiredReturnCalculation });
             const sourceKind = getTraceSourceKind(trace);
-            const workbookSourceSummary = formatWorkbookReferenceForUser(trace);
             const isFocusedRow =
               sourceFocusTarget?.tabId === "valuationEem" && sourceFocusTarget.traceId === traceId;
 
@@ -12925,7 +12982,6 @@ function EemTraceTable({
               >
                 <td>
                   <div className="eem-trace-component">
-                    <span>{String(index + 1).padStart(2, "0")}</span>
                     <strong>{trace.label}</strong>
                     <p>{trace.note}</p>
                   </div>
@@ -12935,50 +12991,37 @@ function EemTraceTable({
                   <div className="eem-trace-source-stack">
                     <div className="eem-trace-meta-row" aria-label={`Jenis sumber ${trace.label}`}>
                       <span className={`eem-trace-origin-badge ${sourceKind.className}`}>{sourceKind.label}</span>
-                      <span>{levelLabel}</span>
-                      <span>{formatTraceTreatmentForUser(trace)}</span>
                     </div>
-                    {sourceTabs.length > 0 ? (
+                    {sourceChips.length > 0 ? (
                       <div className="eem-trace-chip-row" aria-label={`Tab sumber ${trace.label}`}>
-                        {sourceTabs.map((tab) => {
-                          const tabId = resolveTraceSourceTabId(tab);
+                        {sourceChips.map((chip) => {
                           const isFocusedChip =
-                            sourceFocusTarget?.traceId === traceId && sourceFocusTarget.sourceLabel === tab;
+                            sourceFocusTarget?.traceId === traceId && sourceFocusTarget.sourceLabel === chip.label;
 
-                          return tabId ? (
-                            <button
-                              className={isFocusedChip ? "active" : ""}
-                              data-testid="eem-source-chip"
-                              key={tab}
-                              type="button"
-                              onClick={() =>
-                                onSourceNavigate({
-                                  tabId,
-                                  sourceLabel: tab,
-                                  traceId,
-                                  traceLabel: trace.label,
-                                })
-                              }
-                              aria-label={`Buka sumber ${tab} untuk ${trace.label}`}
-                            >
-                              {tab}
-                            </button>
-                          ) : (
-                            <span key={tab}>{tab}</span>
+                          return (
+                          <button
+                            className={isFocusedChip ? "active" : ""}
+                            data-testid="eem-source-chip"
+                            key={`${chip.tabId}-${chip.label}`}
+                            type="button"
+                            onClick={() =>
+                              onSourceNavigate({
+                                tabId: chip.tabId,
+                                sourceLabel: chip.label,
+                                traceId,
+                                traceLabel: trace.label,
+                                targetKey: chip.targetKey,
+                              })
+                            }
+                            aria-label={`Buka sumber ${chip.label} untuk ${trace.label}`}
+                          >
+                            {chip.label}
+                          </button>
                           );
                         })}
                       </div>
                     ) : null}
                     <TraceFormula formula={trace.formula} traceLabel={trace.label} />
-                    {workbookSourceSummary ? <small>{workbookSourceSummary}</small> : null}
-                    {categoryLabels.length > 0 ? <small>Kategori: {formatLimitedList(categoryLabels)}</small> : null}
-                    {sourceAccounts.length > 0 ? (
-                      <small>Akun aktif: {formatLimitedList(sourceAccounts)}</small>
-                    ) : categoryLabels.length > 0 ? (
-                      <small>Akun aktif mengikuti mapping kategori pengguna.</small>
-                    ) : (
-                      <small>Asumsi/model; tidak memakai akun langsung.</small>
-                    )}
                   </div>
                 </td>
               </tr>
@@ -13046,15 +13089,6 @@ function formatFormulaTraceValue(trace: FormulaTrace): string {
   return formatIdr(trace.value);
 }
 
-const formulaTraceLevelLabels: Record<NonNullable<FormulaTrace["traceLevel"]>, string> = {
-  input: "Input",
-  assumption: "Asumsi",
-  subtotal: "Subtotal",
-  calculation: "Perhitungan",
-  bridge: "Jembatan",
-  final: "Final",
-};
-
 const traceFormulaOperatorLabels: Record<string, string> = {
   "+": "+",
   "-": "-",
@@ -13074,14 +13108,64 @@ function getTraceSourceKind(trace: FormulaTrace): { label: string; className: st
   }
 
   if (trace.traceLevel === "bridge" || trace.traceLevel === "input") {
-    return { label: "Read-only", className: "readonly" };
+    return { label: "Read Only", className: "readonly" };
   }
 
-  return { label: "Formula", className: "formula" };
+  return { label: "Perhitungan", className: "formula" };
 }
 
 function resolveTraceSourceTabId(label: string): WorkflowTabId | null {
   return traceSourceTabAliases.get(label) ?? workflowTabIdByLabel.get(label) ?? null;
+}
+
+function getPrimaryTraceSourceChips(
+  trace: FormulaTrace,
+  context: { requiredReturnCalculation: RequiredReturnOnNtaCalculation | null },
+): TraceSourceChip[] {
+  if (trace.id === "eem-net-tangible-asset-value") {
+    return [buildTraceSourceChip("Penilaian AAM", "aam-nta-source")].filter(
+      (chip): chip is TraceSourceChip => Boolean(chip),
+    );
+  }
+
+  if (trace.id === "eem-return-on-tangible-asset") {
+    const chips = [
+      buildTraceSourceChip("Asumsi EEM/DCF", "assumption-required-return-on-nta"),
+    ];
+
+    if (context.requiredReturnCalculation?.basis === "wacc_capital_structure") {
+      chips.push(buildTraceSourceChip("WACC", "wacc-required-return-on-nta"));
+    }
+
+    return chips.filter((chip): chip is TraceSourceChip => Boolean(chip));
+  }
+
+  const labels = getPrimaryTraceSourceLabels(trace);
+
+  return labels
+    .map((label) => buildTraceSourceChip(label))
+    .filter((chip): chip is TraceSourceChip => Boolean(chip));
+}
+
+function buildTraceSourceChip(label: string, targetKey?: SourceFocusKey): TraceSourceChip | null {
+  const tabId = resolveTraceSourceTabId(label);
+
+  return tabId ? { label, tabId, targetKey } : null;
+}
+
+function getPrimaryTraceSourceLabels(trace: FormulaTrace): string[] {
+  const sourceTabs = trace.sourceTabs ?? [];
+  const withoutAuditOnlyLabels = sourceTabs.filter((label) => label !== "Kategorisasi Akun");
+
+  if (withoutAuditOnlyLabels[0] === "Penilaian AAM") {
+    return ["Penilaian AAM"];
+  }
+
+  if (trace.id === "eem-capitalization-rate" && withoutAuditOnlyLabels.includes("WACC")) {
+    return ["WACC"];
+  }
+
+  return withoutAuditOnlyLabels;
 }
 
 function tokenizeTraceFormula(formula: string): Array<{ value: string; isOperator: boolean }> {
@@ -13093,124 +13177,6 @@ function tokenizeTraceFormula(formula: string): Array<{ value: string; isOperato
       const operator = traceFormulaOperatorLabels[part];
       return { value: operator ?? part, isOperator: Boolean(operator) };
     });
-}
-
-const traceTreatmentDisplayLabels: Record<string, string> = {
-  "Operating tangible asset base": "Basis aset berwujud operasional",
-  "Assumption driver": "Driver asumsi",
-  "Tangible asset capital charge": "Beban imbal hasil aset berwujud",
-  "Operating after-tax earnings": "Laba operasi setelah pajak",
-  "Policy-driven zero in base EEM": "Kebijakan dasar: tidak digunakan",
-  "Fixed asset schedule add-back": "Add-back dari jadwal aset tetap",
-  "Fixed asset schedule driver": "Driver jadwal aset tetap",
-  "Cash-flow statement driver": "Driver Cash Flow Statement",
-  "Cash-flow bridge subtotal": "Subtotal jembatan arus kas",
-  "Normalized working-capital movement": "Pergerakan modal kerja ternormalisasi",
-  "EEM earning base": "Basis laba EEM",
-  "Intangible earnings premium": "Laba lebih aset tak berwujud",
-  "Capitalized intangible value": "Kapitalisasi laba lebih",
-  "Operating enterprise value": "Nilai operasi sebelum bridge ekuitas",
-  "Deducted in equity bridge": "Dikurangkan dalam bridge ekuitas",
-  "Added after enterprise value": "Ditambahkan setelah enterprise value",
-  "Final 100% equity bridge": "Nilai ekuitas 100%",
-  "Active sensitivity adjustment": "Penyesuaian sensitivitas aktif",
-};
-
-function getTraceCategoryLabels(trace: FormulaTrace): string[] {
-  return uniqueStrings((trace.accountCategories ?? []).map((category) => categoryLabelMap.get(category) ?? category));
-}
-
-function formatWorkbookReferenceForUser(trace: FormulaTrace): string {
-  const reference = trace.workbookReference ?? "";
-
-  if (!reference) {
-    return "";
-  }
-
-  if (reference.startsWith("Sensitivity layer")) {
-    return "Acuan: skenario sensitivitas EEM aktif.";
-  }
-
-  const sourceParts: string[] = [];
-
-  if (reference.includes("EEM")) {
-    sourceParts.push("sheet EEM");
-  }
-
-  if (reference.includes("AAM")) {
-    sourceParts.push("Penilaian AAM");
-  }
-
-  if (reference.includes("STAT_EEM")) {
-    sourceParts.push("layer statistik EEM");
-  }
-
-  if (reference.includes("BALANCE SHEET")) {
-    sourceParts.push("neraca");
-  }
-
-  if (reference.includes("INCOME STATEMENT")) {
-    sourceParts.push("laba rugi");
-  }
-
-  if (reference.includes("CASH FLOW STATEMENT")) {
-    sourceParts.push("Cash Flow Statement");
-  }
-
-  if (reference.includes("FIXED ASSET")) {
-    sourceParts.push("Aset Tetap");
-  }
-
-  if (reference.includes("BORROWING CAP")) {
-    sourceParts.push("borrowing capacity");
-  }
-
-  if (reference.includes("DISCOUNT RATE")) {
-    sourceParts.push("discount rate");
-  }
-
-  if (reference.includes("tax assumption") || reference.includes("assumptions driver")) {
-    sourceParts.push("asumsi reviewer");
-  }
-
-  const summary = formatLimitedList(uniqueStrings(sourceParts), 5);
-
-  return summary ? `Acuan workbook: ${summary}.` : "Acuan workbook tersedia di model audit internal.";
-}
-
-function formatTraceTreatmentForUser(trace: FormulaTrace): string {
-  if (!trace.treatment) {
-    return "Jejak perhitungan";
-  }
-
-  return traceTreatmentDisplayLabels[trace.treatment] ?? trace.treatment;
-}
-
-function getTraceSourceAccountNames(trace: FormulaTrace, mappedRows: MappedRow[]): string[] {
-  const categories = new Set(trace.accountCategories ?? []);
-
-  if (categories.size === 0) {
-    return [];
-  }
-
-  return uniqueStrings(
-    mappedRows
-      .filter((item) => categories.has(item.effectiveCategory))
-      .map((item) => item.row.accountName.trim())
-      .filter(Boolean),
-  );
-}
-
-function uniqueStrings(values: string[]): string[] {
-  return Array.from(new Set(values));
-}
-
-function formatLimitedList(values: string[], limit = 4): string {
-  if (values.length <= limit) {
-    return values.join(", ");
-  }
-
-  return `${values.slice(0, limit).join(", ")} +${values.length - limit}`;
 }
 
 function findTraceValueById(traces: FormulaTrace[], id: string, fallback = 0): number {
