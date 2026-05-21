@@ -131,19 +131,21 @@ describe("assumption calculators", () => {
     });
 
     assert.equal(suggestion.fields.requiredReturnReceivablesCapacity?.value, 1);
-    assert.equal(suggestion.fields.requiredReturnReceivablesCapacity?.canAutoApply, false);
+    assert.equal(suggestion.fields.requiredReturnReceivablesCapacity?.canAutoApply, true);
     assert.equal(suggestion.fields.requiredReturnInventoryCapacity?.value, 0);
-    assert.equal(suggestion.fields.requiredReturnInventoryCapacity?.canAutoApply, false);
+    assert.equal(suggestion.fields.requiredReturnInventoryCapacity?.canAutoApply, true);
     assert.equal(suggestion.fields.requiredReturnFixedAssetCapacity?.value, 0.7);
-    assert.equal(suggestion.fields.requiredReturnFixedAssetCapacity?.canAutoApply, false);
-    assert.equal(suggestion.fields.requiredReturnAdditionalCapacity?.value, 21_000_000);
+    assert.equal(suggestion.fields.requiredReturnFixedAssetCapacity?.canAutoApply, true);
+    assert.equal(suggestion.fields.requiredReturnAdditionalCapacity?.value, 0);
     assert.equal(suggestion.fields.requiredReturnAdditionalCapacity?.canAutoApply, false);
     assert.equal(suggestion.fields.requiredReturnAfterTaxDebtCost?.value, 0.06864);
     assert.equal(suggestion.fields.requiredReturnAfterTaxDebtCost?.canAutoApply, true);
     assert.equal(suggestion.fields.requiredReturnEquityCost?.value, 0.124537);
     assert.equal(suggestion.fields.requiredReturnEquityCost?.canAutoApply, true);
     assert.deepEqual(suggestion.waitingFor, []);
-    assert.doesNotMatch(JSON.stringify(suggestion), /BORROWING CAP|DISCOUNT RATE|BALANCE SHEET/);
+    assert.match(JSON.stringify(suggestion), /BORROWING CAP/);
+    assert.match(JSON.stringify(suggestion), /DISCOUNT RATE/);
+    assert.doesNotMatch(JSON.stringify(suggestion), /[A-Z ]+![A-Z]+[0-9]+|\/Users\/persiapantubel/);
 
     const calculation = calculateRequiredReturnOnNtaAssumption(
       {
@@ -151,7 +153,7 @@ describe("assumption calculators", () => {
         requiredReturnReceivablesCapacity: "1",
         requiredReturnInventoryCapacity: "0",
         requiredReturnFixedAssetCapacity: "0.7",
-        requiredReturnAdditionalCapacity: "21000000",
+        requiredReturnAdditionalCapacity: "0",
         requiredReturnAfterTaxDebtCost: "0.06864",
         requiredReturnEquityCost: "0.124537",
       },
@@ -160,9 +162,37 @@ describe("assumption calculators", () => {
 
     assert.ok(calculation);
     assert.equal(calculation.basis, "capacity_evidence");
-    assertAlmostEqual(calculation.tangibleAssetBase, 16_202_412_505, 1e-6);
+    assertAlmostEqual(calculation.tangibleAssetBase, 16_223_412_505, 1e-6);
     assertAlmostEqual(calculation.debtCapacity, 11_420_005_286.8, 1e-6);
-    assertAlmostEqual(calculation.requiredReturn, 0.08513891435570048, 1e-12);
+    assertAlmostEqual(calculation.requiredReturn, 0.08518991224521819, 1e-12);
+  });
+
+  it("matches the BORROWING CAP required return using receivables, inventory, fixed assets, Kd, and Ke", () => {
+    const calculation = calculateRequiredReturnOnNtaAssumption(
+      {
+        ...emptyAssumptions,
+        requiredReturnReceivablesCapacity: "1",
+        requiredReturnInventoryCapacity: "1",
+        requiredReturnFixedAssetCapacity: "0,7",
+        requiredReturnAdditionalCapacity: "0",
+        requiredReturnAfterTaxDebtCost: "0,06864",
+        requiredReturnEquityCost: "0,124537",
+      },
+      {
+        accountReceivable: 310_373_406_883,
+        employeeReceivable: 115_124_909,
+        inventory: 419_664_207_285,
+        fixedAssetsNet: 258_569_868_041,
+      },
+    );
+
+    assert.ok(calculation);
+    assert.equal(calculation.basis, "capacity_evidence");
+    assertAlmostEqual(calculation.tangibleAssetBase, 988_722_607_118, 1e-6);
+    assertAlmostEqual(calculation.debtCapacity, 911_151_646_705.7, 1e-4);
+    assertAlmostEqual(calculation.debtWeight, 0.9215442634224684, 1e-12);
+    assertAlmostEqual(calculation.equityWeight, 0.07845573657753158, 1e-12);
+    assertAlmostEqual(calculation.requiredReturn, 0.07302544030747429, 1e-12);
   });
 
   it("falls back to WACC capital structure when NTA capacity evidence is unavailable", () => {

@@ -2,6 +2,8 @@ import type { AssumptionState } from "./case-model";
 import { valuationDriverGovernancePolicy } from "./valuation-driver-governance-policy";
 
 export type WaccCalculation = {
+  riskFreeRate: number;
+  equityRiskPremium: number;
   costOfEquity: number;
   afterTaxCostOfDebt: number;
   debtWeight: number;
@@ -60,6 +62,7 @@ export type RequiredReturnOnNtaCalculation = {
 
 export type RequiredReturnOnNtaBalances = {
   accountReceivable: number;
+  employeeReceivable?: number;
   inventory: number;
   fixedAssetsNet: number;
 };
@@ -126,6 +129,8 @@ export function calculateWaccAssumption(assumptions: AssumptionState): WaccCalcu
   const wacc = weights.debtWeight * afterTaxCostOfDebt + weights.equityWeight * costOfEquity;
 
   return {
+    riskFreeRate,
+    equityRiskPremium,
     costOfEquity,
     afterTaxCostOfDebt,
     debtWeight: weights.debtWeight,
@@ -220,7 +225,7 @@ export function calculateRequiredReturnOnNtaAssumption(
   const additionalCapacity = readNumberInput(assumptions.requiredReturnAdditionalCapacity) ?? 0;
   const afterTaxDebtCost = readRateInput(assumptions.requiredReturnAfterTaxDebtCost);
   const equityReturn = readRateInput(assumptions.requiredReturnEquityCost);
-  const accountReceivable = positive(balances.accountReceivable);
+  const accountReceivable = positive(balances.accountReceivable) + positive(balances.employeeReceivable ?? 0);
   const inventory = positive(balances.inventory);
   const fixedAssetsNet = positive(balances.fixedAssetsNet);
   const tangibleAssetBase = accountReceivable + inventory + fixedAssetsNet;
@@ -251,7 +256,7 @@ export function calculateRequiredReturnOnNtaAssumption(
       equityWeight,
       requiredReturn,
       basis: "capacity_evidence",
-      basisLabel: "Bukti kapasitas",
+      basisLabel: "Model kapasitas BORROWING CAP",
     };
   }
 
@@ -295,8 +300,7 @@ export function buildRequiredReturnOnNtaSuggestion({
   waccCalculation,
 }: RequiredReturnOnNtaSuggestionInputs): RequiredReturnOnNtaSuggestion {
   const policy = valuationDriverGovernancePolicy.requiredReturnOnNta;
-  const receivables = positive(accountReceivable);
-  const additionalReceivables = positive(employeeReceivable);
+  const receivables = positive(accountReceivable) + positive(employeeReceivable);
   const inventoryBase = positive(inventory);
   const fixedAssetBase = positive(fixedAssetsNet);
   const fields: RequiredReturnOnNtaSuggestion["fields"] = {
@@ -304,51 +308,47 @@ export function buildRequiredReturnOnNtaSuggestion({
       key: "requiredReturnReceivablesCapacity",
       label: "Kapasitas piutang",
       value: receivables > 0 ? policy.receivablesCapacityProxy : null,
-      source: "Dihitung dari Neraca aktif dan kebijakan kapasitas sistem",
-      basis: "Borrowing base piutang usaha; piutang karyawan/other receivable diroute sebagai kapasitas tambahan agar rasio AR tidak melebihi 100%.",
-      formula: "Piutang usaha eligible x kapasitas piutang",
-      note: "Saran mengikuti struktur borrowing capacity workbook: trade AR menjadi basis utama, sementara saldo piutang tambahan dipisahkan agar tidak double-count. Review aging dan ketertertagihan sebelum dipakai final.",
+      source: "Dihitung dari Neraca aktif dan struktur BORROWING CAP",
+      basis: "Jumlah piutang menggabungkan account receivable dan other/employee receivable seperti BORROWING CAP.",
+      formula: "Jumlah piutang x kapasitas piutang",
+      note: "Workbook memakai borrowing capacity piutang sama dengan jumlah piutang, sehingga rasio menjadi 100% bila saldo piutang tersedia. Review aging dan ketertertagihan sebelum dipakai final.",
       status: receivables > 0 ? "auto" : "waiting",
-      canAutoApply: false,
+      canAutoApply: true,
     },
     requiredReturnInventoryCapacity: {
       key: "requiredReturnInventoryCapacity",
       label: "Kapasitas persediaan",
       value: inventoryBase > 0 ? policy.inventoryCapacityProxy : 0,
-      source: "Dihitung dari Neraca aktif dan kebijakan kapasitas sistem",
+      source: "Dihitung dari Neraca aktif dan struktur BORROWING CAP",
       basis: inventoryBase > 0
-        ? "Proxy konservatif persediaan mengikuti kebijakan sistem sampai ada lender haircut atau bukti inventory eligible."
+        ? "Workbook memakai borrowing capacity persediaan sama dengan jumlah persediaan, sehingga rasio menjadi 100% bila saldo persediaan tersedia."
         : "Inventory aktif nol; formula workbook memakai 0 bila denominator inventory tidak tersedia.",
       formula: "Persediaan eligible x kapasitas persediaan",
       note: inventoryBase > 0
-        ? "Gunakan 0% sebagai saran konservatif bila belum ada bukti inventory pledgeable; override bila ada lender haircut, aging, atau bukti kelayakan agunan."
+        ? "Saran mengikuti workbook untuk rekonsiliasi. Override bila ada lender haircut, aging, slow-moving inventory, atau bukti kelayakan agunan yang lebih kuat."
         : "Inventory aktif masih nol, sehingga saran sistem adalah 0% dan tidak menambah kapasitas utang.",
       status: "auto",
-      canAutoApply: false,
+      canAutoApply: true,
     },
     requiredReturnFixedAssetCapacity: {
       key: "requiredReturnFixedAssetCapacity",
       label: "Kapasitas aset tetap",
       value: fixedAssetBase > 0 ? policy.fixedAssetCapacityProxy : null,
-      source: "Dihitung dari Neraca aktif dan kebijakan kapasitas sistem",
-      basis: "Haircut agunan aset tetap mengikuti struktur borrowing capacity workbook.",
+      source: "Dihitung dari Aset Tetap aktif, struktur BORROWING CAP, dan referensi PBI/OJK agunan",
+      basis: "Workbook memakai 70% atas aset tetap neto; PBI/OJK collateral-recognition dipakai sebagai proxy formal yang tetap perlu review kasus.",
       formula: "Aset tetap neto x kapasitas aset tetap",
-      note: "Saran sistem memakai 70% atas aset tetap neto sebagai proxy. Override bila appraisal, covenant, umur/manfaat aset, atau pledgeability menunjukkan haircut berbeda.",
+      note: "Saran sistem memakai 70% atas aset tetap neto sebagai proxy berbasis rujukan. Override bila appraisal, covenant, umur/manfaat aset, nilai likuidasi, atau pledgeability menunjukkan haircut berbeda.",
       status: fixedAssetBase > 0 ? "auto" : "waiting",
-      canAutoApply: false,
+      canAutoApply: true,
     },
     requiredReturnAdditionalCapacity: {
       key: "requiredReturnAdditionalCapacity",
       label: "Jumlah kapasitas tambahan",
-      value: additionalReceivables,
-      source: "Dihitung dari Neraca aktif dan kebijakan kapasitas sistem",
-      basis: additionalReceivables > 0
-        ? "Saldo piutang karyawan/other receivable aktif diperlakukan sebagai kapasitas tambahan, terpisah dari trade AR."
-        : "Tidak ada saldo piutang tambahan aktif; saran sistem tidak menambah kapasitas utang.",
+      value: 0,
+      source: "Input manual penilai di luar struktur BORROWING CAP",
+      basis: "Piutang tambahan sudah masuk Jumlah Piutang; kapasitas tambahan hanya untuk agunan berwujud lain yang didukung bukti terpisah.",
       formula: "Jumlah eligible manual ditambahkan ke kapasitas utang",
-      note: additionalReceivables > 0
-        ? "Terdapat other/employee receivable pada Neraca aktif. Gunakan saran hanya bila penilai menyimpulkan saldo tersebut eligible sebagai kapasitas tambahan."
-        : "Gunakan 0 bila tidak ada kapasitas berwujud tambahan yang didukung bukti, agar tidak double-count dengan AR, inventory, atau fixed assets.",
+      note: "Gunakan 0 bila tidak ada kapasitas berwujud tambahan yang didukung bukti, agar tidak double-count dengan piutang, inventory, atau fixed assets.",
       status: "auto",
       canAutoApply: false,
     },
@@ -371,10 +371,10 @@ export function buildRequiredReturnOnNtaSuggestion({
       key: "requiredReturnEquityCost",
       label: "Return ekuitas aset berwujud",
       value: waccCalculation.costOfEquity,
-      source: "Dihitung dari input WACC aktif",
-      basis: "Risk-free rate, beta, ERP, dan penyesuaian risiko eksplisit",
+      source: "Dihitung dari DISCOUNT RATE dan tab WACC aktif",
+      basis: "Risk-free rate, beta, ERP, rating-based default spread, dan penyesuaian risiko eksplisit.",
       formula: "Ke = risk-free rate + beta x ERP + country/company risk adjustment",
-      note: "Ditarik dari input WACC aktif agar equity return konsisten dengan DCF/EEM. Override hanya jika return ekuitas aset berwujud memakai basis terpisah.",
+      note: "Nilai ini merekonsiliasi DISCOUNT RATE sebagai biaya modal ekuitas dan mengalir ke Return ekuitas aset berwujud pada BORROWING CAP. Override hanya jika return aset berwujud memakai basis terpisah.",
       status: "auto",
       canAutoApply: true,
     };
@@ -388,7 +388,7 @@ export function buildRequiredReturnOnNtaSuggestion({
 
   return {
     fields,
-    summary: "Isi capacity rate dari bukti kasus aktif. Jika bukti belum tersedia, struktur kapital WACC hanya menjadi fallback sementara agar EEM/DCF dapat dihitung untuk tinjauan, bukan skenario dasar final otomatis.",
+    summary: "Sistem menurunkan borrowing capacity dari Jumlah Piutang, Persediaan, Aset Tetap, Kd, dan Ke. Review atau override capacity rate bila bukti kasus memberi haircut yang lebih tepat.",
     waitingFor,
   };
 }

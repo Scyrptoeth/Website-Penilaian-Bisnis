@@ -3573,6 +3573,54 @@ select {
   font-weight: 600;
 }
 
+.driver-basis-strip small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.required-return-equity-trace {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid rgba(15, 118, 110, 0.22);
+  border-radius: var(--radius);
+  background: rgba(240, 253, 250, 0.58);
+}
+
+.required-return-equity-trace > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.required-return-equity-trace span {
+  color: var(--ink-soft);
+  font-size: 9.4px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.required-return-equity-trace strong {
+  font-size: 13px;
+}
+
+.required-return-equity-trace small {
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.required-return-equity-trace table {
+  min-width: 760px;
+}
+
+.required-return-equity-trace code {
+  white-space: normal;
+}
+
 .assumption-reference-list {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

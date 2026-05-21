@@ -782,7 +782,7 @@ export function buildSampleAssumptions(): AssumptionState {
     requiredReturnReceivablesCapacity: formatRateInputNumber(1),
     requiredReturnInventoryCapacity: formatRateInputNumber(0),
     requiredReturnFixedAssetCapacity: formatRateInputNumber(0.7),
-    requiredReturnAdditionalCapacity: formatInputNumber(sampleCase.employeeReceivable),
+    requiredReturnAdditionalCapacity: formatInputNumber(0),
     requiredReturnAfterTaxDebtCost: formatRateInputNumber(0.06864),
     requiredReturnEquityCost: formatRateInputNumber(0.124537),
     arDays: formatInputNumber(sampleCase.arDays),
@@ -1070,6 +1070,7 @@ export function buildSnapshot(
   const selectedWaccCalculation = resolveWaccCalculationForBasis(assumptions, effectiveWaccBasis, waccCalculation);
   const requiredReturnCalculation = calculateRequiredReturnOnNtaAssumption(assumptions, {
     accountReceivable,
+    employeeReceivable,
     inventory,
     fixedAssetsNet,
   });
@@ -1432,7 +1433,8 @@ function resolveGovernedRequiredReturnOnNta({
     return calculation.requiredReturn;
   }
 
-  const tangibleAssetBase = positive(accountReceivable) + positive(inventory) + positive(fixedAssetsNet);
+  const receivablesBase = positive(accountReceivable) + positive(employeeReceivable);
+  const tangibleAssetBase = receivablesBase + positive(inventory) + positive(fixedAssetsNet);
 
   if (!waccCalculation || tangibleAssetBase <= 0) {
     return calculation?.requiredReturn ?? 0;
@@ -1440,10 +1442,9 @@ function resolveGovernedRequiredReturnOnNta({
 
   const capacityPolicy = valuationDriverGovernancePolicy.requiredReturnOnNta;
   const debtCapacity =
-    positive(accountReceivable) * capacityPolicy.receivablesCapacityProxy +
+    receivablesBase * capacityPolicy.receivablesCapacityProxy +
     positive(inventory) * capacityPolicy.inventoryCapacityProxy +
-    positive(fixedAssetsNet) * capacityPolicy.fixedAssetCapacityProxy +
-    positive(employeeReceivable);
+    positive(fixedAssetsNet) * capacityPolicy.fixedAssetCapacityProxy;
   const debtWeight = clamp(debtCapacity / tangibleAssetBase, 0, 1);
   const equityWeight = 1 - debtWeight;
 

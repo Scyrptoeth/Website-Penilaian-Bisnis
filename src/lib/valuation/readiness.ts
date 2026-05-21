@@ -118,6 +118,7 @@ export function buildWorkbenchReadiness({
     assumptions.requiredReturnOnNta.trim() !== "" ||
     calculateRequiredReturnOnNtaAssumption(assumptions, {
       accountReceivable: snapshot.accountReceivable,
+      employeeReceivable: snapshot.employeeReceivable,
       inventory: snapshot.inventory,
       fixedAssetsNet: snapshot.fixedAssetsNet,
     }) !== null;

@@ -16,6 +16,8 @@ describe("assumption governance", () => {
     };
     const results = calculateAllMethods(snapshot);
     const waccCalculation: WaccCalculation = {
+      riskFreeRate: 0.0606,
+      equityRiskPremium: 0.06122466,
       wacc: 0.05365648,
       beta: 0.141653,
       costOfEquity: 0.05307603,
@@ -55,6 +57,8 @@ describe("assumption governance", () => {
   it("clears initial thresholds for the workbook-style governed sample assumptions", () => {
     const results = calculateAllMethods(sampleCase);
     const waccCalculation: WaccCalculation = {
+      riskFreeRate: 0.064795,
+      equityRiskPremium: 0.0738,
       wacc: sampleCase.wacc,
       beta: 1.09,
       costOfEquity: 0.124537,
@@ -66,10 +70,10 @@ describe("assumption governance", () => {
       countryRiskAdjustment: -0.0207,
     };
     const requiredReturnCalculation: RequiredReturnOnNtaCalculation = {
-      tangibleAssetBase: 16_202_412_505,
+      tangibleAssetBase: 16_223_412_505,
       debtCapacity: 11_420_005_286.8,
-      debtWeight: 0.704822999733908,
-      equityWeight: 0.295177000266092,
+      debtWeight: 0.7039229331119753,
+      equityWeight: 0.2960770668880247,
       requiredReturn: sampleCase.requiredReturnOnNta,
       basis: "capacity_evidence",
       basisLabel: "Capacity evidence",

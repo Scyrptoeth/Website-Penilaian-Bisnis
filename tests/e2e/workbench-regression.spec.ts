@@ -1293,8 +1293,8 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await expect(fixedAssetCapacityInput).toHaveValue("");
   await expect(page.getByRole("button", { name: "Gunakan nilai sistem untuk Kapasitas aset tetap" })).toHaveCount(0);
   await expect(page.getByLabel("After-tax debt cost")).toHaveValue("0,06162");
-  await expect(page.getByTestId("required-return-on-nta-calculator")).not.toContainText("BORROWING CAP");
-  await expect(page.getByTestId("required-return-on-nta-calculator")).not.toContainText("DISCOUNT RATE");
+  await expect(page.getByTestId("required-return-on-nta-calculator")).toContainText("BORROWING CAP");
+  await expect(page.getByTestId("required-return-on-nta-calculator")).toContainText("DISCOUNT RATE");
 
   await loadSampleWorkbook(page);
   await openWorkflowTab(page, "WACC");
@@ -1331,8 +1331,9 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await expect(page.getByTestId("required-return-suggestion-card")).toContainText("70%");
   await expect(fixedAssetCapacityInput).toHaveValue("0,7");
   await expect(page.getByLabel("After-tax debt cost")).toHaveValue("0,06864");
-  await expect(page.getByTestId("required-return-on-nta-calculator")).not.toContainText("BORROWING CAP");
-  await expect(page.getByTestId("required-return-on-nta-calculator")).not.toContainText("DISCOUNT RATE");
+  await expect(page.getByTestId("required-return-on-nta-calculator")).toContainText("BORROWING CAP");
+  await expect(page.getByTestId("required-return-on-nta-calculator")).toContainText("DISCOUNT RATE");
+  await expect(page.getByTestId("required-return-equity-cost-trace")).toContainText("Return ekuitas aset berwujud");
 
   const receivablesCapacityAppliedButton = page.getByRole("button", {
     name: "Nilai sistem sudah dipakai untuk Kapasitas piutang",
@@ -1367,15 +1368,15 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await inventoryCapacityInput.fill("");
   await fixedAssetCapacityInput.fill("");
   await additionalCapacityInput.fill("");
-  await expect(page.getByTestId("required-return-on-nta-calculator")).toContainText("Fallback struktur kapital WACC");
-  await expect(page.getByTestId("required-return-on-nta-calculator")).toContainText("Bobot utang WACC x Kd");
+  await expect(page.getByTestId("required-return-on-nta-calculator")).toContainText("Model kapasitas BORROWING CAP");
+  await expect(page.getByTestId("required-return-on-nta-calculator")).toContainText("Bobot utang kapasitas x Kd");
   await expect(page.locator("body")).not.toContainText("STAT_ASSUMPTIONS");
 
   await openWorkflowTab(page, "Penilaian EEM");
   await expect(page.getByRole("heading", { name: "Excess Earnings Method (EEM)" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Kesiapan EEM" })).toHaveCount(0);
   await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Manual WACC reviewer");
-  await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Proxy kapasitas aset berwujud yang di-govern");
+  await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Model kapasitas BORROWING CAP");
   await expect(page.getByTestId("eem-sensitivity-grid")).toContainText("EEM - skenario dasar");
   await expect(page.getByTestId("eem-sensitivity-grid")).toContainText("EEM - utang pajak debt-like");
   await expect(page.getByTestId("eem-sensitivity-grid")).toContainText("sebelum utang pajak diperlakukan sebagai kewajiban debt-like");
@@ -1451,7 +1452,7 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await openWorkflowTab(page, "Penilaian DCF");
   await expect(page.getByRole("heading", { name: "Kesiapan DCF" })).toHaveCount(0);
   await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Manual WACC reviewer");
-  await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Proxy kapasitas aset berwujud yang di-govern");
+  await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Model kapasitas BORROWING CAP");
 });
 
 test("terminal growth renders with two decimals across EEM/DCF and projection tabs", async ({ page }) => {

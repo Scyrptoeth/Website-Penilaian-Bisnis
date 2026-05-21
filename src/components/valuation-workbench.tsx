@@ -1256,10 +1256,11 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     () =>
       calculateRequiredReturnOnNtaAssumption(resolvedAssumptions, {
         accountReceivable: snapshot.accountReceivable,
+        employeeReceivable: snapshot.employeeReceivable,
         inventory: snapshot.inventory,
         fixedAssetsNet: snapshot.fixedAssetsNet,
       }),
-    [resolvedAssumptions, snapshot.accountReceivable, snapshot.fixedAssetsNet, snapshot.inventory],
+    [resolvedAssumptions, snapshot.accountReceivable, snapshot.employeeReceivable, snapshot.fixedAssetsNet, snapshot.inventory],
   );
   const assumptionGovernance = useMemo(
     () =>
@@ -3687,8 +3688,10 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               assumptions={assumptions}
               calculation={requiredReturnCalculation}
               suggestion={requiredReturnSuggestion}
+              waccCalculation={rawWaccCalculation}
               balances={{
                 accountReceivable: snapshot.accountReceivable,
+                employeeReceivable: snapshot.employeeReceivable,
                 inventory: snapshot.inventory,
                 fixedAssetsNet: snapshot.fixedAssetsNet,
               }}
@@ -4020,7 +4023,6 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
             </div>
             <EemTraceTable
               traces={activeEem.traces}
-              requiredReturnCalculation={requiredReturnCalculation}
               sourceFocusTarget={sourceFocusTarget}
               onSourceNavigate={navigateToTraceSource}
             />
@@ -10579,14 +10581,14 @@ function WaccBasisControl({
     sourceFocusTarget?.tabId === "wacc" && sourceFocusTarget.targetKey === "wacc-required-return-on-nta";
   const optionValue = (basis: WaccBasis) => {
     if (basis === "raw") {
-      return rawCalculation ? formatPercent(rawCalculation.wacc) : "Belum dihitung";
+      return rawCalculation ? formatPercentFixed(rawCalculation.wacc, 2) : "Belum dihitung";
     }
 
     if (basis === "manual") {
-      return manualWacc === null ? "Perlu input" : formatPercent(manualWacc);
+      return manualWacc === null ? "Perlu input" : formatPercentFixed(manualWacc, 2);
     }
 
-    return governedCalculation ? formatPercent(governedCalculation.wacc) : "Belum dihitung";
+    return governedCalculation ? formatPercentFixed(governedCalculation.wacc, 2) : "Belum dihitung";
   };
 
   return (
@@ -10602,7 +10604,7 @@ function WaccBasisControl({
     >
       <AssumptionCalculatorHeader
         label="Basis WACC aktif"
-        value={formatPercent(activeWacc)}
+        value={formatPercentFixed(activeWacc, 2)}
         impact={`${activeWaccBasisLabels[effectiveBasis].label} mengalir ke EEM/DCF`}
       />
       <div className="wacc-basis-grid" role="radiogroup" aria-label="Basis WACC aktif">
@@ -10631,7 +10633,7 @@ function WaccBasisControl({
         />
         <div className={manualIsWaiting ? "wacc-basis-status warning" : "wacc-basis-status"}>
           <span>Spread kapitalisasi aktif</span>
-          <strong>{formatPercent(activeWacc - terminalGrowth)}</strong>
+          <strong>{formatPercentFixed(activeWacc - terminalGrowth, 2)}</strong>
           <small>
             {manualIsWaiting
               ? "Manual WACC belum diisi; sistem menjaga basis governed sampai angka tersedia."
@@ -10684,7 +10686,7 @@ function WaccCalculatorPanel({
     <article className="assumption-calculator-card wide" data-testid="wacc-calculator">
       <AssumptionCalculatorHeader
         label="Kalkulator WACC"
-        value={calculation ? formatPercent(calculation.wacc) : formatRateInput(assumptions.wacc)}
+        value={calculation ? formatPercentFixed(calculation.wacc, 2) : formatRateInput(assumptions.wacc)}
       />
       <InlineGovernanceList title="Tata kelola WACC" items={waccGovernanceItems} />
       <div className="calculator-input-grid wacc-primary-input-grid">
@@ -11561,6 +11563,7 @@ function RequiredReturnOnNtaPanel({
   assumptions,
   calculation,
   suggestion,
+  waccCalculation,
   balances,
   governance,
   guidanceTarget,
@@ -11571,7 +11574,8 @@ function RequiredReturnOnNtaPanel({
   assumptions: AssumptionState;
   calculation: RequiredReturnOnNtaCalculation | null;
   suggestion: RequiredReturnOnNtaSuggestion;
-  balances: { accountReceivable: number; inventory: number; fixedAssetsNet: number };
+  waccCalculation: WaccCalculation | null;
+  balances: { accountReceivable: number; employeeReceivable: number; inventory: number; fixedAssetsNet: number };
   governance: AssumptionGovernanceResult;
   guidanceTarget?: GuidanceTarget;
   onChange: (key: keyof AssumptionState, value: string) => void;
@@ -11584,19 +11588,21 @@ function RequiredReturnOnNtaPanel({
   const equityCostSuggestion = buildRequiredReturnInputSuggestion(suggestion.fields.requiredReturnEquityCost, "rate");
   const afterTaxDebtCostIsAuto = Boolean(!assumptions.requiredReturnAfterTaxDebtCost.trim() && afterTaxDebtCostSuggestion?.value.trim());
   const equityCostIsAuto = Boolean(!assumptions.requiredReturnEquityCost.trim() && equityCostSuggestion?.value.trim());
+  const receivablesBase = Math.max(0, balances.accountReceivable) + Math.max(0, balances.employeeReceivable);
 
   return (
     <article className="assumption-calculator-card wide" data-testid="required-return-on-nta-calculator">
       <AssumptionCalculatorHeader
         label="Kalkulator required return on NTA"
-        value={calculation ? formatPercent(calculation.requiredReturn) : formatRateInput(assumptions.requiredReturnOnNta)}
+        value={calculation ? formatPercentFixed(calculation.requiredReturn, 2) : formatRateInput(assumptions.requiredReturnOnNta)}
         impact="EEM capital charge atas operating net tangible assets"
       />
       <InlineGovernanceList title="Tata kelola return NTA" items={ntaGovernanceItems} />
       <div className="driver-basis-strip">
         <div>
-          <span>Piutang usaha</span>
-          <strong>{formatIdr(balances.accountReceivable)}</strong>
+          <span>Jumlah piutang</span>
+          <strong>{formatIdr(receivablesBase)}</strong>
+          <small>Account receivable + other/employee receivable.</small>
         </div>
         <div>
           <span>Persediaan</span>
@@ -11663,6 +11669,10 @@ function RequiredReturnOnNtaPanel({
           onChange={(value) => onChange("requiredReturnEquityCost", value)}
         />
       </div>
+      <RequiredReturnEquityTrace
+        field={suggestion.fields.requiredReturnEquityCost}
+        waccCalculation={waccCalculation}
+      />
       <MetricTraceGrid
         metrics={[
           ["Basis", calculation ? calculation.basisLabel : "Belum dihitung"],
@@ -11681,6 +11691,84 @@ function RequiredReturnOnNtaPanel({
         onChange={onReasonChange}
       />
     </article>
+  );
+}
+
+function RequiredReturnEquityTrace({
+  field,
+  waccCalculation,
+}: {
+  field: RequiredReturnOnNtaSuggestionField | undefined;
+  waccCalculation: WaccCalculation | null;
+}) {
+  const equityReturn = field?.value ?? waccCalculation?.costOfEquity ?? null;
+  const rows = [
+    {
+      component: "Risk-free rate",
+      value: formatOptionalRate(waccCalculation?.riskFreeRate),
+      source: "Tab WACC",
+      formula: "DISCOUNT RATE C3",
+    },
+    {
+      component: "Beta",
+      value: formatOptionalNumber(waccCalculation?.beta),
+      source: "Comparable / input WACC",
+      formula: "DISCOUNT RATE C4 atau relevered beta H2",
+    },
+    {
+      component: "Equity risk premium",
+      value: formatOptionalRate(waccCalculation?.equityRiskPremium),
+      source: "Dataset pasar / input WACC",
+      formula: "DISCOUNT RATE C5",
+    },
+    {
+      component: "RBDS / risk adjustment",
+      value: formatOptionalRate(waccCalculation?.countryRiskAdjustment),
+      source: "Rating spread dan penyesuaian risiko eksplisit",
+      formula: "DISCOUNT RATE C6 + premi risiko spesifik",
+    },
+    {
+      component: "Return ekuitas aset berwujud",
+      value: equityReturn === null ? "Belum tersedia" : formatPercentFixed(equityReturn, 2),
+      source: field?.source ?? "Tab WACC",
+      formula: "Ke mengalir ke BORROWING CAP biaya modal ekuitas",
+    },
+  ];
+
+  return (
+    <section className="required-return-equity-trace" data-testid="required-return-equity-cost-trace">
+      <div>
+        <span>Trace Return Ekuitas Aset Berwujud</span>
+        <strong>DISCOUNT RATE → BORROWING CAP → Asumsi EEM/DCF</strong>
+        <small>
+          Ke dihitung di WACC/CAPM, dipakai sebagai biaya modal ekuitas pada borrowing capacity, lalu masuk required return on NTA.
+        </small>
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Komponen</th>
+              <th>Nilai</th>
+              <th>Sumber</th>
+              <th>Formula / interoperabilitas</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.component}>
+                <td>{row.component}</td>
+                <td className="numeric-cell">{row.value}</td>
+                <td>{row.source}</td>
+                <td>
+                  <code>{row.formula}</code>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 
@@ -11718,7 +11806,7 @@ function RequiredReturnOnNtaSuggestionBlock({ suggestion }: { suggestion: Requir
         </div>
         <div>
           <dt>Status</dt>
-          <dd>{suggestion.waitingFor.length > 0 ? suggestion.waitingFor.join(" ") : "Biaya modal tersedia dari WACC. Jika capacity evidence belum tersedia, struktur kapital WACC menjadi fallback."}</dd>
+          <dd>{suggestion.waitingFor.length > 0 ? suggestion.waitingFor.join(" ") : "Biaya modal dan model kapasitas tersedia. Review capacity rate bila bukti agunan atau covenant menunjukkan haircut berbeda."}</dd>
         </div>
       </dl>
     </div>
@@ -12456,7 +12544,8 @@ function buildSuggestionInputNote(currentValue: string, field: RequiredReturnOnN
   }
 
   const prefix = field.value !== null ? (field.canAutoApply ? "Auto aktif" : "Saran sistem") : "Input";
-  return `${prefix}: ${field.basis}. ${field.note}`;
+  const basis = field.basis.replace(/\.+$/, "");
+  return `${prefix}: ${basis}. ${field.note}`;
 }
 
 function applyIdxComparableSuggestions(
@@ -12592,7 +12681,7 @@ function formatTerminalGrowthRateInput(input: string): string {
 }
 
 function formatOptionalRate(value: number | null | undefined): string {
-  return value === null || value === undefined || !Number.isFinite(value) ? "Belum tersedia" : formatPercent(value);
+  return value === null || value === undefined || !Number.isFinite(value) ? "Belum tersedia" : formatPercentFixed(value, 2);
 }
 
 function formatOptionalTerminalGrowthRate(value: number | null | undefined): string {
@@ -12954,12 +13043,10 @@ function AamFormulaList({ traces }: { traces: FormulaTrace[] }) {
 
 function EemTraceTable({
   traces,
-  requiredReturnCalculation,
   sourceFocusTarget,
   onSourceNavigate,
 }: {
   traces: FormulaTrace[];
-  requiredReturnCalculation: RequiredReturnOnNtaCalculation | null;
   sourceFocusTarget: SourceFocusTarget | null;
   onSourceNavigate: (target: SourceFocusTarget) => void;
 }) {
@@ -12976,7 +13063,7 @@ function EemTraceTable({
         <tbody>
           {traces.map((trace) => {
             const traceId = trace.id ?? trace.label;
-            const sourceChips = getPrimaryTraceSourceChips(trace, { requiredReturnCalculation });
+            const sourceChips = getPrimaryTraceSourceChips(trace);
             const sourceKind = getTraceSourceKind(trace);
             const isFocusedRow =
               sourceFocusTarget?.tabId === "valuationEem" && sourceFocusTarget.traceId === traceId;
@@ -13307,10 +13394,7 @@ function resolveTraceSourceTabId(label: string): WorkflowTabId | null {
   return traceSourceTabAliases.get(label) ?? workflowTabIdByLabel.get(label) ?? null;
 }
 
-function getPrimaryTraceSourceChips(
-  trace: FormulaTrace,
-  context: { requiredReturnCalculation: RequiredReturnOnNtaCalculation | null },
-): TraceSourceChip[] {
+function getPrimaryTraceSourceChips(trace: FormulaTrace): TraceSourceChip[] {
   if (trace.id === "eem-net-tangible-asset-value") {
     return [buildTraceSourceChip("Penilaian AAM", "aam-nta-source")].filter(
       (chip): chip is TraceSourceChip => Boolean(chip),
@@ -13320,11 +13404,8 @@ function getPrimaryTraceSourceChips(
   if (trace.id === "eem-return-on-tangible-asset") {
     const chips = [
       buildTraceSourceChip("Asumsi EEM/DCF", "assumption-required-return-on-nta"),
+      buildTraceSourceChip("WACC", "wacc-required-return-on-nta"),
     ];
-
-    if (context.requiredReturnCalculation?.basis === "wacc_capital_structure") {
-      chips.push(buildTraceSourceChip("WACC", "wacc-required-return-on-nta"));
-    }
 
     return chips.filter((chip): chip is TraceSourceChip => Boolean(chip));
   }

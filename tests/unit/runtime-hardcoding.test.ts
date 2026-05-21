@@ -29,6 +29,7 @@ describe("runtime hardcoding guard", () => {
   it("centralizes case-neutral smart-driver governance policy", () => {
     assert.equal(valuationDriverGovernancePolicy.wacc.minimumReviewableRate, 0.08);
     assert.equal(valuationDriverGovernancePolicy.revenueGrowth.highAutoGrowthThreshold, 0.2);
+    assert.equal(valuationDriverGovernancePolicy.requiredReturnOnNta.inventoryCapacityProxy, 1);
     assert.equal(valuationDriverGovernancePolicy.requiredReturnOnNta.fixedAssetCapacityProxy, 0.7);
   });
 });

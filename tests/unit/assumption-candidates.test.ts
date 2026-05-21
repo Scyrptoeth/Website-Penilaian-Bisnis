@@ -24,7 +24,7 @@ describe("assumption candidates", () => {
     assert.match(candidate.note, /override beralasan/i);
   });
 
-  it("exposes input-first driver references without workbook source cells", () => {
+  it("exposes input-first driver references without workbook source cells or local paths", () => {
     assert.ok(waccInputReferences.some((reference) => reference.label === "Utang berbunga"));
     assert.ok(terminalGrowthInputReferences.some((reference) => reference.label === "Invested capital"));
     assert.ok(requiredReturnOnNtaInputReferences.some((reference) => reference.label === "Kapasitas pinjaman"));
@@ -35,6 +35,8 @@ describe("assumption candidates", () => {
       requiredReturnOnNtaInputReferences,
     });
 
-    assert.doesNotMatch(serialized, /STAT_ASSUMPTIONS|BORROWING CAP|GROWTH RATE|DISCOUNT RATE|WACC!/);
+    assert.match(serialized, /BORROWING CAP/);
+    assert.match(serialized, /DISCOUNT RATE/);
+    assert.doesNotMatch(serialized, /STAT_ASSUMPTIONS|[A-Z ]+![A-Z]+[0-9]+|\/Users\/persiapantubel/);
   });
 });

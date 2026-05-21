@@ -61,15 +61,19 @@ export const terminalGrowthInputReferences: AssumptionReference[] = [
 export const requiredReturnOnNtaInputReferences: AssumptionReference[] = [
   {
     label: "Operating NTA",
-    treatment: "Piutang, persediaan, dan aset tetap mendukung basis aset berwujud yang direview untuk EEM.",
+    treatment: "Jumlah piutang, persediaan, dan aset tetap neto mendukung basis aset berwujud yang direview untuk EEM.",
   },
   {
     label: "Kapasitas pinjaman",
-    treatment: "Capacity rate yang diinput pengguna mengonversi aset berwujud yang dapat dijaminkan menjadi bauran utang/ekuitas implisit; bila tidak tersedia, gunakan struktur kapital WACC sebagai fallback terdokumentasi.",
+    treatment: "Capacity rate mengonversi aset berwujud eligible menjadi bauran utang/ekuitas implisit; piutang dan persediaan mengikuti struktur BORROWING CAP, sedangkan aset tetap memakai proxy 70% yang bisa dioverride berdasarkan bukti kasus.",
+  },
+  {
+    label: "Rujukan agunan aset tetap",
+    treatment: "PBI/OJK collateral-recognition 70% dipakai sebagai proxy reviewable untuk aset tetap bila appraisal/covenant khusus belum tersedia; bukan pengganti judgement penilai.",
   },
   {
     label: "Capital charge",
-    treatment: "After-tax debt cost dan tangible-asset equity return menghasilkan required return on NTA.",
+    treatment: "After-tax debt cost dan tangible-asset equity return dari DISCOUNT RATE menghasilkan required return on NTA.",
   },
 ];
 

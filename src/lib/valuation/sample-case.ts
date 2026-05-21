@@ -6,7 +6,7 @@ export const sampleCase: FinancialStatementSnapshot = {
   terminalGrowth: 0,
   revenueGrowth: 0.22757714145120844,
   wacc: 0.11463062037189403,
-  requiredReturnOnNta: 0.08513891435570048,
+  requiredReturnOnNta: 0.08518991224521819,
   cogsMargin: 0.6823933227299391,
   gaMargin: 0.15644218233742005,
   depreciationMargin: 0.06501147550185857,
