@@ -217,12 +217,14 @@ export interface DcfForecastRow {
   inventory: number;
   otherCurrentAssets: number;
   currentAssets: number;
+  operatingCurrentAssetsBeginning: number;
   operatingCurrentAssets: number;
   accountPayable: number;
   taxPayable: number;
   otherPayable: number;
   bankLoanShortTerm: number;
   currentLiabilities: number;
+  operatingCurrentLiabilitiesBeginning: number;
   operatingCurrentLiabilities: number;
   operatingNwc: number;
   changeInNwc: number;

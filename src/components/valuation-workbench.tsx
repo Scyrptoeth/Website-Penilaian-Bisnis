@@ -54,6 +54,9 @@ import {
   normalizedNoplat,
   type DcfOptions,
   type DcfFixedAssetProjectionInput,
+  type DcfWorkingCapitalCurrentAssetKey,
+  type DcfWorkingCapitalCurrentLiabilityKey,
+  type DcfWorkingCapitalInclusionOptions,
   type IncomeProjectionPresentationAssumptionsInput,
   type IncomeProjectionRelianceDecision,
   type IncomeProjectionRelianceGovernanceResult,
@@ -1111,7 +1114,18 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     [periods, activePeriodId, rows, resolvedAssumptions, fixedAssetScheduleRows, effectiveActiveWaccBasis, debtScheduleInputs],
   );
   const aamAdjustmentModel = useMemo(() => buildAamAdjustmentModel(snapshot, aamAdjustments), [aamAdjustments, snapshot]);
-  const baseDcfForecast = useMemo(() => buildDcfForecast(snapshot), [snapshot]);
+  const dcfWorkingCapitalInclusionOptions = useMemo(
+    () => buildDcfWorkingCapitalInclusionOptions(cashFlowAccountInclusions),
+    [cashFlowAccountInclusions],
+  );
+  const dcfProjectionWorkingCapitalCandidates = useMemo(
+    () => buildDcfProjectionWorkingCapitalCandidates(cashFlowAccountInclusions),
+    [cashFlowAccountInclusions],
+  );
+  const baseDcfForecast = useMemo(
+    () => buildDcfForecast(snapshot, { workingCapitalInclusions: dcfWorkingCapitalInclusionOptions }),
+    [dcfWorkingCapitalInclusionOptions, snapshot],
+  );
   const fixedAssetProjection = useMemo(
     () => buildFixedAssetProjection(baseDcfForecast, periods, activePeriodId, fixedAssetSchedule, { preferredMode: fixedAssetProjectionMode }),
     [activePeriodId, baseDcfForecast, fixedAssetProjectionMode, fixedAssetSchedule, periods],
@@ -1181,10 +1195,11 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         eem: eemCalculationOptions,
         dcf: dcfFixedAssetProjection
           ? {
+              workingCapitalInclusions: dcfWorkingCapitalInclusionOptions,
               fixedAssetProjection: dcfFixedAssetProjection,
               fixedAssetProjectionSource: fixedAssetProjection.source,
             }
-          : undefined,
+          : { workingCapitalInclusions: dcfWorkingCapitalInclusionOptions },
       }),
     [
       aamAdjustmentModel.assetAdjustmentTotal,
@@ -1195,6 +1210,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       aamAdjustmentModel.liabilityAdjustmentTotal,
       aamAdjustmentModel.missingNoteCount,
       dcfFixedAssetProjection,
+      dcfWorkingCapitalInclusionOptions,
       eemCalculationOptions,
       fixedAssetProjection.source,
       snapshot,
@@ -1217,13 +1233,17 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         snapshot,
         baselineEquityValue: baseActiveDcf.equityValue,
         controls: incomeProjectionControls,
-        activeDcfOptions: buildActiveDcfBasisDcfOptions(activeDcfBasis, snapshot),
+        activeDcfOptions: {
+          ...buildActiveDcfBasisDcfOptions(activeDcfBasis, snapshot),
+          workingCapitalInclusions: dcfWorkingCapitalInclusionOptions,
+        },
         fixedAssetProjection: dcfFixedAssetProjection,
         fixedAssetProjectionSource: dcfFixedAssetProjection ? fixedAssetProjection.source : undefined,
       }),
     [
       activeDcfBasis,
       dcfFixedAssetProjection,
+      dcfWorkingCapitalInclusionOptions,
       baseActiveDcf.equityValue,
       fixedAssetProjection.source,
       incomeProjectionControls,
@@ -4400,6 +4420,8 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               snapshot={snapshot}
               activeDcfSelection={activeDcfSelection}
               activeWaccBasisLabel={activeWaccBasisLabels[effectiveActiveWaccBasis].shortLabel}
+              workingCapitalCandidates={dcfProjectionWorkingCapitalCandidates}
+              onToggleWorkingCapitalInclusion={toggleCashFlowAccountInclusion}
             />
           ) : (
             <ReadinessPanel status={readiness.projectedCashFlow} onNavigate={navigateToWorkflowTab} onAction={handleReadinessAction} force />
@@ -4473,7 +4495,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
 
         {activeWorkflowTab === "noplatFcf" ? (
           readiness.noplatFcf.isReady ? (
-            <NoplatFcfSection analysis={sectionAnalysis} />
+            <NoplatFcfSection analysis={sectionAnalysis} onUpdateOverride={updateCashFlowOverride} />
           ) : (
             <ReadinessPanel status={readiness.noplatFcf} onNavigate={navigateToWorkflowTab} onAction={handleReadinessAction} force />
           )
@@ -5337,6 +5359,28 @@ type DcfProjectionContext = {
   fixedAssetProjection?: FixedAssetProjectionSummary;
 };
 
+type DcfProjectionWorkingCapitalCandidate =
+  | {
+      rowKey: "oca-change";
+      id: string;
+      key: DcfWorkingCapitalCurrentAssetKey;
+      label: string;
+      categoryLabel: string;
+      defaultIncluded: boolean;
+      included: boolean;
+    }
+  | {
+      rowKey: "ocl-change";
+      id: string;
+      key: DcfWorkingCapitalCurrentLiabilityKey;
+      label: string;
+      categoryLabel: string;
+      defaultIncluded: boolean;
+      included: boolean;
+    };
+
+type DcfProjectionWorkingCapitalCandidates = Record<CashFlowWorkingCapitalRowKey, DcfProjectionWorkingCapitalCandidate[]>;
+
 type DcfProjectionConfig = {
   eyebrow: string;
   title: string;
@@ -5361,6 +5405,130 @@ const projectionStatusClassNames: Record<DcfProjectionStatus, string> = {
   requiresInput: "warning",
   notModeled: "muted",
 };
+
+const dcfProjectionCurrentAssetCandidates: Array<Omit<Extract<DcfProjectionWorkingCapitalCandidate, { rowKey: "oca-change" }>, "included">> = [
+  {
+    rowKey: "oca-change",
+    id: "projection:cashOnHand",
+    key: "cashOnHand",
+    label: "Cash on Hand",
+    categoryLabel: "Kas di tangan",
+    defaultIncluded: false,
+  },
+  {
+    rowKey: "oca-change",
+    id: "projection:cashOnBankDeposit",
+    key: "cashOnBankDeposit",
+    label: "Cash on Bank",
+    categoryLabel: "Kas bank/deposito",
+    defaultIncluded: false,
+  },
+  {
+    rowKey: "oca-change",
+    id: "projection:accountReceivable",
+    key: "accountReceivable",
+    label: "Account Receivable",
+    categoryLabel: "Piutang usaha",
+    defaultIncluded: true,
+  },
+  {
+    rowKey: "oca-change",
+    id: "projection:employeeReceivable",
+    key: "employeeReceivable",
+    label: "Other Receivable",
+    categoryLabel: "Piutang lain/karyawan",
+    defaultIncluded: false,
+  },
+  {
+    rowKey: "oca-change",
+    id: "projection:inventory",
+    key: "inventory",
+    label: "Inventory",
+    categoryLabel: "Persediaan",
+    defaultIncluded: true,
+  },
+  {
+    rowKey: "oca-change",
+    id: "projection:otherCurrentAssets",
+    key: "otherCurrentAssets",
+    label: "Others",
+    categoryLabel: "Aset lancar lain",
+    defaultIncluded: false,
+  },
+];
+
+const dcfProjectionCurrentLiabilityCandidates: Array<Omit<Extract<DcfProjectionWorkingCapitalCandidate, { rowKey: "ocl-change" }>, "included">> = [
+  {
+    rowKey: "ocl-change",
+    id: "projection:bankLoanShortTerm",
+    key: "bankLoanShortTerm",
+    label: "Bank Loan-Short Term",
+    categoryLabel: "Pinjaman bank jangka pendek",
+    defaultIncluded: false,
+  },
+  {
+    rowKey: "ocl-change",
+    id: "projection:accountPayable",
+    key: "accountPayable",
+    label: "Account Payables",
+    categoryLabel: "Utang usaha",
+    defaultIncluded: true,
+  },
+  {
+    rowKey: "ocl-change",
+    id: "projection:taxPayable",
+    key: "taxPayable",
+    label: "Tax Payable",
+    categoryLabel: "Utang pajak",
+    defaultIncluded: false,
+  },
+  {
+    rowKey: "ocl-change",
+    id: "projection:otherPayable",
+    key: "otherPayable",
+    label: "Others",
+    categoryLabel: "Utang lain Proyeksi Neraca",
+    defaultIncluded: true,
+  },
+  {
+    rowKey: "ocl-change",
+    id: "projection:bankLoanLongTerm",
+    key: "bankLoanLongTerm",
+    label: "Bank Loan-Long Term",
+    categoryLabel: "Utang berbunga jangka panjang opsional",
+    defaultIncluded: false,
+  },
+];
+
+function buildDcfProjectionWorkingCapitalCandidates(
+  inclusions: CashFlowAccountInclusionState,
+): DcfProjectionWorkingCapitalCandidates {
+  return {
+    "oca-change": dcfProjectionCurrentAssetCandidates.map((candidate) => ({
+      ...candidate,
+      included: inclusions["oca-change"]?.[candidate.id] ?? candidate.defaultIncluded,
+    })),
+    "ocl-change": dcfProjectionCurrentLiabilityCandidates.map((candidate) => ({
+      ...candidate,
+      included: inclusions["ocl-change"]?.[candidate.id] ?? candidate.defaultIncluded,
+    })),
+  };
+}
+
+function buildDcfWorkingCapitalInclusionOptions(
+  inclusions: CashFlowAccountInclusionState,
+): DcfWorkingCapitalInclusionOptions {
+  const projectionCandidates = buildDcfProjectionWorkingCapitalCandidates(inclusions);
+
+  return {
+    currentAssets: Object.fromEntries(
+      projectionCandidates["oca-change"].map((candidate) => [candidate.key, candidate.included]),
+    ) as Partial<Record<DcfWorkingCapitalCurrentAssetKey, boolean>>,
+    currentLiabilities: Object.fromEntries(
+      projectionCandidates["ocl-change"].map((candidate) => [candidate.key, candidate.included]),
+    ) as Partial<Record<DcfWorkingCapitalCurrentLiabilityKey, boolean>>,
+  };
+}
 
 const dcfIncomeProjectionRows: DcfProjectionLine[] = [
   {
@@ -6329,18 +6497,18 @@ const dcfCashFlowProjectionRows: DcfProjectionLine[] = [
   sectionProjectionLine("changes-working-capital", "Changes in Working Capital"),
   {
     key: "operating-current-assets-change",
-    label: "Operating Current Assets (AR + Inventory)",
+    label: "(Kenaikan) penurunan aset lancar operasional",
     source: "Proyeksi neraca",
-    formula: "-((AR + inventory) t - (AR + inventory) t-1)",
+    formula: "-(aset lancar terpilih t - aset lancar terpilih t-1)",
     status: "calculated",
     workbookReference: "CF-WC-01",
     value: (_row, index, context) => operatingCurrentAssetsCashEffect(index, context),
   },
   {
     key: "operating-current-liabilities-change",
-    label: "Operating Current Liabilities (AP + Other Payable)",
+    label: "Kenaikan (penurunan) liabilitas lancar operasional",
     source: "Proyeksi neraca",
-    formula: "(AP + other payable) t - (AP + other payable) t-1",
+    formula: "liabilitas terpilih t - liabilitas terpilih t-1",
     status: "calculated",
     workbookReference: "CF-WC-02",
     value: (_row, index, context) => operatingCurrentLiabilitiesCashEffect(index, context),
@@ -6750,6 +6918,8 @@ function ProjectionStatementSection({
   onIncomeProjectionPresentationAssumptionChange,
   onIncomeProjectionPresentationAssumptionReasonChange,
   onApplyIncomeProjectionSmartSuggestions,
+  workingCapitalCandidates,
+  onToggleWorkingCapitalInclusion,
 }: {
   kind: ProjectionStatementKind;
   forecast: DcfForecastRow[];
@@ -6769,6 +6939,8 @@ function ProjectionStatementSection({
   onIncomeProjectionPresentationAssumptionChange?: (key: IncomeProjectionPresentationAssumptionKey, value: string) => void;
   onIncomeProjectionPresentationAssumptionReasonChange?: (reason: string) => void;
   onApplyIncomeProjectionSmartSuggestions?: () => void;
+  workingCapitalCandidates?: DcfProjectionWorkingCapitalCandidates;
+  onToggleWorkingCapitalInclusion?: (rowKey: CashFlowWorkingCapitalRowKey, accountRowId: string, included: boolean) => void;
 }) {
   const config =
     kind === "fixedAssets"
@@ -6898,7 +7070,14 @@ function ProjectionStatementSection({
         />
       ) : null}
 
-      <DcfProjectionPanel config={config} forecast={displayForecast} snapshot={snapshot} fixedAssetProjection={fixedAssetProjection} />
+      <DcfProjectionPanel
+        config={config}
+        forecast={displayForecast}
+        snapshot={snapshot}
+        fixedAssetProjection={fixedAssetProjection}
+        workingCapitalCandidates={kind === "cashFlow" ? workingCapitalCandidates : undefined}
+        onToggleWorkingCapitalInclusion={kind === "cashFlow" ? onToggleWorkingCapitalInclusion : undefined}
+      />
     </>
   );
 }
@@ -7269,11 +7448,15 @@ function DcfProjectionPanel({
   forecast,
   snapshot,
   fixedAssetProjection,
+  workingCapitalCandidates,
+  onToggleWorkingCapitalInclusion,
 }: {
   config: DcfProjectionConfig;
   forecast: DcfForecastRow[];
   snapshot: FinancialStatementSnapshot;
   fixedAssetProjection?: FixedAssetProjectionSummary;
+  workingCapitalCandidates?: DcfProjectionWorkingCapitalCandidates;
+  onToggleWorkingCapitalInclusion?: (rowKey: CashFlowWorkingCapitalRowKey, accountRowId: string, included: boolean) => void;
 }) {
   const context = { forecast, snapshot, fixedAssetProjection };
   return (
@@ -7321,12 +7504,20 @@ function DcfProjectionPanel({
               const lineSource = resolveProjectionLineSource(line, context);
               const lineStatus = resolveProjectionLineStatus(line, context);
               const lineNote = resolveProjectionLineNote(line, context);
+              const workingCapitalRowKey = getDcfProjectionWorkingCapitalRowKey(line.key);
 
               return (
                 <tr className={line.kind === "subtotal" ? "analysis-total-row" : ""} key={line.key}>
                   <td>
                     <strong>{line.label}</strong>
                     {lineNote ? <span>{lineNote}</span> : null}
+                    {workingCapitalRowKey && workingCapitalCandidates && onToggleWorkingCapitalInclusion ? (
+                      <DcfProjectionWorkingCapitalDisclosure
+                        rowKey={workingCapitalRowKey}
+                        candidates={workingCapitalCandidates[workingCapitalRowKey]}
+                        onToggle={onToggleWorkingCapitalInclusion}
+                      />
+                    ) : null}
                   </td>
                   <td>{lineSource}</td>
                   <td>
@@ -7345,6 +7536,59 @@ function DcfProjectionPanel({
       </div>
 
     </article>
+  );
+}
+
+function getDcfProjectionWorkingCapitalRowKey(lineKey: string): CashFlowWorkingCapitalRowKey | null {
+  if (lineKey === "operating-current-assets-change") {
+    return "oca-change";
+  }
+
+  if (lineKey === "operating-current-liabilities-change") {
+    return "ocl-change";
+  }
+
+  return null;
+}
+
+function DcfProjectionWorkingCapitalDisclosure({
+  rowKey,
+  candidates,
+  onToggle,
+}: {
+  rowKey: CashFlowWorkingCapitalRowKey;
+  candidates: DcfProjectionWorkingCapitalCandidate[];
+  onToggle: (rowKey: CashFlowWorkingCapitalRowKey, accountRowId: string, included: boolean) => void;
+}) {
+  const includedCount = candidates.filter((candidate) => candidate.included).length;
+  const rowLabel =
+    rowKey === "oca-change"
+      ? "(Kenaikan) penurunan aset lancar operasional"
+      : "Kenaikan (penurunan) liabilitas lancar operasional";
+
+  return (
+    <details className="cash-flow-account-disclosure projection-account-disclosure" data-testid={`projection-account-disclosure-${rowKey}`}>
+      <summary>
+        <span>Basis akun Proyeksi Neraca</span>
+        <strong>{`${includedCount}/${candidates.length} disertakan`}</strong>
+      </summary>
+      <div className="cash-flow-account-picker projection-account-picker">
+        {candidates.map((candidate) => (
+          <label data-testid={`projection-account-option-${rowKey}-${candidate.id}`} key={candidate.id}>
+            <input
+              aria-label={`Sertakan ${candidate.label} dalam ${rowLabel}`}
+              checked={candidate.included}
+              type="checkbox"
+              onChange={(event) => onToggle(rowKey, candidate.id, event.target.checked)}
+            />
+            <span>
+              <strong>{candidate.label}</strong>
+              <small>{candidate.categoryLabel}</small>
+            </span>
+          </label>
+        ))}
+      </div>
+    </details>
   );
 }
 
@@ -7808,15 +8052,17 @@ function previousForecastValue<K extends keyof DcfForecastRow>(
 }
 
 function previousOperatingCurrentAssets(index: number, context: DcfProjectionContext): number {
-  return index === 0
-    ? context.snapshot.accountReceivable + context.snapshot.inventory
-    : context.forecast[index - 1]?.operatingCurrentAssets ?? 0;
+  return context.forecast[index]?.operatingCurrentAssetsBeginning ??
+    (index === 0
+      ? context.snapshot.accountReceivable + context.snapshot.inventory
+      : context.forecast[index - 1]?.operatingCurrentAssets ?? 0);
 }
 
 function previousOperatingCurrentLiabilities(index: number, context: DcfProjectionContext): number {
-  return index === 0
-    ? context.snapshot.accountPayable + context.snapshot.otherPayable
-    : context.forecast[index - 1]?.operatingCurrentLiabilities ?? 0;
+  return context.forecast[index]?.operatingCurrentLiabilitiesBeginning ??
+    (index === 0
+      ? context.snapshot.accountPayable + context.snapshot.otherPayable
+      : context.forecast[index - 1]?.operatingCurrentLiabilities ?? 0);
 }
 
 function growthValue(current: number, previous: number): number | null {
@@ -8234,7 +8480,13 @@ function formatDebtScheduleValue(value: AnalysisValue, valueFormat: AnalysisRow[
   return valueFormat === "percent" ? formatPercent(value) : formatAnalysisValue(value, "currency");
 }
 
-function NoplatFcfSection({ analysis }: { analysis: SectionAnalysis }) {
+function NoplatFcfSection({
+  analysis,
+  onUpdateOverride,
+}: {
+  analysis: SectionAnalysis;
+  onUpdateOverride: (rowKey: string, periodId: string, patch: Partial<CashFlowOverrideEntry>) => void;
+}) {
   return (
     <>
       <section className="panel" data-testid="noplat-panel">
@@ -8254,12 +8506,119 @@ function NoplatFcfSection({ analysis }: { analysis: SectionAnalysis }) {
             <p className="eyebrow">FCF</p>
             <h3>Free Cash Flow to Firm (FCFF)</h3>
           </div>
-          <span className="status-pill muted">NOPLAT + penyusutan + WC - capex</span>
+          <span className="status-pill muted">Interoperable + editable CFS rows</span>
         </div>
-        <AnalysisTable rows={analysis.fcfRows} periods={analysis.periods} />
+        <FcfTable
+          rows={analysis.fcfRows}
+          periods={analysis.periods}
+          cashFlowStatementRows={analysis.cashFlowStatementRows}
+          onUpdateOverride={onUpdateOverride}
+        />
       </section>
     </>
   );
+}
+
+function FcfTable({
+  rows,
+  periods,
+  cashFlowStatementRows,
+  onUpdateOverride,
+}: {
+  rows: AnalysisRow[];
+  periods: Period[];
+  cashFlowStatementRows: CashFlowStatementRow[];
+  onUpdateOverride: (rowKey: string, periodId: string, patch: Partial<CashFlowOverrideEntry>) => void;
+}) {
+  const cashFlowRowsByKey = new Map(cashFlowStatementRows.map((row) => [row.key, row]));
+
+  return (
+    <div className="table-wrap">
+      <table className="analysis-table fcf-analysis-table">
+        <thead>
+          <tr>
+            <th>Pos</th>
+            <th>Sumber</th>
+            <th>Formula</th>
+            {periods.map((period) => (
+              <th className="period-column" key={period.id}>
+                {period.label || "Periode"}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => {
+            if (row.kind === "section") {
+              return (
+                <tr className="analysis-section-row" key={row.key}>
+                  <td colSpan={periods.length + 3}>{row.label}</td>
+                </tr>
+              );
+            }
+
+            const rowClassName =
+              row.kind === "subtotal" ? "analysis-total-row" : row.kind === "warning" ? "analysis-warning-row" : "";
+            const cashFlowRow = cashFlowRowsByKey.get(row.key);
+            const isEditable = Boolean(cashFlowRow?.isOverridable && (row.key === "oca-change" || row.key === "ocl-change"));
+
+            return (
+              <tr className={rowClassName} key={row.key}>
+                <td>
+                  <strong>{row.label}</strong>
+                  {row.note ? <span>{row.note}</span> : null}
+                </td>
+                <td>
+                  {row.sourceType ? <AnalysisSourcePill sourceType={row.sourceType} /> : null}
+                  <span>{row.source}</span>
+                  {row.lockReason ? <small className="debt-schedule-detail">{row.lockReason}</small> : null}
+                </td>
+                <td>{row.formula}</td>
+                {periods.map((period) => {
+                  const value = row.values[period.id] ?? null;
+                  const inputValue = cashFlowRow?.overrideInputs[period.id] ?? "";
+                  const calculatedValue = cashFlowRow?.calculatedValues[period.id] ?? null;
+
+                  return (
+                    <td className={isEditable ? "override-cell period-column" : "numeric-cell period-column"} key={period.id}>
+                      {isEditable ? (
+                        <div className="fcf-override-stack">
+                          <input
+                            aria-label={`Override ${row.label} ${period.label || "Periode"} dari NOPLAT & FCF`}
+                            inputMode="numeric"
+                            placeholder="Nilai override"
+                            value={inputValue}
+                            onChange={(event) => onUpdateOverride(row.key, period.id, { value: event.target.value })}
+                          />
+                          <span>Final: {formatAnalysisValue(value, "currency")}</span>
+                          <small>Model: {formatAnalysisValue(calculatedValue, "currency")}</small>
+                        </div>
+                      ) : (
+                        formatAnalysisValue(value, "currency")
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function AnalysisSourcePill({ sourceType }: { sourceType: NonNullable<AnalysisRow["sourceType"]> }) {
+  const label =
+    sourceType === "manual"
+      ? "Editable"
+      : sourceType === "formula"
+        ? "Otomatis"
+        : sourceType === "interoperable"
+          ? "Terhubung"
+          : "Fallback";
+
+  return <span className={`source-status-pill ${sourceType}`}>{label}</span>;
 }
 
 function FinancialRatioSection({

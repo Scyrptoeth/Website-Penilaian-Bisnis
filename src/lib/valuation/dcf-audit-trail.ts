@@ -2,8 +2,6 @@ import {
   interestBearingDebt,
   nonOperatingAssets,
   normalizedNoplat,
-  operatingCurrentAssets,
-  operatingCurrentLiabilities,
 } from "./calculations";
 import type { AccountCategory, DcfForecastRow, FinancialStatementSnapshot, MethodOutput } from "./types";
 
@@ -121,7 +119,7 @@ export function buildDcfAuditTrail({
     })),
   ];
 
-  const projectionValues = buildProjectionValues(snapshot, dcf.forecast, includeWorkingCapitalChange);
+  const projectionValues = buildProjectionValues(dcf.forecast, includeWorkingCapitalChange);
   const historicalValues = buildHistoricalValues(snapshot, historical, includeWorkingCapitalChange);
   const allValues = [historicalValues, ...projectionValues];
   const explicitPv = dcf.forecast.reduce((sum, row) => sum + row.presentValue, 0);
@@ -403,28 +401,18 @@ function buildHistoricalValues(
   };
 }
 
-function buildProjectionValues(
-  snapshot: FinancialStatementSnapshot,
-  forecast: DcfForecastRow[],
-  includeWorkingCapitalChange: boolean,
-): DcfAuditProjectionValues[] {
-  let previousOperatingCurrentAssets = operatingCurrentAssets(snapshot);
-  let previousOperatingCurrentLiabilities = operatingCurrentLiabilities(snapshot);
-
+function buildProjectionValues(forecast: DcfForecastRow[], includeWorkingCapitalChange: boolean): DcfAuditProjectionValues[] {
   return forecast.map((forecastRow) => {
     const currentAssetMovement = includeWorkingCapitalChange
-      ? previousOperatingCurrentAssets - forecastRow.operatingCurrentAssets
+      ? forecastRow.operatingCurrentAssetsBeginning - forecastRow.operatingCurrentAssets
       : 0;
     const currentLiabilityMovement = includeWorkingCapitalChange
-      ? forecastRow.operatingCurrentLiabilities - previousOperatingCurrentLiabilities
+      ? forecastRow.operatingCurrentLiabilities - forecastRow.operatingCurrentLiabilitiesBeginning
       : 0;
     const totalNetChangesInWorkingCapital = currentAssetMovement + currentLiabilityMovement;
     const capitalExpenditures = -forecastRow.capitalExpenditure;
     const grossInvestment = totalNetChangesInWorkingCapital + capitalExpenditures;
     const noplat = forecastRow.grossCashFlow - forecastRow.depreciation;
-
-    previousOperatingCurrentAssets = forecastRow.operatingCurrentAssets;
-    previousOperatingCurrentLiabilities = forecastRow.operatingCurrentLiabilities;
 
     return {
       noplat,

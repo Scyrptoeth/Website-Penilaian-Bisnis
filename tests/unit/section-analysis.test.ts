@@ -141,6 +141,39 @@ describe("section analysis", () => {
     );
   });
 
+  it("flows editable Cash Flow Statement working-capital rows into FCF", () => {
+    const withOverride = buildSectionAnalysis(periods, rows, assumptions, [], {
+      "oca-change": {
+        p2021: { value: "-250.000.000", reason: "", updatedAt: "2026-05-21T00:00:00.000Z" },
+      },
+    });
+    const fcfOca = withOverride.fcfRows.find((row) => row.key === "oca-change");
+    const fcfOcl = withOverride.fcfRows.find((row) => row.key === "ocl-change");
+    const fcfGrossCashFlow = withOverride.fcfRows.find((row) => row.key === "gross-cash-flow");
+    const fcfGrossInvestment = withOverride.fcfRows.find((row) => row.key === "gross-investment");
+    const fcf = withOverride.fcfRows.find((row) => row.key === "fcf");
+    const capex = withOverride.fcfRows.find((row) => row.key === "capex");
+
+    assert.ok(fcfOca);
+    assert.ok(fcfOcl);
+    assert.ok(fcfGrossCashFlow);
+    assert.ok(fcfGrossInvestment);
+    assert.ok(fcf);
+    assert.ok(capex);
+    assert.equal(fcfOca.sourceType, "manual");
+    assert.equal(fcfOca.values.p2021, -250_000_000);
+    assertAlmostEqual(
+      Number(fcfGrossInvestment.values.p2021),
+      Number(fcfOca.values.p2021) + Number(fcfOcl.values.p2021) + Number(capex.values.p2021),
+      0.01,
+    );
+    assertAlmostEqual(
+      Number(fcf.values.p2021),
+      Number(fcfGrossCashFlow.values.p2021) + Number(fcfGrossInvestment.values.p2021),
+      0.01,
+    );
+  });
+
   it("recomputes cash-flow working-capital rows from selected balance-sheet accounts", () => {
     const withCashAndTax = buildSectionAnalysis(periods, rows, assumptions, [], {}, {}, {
       "oca-change": {

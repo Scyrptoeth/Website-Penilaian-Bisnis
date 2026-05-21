@@ -17,11 +17,32 @@ export type IncomeProjectionPresentationAssumptionsInput = {
   nonOperatingPolicy?: NonOperatingIncomeProjectionPolicy;
 };
 
+export type DcfWorkingCapitalCurrentAssetKey =
+  | "cashOnHand"
+  | "cashOnBankDeposit"
+  | "accountReceivable"
+  | "employeeReceivable"
+  | "inventory"
+  | "otherCurrentAssets";
+
+export type DcfWorkingCapitalCurrentLiabilityKey =
+  | "bankLoanShortTerm"
+  | "accountPayable"
+  | "taxPayable"
+  | "otherPayable"
+  | "bankLoanLongTerm";
+
+export type DcfWorkingCapitalInclusionOptions = {
+  currentAssets?: Partial<Record<DcfWorkingCapitalCurrentAssetKey, boolean>>;
+  currentLiabilities?: Partial<Record<DcfWorkingCapitalCurrentLiabilityKey, boolean>>;
+};
+
 export type DcfOptions = {
   terminalGrowth?: number;
   wacc?: number;
   includeWorkingCapitalChange?: boolean;
   debtLikeTaxPayable?: boolean;
+  workingCapitalInclusions?: DcfWorkingCapitalInclusionOptions;
   fixedAssetProjection?: Record<number, DcfFixedAssetProjectionInput>;
   fixedAssetProjectionSource?: string;
   projectionEngine?: "balance-reconciled" | "historical-derived";
@@ -153,6 +174,84 @@ export function operatingCurrentLiabilities(snapshot: FinancialStatementSnapshot
 
 export function operatingWorkingCapital(snapshot: FinancialStatementSnapshot): number {
   return operatingCurrentAssets(snapshot) - operatingCurrentLiabilities(snapshot);
+}
+
+function isDcfWorkingCapitalCurrentAssetIncluded(
+  inclusions: DcfWorkingCapitalInclusionOptions | undefined,
+  key: DcfWorkingCapitalCurrentAssetKey,
+): boolean {
+  const explicit = inclusions?.currentAssets?.[key];
+
+  if (typeof explicit === "boolean") {
+    return explicit;
+  }
+
+  return key === "accountReceivable" || key === "inventory";
+}
+
+function isDcfWorkingCapitalCurrentLiabilityIncluded(
+  inclusions: DcfWorkingCapitalInclusionOptions | undefined,
+  key: DcfWorkingCapitalCurrentLiabilityKey,
+): boolean {
+  const explicit = inclusions?.currentLiabilities?.[key];
+
+  if (typeof explicit === "boolean") {
+    return explicit;
+  }
+
+  return key === "accountPayable" || key === "otherPayable";
+}
+
+function snapshotOtherCurrentAssets(snapshot: FinancialStatementSnapshot): number {
+  return positiveResidual(
+    snapshot.currentAssets,
+    snapshot.cashOnHand +
+      snapshot.cashOnBankDeposit +
+      snapshot.accountReceivable +
+      snapshot.employeeReceivable +
+      snapshot.inventory,
+  );
+}
+
+function selectedSnapshotWorkingCapitalComponents(
+  snapshot: FinancialStatementSnapshot,
+  inclusions: DcfWorkingCapitalInclusionOptions | undefined,
+): { currentAssets: number; currentLiabilities: number } {
+  const currentAssets =
+    (isDcfWorkingCapitalCurrentAssetIncluded(inclusions, "cashOnHand") ? snapshot.cashOnHand : 0) +
+    (isDcfWorkingCapitalCurrentAssetIncluded(inclusions, "cashOnBankDeposit") ? snapshot.cashOnBankDeposit : 0) +
+    (isDcfWorkingCapitalCurrentAssetIncluded(inclusions, "accountReceivable") ? snapshot.accountReceivable : 0) +
+    (isDcfWorkingCapitalCurrentAssetIncluded(inclusions, "employeeReceivable") ? snapshot.employeeReceivable : 0) +
+    (isDcfWorkingCapitalCurrentAssetIncluded(inclusions, "inventory") ? snapshot.inventory : 0) +
+    (isDcfWorkingCapitalCurrentAssetIncluded(inclusions, "otherCurrentAssets") ? snapshotOtherCurrentAssets(snapshot) : 0);
+  const currentLiabilities =
+    (isDcfWorkingCapitalCurrentLiabilityIncluded(inclusions, "bankLoanShortTerm") ? snapshot.bankLoanShortTerm : 0) +
+    (isDcfWorkingCapitalCurrentLiabilityIncluded(inclusions, "accountPayable") ? snapshot.accountPayable : 0) +
+    (isDcfWorkingCapitalCurrentLiabilityIncluded(inclusions, "taxPayable") ? snapshot.taxPayable : 0) +
+    (isDcfWorkingCapitalCurrentLiabilityIncluded(inclusions, "otherPayable") ? snapshot.otherPayable + snapshot.interestPayable : 0) +
+    (isDcfWorkingCapitalCurrentLiabilityIncluded(inclusions, "bankLoanLongTerm") ? snapshot.bankLoanLongTerm : 0);
+
+  return { currentAssets, currentLiabilities };
+}
+
+function selectedForecastCurrentAssets(
+  inclusions: DcfWorkingCapitalInclusionOptions | undefined,
+  values: Record<DcfWorkingCapitalCurrentAssetKey, number>,
+): number {
+  return (Object.entries(values) as Array<[DcfWorkingCapitalCurrentAssetKey, number]>).reduce(
+    (sum, [key, value]) => sum + (isDcfWorkingCapitalCurrentAssetIncluded(inclusions, key) ? value : 0),
+    0,
+  );
+}
+
+function selectedForecastCurrentLiabilities(
+  inclusions: DcfWorkingCapitalInclusionOptions | undefined,
+  values: Record<DcfWorkingCapitalCurrentLiabilityKey, number>,
+): number {
+  return (Object.entries(values) as Array<[DcfWorkingCapitalCurrentLiabilityKey, number]>).reduce(
+    (sum, [key, value]) => sum + (isDcfWorkingCapitalCurrentLiabilityIncluded(inclusions, key) ? value : 0),
+    0,
+  );
 }
 
 export function nonOperatingAssets(snapshot: FinancialStatementSnapshot): number {
@@ -633,8 +732,14 @@ export function calculateEem(snapshot: FinancialStatementSnapshot, options: EemO
 
 export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: DcfOptions = {}): DcfForecastRow[] {
   const rows: DcfForecastRow[] = [];
+  const selectedHistoricalWorkingCapital = selectedSnapshotWorkingCapitalComponents(
+    snapshot,
+    options.workingCapitalInclusions,
+  );
   let previousRevenue = snapshot.revenue;
-  let previousNwc = operatingWorkingCapital(snapshot);
+  let previousOperatingCurrentAssets = selectedHistoricalWorkingCapital.currentAssets;
+  let previousOperatingCurrentLiabilities = selectedHistoricalWorkingCapital.currentLiabilities;
+  let previousNwc = previousOperatingCurrentAssets - previousOperatingCurrentLiabilities;
   let previousFixedAssetsNet = snapshot.fixedAssetsNet;
   let previousFixedAssetGross = snapshot.fixedAssetAcquisition || snapshot.fixedAssetsNet + snapshot.accumulatedDepreciation;
   let previousAccumulatedDepreciation = snapshot.accumulatedDepreciation;
@@ -716,10 +821,6 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
     const inventory = (cogs * snapshot.inventoryDays) / 365;
     const ap = (cogs * snapshot.apDays) / 365;
     const otherPayable = (operatingExpenses * snapshot.otherPayableDays) / 365;
-    const operatingCurrentAssets = ar + inventory;
-    const operatingCurrentLiabilities = ap + otherPayable;
-    const operatingNwc = operatingCurrentAssets - operatingCurrentLiabilities;
-    const changeInNwc = includeWorkingCapitalChange ? operatingNwc - previousNwc : 0;
     const maintenanceCapex = fixedAssetProjection?.capitalExpenditure ?? depreciation;
     const fixedAssetsBeginning = previousFixedAssetsNet;
     const fixedAssetGross = fixedAssetProjection?.fixedAssetGross ?? previousFixedAssetGross + maintenanceCapex;
@@ -808,6 +909,25 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
     const taxCashPaidImpliedByPayableSchedule = taxPayableBeginning + taxExpenseAccrued - taxPayable;
     const taxPayableScheduleControl =
       taxPayableBeginning + taxExpenseAccrued - taxCashPaidImpliedByPayableSchedule - taxPayable;
+    const operatingCurrentAssetsBeginning = previousOperatingCurrentAssets;
+    const operatingCurrentLiabilitiesBeginning = previousOperatingCurrentLiabilities;
+    const operatingCurrentAssets = selectedForecastCurrentAssets(options.workingCapitalInclusions, {
+      cashOnHand,
+      cashOnBankDeposit,
+      accountReceivable: ar,
+      employeeReceivable,
+      inventory,
+      otherCurrentAssets,
+    });
+    const operatingCurrentLiabilities = selectedForecastCurrentLiabilities(options.workingCapitalInclusions, {
+      bankLoanShortTerm,
+      accountPayable: ap,
+      taxPayable,
+      otherPayable: projectedOtherPayable,
+      bankLoanLongTerm,
+    });
+    const operatingNwc = operatingCurrentAssets - operatingCurrentLiabilities;
+    const changeInNwc = includeWorkingCapitalChange ? operatingNwc - previousNwc : 0;
     const grossCashFlow = (useHistoricalDerivedProjection ? cashTaxAdjustedNoplat : noplat) + depreciation;
     const grossInvestment = maintenanceCapex + changeInNwc;
     const freeCashFlow = grossCashFlow - grossInvestment;
@@ -892,12 +1012,14 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
       inventory,
       otherCurrentAssets,
       currentAssets,
+      operatingCurrentAssetsBeginning,
       operatingCurrentAssets,
       accountPayable: ap,
       taxPayable,
       otherPayable: projectedOtherPayable,
       bankLoanShortTerm,
       currentLiabilities,
+      operatingCurrentLiabilitiesBeginning,
       operatingCurrentLiabilities,
       operatingNwc,
       changeInNwc,
@@ -964,6 +1086,8 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
     });
 
     previousRevenue = revenue;
+    previousOperatingCurrentAssets = operatingCurrentAssets;
+    previousOperatingCurrentLiabilities = operatingCurrentLiabilities;
     previousNwc = operatingNwc;
     previousFixedAssetsNet = fixedAssetsEnding;
     previousFixedAssetGross = fixedAssetGross;

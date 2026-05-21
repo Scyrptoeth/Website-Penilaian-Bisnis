@@ -588,6 +588,11 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByTestId("noplat-panel")).toContainText("Pajak penghasilan badan");
   await expect(page.getByTestId("noplat-panel")).toContainText("Read only Laba Rugi");
   await expect(page.getByTestId("noplat-panel")).not.toContainText("Pajak statutory atas EBIT");
+  await expect(page.getByTestId("fcf-panel").locator(".status-pill")).toHaveText("Interoperable + editable CFS rows");
+  const fcfOcaRow = page.getByTestId("fcf-panel").locator("tbody tr").filter({ hasText: "(Kenaikan) penurunan aset lancar operasional" }).first();
+  await expect(fcfOcaRow.getByRole("textbox").first()).toBeVisible();
+  await expect(fcfOcaRow).toContainText("Final:");
+  await expect(fcfOcaRow).toContainText("Editable");
   await expect(page.getByRole("heading", { name: "Bridge NOPLAT" })).toHaveCount(0);
   await expect(page.getByTestId("noplat-audit-panel")).toHaveCount(0);
   const noplatBox = await page.getByTestId("noplat-panel").boundingBox();
@@ -746,9 +751,13 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByTestId("dcf-fixed-asset-projection-table")).toContainText("Proksi DCF berbasis jadwal aset tetap");
   await openWorkflowTab(page, "Penilaian DCF");
   await expect.poll(() => page.getByTestId("dcf-base-equity-value").textContent()).not.toBe(historicalRollForwardDcfValue);
+  const beforeProjectionWorkingCapitalPolicyDcfValue = await page.getByTestId("dcf-base-equity-value").textContent();
 
   await openWorkflowTab(page, "Proyeksi Cash Flow Statement");
   await expect(page.getByRole("heading", { name: "Proyeksi Cash Flow Statement" })).toBeVisible();
+  await expect(page.getByTestId("dcf-cash-flow-projection-table")).toContainText("(Kenaikan) penurunan aset lancar operasional");
+  await expect(page.getByTestId("dcf-cash-flow-projection-table")).toContainText("Kenaikan (penurunan) liabilitas lancar operasional");
+  await expect(page.getByTestId("dcf-cash-flow-projection-table")).not.toContainText("Operating Current Assets (AR + Inventory)");
   await expect(page.getByTestId("dcf-cash-flow-projection-table")).toContainText("Cash Flow before Financing");
   await expect(page.getByTestId("dcf-cash-flow-projection-table")).toContainText("Cash Flow Control");
   await expect(page.getByTestId("dcf-cash-flow-projection-table")).toContainText("Integrated Schedule Safeguards");
@@ -763,6 +772,21 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByTestId("dcf-cash-flow-projection-table")).not.toContainText(/belum dimodelkan/i);
   await expect(page.getByText("Detail formula dan referensi audit")).toHaveCount(0);
   await expect(page.getByTestId("dcf-cash-flow-projection-table-trace")).toHaveCount(0);
+  await page.getByTestId("projection-account-disclosure-oca-change").locator("summary").click();
+  await page.getByLabel("Sertakan Cash on Hand dalam (Kenaikan) penurunan aset lancar operasional").check();
+  await page.getByTestId("projection-account-disclosure-ocl-change").locator("summary").click();
+  await page.getByLabel("Sertakan Tax Payable dalam Kenaikan (penurunan) liabilitas lancar operasional").check();
+  await expect.poll(() => page.evaluate((key) => {
+    const raw = window.localStorage.getItem(key);
+    const state = raw ? JSON.parse(raw) : {};
+    return Boolean(
+      state?.cashFlowAccountInclusions?.["oca-change"]?.["projection:cashOnHand"] &&
+        state?.cashFlowAccountInclusions?.["ocl-change"]?.["projection:taxPayable"],
+    );
+  }, workbenchStorageKey)).toBe(true);
+  await openWorkflowTab(page, "Penilaian DCF");
+  await expect.poll(() => page.getByTestId("dcf-base-equity-value").textContent()).not.toBe(beforeProjectionWorkingCapitalPolicyDcfValue);
+  await openWorkflowTab(page, "Proyeksi Cash Flow Statement");
 
   await openWorkflowTab(page, "Financial Ratio");
   const ratioTable = page.locator("table.ratio-table");

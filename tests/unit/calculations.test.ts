@@ -316,6 +316,61 @@ describe("valuation calculations", () => {
     });
   });
 
+  it("lets projected cash-flow working-capital inclusions change FCFF systemically", () => {
+    const base = calculateDcf(snapshot);
+    const withCashAndTaxPayable = calculateDcf(snapshot, {
+      workingCapitalInclusions: {
+        currentAssets: {
+          cashOnHand: true,
+          cashOnBankDeposit: true,
+          accountReceivable: true,
+          inventory: true,
+        },
+        currentLiabilities: {
+          accountPayable: true,
+          otherPayable: true,
+          taxPayable: true,
+        },
+      },
+    });
+    const baseFirst = base.forecast[0];
+    const adjustedFirst = withCashAndTaxPayable.forecast[0];
+
+    assertAlmostEqual(
+      adjustedFirst.operatingCurrentAssets,
+      baseFirst.operatingCurrentAssets + adjustedFirst.cashOnHand + adjustedFirst.cashOnBankDeposit,
+      0.01,
+    );
+    assertAlmostEqual(
+      adjustedFirst.operatingCurrentLiabilities,
+      baseFirst.operatingCurrentLiabilities + adjustedFirst.taxPayable,
+      0.01,
+    );
+    assertAlmostEqual(
+      adjustedFirst.changeInNwc,
+      adjustedFirst.operatingNwc -
+        (adjustedFirst.operatingCurrentAssetsBeginning - adjustedFirst.operatingCurrentLiabilitiesBeginning),
+      0.01,
+    );
+    assertAlmostEqual(adjustedFirst.freeCashFlow, adjustedFirst.cashFlowFromOperations + adjustedFirst.cashFlowFromInvestment, 0.01);
+    assert.notEqual(withCashAndTaxPayable.equityValue, base.equityValue);
+  });
+
+  it("uses projected balance-sheet row values for selected current-liability accounts", () => {
+    const snapshotWithInterestPayable = { ...snapshot, interestPayable: 123_000_000 };
+    const { forecast } = calculateDcf(snapshotWithInterestPayable);
+    const first = forecast[0];
+
+    assertAlmostEqual(first.operatingCurrentLiabilities, first.accountPayable + first.otherPayable, 0.01);
+    assertAlmostEqual(
+      first.operatingCurrentLiabilitiesBeginning,
+      snapshotWithInterestPayable.accountPayable +
+        snapshotWithInterestPayable.otherPayable +
+        snapshotWithInterestPayable.interestPayable,
+      0.01,
+    );
+  });
+
   it("uses fixed asset projection inputs as DCF drivers when provided", () => {
     const base = calculateDcf(snapshot);
     const fixedAssetProjection = Object.fromEntries(

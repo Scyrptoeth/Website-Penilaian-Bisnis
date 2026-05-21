@@ -321,14 +321,16 @@ export function buildSectionAnalysis(
     };
   });
 
+  const cashFlowStatementRows = buildCashFlowStatementRows(periodAnalyses, cashFlowOverrides);
+
   return {
     periods: chronologicalPeriods,
     periodAnalyses,
     payablesRows: buildPayablesRows(periodAnalyses),
     cashFlowRows: buildCashFlowRows(periodAnalyses),
-    cashFlowStatementRows: buildCashFlowStatementRows(periodAnalyses, cashFlowOverrides),
+    cashFlowStatementRows,
     noplatRows: buildNoplatRows(periodAnalyses),
-    fcfRows: buildFcfRows(periodAnalyses),
+    fcfRows: buildFcfRows(periodAnalyses, cashFlowStatementRows),
     ratioRows: buildRatioRows(periodAnalyses),
     roicRows: buildRoicRows(periodAnalyses),
   };
@@ -865,33 +867,69 @@ function buildNoplatRows(periodAnalyses: PeriodAnalysis[]): AnalysisRow[] {
   ];
 }
 
-function buildFcfRows(periodAnalyses: PeriodAnalysis[]): AnalysisRow[] {
+function buildFcfRows(periodAnalyses: PeriodAnalysis[], cashFlowStatementRows: CashFlowStatementRow[]): AnalysisRow[] {
+  const cashFlowValuesByRowKey = new Map(cashFlowStatementRows.map((row) => [row.key, row.values]));
+  const cashFlowValue = (rowKey: string, periodId: string): AnalysisValue => cashFlowValuesByRowKey.get(rowKey)?.[periodId] ?? null;
+  const grossCashFlow = (item: PeriodAnalysis): AnalysisValue => item.normalizedNoplat + item.depreciationAddback;
+  const capitalExpenditureCashFlow = (item: PeriodAnalysis): AnalysisValue => item.previousSnapshot ? -item.capitalExpenditure : null;
+  const grossInvestment = (item: PeriodAnalysis): AnalysisValue =>
+    sumNullable(cashFlowValue("working-capital-effect", item.period.id), capitalExpenditureCashFlow(item));
+  const freeCashFlow = (item: PeriodAnalysis): AnalysisValue =>
+    sumNullable(grossCashFlow(item), grossInvestment(item));
+
   return [
-    valueRow(periodAnalyses, "noplat", "NOPLAT", "NOPLAT terkoreksi", "EBIT komersial - pajak penghasilan badan", (item) => item.normalizedNoplat),
-    valueRow(periodAnalyses, "depreciation", "Tambah: penyusutan", "Penyusutan terpetakan / jadwal aset tetap", "-beban penyusutan", (item) => item.depreciationAddback),
-    valueRow(periodAnalyses, "gross-cash-flow", "Arus kas bruto", "Model terkoreksi", "NOPLAT + penyusutan", (item) => item.normalizedNoplat + item.depreciationAddback, "subtotal"),
+    valueRow(periodAnalyses, "noplat", "NOPLAT", "NOPLAT terkoreksi", "EBIT komersial - pajak penghasilan badan", (item) => item.normalizedNoplat, undefined, undefined, {
+      sourceType: "interoperable",
+      lockReason: "Mengikuti sub-bagian NOPLAT.",
+    }),
+    valueRow(periodAnalyses, "depreciation", "Tambah: penyusutan", "Penyusutan terpetakan / jadwal aset tetap", "-beban penyusutan", (item) => item.depreciationAddback, undefined, undefined, {
+      sourceType: "interoperable",
+      lockReason: "Mengikuti Aset Tetap atau jadwal aset tetap.",
+    }),
+    valueRow(periodAnalyses, "gross-cash-flow", "Arus kas bruto", "Model terkoreksi", "NOPLAT + penyusutan", grossCashFlow, "subtotal", undefined, {
+      sourceType: "formula",
+      lockReason: "Formula dari NOPLAT dan penyusutan.",
+    }),
     sectionRow("wc-section", "Perubahan Working Capital"),
-    valueRow(periodAnalyses, "oca-change", "(Kenaikan) penurunan aset lancar operasional", "Mutasi akun aset lancar terpilih", "-(OCA terpilih kini - sebelumnya)", (item) =>
-      item.previousSnapshot ? item.changeInOperatingCurrentAssets : null,
+    valueRow(periodAnalyses, "oca-change", "(Kenaikan) penurunan aset lancar operasional", "Cash Flow Statement", "Final CFS row: -(aset lancar terpilih kini - sebelumnya)", (item) =>
+      cashFlowValue("oca-change", item.period.id),
+      undefined,
+      "Editable melalui override Cash Flow Statement dan checklist akun Neraca.",
+      {
+        sourceType: "manual",
+        lockReason: "Nilai final mengikuti baris CFS yang dapat direview/override.",
+      },
     ),
-    valueRow(periodAnalyses, "ocl-change", "Kenaikan (penurunan) liabilitas lancar operasional", "Mutasi akun liabilitas terpilih", "OCL terpilih kini - sebelumnya", (item) =>
-      item.previousSnapshot ? item.changeInOperatingCurrentLiabilities : null,
+    valueRow(periodAnalyses, "ocl-change", "Kenaikan (penurunan) liabilitas lancar operasional", "Cash Flow Statement", "Final CFS row: liabilitas terpilih kini - sebelumnya", (item) =>
+      cashFlowValue("ocl-change", item.period.id),
+      undefined,
+      "Editable melalui override Cash Flow Statement dan checklist akun Neraca.",
+      {
+        sourceType: "manual",
+        lockReason: "Nilai final mengikuti baris CFS yang dapat direview/override.",
+      },
     ),
-    valueRow(periodAnalyses, "wc-total", "Total perubahan neto working capital", "Operating WC terkoreksi", "Perubahan OCA + perubahan OCL", (item) =>
-      item.previousSnapshot ? item.workingCapitalCashFlowEffect : null,
+    valueRow(periodAnalyses, "wc-total", "Total perubahan neto working capital", "Cash Flow Statement", "Final CFS row: perubahan OCA + perubahan OCL", (item) =>
+      cashFlowValue("working-capital-effect", item.period.id),
       "subtotal",
+      undefined,
+      {
+        sourceType: "formula",
+        lockReason: "Subtotal mengikuti final baris CFS OCA/OCL.",
+      },
     ),
-    valueRow(periodAnalyses, "capex", "Kurang: capital expenditures", "Jadwal aset tetap atau mutasi terinferensi", "-capital expenditure", (item) =>
-      item.previousSnapshot ? -item.capitalExpenditure : null,
-    ),
-    valueRow(periodAnalyses, "gross-investment", "Investasi bruto", "Model terkoreksi", "Dampak arus kas modal kerja - capex", (item) =>
-      item.previousSnapshot ? item.workingCapitalCashFlowEffect - item.capitalExpenditure : null,
-      "subtotal",
-    ),
-    valueRow(periodAnalyses, "fcf", "Free Cash Flow (FCF)", "Model terkoreksi", "NOPLAT + penyusutan + dampak WC - capex", (item) =>
-      item.previousSnapshot ? item.freeCashFlow : null,
-      "subtotal",
-    ),
+    valueRow(periodAnalyses, "capex", "Kurang: capital expenditures", "Jadwal aset tetap atau mutasi terinferensi", "-capital expenditure", capitalExpenditureCashFlow, undefined, undefined, {
+      sourceType: "interoperable",
+      lockReason: "Mengikuti Aset Tetap / jadwal aset tetap.",
+    }),
+    valueRow(periodAnalyses, "gross-investment", "Investasi bruto", "Model terkoreksi", "Dampak arus kas modal kerja + capex", grossInvestment, "subtotal", undefined, {
+      sourceType: "formula",
+      lockReason: "Formula dari final working capital dan capex.",
+    }),
+    valueRow(periodAnalyses, "fcf", "Free Cash Flow (FCF)", "Model terkoreksi", "Arus kas bruto + investasi bruto", freeCashFlow, "subtotal", undefined, {
+      sourceType: "formula",
+      lockReason: "Formula FCF mengikuti workbook FCF: Gross Cash Flow + Gross Investment.",
+    }),
   ];
 }
 
