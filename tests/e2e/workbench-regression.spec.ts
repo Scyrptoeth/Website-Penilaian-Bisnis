@@ -130,7 +130,7 @@ test("JSON export and import round-trip the full workbench draft", async ({ page
 
   expect(payload.schema).toBe("penilaian-valuasi-bisnis.full-workbench-json");
   expect(payload.schemaVersion).toBe(1);
-  expect(payload.data?.version).toBe(19);
+  expect(payload.data?.version).toBe(20);
   expect(payload.data?.caseProfile?.objectTaxpayerName).toBe("Makmur Jaya Sejati Raya");
   expect(payload.data?.rows?.length).toBeGreaterThan(0);
   expect(payload.data?.fixedAssetProjectionMode).toBe("workbook-formula");
@@ -724,8 +724,8 @@ test("added analysis sections use readiness gates before sample data and render 
   await openWorkflowTab(page, "Penilaian DCF");
   await page.getByLabel("Basis DCF aktif").selectOption("base");
   await expect(page.getByTestId("dcf-active-equity-value")).toHaveText(baseDcfValue ?? "");
-  await expect(page.getByTestId("dcf-projection-governance")).toContainText("Governance proyeksi DCF");
-  await expect(page.getByTestId("dcf-projection-governance")).toContainText("Fallback");
+  await expect(page.getByTestId("dcf-projection-governance")).toHaveCount(0);
+  await expect(page.getByTestId("dcf-audit-trail")).toContainText("Sumber sistem");
   const historicalRollForwardDcfValue = await page.getByTestId("dcf-base-equity-value").textContent();
 
   await openWorkflowTab(page, "Proyeksi Aset Tetap");
@@ -1006,7 +1006,7 @@ test("legacy workbook-like DLOM drafts migrate to workbook UPDATE basis without 
   await expect(page.getByTestId("dlom-basis-grid")).not.toContainText("Workbook UPDATE DLOM!C31");
   await expect(page.getByTestId("dlom-basis-grid")).not.toContainText("Formula");
   await expect(page.getByTestId("dlom-summary")).toContainText("35%");
-  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(19);
+  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(20);
 });
 
 test("exports the active workbench state to a print-ready PDF report view", async ({ page }) => {
@@ -1556,7 +1556,7 @@ test("legacy positive income-statement expense drafts migrate once and remain us
   await amountInput.press("Home");
   await amountInput.press("Delete");
   await expect(amountInput).toHaveValue("100");
-  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(19);
+  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(20);
 
   await page.reload();
   await openWorkflowTab(page, "Laba Rugi");

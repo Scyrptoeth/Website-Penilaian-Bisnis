@@ -59,7 +59,6 @@ import {
   type IncomeProjectionRelianceGovernanceResult,
   type IncomeProjectionYearOverrideInput,
   type NonOperatingIncomeProjectionPolicy,
-  type ProjectionGovernanceDecision,
   type ProjectionGovernanceMetric,
 } from "@/lib/valuation/calculations";
 import {
@@ -272,6 +271,10 @@ import {
   type TerminalGrowthSuggestion,
 } from "@/lib/valuation/terminal-growth-suggestions";
 import {
+  buildInvestedCapitalGrowthRateSuggestion,
+  type InvestedCapitalGrowthRateSuggestion,
+} from "@/lib/valuation/terminal-growth-invested-capital";
+import {
   buildDcfAuditTrail,
   type DcfAuditBridgeRow,
   type DcfAuditTrail,
@@ -285,11 +288,6 @@ const confidenceBandLabels: Record<ReturnType<typeof mapRow>["mapping"]["confide
   medium: "Sedang",
   low: "Rendah",
   none: "Tidak ada",
-};
-const projectionGovernanceDecisionLabel: Record<ProjectionGovernanceDecision, string> = {
-  "eligible-for-review": "Layak ditinjau",
-  "sensitivity-only": "Sensitivitas",
-  "baseline-fallback": "Fallback aktif",
 };
 const incomeProjectionRelianceDecisionLabel: Record<IncomeProjectionRelianceDecision, string> = {
   "eligible-for-approval": "Eligible approval",
@@ -1349,6 +1347,10 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       snapshot,
     ],
   );
+  const investedCapitalGrowthSuggestion = useMemo(
+    () => buildInvestedCapitalGrowthRateSuggestion(sectionAnalysis, snapshot.wacc),
+    [sectionAnalysis, snapshot.wacc],
+  );
   const rawWaccValue = rawWaccCalculation?.wacc ?? readRateInput(assumptions.wacc);
   const rawTerminalGrowthValue = readRateInput(assumptions.terminalGrowth);
   const rawRequiredReturnValue = requiredReturnCalculation?.requiredReturn ?? readRateInput(assumptions.requiredReturnOnNta);
@@ -1366,7 +1368,9 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       "Terminal growth",
       snapshot.terminalGrowth,
       isGovernedTerminalGrowth
-        ? "Basis governed dengan cap dari saran sektor"
+        ? "Basis governed dengan cap dari sumber pendukung"
+        : assumptions.terminalGrowthSource === investedCapitalGrowthSuggestion?.sourceId
+        ? "Growth Rate invested capital dari Aset Tetap/Neraca/ROIC"
         : assumptions.terminalGrowthSource === terminalGrowthSuggestion?.sourceId
         ? "Saran terkalibrasi sektor dengan band downside/upside"
         : assumptions.terminalGrowth.trim() ? "Base case pengguna dengan input sensitivitas" : "Belum dipilih",
@@ -2875,6 +2879,21 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     }));
   }
 
+  function applyInvestedCapitalGrowthSuggestion(suggestion: InvestedCapitalGrowthRateSuggestion) {
+    clearGuidanceTarget("terminal-growth-suggestion");
+    commitCoreState((current) => ({
+      ...current,
+      assumptions: {
+        ...current.assumptions,
+        terminalGrowth: formatRateInputNumber(suggestion.baseGrowth),
+        terminalGrowthDownside: formatRateInputNumber(suggestion.downsideGrowth),
+        terminalGrowthUpside: formatRateInputNumber(suggestion.upsideGrowth),
+        terminalGrowthSource: suggestion.sourceId,
+        terminalGrowthOverrideReason: suggestion.reason,
+      },
+    }));
+  }
+
   function loadSample() {
     const samplePeriods = buildSamplePeriods();
     const sampleFixedAssetScheduleRows = buildSampleFixedAssetScheduleRows();
@@ -3751,10 +3770,12 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               assumptions={assumptions}
               wacc={snapshot.wacc}
               suggestion={terminalGrowthSuggestion}
+              investedCapitalSuggestion={investedCapitalGrowthSuggestion}
               governance={assumptionGovernance}
               guidanceTarget={guidanceTarget === "terminal-growth-suggestion" ? "terminal-growth-suggestion" : undefined}
               onChange={updateAssumption}
               onApplySuggestion={applyTerminalGrowthSuggestion}
+              onApplyInvestedCapitalSuggestion={applyInvestedCapitalGrowthSuggestion}
               onReasonChange={(value) => updateAssumptionText("terminalGrowthOverrideReason", value)}
               onGuidanceComplete={clearGuidanceTarget}
             />
@@ -4228,12 +4249,6 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
           ))}
         </section>
 
-        <AssumptionGovernancePanel
-          ariaLabel="Audit asumsi material DCF"
-          governance={assumptionGovernance}
-          onNavigate={navigateToGovernanceTarget}
-        />
-
         <section className="panel">
           <div className="panel-heading">
             <div>
@@ -4301,55 +4316,6 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               <span>DCF - proyeksi neraca berbasis historis</span>
               <strong data-testid="dcf-historical-projection-equity-value">{formatIdr(results.sensitivities.dcfHistoricalDerivedProjection.equityValue)}</strong>
               <small>{dcfSensitivityContext.historicalDerivedProjection}</small>
-            </div>
-          </div>
-          <div className={`projection-governance-panel ${results.projectionGovernance.level}`} data-testid="dcf-projection-governance">
-            <div className="projection-governance-heading">
-              <div>
-                <span>Governance proyeksi DCF</span>
-                <strong>{results.projectionGovernance.title}</strong>
-                <small>{results.projectionGovernance.summary}</small>
-              </div>
-              <em className={`source-badge ${results.projectionGovernance.level === "critical" ? "warning" : results.projectionGovernance.level === "review" ? "sensitivity" : "recommended"}`}>
-                {projectionGovernanceDecisionLabel[results.projectionGovernance.decision]}
-              </em>
-            </div>
-            <div className="projection-governance-grid">
-              <div>
-                <span>Nilai baseline governance</span>
-                <strong>{formatIdr(results.projectionGovernance.governedEquityValue)}</strong>
-              </div>
-              <div>
-                <span>Selisih historis vs baseline</span>
-                <strong>{formatIdr(results.projectionGovernance.absoluteVariance)}</strong>
-                <small>{formatPercent(results.projectionGovernance.relativeVariance)}</small>
-              </div>
-              <div>
-                <span>Basis aktif user</span>
-                <strong>{activeDcfSelection.shortLabel}</strong>
-                <small>{activeDcfBasis === "base" ? "Mengikuti fallback default" : "Override eksplisit di selector basis DCF"}</small>
-              </div>
-            </div>
-            <div className="projection-governance-checks">
-              {results.projectionGovernance.items.map((item) => (
-                <div className={`projection-governance-check ${item.level}`} key={item.id}>
-                  {item.level === "ok" ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
-                  <div>
-                    <span>{item.label}</span>
-                    <strong>{formatProjectionGovernanceValue(item)}</strong>
-                    <small>{item.threshold} · {item.note}</small>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="projection-governance-trace" aria-label="Jejak keputusan governance proyeksi DCF">
-              {results.projectionGovernance.traces.map((trace) => (
-                <div key={trace.label}>
-                  <span>{trace.label}</span>
-                  <strong>{formatFormulaTraceValue(trace)}</strong>
-                  <small>{trace.note}</small>
-                </div>
-              ))}
             </div>
           </div>
         </section>
@@ -11562,20 +11528,24 @@ function TerminalGrowthPanel({
   assumptions,
   wacc,
   suggestion,
+  investedCapitalSuggestion,
   governance,
   guidanceTarget,
   onChange,
   onApplySuggestion,
+  onApplyInvestedCapitalSuggestion,
   onReasonChange,
   onGuidanceComplete,
 }: {
   assumptions: AssumptionState;
   wacc: number;
   suggestion: TerminalGrowthSuggestion | null;
+  investedCapitalSuggestion: InvestedCapitalGrowthRateSuggestion | null;
   governance: AssumptionGovernanceResult;
   guidanceTarget?: GuidanceTarget;
   onChange: (key: keyof AssumptionState, value: string) => void;
   onApplySuggestion: (suggestion: TerminalGrowthSuggestion) => void;
+  onApplyInvestedCapitalSuggestion: (suggestion: InvestedCapitalGrowthRateSuggestion) => void;
   onReasonChange: (value: string) => void;
   onGuidanceComplete?: (target: GuidanceTarget) => void;
 }) {
@@ -11594,6 +11564,12 @@ function TerminalGrowthPanel({
         impact="DCF terminal value dan EEM capitalization spread"
       />
       <InlineGovernanceList title="Tata kelola asumsi EEM/DCF" items={assumptionGovernanceItems} />
+      <InvestedCapitalGrowthSuggestionBlock
+        activeSourceId={assumptions.terminalGrowthSource}
+        guidanceTarget={guidanceTarget}
+        suggestion={investedCapitalSuggestion}
+        onApply={onApplyInvestedCapitalSuggestion}
+      />
       <TerminalGrowthSuggestionBlock guidanceTarget={guidanceTarget} suggestion={suggestion} onApply={onApplySuggestion} />
       <div className="calculator-input-grid">
         <AssumptionInput
@@ -11624,7 +11600,7 @@ function TerminalGrowthPanel({
         metrics={[
           ["Spread WACC", baseGrowth !== null && wacc > 0 ? formatPercent(wacc - baseGrowth) : "Belum dihitung"],
           ["Validasi", hasInvalidSpread ? "Terminal growth harus di bawah WACC" : "Spread valid bila WACC tersedia"],
-          ["Formula", "Nilai terminal = FCFF final x (1 + g) / (WACC - g)"],
+          ["Metode", "Nilai terminal diproses engine DCF dari FCFF final, WACC, dan terminal growth aktif"],
         ]}
       />
       <ReferenceList references={terminalGrowthInputReferences} />
@@ -11637,6 +11613,118 @@ function TerminalGrowthPanel({
       />
       {hasInvalidSpread ? <small className="field-warning">Terminal growth base tidak boleh sama dengan atau lebih tinggi dari WACC.</small> : null}
     </article>
+  );
+}
+
+function InvestedCapitalGrowthSuggestionBlock({
+  activeSourceId,
+  guidanceTarget,
+  suggestion,
+  onApply,
+}: {
+  activeSourceId: string;
+  guidanceTarget?: GuidanceTarget;
+  suggestion: InvestedCapitalGrowthRateSuggestion | null;
+  onApply: (suggestion: InvestedCapitalGrowthRateSuggestion) => void;
+}) {
+  const isGuidanceTarget = guidanceTarget === "terminal-growth-suggestion";
+
+  if (!suggestion) {
+    return (
+      <div className={`terminal-growth-suggestion invested-growth-suggestion ${isGuidanceTarget ? "action-guidance" : ""}`}>
+        <div className="terminal-growth-suggestion-heading">
+          <div>
+            <span>Referensi utama baru</span>
+            <strong>Growth Rate berbasis invested capital</strong>
+          </div>
+          <em className="source-badge sensitivity">butuh histori</em>
+        </div>
+        <p className="assumption-empty-note">
+          Minimal dua periode historis diperlukan agar net investment dan invested capital awal dapat dihitung otomatis.
+        </p>
+      </div>
+    );
+  }
+
+  const isApplied = activeSourceId === suggestion.sourceId;
+
+  return (
+    <div
+      className={`terminal-growth-suggestion invested-growth-suggestion ${isGuidanceTarget ? "action-guidance" : ""}`}
+      data-guidance-target={isGuidanceTarget ? guidanceTarget : undefined}
+      data-testid="invested-capital-growth-suggestion-card"
+    >
+      <div className="terminal-growth-suggestion-heading">
+        <div>
+          <span>Referensi utama baru</span>
+          <strong>Growth Rate berbasis invested capital</strong>
+        </div>
+        <em className={`source-badge ${isApplied ? "smart" : "recommended"}`}>
+          {isApplied ? "dipakai" : "primary evidence"}
+        </em>
+      </div>
+      <p className="assumption-empty-note">
+        Read-only dari Aset Tetap, Neraca, dan ROIC. Tidak ada angka workbook yang di-hardcode; workbook hanya menjadi pola formula.
+      </p>
+      <div className="terminal-growth-suggestion-grid invested-growth-summary" aria-label="Ringkasan growth rate invested capital">
+        <div>
+          <span>Base growth</span>
+          <strong>{formatPercentFixed(suggestion.baseGrowth, 2)}</strong>
+          <small>Average growth rate historis{suggestion.cappedByWacc ? ", dibatasi di bawah WACC" : ""}</small>
+        </div>
+        <div>
+          <span>Downside / upside</span>
+          <strong>
+            {formatPercentFixed(suggestion.downsideGrowth, 2)} / {formatPercentFixed(suggestion.upsideGrowth, 2)}
+          </strong>
+          <small>Rentang dari observasi historis valid</small>
+        </div>
+        <div>
+          <span>Interoperabilitas</span>
+          <strong>{suggestion.interoperabilityTabs.join(" -> ")}</strong>
+          <small>{suggestion.sourceArtifact}</small>
+        </div>
+      </div>
+      <div className="table-wrap invested-growth-table-wrap">
+        <table className="invested-growth-table" aria-label="Perhitungan read-only growth rate berbasis invested capital">
+          <thead>
+            <tr>
+              <th>Periode</th>
+              <th>NFA akhir</th>
+              <th>NCA akhir</th>
+              <th>NFA awal</th>
+              <th>NCA awal</th>
+              <th>Total net investment</th>
+              <th>IC awal</th>
+              <th>Growth rate</th>
+            </tr>
+          </thead>
+          <tbody>
+            {suggestion.rows.map((row) => (
+              <tr key={row.periodId}>
+                <td>{row.periodLabel}</td>
+                <td className="numeric-cell">{formatIdr(row.netFixedAssetsEnd)}</td>
+                <td className="numeric-cell">{formatIdr(row.netCurrentAssetsEnd)}</td>
+                <td className="numeric-cell">{formatIdr(row.netFixedAssetsBeginning)}</td>
+                <td className="numeric-cell">{formatIdr(row.netCurrentAssetsBeginning)}</td>
+                <td className="numeric-cell">{formatIdr(row.totalNetInvestment)}</td>
+                <td className="numeric-cell">{formatIdr(row.totalInvestedCapitalBeginning)}</td>
+                <td className="numeric-cell">{formatPercentFixed(row.growthRate, 2)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <button
+        className="button secondary full-width"
+        type="button"
+        onClick={() => onApply(suggestion)}
+        disabled={isApplied}
+      >
+        <CheckCircle2 aria-hidden="true" size={14} />
+        {isApplied ? "Growth rate invested capital dipakai" : "Gunakan growth rate invested capital"}
+      </button>
+    </div>
   );
 }
 
@@ -13367,7 +13455,7 @@ function DcfAuditTrailPanel({
                   {!period.includedInExplicitPv ? <small>benchmark</small> : null}
                 </th>
               ))}
-              <th scope="col">Formula dan sumber</th>
+              <th scope="col">Sumber dan audit</th>
             </tr>
           </thead>
           <tbody>
@@ -13468,8 +13556,16 @@ function DcfAuditSourceStack({
           );
         })}
       </div>
-      <TraceFormula formula={row.formula} traceLabel={row.label} />
-      <code>{row.workbookReference}</code>
+      <div className="dcf-readable-source">
+        <span>Sumber sistem</span>
+        <strong>{summarizeTraceCalculation(row.label)}</strong>
+        <small>Sumber data ditarik otomatis dari tab interoperabilitas dan kategori akun terkait.</small>
+      </div>
+      <details className="dcf-technical-trace">
+        <summary>Detail audit teknis</summary>
+        <TraceFormula formula={row.formula} traceLabel={row.label} />
+        <code>{row.workbookReference}</code>
+      </details>
       {row.accountCategories.length > 0 ? (
         <div className="dcf-account-chip-row" aria-label={`Akun terkait ${row.label}`}>
           {row.accountCategories.map((category) => (
@@ -13479,6 +13575,48 @@ function DcfAuditSourceStack({
       ) : null}
     </div>
   );
+}
+
+function summarizeTraceCalculation(label: string): string {
+  const normalizedLabel = label.toLowerCase();
+
+  if (normalizedLabel.includes("terminal")) {
+    return "Nilai terminal diproses dari FCFF final, WACC, dan terminal growth aktif.";
+  }
+
+  if (normalizedLabel.includes("enterprise value")) {
+    return "Enterprise value diproses dari PV FCFF eksplisit dan PV terminal value.";
+  }
+
+  if (normalizedLabel.includes("equity value")) {
+    return "Nilai ekuitas diproses dari enterprise value, aset non-operasional, dan kewajiban debt-like.";
+  }
+
+  if (normalizedLabel.includes("working capital") || normalizedLabel.includes("current asset") || normalizedLabel.includes("current liabilities")) {
+    return "Perubahan modal kerja diproses dari akun lancar operasional yang terpilih.";
+  }
+
+  if (normalizedLabel.includes("free cash flow") || normalizedLabel.includes("fcff")) {
+    return "FCFF diproses dari arus operasi, modal kerja, dan investasi aset tetap.";
+  }
+
+  if (normalizedLabel.includes("noplat")) {
+    return "NOPLAT diproses dari laba operasi dan pajak badan.";
+  }
+
+  if (normalizedLabel.includes("depreciation")) {
+    return "Penyusutan diproses dari jadwal aset tetap dan proyeksi aset tetap.";
+  }
+
+  if (normalizedLabel.includes("debt")) {
+    return "Utang berbunga diproses dari Neraca dan Jadwal Utang.";
+  }
+
+  if (normalizedLabel.includes("asset")) {
+    return "Aset terkait diproses dari Neraca, ROIC, dan klasifikasi akun.";
+  }
+
+  return "Nilai diproses otomatis oleh engine DCF dari sumber data terhubung.";
 }
 
 function TraceFormula({ formula, traceLabel }: { formula: string; traceLabel: string }) {
