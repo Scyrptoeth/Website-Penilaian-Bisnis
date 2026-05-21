@@ -62,6 +62,7 @@ export const sampleCase: FinancialStatementSnapshot = {
   depreciation: -981_730_341,
   ebit: 2_261_432_441,
   corporateTax: -436_128_347,
+  hasCorporateTaxInput: true,
   interestIncome: 13_957_341,
   interestExpense: -942_033,
   nonOperatingIncome: -212_875,

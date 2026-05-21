@@ -159,6 +159,7 @@ export interface FinancialStatementSnapshot {
   depreciation: number;
   ebit: number;
   corporateTax: number;
+  hasCorporateTaxInput: boolean;
   interestIncome: number;
   interestExpense: number;
   nonOperatingIncome: number;

@@ -168,8 +168,12 @@ export function interestBearingDebt(snapshot: FinancialStatementSnapshot): numbe
   return snapshot.bankLoanShortTerm + snapshot.bankLoanLongTerm;
 }
 
+export function corporateTaxExpenseForNoplat(snapshot: FinancialStatementSnapshot): number {
+  return snapshot.hasCorporateTaxInput ? Math.abs(snapshot.corporateTax) : snapshot.ebit * snapshot.taxRate;
+}
+
 export function normalizedNoplat(snapshot: FinancialStatementSnapshot): number {
-  return snapshot.ebit * (1 - snapshot.taxRate);
+  return snapshot.ebit - corporateTaxExpenseForNoplat(snapshot);
 }
 
 const eemTangibleAssetCategories: AccountCategory[] = [
@@ -384,10 +388,10 @@ export function calculateEem(snapshot: FinancialStatementSnapshot, options: EemO
     {
       id: "eem-noplat",
       label: "NOPLAT",
-      formula: "EBIT komersial x (1 - tarif pajak statutory)",
+      formula: "EBIT komersial - pajak penghasilan badan",
       value: noplat,
-      note: "Earning power komersial; interest income, interest expense, dan non-operating income dikeluarkan dari operasi.",
-      sourceTabs: ["Laba Rugi", "Asumsi EEM/DCF", "NOPLAT & FCF"],
+      note: "Earning power komersial; pajak penghasilan badan dibaca dari Laba Rugi tahun aktif bila tersedia, lalu interest income, interest expense, dan non-operating income dikeluarkan dari operasi.",
+      sourceTabs: ["Laba Rugi", "NOPLAT & FCF", "Asumsi EEM/DCF"],
       accountCategories: eemIncomeCategories,
       workbookReference: "EEM!D12 / STAT_EEM!B14 / INCOME STATEMENT!E22 / tax assumption",
       treatment: "Operating after-tax earnings",

@@ -1056,6 +1056,7 @@ export function buildSnapshot(
   const computedEbit = revenue + cogsAmount + sellingExpense + gaOverheads + depreciation;
   const ebit = ebitOverride ? ebitOverride : computedEbit;
   const corporateTax = activeAggregate("CORPORATE_TAX");
+  const hasCorporateTaxInput = hasAggregateInputForPeriod(mappedRows, activePeriodId, ["CORPORATE_TAX"]);
 
   const paidUpCapital = amount(activeAggregate("MODAL_DISETOR"));
   const additionalPaidInCapital = amount(activeAggregate("PENAMBAHAN_MODAL_DISETOR"));
@@ -1153,6 +1154,7 @@ export function buildSnapshot(
     depreciation,
     ebit,
     corporateTax,
+    hasCorporateTaxInput,
     interestIncome: activeAggregate("INTEREST_INCOME"),
     interestExpense: activeAggregate("INTEREST_EXPENSE"),
     nonOperatingIncome: activeAggregate("NON_OPERATING_INCOME"),
@@ -1210,6 +1212,12 @@ export function aggregateForPeriod(mappedRows: MappedRow[], periodId: string, ca
 
     return sum + parseInputNumber(item.row.values[periodId] ?? "");
   }, 0);
+}
+
+function hasAggregateInputForPeriod(mappedRows: MappedRow[], periodId: string, categories: AccountCategory[]): boolean {
+  return mappedRows.some(
+    (item) => categories.includes(item.effectiveCategory) && Boolean((item.row.values[periodId] ?? "").trim()),
+  );
 }
 
 export function deriveHistoricalDrivers(periods: Period[], mappedRows: MappedRow[], fixedAssetSchedule?: FixedAssetScheduleSummary) {

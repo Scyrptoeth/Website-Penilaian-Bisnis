@@ -8101,7 +8101,7 @@ function NoplatFcfSection({ analysis }: { analysis: SectionAnalysis }) {
             <p className="eyebrow">NOPLAT</p>
             <h3>Normalized Operating Profit After Tax (NOPLAT)</h3>
           </div>
-          <span className="status-pill muted">Basis statutory komersial</span>
+          <span className="status-pill muted">Read only Laba Rugi</span>
         </div>
         <AnalysisTable rows={analysis.noplatRows} periods={analysis.periods} />
       </section>

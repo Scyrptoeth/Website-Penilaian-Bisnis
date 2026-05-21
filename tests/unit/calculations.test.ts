@@ -127,6 +127,15 @@ describe("valuation calculations", () => {
     assert.ok(eem.traces.some((trace) => trace.accountCategories?.includes("ACCOUNT_RECEIVABLE")));
   });
 
+  it("uses income statement corporate tax as NOPLAT tax when mapped", () => {
+    assertAlmostEqual(normalizedNoplat(snapshot), snapshot.ebit - Math.abs(snapshot.corporateTax), 0.01);
+    assertAlmostEqual(
+      normalizedNoplat({ ...snapshot, corporateTax: 0, hasCorporateTaxInput: false }),
+      snapshot.ebit * (1 - snapshot.taxRate),
+      0.01,
+    );
+  });
+
   it("uses AAM, CFS, fixed-asset, and active WACC drivers for EEM bridge rows", () => {
     const eem = calculateEem(snapshot, {
       adjustedAssetsExcludingCash: 1_000_000,

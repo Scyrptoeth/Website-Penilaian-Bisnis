@@ -15,6 +15,7 @@ import {
 } from "./case-model";
 import { categoryLabelMap } from "./category-options";
 import {
+  corporateTaxExpenseForNoplat,
   interestBearingDebt,
   nonOperatingAssets,
   normalizedNoplat,
@@ -264,7 +265,7 @@ export function buildSectionAnalysis(
     const changeInOperatingCurrentAssets = previousSnapshot ? -(currentOperatingAssets - previousOperatingAssets) : 0;
     const changeInOperatingCurrentLiabilities = previousSnapshot ? currentOperatingLiabilities - previousOperatingLiabilities : 0;
     const workingCapitalCashFlowEffect = changeInOperatingCurrentAssets + changeInOperatingCurrentLiabilities;
-    const normalizedTaxOnEbit = snapshot.ebit * snapshot.taxRate;
+    const normalizedTaxOnEbit = corporateTaxExpenseForNoplat(snapshot);
     const noplat = normalizedNoplat(snapshot);
     const ebitda = snapshot.ebit + depreciationAddback;
     const operatingTaxCashFlow = snapshot.corporateTax || -normalizedTaxOnEbit;
@@ -851,15 +852,22 @@ function buildNoplatRows(periodAnalyses: PeriodAnalysis[]): AnalysisRow[] {
     valueRow(periodAnalyses, "less-interest-income", "Kurang: pendapatan bunga", "Terpetakan pendapatan bunga", "-pendapatan bunga", (item) => -item.snapshot.interestIncome),
     valueRow(periodAnalyses, "less-non-operating", "Kurang: pendapatan non-operasional", "Terpetakan pendapatan / beban non-operasional", "-pendapatan / beban non-operasional", (item) => -item.snapshot.nonOperatingIncome),
     valueRow(periodAnalyses, "ebit", "EBIT komersial", "Model terkoreksi", "EBIT operasional setelah mengecualikan item pendanaan/non-operasional", (item) => item.snapshot.ebit, "subtotal"),
-    valueRow(periodAnalyses, "tax-on-ebit", "Pajak statutory atas EBIT", "Asumsi", "EBIT komersial x tarif pajak statutory", (item) => item.normalizedTaxOnEbit),
+    valueRow(
+      periodAnalyses,
+      "tax-on-ebit",
+      "Pajak penghasilan badan",
+      "Read only Laba Rugi",
+      "Nilai akun Pajak penghasilan badan dari Laba Rugi; fallback EBIT x tarif pajak jika belum tersedia",
+      (item) => item.normalizedTaxOnEbit,
+    ),
     valueRow(periodAnalyses, "tax-shields-excluded", "Tax shield / efek pajak non-operasional dikeluarkan", "Basis valuasi terkoreksi", "0", () => 0),
-    valueRow(periodAnalyses, "noplat", "NOPLAT", "Model terkoreksi", "EBIT komersial - pajak statutory atas EBIT", (item) => item.normalizedNoplat, "subtotal"),
+    valueRow(periodAnalyses, "noplat", "NOPLAT", "Model terkoreksi", "EBIT komersial - pajak penghasilan badan", (item) => item.normalizedNoplat, "subtotal"),
   ];
 }
 
 function buildFcfRows(periodAnalyses: PeriodAnalysis[]): AnalysisRow[] {
   return [
-    valueRow(periodAnalyses, "noplat", "NOPLAT", "NOPLAT terkoreksi", "EBIT komersial x (1 - tarif pajak)", (item) => item.normalizedNoplat),
+    valueRow(periodAnalyses, "noplat", "NOPLAT", "NOPLAT terkoreksi", "EBIT komersial - pajak penghasilan badan", (item) => item.normalizedNoplat),
     valueRow(periodAnalyses, "depreciation", "Tambah: penyusutan", "Penyusutan terpetakan / jadwal aset tetap", "-beban penyusutan", (item) => item.depreciationAddback),
     valueRow(periodAnalyses, "gross-cash-flow", "Arus kas bruto", "Model terkoreksi", "NOPLAT + penyusutan", (item) => item.normalizedNoplat + item.depreciationAddback, "subtotal"),
     sectionRow("wc-section", "Perubahan Working Capital"),

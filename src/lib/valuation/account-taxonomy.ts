@@ -1222,7 +1222,7 @@ export const accountMappingRules: AccountMappingRule[] = [
     excludeKeywords: ["payable", "utang", "hutang", "terutang", "ppn", "vat"],
     treatment: "review",
     valuationImpact: ["income statement", "profit after tax bridge", "cash flow tax payment"],
-    reviewNote: "Pajak penghasilan badan adalah row Laba Rugi setelah laba sebelum pajak; bukan pengganti tarif pajak statutory untuk NOPLAT valuasi.",
+    reviewNote: "Pajak penghasilan badan adalah row Laba Rugi setelah laba sebelum pajak; NOPLAT membaca nilai ini secara read-only per tahun bila tersedia.",
   },
   {
     category: "INTEREST_INCOME",

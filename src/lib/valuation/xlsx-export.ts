@@ -364,6 +364,14 @@ function buildCalculationModelRows(input: ValuationPdfExportInput, scope: Valuat
   add("operatingExpenseMargin", "Source", "Operating expense margin", input.snapshot.gaMargin, "System", "Derived from source accounts.");
   add("depreciationMargin", "Source", "Depreciation margin", input.snapshot.depreciationMargin, "System", "Derived from source accounts and fixed asset schedule.");
   add("ebit", "Source", "EBIT", input.snapshot.ebit, "Formula", "Revenue + COGS + selling expense + G&A + depreciation.");
+  add(
+    "corporateTaxExpense",
+    "Source",
+    "Corporate tax expense for NOPLAT",
+    input.snapshot.hasCorporateTaxInput ? Math.abs(input.snapshot.corporateTax) : input.snapshot.ebit * input.snapshot.taxRate,
+    input.snapshot.hasCorporateTaxInput ? "Input" : "Formula",
+    input.snapshot.hasCorporateTaxInput ? "Read-only from mapped Income Statement corporate tax." : "Fallback: EBIT x tax rate.",
+  );
   add("accountReceivable", "Source", "Account receivable", input.snapshot.accountReceivable, "Input", "Mapped source accounts.");
   add("inventory", "Source", "Inventory", input.snapshot.inventory, "Input", "Mapped source accounts.");
   add("accountPayable", "Source", "Account payable", input.snapshot.accountPayable, "Input", "Mapped source accounts.");
@@ -423,7 +431,7 @@ function buildCalculationModelRows(input: ValuationPdfExportInput, scope: Valuat
     add("eemAdjustedAssetsExCash", "EEM", "Adjusted assets excluding cash", formulaCell(`${refs.aamAdjustedAssets}-${refs.eemExcludedCash}`, eemDrivers.adjustedAssetsExcludingCash), "Formula", "AAM adjusted total assets less cash on hand and cash on bank.");
     add("eemAdjustedLiabilitiesExDebt", "EEM", "Adjusted liabilities excluding bank debt", formulaCell(`${refs.aamAdjustedLiabilities}-${refs.eemExcludedDebt}`, eemDrivers.adjustedLiabilitiesExcludingDebt), "Formula", "AAM adjusted total liabilities less short-term and long-term bank loans.");
     add("eemNta", "EEM", "Net tangible asset value", formulaCell(`${refs.eemAdjustedAssetsExCash}-${refs.eemAdjustedLiabilitiesExDebt}`, eemNta), "Formula", "Adjusted assets excluding cash - adjusted liabilities excluding bank debt.");
-    add("eemNoplat", "EEM", "NOPLAT", formulaCell(`${refs.ebit}*(1-${refs.taxRate})`, input.results.normalizedNoplat), "Formula", "EBIT x (1 - tax rate).");
+    add("eemNoplat", "EEM", "NOPLAT", formulaCell(`${refs.ebit}-${refs.corporateTaxExpense}`, input.results.normalizedNoplat), "Formula", "EBIT less corporate tax expense from Income Statement.");
     add("eemDepreciation", "EEM", "Depreciation add-back", eemDrivers.depreciationAddBack, "Formula", "Fixed asset schedule B. Depreciation additions for the active period.");
     add("eemGrossCashFlow", "EEM", "Gross cash flow", formulaCell(`${refs.eemNoplat}+${refs.eemDepreciation}`, eemGrossCashFlow), "Formula", "NOPLAT + depreciation add-back.");
     add("eemCurrentAssetMovement", "EEM", "Increase/decrease current asset", eemDrivers.currentAssetMovement, "Formula", "Cash Flow Statement active-period OCA movement.");

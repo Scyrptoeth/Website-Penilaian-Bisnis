@@ -19,11 +19,17 @@ const analysis = buildSectionAnalysis(periods, rows, assumptions);
 const snapshot = buildSnapshot(periods, "p2021", rows, assumptions);
 
 describe("section analysis", () => {
-  it("builds corrected NOPLAT rows from commercial EBIT and statutory tax", () => {
+  it("builds corrected NOPLAT rows from commercial EBIT and income statement corporate tax", () => {
+    const taxOnEbit = analysis.noplatRows.find((row) => row.key === "tax-on-ebit");
     const noplat = analysis.noplatRows.find((row) => row.key === "noplat");
 
+    assert.ok(taxOnEbit);
     assert.ok(noplat);
+    assert.equal(taxOnEbit.label, "Pajak penghasilan badan");
+    assert.equal(taxOnEbit.source, "Read only Laba Rugi");
+    assertAlmostEqual(Number(taxOnEbit.values.p2021), Math.abs(snapshot.corporateTax), 0.01);
     assertAlmostEqual(Number(noplat.values.p2021), normalizedNoplat(snapshot), 0.01);
+    assertAlmostEqual(Number(noplat.values.p2021), snapshot.ebit - Math.abs(snapshot.corporateTax), 0.01);
     assert.equal(analysis.noplatRows.find((row) => row.key === "tax-shields-excluded")?.values.p2021, 0);
   });
 

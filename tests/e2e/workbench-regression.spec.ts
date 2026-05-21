@@ -584,7 +584,10 @@ test("added analysis sections use readiness gates before sample data and render 
 
   await openWorkflowTab(page, "NOPLAT & FCF");
   await expect(page.getByText("Free Cash Flow to Firm (FCFF)")).toBeVisible();
-  await expect(page.getByText("Basis statutory komersial")).toBeVisible();
+  await expect(page.getByTestId("noplat-panel").locator(".status-pill")).toHaveText("Read only Laba Rugi");
+  await expect(page.getByTestId("noplat-panel")).toContainText("Pajak penghasilan badan");
+  await expect(page.getByTestId("noplat-panel")).toContainText("Read only Laba Rugi");
+  await expect(page.getByTestId("noplat-panel")).not.toContainText("Pajak statutory atas EBIT");
   await expect(page.getByRole("heading", { name: "Bridge NOPLAT" })).toHaveCount(0);
   await expect(page.getByTestId("noplat-audit-panel")).toHaveCount(0);
   const noplatBox = await page.getByTestId("noplat-panel").boundingBox();
