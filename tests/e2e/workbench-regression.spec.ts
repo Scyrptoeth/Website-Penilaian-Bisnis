@@ -701,6 +701,11 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByTestId("dcf-sensitivity-tax-payable-debt-like")).toContainText("utang pajak sebagai kewajiban debt-like");
   await expect(page.getByTestId("dcf-sensitivity-historical-projection")).toContainText("di-roll-forward dari data historis user");
   await expect(page.getByRole("heading", { name: "Kesiapan DCF" })).toHaveCount(0);
+  await expect(page.getByTestId("dcf-audit-trail")).toContainText("Free Cash Flow");
+  await expect(page.getByTestId("dcf-audit-trail")).toContainText("Y+5");
+  await expect(page.getByTestId("dcf-audit-trail")).toContainText("DCF!C20:H20");
+  await expect(page.getByTestId("dcf-audit-trail")).toContainText("Proyeksi Cash Flow Statement");
+  await expect(page.getByTestId("dcf-audit-trail")).toContainText("Interest Bearing Debt");
   const baseDcfValue = await page.getByTestId("dcf-base-equity-value").textContent();
   const noIncrementalWcValue = await page.getByTestId("dcf-no-incremental-wc-equity-value").textContent();
   await expect(page.getByTestId("dcf-active-equity-value")).toHaveText(baseDcfValue ?? "");

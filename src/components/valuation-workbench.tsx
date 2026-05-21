@@ -51,8 +51,6 @@ import {
   buildDcfForecast,
   calculateAllMethods,
   calculateDcf,
-  interestBearingDebt,
-  nonOperatingAssets,
   normalizedNoplat,
   type DcfOptions,
   type DcfFixedAssetProjectionInput,
@@ -273,6 +271,13 @@ import {
   buildTerminalGrowthSuggestion,
   type TerminalGrowthSuggestion,
 } from "@/lib/valuation/terminal-growth-suggestions";
+import {
+  buildDcfAuditTrail,
+  type DcfAuditBridgeRow,
+  type DcfAuditTrail,
+  type DcfAuditTrailRow,
+  type DcfAuditValueFormat,
+} from "@/lib/valuation/dcf-audit-trail";
 import { buildEemTaxPayableDebtLikeNote, eemSensitivityContext } from "@/lib/valuation/eem-sensitivity-context";
 import type { AccountCategory, DcfForecastRow, FinancialStatementSnapshot, FormulaTrace, MethodOutput, ValuationMethod } from "@/lib/valuation/types";
 const confidenceBandLabels: Record<ReturnType<typeof mapRow>["mapping"]["confidenceBand"], string> = {
@@ -1208,7 +1213,38 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   const eemExcessEarnings = findTraceValueById(activeEem.traces, "eem-excess-earning");
   const dcfExplicitPv = findTraceValue(activeDcf.traces, "PV eksplisit FCFF");
   const dcfTerminalPv = findTraceValue(activeDcf.traces, "PV nilai terminal");
-  const dcfEnterpriseValue = dcfExplicitPv + dcfTerminalPv;
+  const dcfAuditTrail = useMemo(
+    () =>
+      buildDcfAuditTrail({
+        snapshot,
+        dcf: activeDcf,
+        historical: {
+          periodLabel: activePeriod?.label,
+          year: getYearFromDate(activePeriod?.valuationDate),
+          depreciation: eemCalculationOptions.depreciationAddBack ?? 0,
+          currentAssetMovement: eemCalculationOptions.currentAssetMovement ?? 0,
+          currentLiabilityMovement: eemCalculationOptions.currentLiabilityMovement ?? 0,
+          capitalExpenditures: eemCalculationOptions.capitalExpenditures ?? 0,
+        },
+        terminalGrowth: activeDcfSelection.terminalGrowth,
+        wacc: snapshot.wacc,
+        includeWorkingCapitalChange: activeDcfSelection.includeWorkingCapitalChange,
+        debtLikeTaxPayable: activeDcfSelection.debtLikeTaxPayable,
+      }),
+    [
+      activeDcf,
+      activeDcfSelection.debtLikeTaxPayable,
+      activeDcfSelection.includeWorkingCapitalChange,
+      activeDcfSelection.terminalGrowth,
+      activePeriod?.label,
+      activePeriod?.valuationDate,
+      eemCalculationOptions.capitalExpenditures,
+      eemCalculationOptions.currentAssetMovement,
+      eemCalculationOptions.currentLiabilityMovement,
+      eemCalculationOptions.depreciationAddBack,
+      snapshot,
+    ],
+  );
   const activeDcfVariance = activeDcf.equityValue - results.dcf.equityValue;
   const activeDcfRelativeVariance = safeAbsoluteRatio(activeDcfVariance, results.dcf.equityValue);
   const taxRateCandidates = useMemo(() => buildTaxRateCandidates(effectiveValuationDate), [effectiveValuationDate]);
@@ -4173,48 +4209,11 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
           </div>
         </section>
 
-        <section id="dcf" className="split-panel">
-          <article className="panel">
-            <div className="panel-heading">
-              <div>
-                <p className="eyebrow">Jejak DCF</p>
-                <h3>Discounted Cash Flow (DCF)</h3>
-              </div>
-              <TableProperties size={22} />
-            </div>
-            <FormulaList traces={activeDcf.traces} />
-          </article>
-          <article className="panel">
-            <div className="panel-heading">
-              <div>
-                <p className="eyebrow">Proyeksi</p>
-                <h3>Proyeksi FCFF</h3>
-              </div>
-            </div>
-            <div className="compact-table">
-              {activeDcf.forecast.map((row) => (
-                <div className="forecast-row" key={row.year}>
-                  <span>{row.year}</span>
-                  <strong>{formatIdr(row.freeCashFlow)}</strong>
-                  <small>PV {formatIdr(row.presentValue)}</small>
-                </div>
-              ))}
-            </div>
-            <MetricTraceGrid
-              metrics={[
-                ["Enterprise value", formatIdr(dcfEnterpriseValue)],
-                ["Aset non-operasional", formatIdr(nonOperatingAssets(snapshot))],
-                ["Utang berbunga", formatIdr(interestBearingDebt(snapshot))],
-                ["Utang pajak debt-like", formatIdr(activeDcfSelection.debtLikeTaxPayable)],
-                [
-                  "Formula equity",
-                  activeDcfSelection.debtLikeTaxPayable > 0
-                    ? "EV + aset non-operasional - utang berbunga - utang pajak debt-like"
-                    : "EV + aset non-operasional - utang berbunga",
-                ],
-              ]}
-            />
-          </article>
+        <section id="dcf" className="dcf-audit-section">
+          <DcfAuditTrailPanel
+            auditTrail={dcfAuditTrail}
+            onSourceNavigate={(tabId) => navigateToWorkflowTab(tabId)}
+          />
         </section>
         </>
         ) : (
@@ -12621,6 +12620,15 @@ function formatNumber(value: number): string {
   }).format(value);
 }
 
+function getYearFromDate(dateValue: string | undefined): number | null {
+  if (!dateValue) {
+    return null;
+  }
+
+  const year = Number.parseInt(dateValue.slice(0, 4), 10);
+  return Number.isFinite(year) ? year : null;
+}
+
 function parseRateInput(input: string): number | null {
   if (!input.trim()) {
     return null;
@@ -13033,6 +13041,160 @@ function EemTraceTable({
   );
 }
 
+function DcfAuditTrailPanel({
+  auditTrail,
+  onSourceNavigate,
+}: {
+  auditTrail: DcfAuditTrail;
+  onSourceNavigate: (tabId: WorkflowTabId) => void;
+}) {
+  return (
+    <article className="panel dcf-audit-panel" data-testid="dcf-audit-trail">
+      <div className="panel-heading">
+        <div>
+          <p className="eyebrow">Jejak DCF</p>
+          <h3>Discounted Cash Flow (DCF)</h3>
+        </div>
+        <TableProperties size={22} />
+      </div>
+      <div className="dcf-interoperability-strip" aria-label="Tab interoperabilitas DCF">
+        {auditTrail.interoperabilityTabs.map((tab) => {
+          const tabId = resolveTraceSourceTabId(tab);
+
+          return tabId ? (
+            <button key={tab} type="button" onClick={() => onSourceNavigate(tabId)}>
+              {tab}
+            </button>
+          ) : (
+            <span key={tab}>{tab}</span>
+          );
+        })}
+      </div>
+      <div className="dcf-audit-table-wrap">
+        <table className="dcf-audit-table" aria-label="Jejak rinci Discounted Cash Flow">
+          <thead>
+            <tr>
+              <th scope="col">Komponen</th>
+              {auditTrail.periods.map((period) => (
+                <th scope="col" key={period.key}>
+                  <span>{period.label}</span>
+                  {!period.includedInExplicitPv ? <small>benchmark</small> : null}
+                </th>
+              ))}
+              <th scope="col">Formula dan sumber</th>
+            </tr>
+          </thead>
+          <tbody>
+            {auditTrail.rows.map((row) => (
+              <DcfAuditTrailTableRow
+                key={row.id}
+                periods={auditTrail.periods}
+                row={row}
+                onSourceNavigate={onSourceNavigate}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="dcf-bridge-grid" aria-label="Bridge enterprise value ke equity value DCF">
+        {auditTrail.bridgeRows.map((row) => (
+          <DcfBridgeItem key={row.id} row={row} onSourceNavigate={onSourceNavigate} />
+        ))}
+      </div>
+    </article>
+  );
+}
+
+function DcfAuditTrailTableRow({
+  periods,
+  row,
+  onSourceNavigate,
+}: {
+  periods: DcfAuditTrail["periods"];
+  row: DcfAuditTrailRow;
+  onSourceNavigate: (tabId: WorkflowTabId) => void;
+}) {
+  return (
+    <tr data-testid="dcf-audit-row">
+      <td>
+        <div className="dcf-audit-component">
+          <strong>{row.label}</strong>
+          <p>{row.note}</p>
+        </div>
+      </td>
+      {periods.map((period, index) => (
+        <td className={!period.includedInExplicitPv ? "dcf-audit-benchmark-cell" : ""} key={period.key}>
+          <span>{formatDcfAuditValue(row.values[index] ?? null, row.valueFormat)}</span>
+        </td>
+      ))}
+      <td>
+        <DcfAuditSourceStack row={row} onSourceNavigate={onSourceNavigate} />
+      </td>
+    </tr>
+  );
+}
+
+function DcfBridgeItem({
+  row,
+  onSourceNavigate,
+}: {
+  row: DcfAuditBridgeRow;
+  onSourceNavigate: (tabId: WorkflowTabId) => void;
+}) {
+  return (
+    <div className={row.id === "dcf-equity-value" ? "dcf-bridge-item dcf-bridge-item-final" : "dcf-bridge-item"}>
+      <div>
+        <span>{row.label}</span>
+        <strong>{formatDcfAuditValue(row.value, row.valueFormat)}</strong>
+      </div>
+      <p>{row.note}</p>
+      <DcfAuditSourceStack row={row} onSourceNavigate={onSourceNavigate} compact />
+    </div>
+  );
+}
+
+function DcfAuditSourceStack({
+  row,
+  onSourceNavigate,
+  compact = false,
+}: {
+  row: Pick<DcfAuditTrailRow, "formula" | "workbookReference" | "sourceTabs" | "accountCategories" | "label">;
+  onSourceNavigate: (tabId: WorkflowTabId) => void;
+  compact?: boolean;
+}) {
+  return (
+    <div className={compact ? "dcf-audit-source-stack compact" : "dcf-audit-source-stack"}>
+      <div className="eem-trace-chip-row" aria-label={`Tab sumber ${row.label}`}>
+        {row.sourceTabs.map((sourceTab) => {
+          const tabId = resolveTraceSourceTabId(sourceTab);
+
+          return tabId ? (
+            <button
+              key={sourceTab}
+              type="button"
+              onClick={() => onSourceNavigate(tabId)}
+              aria-label={`Buka ${sourceTab} untuk ${row.label}`}
+            >
+              {sourceTab}
+            </button>
+          ) : (
+            <span key={sourceTab}>{sourceTab}</span>
+          );
+        })}
+      </div>
+      <TraceFormula formula={row.formula} traceLabel={row.label} />
+      <code>{row.workbookReference}</code>
+      {row.accountCategories.length > 0 ? (
+        <div className="dcf-account-chip-row" aria-label={`Akun terkait ${row.label}`}>
+          {row.accountCategories.map((category) => (
+            <span key={category}>{formatAccountCategoryName(category)}</span>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function TraceFormula({ formula, traceLabel }: { formula: string; traceLabel: string }) {
   const tokens = tokenizeTraceFormula(formula);
 
@@ -13087,6 +13249,33 @@ function formatFormulaTraceValue(trace: FormulaTrace): string {
   }
 
   return formatIdr(trace.value);
+}
+
+function formatDcfAuditValue(value: number | null, valueFormat: DcfAuditValueFormat): string {
+  if (value === null || !Number.isFinite(value)) {
+    return "-";
+  }
+
+  if (valueFormat === "percent") {
+    return formatPercent(value);
+  }
+
+  if (valueFormat === "factor") {
+    return new Intl.NumberFormat("id-ID", {
+      minimumFractionDigits: 4,
+      maximumFractionDigits: 4,
+    }).format(value);
+  }
+
+  if (valueFormat === "number") {
+    return formatNumber(value);
+  }
+
+  return formatIdr(value);
+}
+
+function formatAccountCategoryName(category: AccountCategory): string {
+  return accountMappingRules.find((rule) => rule.category === category)?.displayName ?? category.replaceAll("_", " ");
 }
 
 const traceFormulaOperatorLabels: Record<string, string> = {
