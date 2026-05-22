@@ -1605,6 +1605,15 @@ select:focus-visible,
   grid-column: 1 / -1;
 }
 
+.period-workflow-block {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 8px;
+  min-width: 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
 .case-transaction-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1658,8 +1667,6 @@ select:focus-visible,
   justify-content: space-between;
   gap: 8px;
   margin: 2px 0 8px;
-  padding-top: 10px;
-  border-top: 1px solid var(--line);
 }
 
 .period-section-heading h4 {
@@ -6498,6 +6505,11 @@ td span {
     padding: 8px;
   }
 
+  .period-workflow-block {
+    gap: 6px;
+    padding-top: 8px;
+  }
+
   .input-section-title {
     gap: 5px;
     margin-bottom: 6px;
@@ -6520,7 +6532,6 @@ td span {
   .period-section-heading {
     gap: 6px;
     margin: 0 0 6px;
-    padding-top: 8px;
   }
 
   .period-grid {
@@ -6589,12 +6600,13 @@ td span {
   }
 
   .data-awal-grid {
-    grid-template-columns: minmax(280px, 0.86fr) minmax(280px, 0.86fr) minmax(400px, 1.28fr);
+    grid-template-columns: minmax(280px, 1fr) minmax(280px, 1fr) minmax(280px, 0.56fr);
     align-items: start;
   }
 
-  .data-awal-card.wide {
-    grid-column: auto;
+  .data-awal-card.wide,
+  .period-workflow-block {
+    grid-column: 1 / span 2;
   }
 }
 

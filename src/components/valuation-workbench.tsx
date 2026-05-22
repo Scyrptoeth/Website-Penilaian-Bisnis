@@ -3688,79 +3688,83 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         {activeWorkflowTab === "periods" ? (
         <section id="periods" className="panel">
           <ReadinessPanel status={readiness.periods} onNavigate={navigateToWorkflowTab} onAction={handleReadinessAction} />
-          <CaseProfilePanel
-            profile={caseProfile}
-            derived={caseProfileDerived}
-            guidanceTarget={guidanceTarget}
-            onChange={updateCaseProfile}
-          />
-          <div className="period-section-heading">
-            <div>
-              <p className="eyebrow">Periode penilaian</p>
-              <h4>Periode input laporan keuangan</h4>
-            </div>
-            <div className="period-section-actions">
-              {caseProfileDerived.cutOffDate ? (
-                <span className="status-pill">Cut off {formatDisplayDate(caseProfileDerived.cutOffDate)}</span>
-              ) : null}
-              <button
-                className={`button secondary ${guidanceTarget === "add-period" ? "action-guidance" : ""}`}
-                data-guidance-target={guidanceTarget === "add-period" ? "add-period" : undefined}
-                type="button"
-                onClick={addPeriod}
-              >
-                <Plus size={18} />
-                Tambah {nextHistoricalPeriodLabel}
-                {guidanceTarget === "add-period" ? <span className="action-guidance-badge">Aksi dibutuhkan</span> : null}
-              </button>
-            </div>
-          </div>
-          <div className="period-grid">
-            {periods.map((period) => {
-              const isValuationYear = getPeriodYearOffset(period) === 0;
-              const canRemovePeriod = !isValuationYear && periods.length > 1;
-              const periodCardClassName = [
-                "period-card",
-                isValuationYear ? "valuation-year" : "historical-year",
-                period.id === activePeriodId ? "active" : "",
-              ]
-                .filter(Boolean)
-                .join(" ");
-
-              return (
-                <div className={periodCardClassName} data-testid="period-card" data-year-offset={getPeriodYearOffset(period)} key={period.id}>
-                  <CalendarDays size={18} />
-                  <label>
-                    <span>Label</span>
-                    <input value={period.label} onChange={(event) => updatePeriod(period.id, { label: event.target.value })} />
-                  </label>
-                  {isValuationYear ? (
-                    <label>
-                      <span>Tanggal penilaian</span>
-                      <input
-                        type="date"
-                        value={period.valuationDate}
-                        onChange={(event) => updatePeriod(period.id, { valuationDate: event.target.value })}
-                      />
-                    </label>
-                  ) : null}
-                  <div className="period-actions">
-                    <button className="icon-button" type="button" onClick={() => activatePeriod(period.id)} title="Gunakan periode ini">
-                      <CheckCircle2 size={18} />
-                    </button>
-                    <button
-                      className="icon-button danger"
-                      type="button"
-                      onClick={() => removePeriod(period.id)}
-                      disabled={!canRemovePeriod}
-                      title={isValuationYear ? "Tahun Y tidak bisa dihapus" : "Hapus periode"}
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
+          <div className="data-awal-grid" data-testid="case-profile-panel">
+            <CaseProfilePanel
+              profile={caseProfile}
+              derived={caseProfileDerived}
+              guidanceTarget={guidanceTarget}
+              onChange={updateCaseProfile}
+            />
+            <div className="period-workflow-block">
+              <div className="period-section-heading">
+                <div>
+                  <p className="eyebrow">Periode penilaian</p>
+                  <h4>Periode input laporan keuangan</h4>
                 </div>
-              );
-            })}
+                <div className="period-section-actions">
+                  {caseProfileDerived.cutOffDate ? (
+                    <span className="status-pill">Cut off {formatDisplayDate(caseProfileDerived.cutOffDate)}</span>
+                  ) : null}
+                  <button
+                    className={`button secondary ${guidanceTarget === "add-period" ? "action-guidance" : ""}`}
+                    data-guidance-target={guidanceTarget === "add-period" ? "add-period" : undefined}
+                    type="button"
+                    onClick={addPeriod}
+                  >
+                    <Plus size={18} />
+                    Tambah {nextHistoricalPeriodLabel}
+                    {guidanceTarget === "add-period" ? <span className="action-guidance-badge">Aksi dibutuhkan</span> : null}
+                  </button>
+                </div>
+              </div>
+              <div className="period-grid">
+                {periods.map((period) => {
+                  const isValuationYear = getPeriodYearOffset(period) === 0;
+                  const canRemovePeriod = !isValuationYear && periods.length > 1;
+                  const periodCardClassName = [
+                    "period-card",
+                    isValuationYear ? "valuation-year" : "historical-year",
+                    period.id === activePeriodId ? "active" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ");
+
+                  return (
+                    <div className={periodCardClassName} data-testid="period-card" data-year-offset={getPeriodYearOffset(period)} key={period.id}>
+                      <CalendarDays size={18} />
+                      <label>
+                        <span>Label</span>
+                        <input value={period.label} onChange={(event) => updatePeriod(period.id, { label: event.target.value })} />
+                      </label>
+                      {isValuationYear ? (
+                        <label>
+                          <span>Tanggal penilaian</span>
+                          <input
+                            type="date"
+                            value={period.valuationDate}
+                            onChange={(event) => updatePeriod(period.id, { valuationDate: event.target.value })}
+                          />
+                        </label>
+                      ) : null}
+                      <div className="period-actions">
+                        <button className="icon-button" type="button" onClick={() => activatePeriod(period.id)} title="Gunakan periode ini">
+                          <CheckCircle2 size={18} />
+                        </button>
+                        <button
+                          className="icon-button danger"
+                          type="button"
+                          onClick={() => removePeriod(period.id)}
+                          disabled={!canRemovePeriod}
+                          title={isValuationYear ? "Tahun Y tidak bisa dihapus" : "Hapus periode"}
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </section>
         ) : null}
@@ -11215,7 +11219,7 @@ function CaseProfilePanel({
       : undefined;
 
   return (
-    <div className="data-awal-grid" data-testid="case-profile-panel">
+    <>
       <article className="data-awal-card">
         <div className="input-section-title">
           <FileSearch size={16} />
@@ -11334,7 +11338,7 @@ function CaseProfilePanel({
           <CaseProfileSelect label="Objek Penilaian" value={profile.valuationObject} options={valuationObjectOptions} onChange={(value) => onChange("valuationObject", value)} />
         </div>
       </article>
-    </div>
+    </>
   );
 }
 
