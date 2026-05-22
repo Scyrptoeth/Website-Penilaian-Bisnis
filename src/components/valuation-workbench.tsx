@@ -494,6 +494,11 @@ type ActiveDcfBasis =
 
 type DcfOutput = ReturnType<typeof calculateDcf>;
 type CalculationResults = ReturnType<typeof calculateAllMethods>;
+type AuditDetailCard = {
+  id: string;
+  label: string;
+  value: string;
+};
 type ActiveDcfSelection = {
   basis: ActiveDcfBasis;
   label: string;
@@ -516,6 +521,35 @@ type ActiveEemSelection = {
   summary: string;
   eem: MethodOutput;
   debtLikeTaxPayable: number;
+};
+type AuditDetailCardsInput = {
+  activeDcf: DcfOutput;
+  activeDcfBasis: ActiveDcfBasis;
+  activeEem: MethodOutput;
+  activeEemBasis: ActiveEemBasis;
+  activeWaccBasis: WaccBasis;
+  assumptions: AssumptionState;
+  caseProfile: CaseProfile;
+  caseProfileDerived: CaseProfileDerived;
+  dlocPfc: DlocPfcState;
+  dlocPfcCalculation: DlocPfcCalculation;
+  dlom: DlomState;
+  dlomCalculation: DlomCalculation;
+  fixedAssetSchedule: FixedAssetScheduleSummary;
+  fixedAssetScheduleRows: FixedAssetScheduleRow[];
+  incomeProjectionControls: IncomeProjectionControlState;
+  mappedRows: MappedRow[];
+  periods: Period[];
+  projectionHorizonYears: number;
+  projectionPlanning: ProjectionPlanningState;
+  rawWaccCalculation: WaccCalculation | null;
+  requiredReturnCalculation: RequiredReturnOnNtaCalculation | null;
+  results: CalculationResults;
+  rows: AccountRow[];
+  sectionAnalysis: SectionAnalysis;
+  snapshot: FinancialStatementSnapshot;
+  taxSimulation: TaxSimulationState;
+  taxSimulationResult: TaxSimulationResult;
 };
 type EemReturnOnTangibleAssetChoice = {
   value: EemReturnOnTangibleAssetBasis;
@@ -1561,6 +1595,67 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     hasDlomInput(dlom) ||
     hasDlocPfcInput(dlocPfc) ||
     hasTaxSimulationInput(taxSimulation);
+  const auditDetailCards = useMemo(
+    () =>
+      buildAuditDetailCards({
+        activeDcf,
+        activeDcfBasis,
+        activeEem,
+        activeEemBasis,
+        activeWaccBasis,
+        assumptions,
+        caseProfile,
+        caseProfileDerived,
+        dlocPfc,
+        dlocPfcCalculation,
+        dlom,
+        dlomCalculation,
+        fixedAssetSchedule,
+        fixedAssetScheduleRows,
+        incomeProjectionControls,
+        mappedRows,
+        periods,
+        projectionHorizonYears,
+        projectionPlanning,
+        rawWaccCalculation,
+        requiredReturnCalculation,
+        results,
+        rows,
+        sectionAnalysis,
+        snapshot,
+        taxSimulation,
+        taxSimulationResult,
+      }),
+    [
+      activeDcf,
+      activeDcfBasis,
+      activeEem,
+      activeEemBasis,
+      activeWaccBasis,
+      assumptions,
+      caseProfile,
+      caseProfileDerived,
+      dlocPfc,
+      dlocPfcCalculation,
+      dlom,
+      dlomCalculation,
+      fixedAssetSchedule,
+      fixedAssetScheduleRows,
+      incomeProjectionControls,
+      mappedRows,
+      periods,
+      projectionHorizonYears,
+      projectionPlanning,
+      rawWaccCalculation,
+      requiredReturnCalculation,
+      results,
+      rows,
+      sectionAnalysis,
+      snapshot,
+      taxSimulation,
+      taxSimulationResult,
+    ],
+  );
   const checks = buildValidationChecks(rows, mappedRows, resolvedAssumptions, snapshot, balanceSheetGap, fixedAssetSchedule);
   const readiness = useMemo(
     () =>
@@ -3981,7 +4076,6 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
             comparableSuggestions={sectorComparableSuggestions}
             valuationDate={effectiveValuationDate}
             autoCapitalValues={autoWaccCapitalValues}
-            governance={assumptionGovernance}
             marketGuidanceTarget={!marketSuggestion && guidanceTarget === "wacc-market-suggestion" ? "wacc-market-suggestion" : undefined}
             onChange={updateAssumption}
             onComparableNameChange={updateWaccComparableName}
@@ -4029,7 +4123,6 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               wacc={snapshot.wacc}
               suggestion={terminalGrowthSuggestion}
               investedCapitalSuggestion={investedCapitalGrowthSuggestion}
-              governance={assumptionGovernance}
               guidanceTarget={guidanceTarget === "terminal-growth-suggestion" ? "terminal-growth-suggestion" : undefined}
               onChange={updateAssumption}
               onApplySuggestion={applyTerminalGrowthSuggestion}
@@ -4781,72 +4874,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
             </div>
           </div>
           <ReadinessOverview readiness={readiness} onNavigate={navigateToWorkflowTab} />
-          <dl className="assumption-grid">
-            <div>
-              <dt>Periode aktif</dt>
-              <dd>{activePeriod?.label || "Belum diisi"}</dd>
-            </div>
-            <div>
-              <dt>Tanggal penilaian</dt>
-              <dd>{formatDisplayDate(snapshot.valuationDate) || "Belum diisi"}</dd>
-            </div>
-            <div>
-              <dt>Akun terpetakan</dt>
-              <dd>{mappedRows.filter((item) => item.effectiveCategory !== "UNMAPPED").length}</dd>
-            </div>
-            <div>
-              <dt>Total aset disesuaikan</dt>
-              <dd>{formatIdr(results.adjustedTotalAssets)}</dd>
-            </div>
-            <div>
-              <dt>Nilai buku bersih aset tetap</dt>
-              <dd>{formatIdr(snapshot.fixedAssetsNet)}</dd>
-            </div>
-            <div>
-              <dt>Total liabilitas disesuaikan</dt>
-              <dd>{formatIdr(results.adjustedTotalLiabilities)}</dd>
-            </div>
-            <div>
-              <dt>Komponen ekuitas buku</dt>
-              <dd>{formatIdr(equityBookComponents)}</dd>
-            </div>
-            <div>
-              <dt>Selisih neraca</dt>
-              <dd>{formatIdr(balanceSheetGap)}</dd>
-            </div>
-            <div>
-              <dt>Commercial EBIT</dt>
-              <dd>{formatIdr(snapshot.ebit)}</dd>
-            </div>
-            <div>
-              <dt>Tarif pajak</dt>
-              <dd>{formatPercent(snapshot.taxRate)}</dd>
-            </div>
-            <div>
-              <dt>Driver pertumbuhan pendapatan</dt>
-              <dd>{formatPercent(snapshot.revenueGrowth)}</dd>
-            </div>
-            <div>
-              <dt>Driver margin COGS</dt>
-              <dd>{formatPercent(snapshot.cogsMargin)}</dd>
-            </div>
-            <div>
-              <dt>Driver margin opex</dt>
-              <dd>{formatPercent(snapshot.gaMargin)}</dd>
-            </div>
-            <div>
-              <dt>Driver margin penyusutan</dt>
-              <dd>{formatPercent(snapshot.depreciationMargin)}</dd>
-            </div>
-            <div>
-              <dt>Operating working capital</dt>
-              <dd>{formatIdr(results.operatingWorkingCapital)}</dd>
-            </div>
-            <div>
-              <dt>Utang berbunga</dt>
-              <dd>{formatIdr(results.interestBearingDebt)}</dd>
-            </div>
-          </dl>
+          <AuditDetailGrid cards={auditDetailCards} />
         </section>
         ) : null}
       </section>
@@ -4963,6 +4991,19 @@ function ReadinessOverview({ readiness, onNavigate }: { readiness: WorkbenchRead
         );
       })}
     </section>
+  );
+}
+
+function AuditDetailGrid({ cards }: { cards: AuditDetailCard[] }) {
+  return (
+    <dl className="assumption-grid" data-testid="audit-detail-grid">
+      {cards.map((card) => (
+        <div data-testid="audit-detail-card" key={card.id}>
+          <dt>{card.label}</dt>
+          <dd>{card.value}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
@@ -10272,6 +10313,331 @@ function buildProjectionPlanningDcfOptions(planning: ProjectionPlanningState): D
   };
 }
 
+function buildAuditDetailCards(input: AuditDetailCardsInput): AuditDetailCard[] {
+  const cards: AuditDetailCard[] = [];
+  const historicalAnalyses = [...input.sectionAnalysis.periodAnalyses].sort(
+    (left, right) => getPeriodYearOffset(left.period) - getPeriodYearOffset(right.period),
+  );
+  const fcfRow = input.sectionAnalysis.fcfRows.find((row) => row.key === "fcf");
+  const hasAnyBalanceInput = input.periods.some((period) =>
+    hasBalanceInputForPeriod(input.rows, input.fixedAssetScheduleRows, period.id),
+  );
+  const hasAnyIncomeInput = input.periods.some((period) => hasStatementInputForPeriod(input.rows, period.id, "income_statement"));
+  const hasWaccAuditInput = hasWaccInput(input.assumptions, input.rawWaccCalculation, input.activeWaccBasis);
+  const hasTaxRateAuditInput = hasRateOrSourceInput(input.assumptions.taxRate, input.assumptions.taxRateSource);
+  const hasTerminalGrowthAuditInput = hasRateOrSourceInput(input.assumptions.terminalGrowth, input.assumptions.terminalGrowthSource);
+  const hasRequiredReturnAuditInput =
+    input.requiredReturnCalculation !== null ||
+    hasRateOrSourceInput(input.assumptions.requiredReturnOnNta, input.assumptions.requiredReturnOnNtaSource) ||
+    input.assumptions.requiredReturnAfterTaxDebtCost.trim() !== "" ||
+    input.assumptions.requiredReturnEquityCost.trim() !== "";
+  const hasProjectionAuditInput =
+    hasAnyIncomeInput &&
+    (hasWaccAuditInput ||
+      hasTerminalGrowthAuditInput ||
+      hasProjectionPlanningInput(input.projectionPlanning) ||
+      hasIncomeProjectionControlInput(input.incomeProjectionControls) ||
+      input.activeDcfBasis !== defaultActiveDcfBasis);
+  const hasAamAuditInput = hasAnyBalanceInput || input.fixedAssetSchedule.hasInput;
+  const hasEemAuditInput =
+    hasAnyIncomeInput &&
+    (hasRequiredReturnAuditInput || hasWaccAuditInput || input.activeEemBasis !== defaultActiveEemBasis);
+  const hasDcfAuditInput = hasProjectionAuditInput;
+  const hasTaxSimulationAuditInput =
+    hasTaxSimulationInput(input.taxSimulation) ||
+    input.taxSimulationResult.primaryMethod !== "" ||
+    input.caseProfileDerived.capitalProportionStatus === "valid" ||
+    parseInputNumber(input.taxSimulation.reportedTransferValue) > 0;
+  const transferValue = input.taxSimulationResult.rows[0]?.reportedTransferValue ?? parseInputNumber(input.taxSimulation.reportedTransferValue);
+
+  const add = (id: string, label: string, value: string, shouldShow = true) => {
+    if (!shouldShow || value.trim() === "") {
+      return;
+    }
+
+    cards.push({ id, label, value });
+  };
+  const addProfile = (id: string, label: string, value: string) => add(id, label, value.trim() || "Belum diisi");
+  const addCurrency = (id: string, label: string, value: number | null | undefined, shouldShow = true) => {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      return;
+    }
+
+    add(id, label, formatIdr(value), shouldShow);
+  };
+  const addRate = (id: string, label: string, value: number | null | undefined, shouldShow = true) => {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      return;
+    }
+
+    add(id, label, formatPercent(value), shouldShow);
+  };
+
+  addProfile("object-taxpayer-name", "Nama Objek Pajak", input.caseProfile.objectTaxpayerName);
+  addProfile("company-sector", "Sektor Perusahaan", input.caseProfile.companySector);
+  addProfile("company-type", "Jenis Perusahaan", input.caseProfile.companyType);
+  addProfile("share-ownership-type", "Jenis Kepemilikan Saham", input.caseProfile.shareOwnershipType);
+
+  if (input.caseProfileDerived.capitalProportionStatus === "valid" && input.caseProfileDerived.capitalProportion !== null) {
+    const proportionLabel =
+      input.caseProfile.transferType === "Modal Disetor" ? "Proporsi Modal Disetor yang Dinilai" : "Proporsi Saham yang Dinilai";
+    addRate("capital-proportion", proportionLabel, input.caseProfileDerived.capitalProportion);
+  }
+
+  addProfile("transaction-year", "Tahun Transaksi Pengalihan", input.caseProfile.transactionYear);
+  add(
+    "wacc",
+    "WACC",
+    `${formatPercent(input.snapshot.wacc)} (${activeWaccBasisLabels[input.activeWaccBasis]?.shortLabel ?? "Aktif"})`,
+    hasWaccAuditInput,
+  );
+  addRate("tax-rate", "Tarif Pajak", input.snapshot.taxRate, hasTaxRateAuditInput);
+  addRate("terminal-growth", "Terminal Growth/Growth Rate", input.snapshot.terminalGrowth, hasTerminalGrowthAuditInput);
+  addRate("required-return-on-nta", "Required Return on NTA", input.snapshot.requiredReturnOnNta, hasRequiredReturnAuditInput);
+
+  if (hasProjectionAuditInput && input.activeDcf.forecast.length > 0) {
+    const firstProjectionYear = input.activeDcf.forecast[0]?.year;
+    const lastProjectionYear = input.activeDcf.forecast[input.activeDcf.forecast.length - 1]?.year;
+    const projectionRange =
+      firstProjectionYear && lastProjectionYear ? ` (${firstProjectionYear}-${lastProjectionYear})` : "";
+    add("projection-years", "Tahun Proyeksi", `${input.projectionHorizonYears} tahun${projectionRange}`);
+  }
+
+  historicalAnalyses.forEach((analysis) => {
+    const periodId = analysis.period.id;
+    const periodLabel = getAuditPeriodLabel(analysis.period);
+
+    addCurrency(
+      `total-assets-${periodId}`,
+      buildAuditYearLabel("Total Aset", periodLabel),
+      analysis.snapshot.totalAssets,
+      hasBalanceInputForPeriod(input.rows, input.fixedAssetScheduleRows, periodId),
+    );
+  });
+
+  if (hasProjectionAuditInput) {
+    input.activeDcf.forecast.forEach((row) => {
+      addCurrency(`total-assets-projected-${row.year}`, buildAuditYearLabel("Total Aset", String(row.year)), row.totalAssets);
+    });
+  }
+
+  historicalAnalyses.forEach((analysis) => {
+    const periodId = analysis.period.id;
+    const periodLabel = getAuditPeriodLabel(analysis.period);
+    const liabilitiesAndEquity = analysis.snapshot.totalLiabilities + analysis.snapshot.bookEquity;
+
+    addCurrency(
+      `total-liabilities-equity-${periodId}`,
+      buildAuditYearLabel("Total Liabilitas + Ekuitas", periodLabel),
+      liabilitiesAndEquity,
+      hasBalanceInputForPeriod(input.rows, input.fixedAssetScheduleRows, periodId),
+    );
+  });
+
+  if (hasProjectionAuditInput) {
+    input.activeDcf.forecast.forEach((row) => {
+      addCurrency(
+        `total-liabilities-equity-projected-${row.year}`,
+        buildAuditYearLabel("Total Liabilitas + Ekuitas", String(row.year)),
+        row.liabilitiesAndEquity,
+      );
+    });
+  }
+
+  historicalAnalyses.forEach((analysis) => {
+    const periodId = analysis.period.id;
+
+    addCurrency(
+      `npat-${periodId}`,
+      buildAuditYearLabel("Laba Bersih setelah Pajak (NPAT)", getAuditPeriodLabel(analysis.period)),
+      analysis.snapshot.commercialNpat,
+      hasCategoryInputForPeriod(input.mappedRows, periodId, ["COMMERCIAL_NPAT"]),
+    );
+  });
+
+  if (hasProjectionAuditInput) {
+    input.activeDcf.forecast.forEach((row) => {
+      addCurrency(
+        `npat-projected-${row.year}`,
+        buildAuditYearLabel("Laba Bersih setelah Pajak (NPAT)", String(row.year)),
+        row.accountingNetProfitAfterTax,
+      );
+    });
+  }
+
+  historicalAnalyses.forEach((analysis) => {
+    const periodId = analysis.period.id;
+
+    addCurrency(
+      `noplat-${periodId}`,
+      buildAuditYearLabel("NOPLAT", getAuditPeriodLabel(analysis.period)),
+      analysis.normalizedNoplat,
+      hasStatementInputForPeriod(input.rows, periodId, "income_statement"),
+    );
+  });
+
+  if (hasProjectionAuditInput) {
+    input.activeDcf.forecast.forEach((row) => {
+      addCurrency(`noplat-projected-${row.year}`, buildAuditYearLabel("NOPLAT", String(row.year)), row.noplat);
+    });
+  }
+
+  historicalAnalyses.forEach((analysis) => {
+    const periodId = analysis.period.id;
+    const fcfValue = fcfRow?.values[periodId] ?? null;
+
+    addCurrency(
+      `fcf-${periodId}`,
+      buildAuditYearLabel("FCF", getAuditPeriodLabel(analysis.period)),
+      fcfValue,
+      fcfValue !== null && hasStatementInputForPeriod(input.rows, periodId, "income_statement"),
+    );
+  });
+
+  if (hasProjectionAuditInput) {
+    input.activeDcf.forecast.forEach((row) => {
+      addCurrency(`fcf-projected-${row.year}`, buildAuditYearLabel("FCF", String(row.year)), row.freeCashFlow);
+    });
+  }
+
+  add(
+    "dlom",
+    "DLOM",
+    input.dlomCalculation.isComplete
+      ? `${formatPercent(input.dlomCalculation.dlomRate)} (${input.dlomCalculation.status})`
+      : "Belum lengkap",
+    hasDlomInput(input.dlom) || input.dlomCalculation.isComplete,
+  );
+  add(
+    "dloc-pfc",
+    "DLOC/PFC",
+    input.dlocPfcCalculation.isComplete
+      ? `${input.dlocPfcCalculation.adjustmentType} ${formatPercent(input.dlocPfcCalculation.signedRate)}`
+      : `${input.dlocPfcCalculation.adjustmentType || "Belum lengkap"} - Belum lengkap`,
+    hasDlocPfcInput(input.dlocPfc) || input.dlocPfcCalculation.adjustmentType !== "" || input.dlocPfcCalculation.isComplete,
+  );
+  addCurrency(
+    "reported-transfer-value",
+    "Nilai Pengalihan dari Data Awal",
+    transferValue,
+    hasTaxSimulationAuditInput && (transferValue > 0 || input.taxSimulation.reportedTransferValue.trim() !== ""),
+  );
+
+  addCurrency("aam-adjusted-assets", "Total Aset Disesuaikan", input.results.adjustedTotalAssets, hasAamAuditInput);
+  addCurrency("aam-adjusted-liabilities", "Total Liabilitas Disesuaikan", input.results.adjustedTotalLiabilities, hasAamAuditInput);
+  addCurrency("aam-equity-value", "Nilai Ekuitas 100% - Penilaian AAM", input.results.aam.equityValue, hasAamAuditInput);
+  addTaxSimulationCards(cards, input.taxSimulationResult, "AAM", hasTaxSimulationAuditInput && hasAamAuditInput);
+
+  addCurrency("eem-nta", "NTA Operasional", getTraceValue(input.results.eem.traces, "eem-net-tangible-asset-value"), hasEemAuditInput);
+  addCurrency("eem-excess-earning", "Excess Earning", getTraceValue(input.results.eem.traces, "eem-excess-earning"), hasEemAuditInput);
+  addCurrency("eem-equity-value", "Nilai Ekuitas 100% - Penilaian EEM", input.activeEem.equityValue, hasEemAuditInput);
+  addTaxSimulationCards(cards, input.taxSimulationResult, "EEM", hasTaxSimulationAuditInput && hasEemAuditInput);
+
+  addCurrency("dcf-terminal-pv", "PV Terminal Value", getTraceValue(input.activeDcf.traces, "PV nilai terminal"), hasDcfAuditInput);
+  addCurrency("dcf-equity-value", "Nilai Ekuitas 100% - Penilaian DCF", input.activeDcf.equityValue, hasDcfAuditInput);
+  addTaxSimulationCards(cards, input.taxSimulationResult, "DCF", hasTaxSimulationAuditInput && hasDcfAuditInput);
+
+  return cards;
+}
+
+function hasWaccInput(assumptions: AssumptionState, calculation: WaccCalculation | null, activeBasis: WaccBasis): boolean {
+  return (
+    calculation !== null ||
+    activeBasis !== defaultActiveWaccBasis ||
+    assumptions.wacc.trim() !== "" ||
+    assumptions.waccSource.trim() !== "" ||
+    assumptions.waccRiskFreeRate.trim() !== "" ||
+    assumptions.waccEquityRiskPremium.trim() !== "" ||
+    assumptions.waccPreTaxCostOfDebt.trim() !== "" ||
+    assumptions.waccDebtWeight.trim() !== "" ||
+    assumptions.waccEquityWeight.trim() !== "" ||
+    waccComparableSlots.some((slot) =>
+      assumptions[slot.name].trim() !== "" ||
+      assumptions[slot.beta].trim() !== "" ||
+      assumptions[slot.marketCap].trim() !== "" ||
+      assumptions[slot.debt].trim() !== "",
+    )
+  );
+}
+
+function hasRateOrSourceInput(value: string, source: string): boolean {
+  return readRateInput(value) !== null || source.trim() !== "";
+}
+
+function addTaxSimulationCards(
+  cards: AuditDetailCard[],
+  result: TaxSimulationResult,
+  method: ValuationMethod,
+  shouldShow: boolean,
+) {
+  if (!shouldShow) {
+    return;
+  }
+
+  const row = result.rows.find((item) => item.method === method);
+
+  if (!row) {
+    return;
+  }
+
+  cards.push({
+    id: `tax-difference-${method.toLowerCase()}`,
+    label: `Selisih - Penilaian ${method}`,
+    value: formatIdr(row.transferValueDifference),
+  });
+  cards.push({
+    id: `tax-potential-${method.toLowerCase()}`,
+    label: `Potensi Pajak - Penilaian ${method}`,
+    value: formatIdr(row.potentialTax),
+  });
+}
+
+function getTraceValue(traces: FormulaTrace[], idOrLabel: string): number | null {
+  const normalized = idOrLabel.toLowerCase();
+  const trace = traces.find((item) => item.id === idOrLabel) ?? traces.find((item) => item.label.toLowerCase() === normalized);
+
+  return typeof trace?.value === "number" && Number.isFinite(trace.value) ? trace.value : null;
+}
+
+function hasStatementInputForPeriod(rows: AccountRow[], periodId: string, statement: StatementType): boolean {
+  return rows.some((row) => row.statement === statement && hasInputValue(row.values[periodId]));
+}
+
+function hasBalanceInputForPeriod(rows: AccountRow[], fixedAssetScheduleRows: FixedAssetScheduleRow[], periodId: string): boolean {
+  return (
+    rows.some(
+      (row) =>
+        (row.statement === "balance_sheet" || row.statement === "fixed_asset") &&
+        hasInputValue(row.values[periodId]),
+    ) ||
+    fixedAssetScheduleRows.some((row) => Object.values(row.values[periodId] ?? {}).some(hasInputValue))
+  );
+}
+
+function hasCategoryInputForPeriod(mappedRows: MappedRow[], periodId: string, categories: AccountCategory[]): boolean {
+  const categorySet = new Set(categories);
+
+  return mappedRows.some((item) => categorySet.has(item.effectiveCategory) && hasInputValue(item.row.values[periodId]));
+}
+
+function hasInputValue(value: string | undefined): boolean {
+  return typeof value === "string" && value.trim() !== "";
+}
+
+function getAuditPeriodLabel(period: Period): string {
+  const valuationYear = period.valuationDate.match(/^(19|20)\d{2}/)?.[0];
+  const labelYear = period.label.match(/(19|20)\d{2}/)?.[0];
+
+  return (valuationYear ?? labelYear ?? period.label) || getPeriodLabel(getPeriodYearOffset(period));
+}
+
+function buildAuditYearLabel(metric: string, periodLabel: string): string {
+  const normalizedLabel = periodLabel.trim();
+  const yearLabel = normalizedLabel.toLowerCase().startsWith("tahun") ? normalizedLabel : `Tahun ${normalizedLabel}`;
+
+  return `${metric} ${yearLabel}`;
+}
+
 function hasProjectionPlanningInput(planning: ProjectionPlanningState): boolean {
   return (
     normalizeProjectionHorizonYears(planning.horizonYears) !== defaultProjectionHorizonYears ||
@@ -11988,7 +12354,6 @@ function WaccCalculatorPanel({
   comparableSuggestions,
   valuationDate,
   autoCapitalValues,
-  governance,
   marketGuidanceTarget,
   onChange,
   onComparableNameChange,
@@ -12003,14 +12368,12 @@ function WaccCalculatorPanel({
   comparableSuggestions: IdxComparableCompany[];
   valuationDate: string;
   autoCapitalValues: AutoWaccCapitalValues;
-  governance: AssumptionGovernanceResult;
   marketGuidanceTarget?: GuidanceTarget;
   onChange: (key: keyof AssumptionState, value: string) => void;
   onComparableNameChange: (slot: WaccComparableSlot, value: string) => void;
   onApplyComparableSuggestions: () => void;
   onReasonChange: (value: string) => void;
 }) {
-  const waccGovernanceItems = governance.items.filter((item) => item.target === "wacc");
   const bankLoanRate = calculateWaccBankLoanRateAssumption(assumptions);
   const hasMarketSuggestionApplied = assumptions.waccSource.startsWith("market-suggestion");
   const marketSuggestionLabel = hasMarketSuggestionApplied ? "Saran pasar otomatis, dapat diedit" : undefined;
@@ -12022,7 +12385,6 @@ function WaccCalculatorPanel({
         label="Kalkulator WACC"
         value={calculation ? formatPercentFixed(calculation.wacc, 2) : formatRateInput(assumptions.wacc)}
       />
-      <InlineGovernanceList title="Tata kelola WACC" items={waccGovernanceItems} />
       <div className="calculator-input-grid wacc-primary-input-grid">
         <AssumptionInput
           label="Risk-free rate (tingkat bebas risiko)"
@@ -12722,7 +13084,6 @@ function TerminalGrowthPanel({
   wacc,
   suggestion,
   investedCapitalSuggestion,
-  governance,
   guidanceTarget,
   onChange,
   onApplySuggestion,
@@ -12734,7 +13095,6 @@ function TerminalGrowthPanel({
   wacc: number;
   suggestion: TerminalGrowthSuggestion | null;
   investedCapitalSuggestion: InvestedCapitalGrowthRateSuggestion | null;
-  governance: AssumptionGovernanceResult;
   guidanceTarget?: GuidanceTarget;
   onChange: (key: keyof AssumptionState, value: string) => void;
   onApplySuggestion: (suggestion: TerminalGrowthSuggestion) => void;
@@ -12744,7 +13104,6 @@ function TerminalGrowthPanel({
 }) {
   const baseGrowth = readRateInput(assumptions.terminalGrowth);
   const hasInvalidSpread = baseGrowth !== null && wacc > 0 && baseGrowth >= wacc;
-  const assumptionGovernanceItems = governance.items.filter((item) => item.target === "eemDcfAssumptions");
   const hasTerminalGrowthSuggestionApplied = Boolean(assumptions.terminalGrowthSource.trim());
   const terminalGrowthSmartLabel = hasTerminalGrowthSuggestionApplied ? "Saran sektor otomatis, dapat diedit" : undefined;
   const terminalGrowthSmartState = hasTerminalGrowthSuggestionApplied ? "applied" : undefined;
@@ -12756,7 +13115,6 @@ function TerminalGrowthPanel({
         value={formatTerminalGrowthRateInput(assumptions.terminalGrowth)}
         impact="DCF terminal value dan EEM capitalization spread"
       />
-      <InlineGovernanceList title="Tata kelola asumsi EEM/DCF" items={assumptionGovernanceItems} />
       <InvestedCapitalGrowthSuggestionBlock
         activeSourceId={assumptions.terminalGrowthSource}
         guidanceTarget={guidanceTarget}
