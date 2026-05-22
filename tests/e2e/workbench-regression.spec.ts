@@ -752,20 +752,28 @@ test("added analysis sections use readiness gates before sample data and render 
 
   await openWorkflowTab(page, "Proyeksi Aset Tetap");
   await expect(page.getByRole("heading", { name: "Proyeksi Aset Tetap" })).toBeVisible();
-  await expect(page.getByTestId("dcf-fixed-asset-projection-table")).toContainText("A. Acquisition Costs");
-  await expect(page.getByTestId("dcf-fixed-asset-projection-table")).toContainText("Net Value Fixed Assets");
-  await expect(page.getByTestId("dcf-fixed-asset-projection-table")).toContainText("Roll-forward aset tetap historis");
-  await expect(page.getByTestId("dcf-fixed-asset-projection-table")).toContainText("Office Inventory");
-  await expect(page.getByTestId("dcf-fixed-asset-projection-table")).not.toContainText("Electrical");
+  const fixedAssetProjectionTable = page.getByTestId("dcf-fixed-asset-projection-table");
+  const fixedAssetProjectionDriverStrip = page.locator(".active-driver-strip").filter({ hasText: "Mode aktif" }).first();
+  await expect(fixedAssetProjectionTable).toContainText("A. Acquisition Costs");
+  await expect(fixedAssetProjectionTable).toContainText("B. Depreciation");
+  await expect(fixedAssetProjectionTable).toContainText("Net Value Fixed Assets");
+  await expect(fixedAssetProjectionTable).toContainText("Beginning");
+  await expect(fixedAssetProjectionTable).toContainText("Additions");
+  await expect(fixedAssetProjectionTable).toContainText("Ending");
+  await expect(fixedAssetProjectionTable).not.toContainText("Sumber");
+  await expect(fixedAssetProjectionTable).not.toContainText("Status");
+  await expect(fixedAssetProjectionDriverStrip).toContainText("Roll-forward aset tetap historis");
+  await expect(fixedAssetProjectionTable).toContainText("Office Inventory");
+  await expect(fixedAssetProjectionTable).not.toContainText("Electrical");
   await expect(page.getByRole("radio", { name: /Roll-forward Historis/ })).toHaveAttribute("aria-checked", "true");
-  await expect(page.getByTestId("dcf-fixed-asset-projection-table")).not.toContainText("Delta vs DCF capex");
-  await expect(page.getByTestId("dcf-fixed-asset-projection-table")).not.toContainText(/belum dimodelkan/i);
-  await expect(page.getByTestId("dcf-fixed-asset-projection-table")).not.toContainText("Perlu input");
+  await expect(fixedAssetProjectionTable).not.toContainText("Delta vs DCF capex");
+  await expect(fixedAssetProjectionTable).not.toContainText(/belum dimodelkan/i);
+  await expect(fixedAssetProjectionTable).not.toContainText("Perlu input");
   await expect(page.getByText("Detail formula dan referensi audit")).toHaveCount(0);
   await expect(page.getByTestId("dcf-fixed-asset-projection-table-trace")).toHaveCount(0);
   await page.getByRole("radio", { name: /Proksi DCF/ }).click();
   await expect(page.getByRole("radio", { name: /Proksi DCF/ })).toHaveAttribute("aria-checked", "true");
-  await expect(page.getByTestId("dcf-fixed-asset-projection-table")).toContainText("Proksi DCF berbasis jadwal aset tetap");
+  await expect(fixedAssetProjectionDriverStrip).toContainText("Proksi DCF berbasis jadwal aset tetap");
   await openWorkflowTab(page, "Penilaian DCF");
   await expect.poll(() => page.getByTestId("dcf-base-equity-value").textContent()).not.toBe(historicalRollForwardDcfValue);
   const beforeProjectionWorkingCapitalPolicyDcfValue = await page.getByTestId("dcf-base-equity-value").textContent();
@@ -1590,22 +1598,36 @@ test("extended DCF projection horizon keeps projection and audit tables horizont
   for (const projectionTable of projectionTables) {
     await openWorkflowTab(page, projectionTable.tab);
     await expect(page.getByTestId(projectionTable.testId)).toContainText("2031");
-    const projectionMetrics = await page.getByTestId(`${projectionTable.testId}-wrap`).evaluate((element) => {
-      const table = element.querySelector("table");
-      const firstCell = element.querySelector("tbody tr:not(.analysis-section-row) td:first-child");
-      const periodCell = element.querySelector("tbody tr:not(.analysis-section-row) td.period-column");
-      return {
-        clientWidth: element.clientWidth,
-        scrollWidth: element.scrollWidth,
-        tableWidth: table?.getBoundingClientRect().width ?? 0,
-        firstCellWidth: firstCell?.getBoundingClientRect().width ?? 0,
-        periodCellWidth: periodCell?.getBoundingClientRect().width ?? 0,
-      };
-    });
+    const projectionMetrics =
+      projectionTable.testId === "dcf-fixed-asset-projection-table"
+        ? await page.getByTestId(projectionTable.testId).locator(".fixed-asset-table-wrap").first().evaluate((element) => {
+            const table = element.querySelector("table");
+            const firstCell = element.querySelector("tbody td:first-child");
+            const periodCell = element.querySelector("tbody td.fixed-asset-period-cell");
+            return {
+              clientWidth: element.clientWidth,
+              scrollWidth: element.scrollWidth,
+              tableWidth: table?.getBoundingClientRect().width ?? 0,
+              firstCellWidth: firstCell?.getBoundingClientRect().width ?? 0,
+              periodCellWidth: periodCell?.getBoundingClientRect().width ?? 0,
+            };
+          })
+        : await page.getByTestId(`${projectionTable.testId}-wrap`).evaluate((element) => {
+            const table = element.querySelector("table");
+            const firstCell = element.querySelector("tbody tr:not(.analysis-section-row) td:first-child");
+            const periodCell = element.querySelector("tbody tr:not(.analysis-section-row) td.period-column");
+            return {
+              clientWidth: element.clientWidth,
+              scrollWidth: element.scrollWidth,
+              tableWidth: table?.getBoundingClientRect().width ?? 0,
+              firstCellWidth: firstCell?.getBoundingClientRect().width ?? 0,
+              periodCellWidth: periodCell?.getBoundingClientRect().width ?? 0,
+            };
+          });
     expect(projectionMetrics.scrollWidth).toBeGreaterThan(projectionMetrics.clientWidth);
     expect(projectionMetrics.tableWidth).toBeGreaterThan(projectionMetrics.clientWidth);
-    expect(projectionMetrics.firstCellWidth).toBeGreaterThanOrEqual(300);
-    expect(projectionMetrics.periodCellWidth).toBeGreaterThanOrEqual(170);
+    expect(projectionMetrics.firstCellWidth).toBeGreaterThanOrEqual(projectionTable.testId === "dcf-fixed-asset-projection-table" ? 250 : 300);
+    expect(projectionMetrics.periodCellWidth).toBeGreaterThanOrEqual(projectionTable.testId === "dcf-fixed-asset-projection-table" ? 130 : 170);
   }
 });
 
@@ -1691,10 +1713,12 @@ test("localStorage persistence, fixed header, and root overflow checks remain st
   expect(sidebarBox?.y ?? 999).toBeLessThanOrEqual(1);
   await expect(page.locator(".brand-block")).toBeVisible();
   await expect(workflowNav(page).getByRole("button", { name: "Audit", exact: true })).toBeVisible();
+  await expect(page.getByText("Seluruh Data Auto-Save di Perangkat Bapak/Ibu")).toBeVisible();
 
   expect(await hasNoRootHorizontalOverflow(page)).toBe(true);
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByTestId("workspace-header")).toBeVisible();
+  await expect(page.getByText("Seluruh Data Auto-Save di Perangkat Bapak/Ibu")).toBeVisible();
   await expect(page.locator(".mobile-workflow-tabs")).toBeVisible();
   await expect(page.locator(".mobile-workflow-tabs").getByRole("tab", { name: "Kategorisasi Akun", exact: true })).toHaveCount(0);
   expect(await hasNoRootHorizontalOverflow(page)).toBe(true);

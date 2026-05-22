@@ -769,6 +769,25 @@ svg {
   min-width: 0;
 }
 
+.autosave-header-note {
+  display: flex;
+  flex: 1 1 280px;
+  align-items: center;
+  justify-content: center;
+  min-width: 220px;
+  min-height: 34px;
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.58);
+  color: var(--accent-ink);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-align: center;
+  white-space: normal;
+}
+
 .topbar.toolbar-only {
   justify-content: flex-end;
   align-items: center;
@@ -2105,6 +2124,41 @@ select {
 
 .fixed-asset-table .total-row td:not(:first-child) {
   white-space: nowrap;
+}
+
+.fixed-asset-projection-schedule {
+  display: grid;
+  gap: 10px;
+}
+
+.fixed-asset-projection-panel {
+  gap: 10px;
+}
+
+.fixed-asset-projection-section h5 {
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.fixed-asset-projection-table .projection-asset-name-output {
+  display: flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 8px;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: #ffffff;
+  color: var(--ink);
+  font-size: 9.4px;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.fixed-asset-projection-table output {
+  color: var(--ink);
 }
 
 .asset-name-cell {
@@ -6458,6 +6512,12 @@ td span {
     padding: 3px 7px;
   }
 
+  .autosave-header-note {
+    min-height: 30px;
+    padding: 3px 10px;
+    font-size: 9.4px;
+  }
+
   .workspace-switcher-name,
   .active-workflow-context > span:first-child {
     font-size: 9.4px;
@@ -6741,7 +6801,8 @@ td span {
   .topbar-context,
   .workspace-switcher,
   .workspace-switcher-trigger,
-  .active-workflow-context {
+  .active-workflow-context,
+  .autosave-header-note {
     width: 100%;
   }
 

@@ -3512,6 +3512,9 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
                 <WorkflowMethodBadges methods={activeWorkflowTabItem.methods} />
               </div>
             </div>
+            <div className="autosave-header-note" role="status" aria-label="Status penyimpanan otomatis">
+              Seluruh Data Auto-Save di Perangkat Bapak/Ibu
+            </div>
             {authUserId ? (
               <div className="mobile-auth-actions" aria-label="Aksi akun">
                 <AuthSidebarActions userId={authUserId} isSuperAdmin={isSuperAdmin} />
@@ -7423,15 +7426,231 @@ function ProjectionStatementSection({
         />
       ) : null}
 
-      <DcfProjectionPanel
-        config={config}
-        forecast={displayForecast}
-        snapshot={snapshot}
-        fixedAssetProjection={fixedAssetProjection}
-        workingCapitalCandidates={kind === "cashFlow" ? workingCapitalCandidates : undefined}
-        onToggleWorkingCapitalInclusion={kind === "cashFlow" ? onToggleWorkingCapitalInclusion : undefined}
-      />
+      {kind === "fixedAssets" ? (
+        <FixedAssetProjectionSchedulePanel config={config} forecast={displayForecast} fixedAssetProjection={fixedAssetProjection} />
+      ) : (
+        <DcfProjectionPanel
+          config={config}
+          forecast={displayForecast}
+          snapshot={snapshot}
+          fixedAssetProjection={fixedAssetProjection}
+          workingCapitalCandidates={kind === "cashFlow" ? workingCapitalCandidates : undefined}
+          onToggleWorkingCapitalInclusion={kind === "cashFlow" ? onToggleWorkingCapitalInclusion : undefined}
+        />
+      )}
     </>
+  );
+}
+
+function FixedAssetProjectionSchedulePanel({
+  config,
+  forecast,
+  fixedAssetProjection,
+}: {
+  config: DcfProjectionConfig;
+  forecast: DcfForecastRow[];
+  fixedAssetProjection?: FixedAssetProjectionSummary;
+}) {
+  const years = forecast.map((row) => row.year);
+  const projectionRows = fixedAssetProjection?.rows ?? [];
+  const projectionTotals = fixedAssetProjection?.totals ?? {};
+
+  return (
+    <article className="panel dcf-projection-panel fixed-asset-projection-panel">
+      <div className="panel-heading">
+        <div>
+          <p className="eyebrow">{config.eyebrow}</p>
+          <h3>{config.title}</h3>
+        </div>
+        <span className="status-pill muted">{config.badge}</span>
+      </div>
+      {fixedAssetProjection?.diagnostics.length ? (
+        <div className="projection-diagnostics" role="status">
+          {fixedAssetProjection.diagnostics.map((diagnostic) => (
+            <span className={diagnostic.severity === "warning" ? "status-pill warning" : "status-pill muted"} key={diagnostic.code}>
+              {diagnostic.message}
+            </span>
+          ))}
+        </div>
+      ) : null}
+      <div className="fixed-asset-projection-schedule" data-testid="dcf-fixed-asset-projection-table">
+        <FixedAssetProjectionRollforwardTable
+          title="A. Acquisition Costs"
+          years={years}
+          rows={projectionRows}
+          totals={projectionTotals}
+          beginningKey="acquisitionBeginning"
+          additionsKey="acquisitionAdditions"
+          endingKey="acquisitionEnding"
+        />
+        <FixedAssetProjectionRollforwardTable
+          title="B. Depreciation"
+          years={years}
+          rows={projectionRows}
+          totals={projectionTotals}
+          beginningKey="depreciationBeginning"
+          additionsKey="depreciationAdditions"
+          endingKey="depreciationEnding"
+        />
+        <FixedAssetProjectionNetValueTable title="Net Value Fixed Assets" years={years} rows={projectionRows} totals={projectionTotals} />
+      </div>
+    </article>
+  );
+}
+
+function FixedAssetProjectionRollforwardTable({
+  title,
+  years,
+  rows,
+  totals,
+  beginningKey,
+  additionsKey,
+  endingKey,
+}: {
+  title: string;
+  years: number[];
+  rows: FixedAssetProjectionSummary["rows"];
+  totals: FixedAssetProjectionSummary["totals"];
+  beginningKey: "acquisitionBeginning" | "depreciationBeginning";
+  additionsKey: "acquisitionAdditions" | "depreciationAdditions";
+  endingKey: "acquisitionEnding" | "depreciationEnding";
+}) {
+  const getPeriodGroupClassName = (periodIndex: number, position: "start" | "middle" | "end") =>
+    [
+      "fixed-asset-period-cell",
+      periodIndex === 0 ? "first-period-group" : "",
+      position === "start" ? "period-group-start" : "",
+      position === "end" ? "period-group-end" : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+  return (
+    <div className="fixed-asset-section fixed-asset-projection-section">
+      <h5>{title}</h5>
+      <div className="table-wrap fixed-asset-table-wrap">
+        <table className="fixed-asset-table fixed-asset-rollforward-table fixed-asset-projection-table">
+          <thead>
+            <tr>
+              <th className="fixed-asset-asset-column" rowSpan={2}>Kelas aset</th>
+              {years.map((year, yearIndex) => (
+                <th className={`${getPeriodGroupClassName(yearIndex, "end")} fixed-asset-period-group-heading`} colSpan={3} key={year}>
+                  {year}
+                </th>
+              ))}
+            </tr>
+            <tr>
+              {years.map((year, yearIndex) => (
+                <Fragment key={year}>
+                  <th className={getPeriodGroupClassName(yearIndex, "start")}>Beginning</th>
+                  <th className={getPeriodGroupClassName(yearIndex, "middle")}>Additions</th>
+                  <th className={getPeriodGroupClassName(yearIndex, "end")}>Ending</th>
+                </Fragment>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={`${title}-${row.assetName}`}>
+                <td className="fixed-asset-asset-column">
+                  <span className="projection-asset-name-output">{row.assetName || "Belum dinamai"}</span>
+                </td>
+                {years.map((year, yearIndex) => {
+                  const computed = row.amounts[year] ?? emptyFixedAssetAmounts();
+
+                  return (
+                    <Fragment key={year}>
+                      <td className={getPeriodGroupClassName(yearIndex, "start")}>
+                        <output>{formatInputNumber(computed[beginningKey])}</output>
+                      </td>
+                      <td className={getPeriodGroupClassName(yearIndex, "middle")}>
+                        <output>{formatInputNumber(computed[additionsKey])}</output>
+                      </td>
+                      <td className={getPeriodGroupClassName(yearIndex, "end")}>
+                        <output>{formatInputNumber(computed[endingKey])}</output>
+                      </td>
+                    </Fragment>
+                  );
+                })}
+              </tr>
+            ))}
+            <tr className="total-row">
+              <td className="fixed-asset-asset-column">Total</td>
+              {years.map((year, yearIndex) => {
+                const computed = totals[year] ?? emptyFixedAssetAmounts();
+
+                return (
+                  <Fragment key={year}>
+                    <td className={getPeriodGroupClassName(yearIndex, "start")}>{formatInputNumber(computed[beginningKey])}</td>
+                    <td className={getPeriodGroupClassName(yearIndex, "middle")}>{formatInputNumber(computed[additionsKey])}</td>
+                    <td className={getPeriodGroupClassName(yearIndex, "end")}>{formatInputNumber(computed[endingKey])}</td>
+                  </Fragment>
+                );
+              })}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function FixedAssetProjectionNetValueTable({
+  title,
+  years,
+  rows,
+  totals,
+}: {
+  title: string;
+  years: number[];
+  rows: FixedAssetProjectionSummary["rows"];
+  totals: FixedAssetProjectionSummary["totals"];
+}) {
+  const getNetValuePeriodClassName = (periodIndex: number) =>
+    ["fixed-asset-period-cell", periodIndex === 0 ? "first-period-group" : "", "period-group-start", "period-group-end"]
+      .filter(Boolean)
+      .join(" ");
+
+  return (
+    <div className="fixed-asset-section fixed-asset-projection-section">
+      <h5>{title}</h5>
+      <div className="table-wrap fixed-asset-table-wrap">
+        <table className="fixed-asset-table net-value-table fixed-asset-projection-table">
+          <thead>
+            <tr>
+              <th className="fixed-asset-asset-column">Kelas aset</th>
+              {years.map((year, yearIndex) => (
+                <th className={getNetValuePeriodClassName(yearIndex)} key={year}>{year}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={`${title}-${row.assetName}`}>
+                <td className="fixed-asset-asset-column">
+                  <span className="projection-asset-name-output">{row.assetName || "Belum dinamai"}</span>
+                </td>
+                {years.map((year, yearIndex) => {
+                  const computed = row.amounts[year] ?? emptyFixedAssetAmounts();
+
+                  return (
+                    <td className={getNetValuePeriodClassName(yearIndex)} key={year}>
+                      <output>{formatInputNumber(computed.netValue)}</output>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+            <tr className="total-row">
+              <td className="fixed-asset-asset-column">Total</td>
+              {years.map((year, yearIndex) => (
+                <td className={getNetValuePeriodClassName(yearIndex)} key={year}>{formatInputNumber((totals[year] ?? emptyFixedAssetAmounts()).netValue)}</td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 
