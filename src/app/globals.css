@@ -1851,10 +1851,14 @@ select {
 }
 
 .klu-suggestion-list button:hover,
-.klu-suggestion-list button:focus-visible,
 .klu-suggestion-list button[aria-selected="true"] {
   background: var(--accent-soft);
-  outline: none;
+}
+
+.klu-suggestion-list button:focus-visible {
+  outline: 2px solid rgba(15, 118, 110, 0.24);
+  outline-offset: -2px;
+  background: var(--accent-soft);
 }
 
 .klu-suggestion-list strong {
@@ -6414,6 +6418,186 @@ td span {
   font-weight: 500;
 }
 
+@media (min-width: 981px) {
+  :root {
+    --sticky-header-reserved: 76px;
+    --workspace-inline-padding: clamp(8px, 0.72vw, 12px);
+  }
+
+  .workspace {
+    gap: 8px;
+    padding-bottom: 18px;
+  }
+
+  .sticky-workspace-header {
+    gap: 6px;
+    padding: 8px 0 6px;
+    box-shadow: 0 5px 18px rgba(21, 24, 22, 0.05);
+  }
+
+  .topbar {
+    align-items: center;
+    gap: 6px;
+  }
+
+  .topbar-context,
+  .toolbar {
+    gap: 5px;
+  }
+
+  .workspace-switcher-trigger,
+  .active-workflow-context {
+    min-height: 30px;
+    padding: 3px 7px;
+  }
+
+  .workspace-switcher-name,
+  .active-workflow-context > span:first-child {
+    font-size: 9.4px;
+  }
+
+  .button {
+    min-height: 30px;
+    padding: 0 8px;
+    font-size: 9.4px;
+  }
+
+  .icon-button {
+    width: 30px;
+    height: 30px;
+    min-height: 30px;
+  }
+
+  .button.compact-button {
+    min-height: 28px;
+    padding: 0 7px;
+  }
+
+  .section-grid {
+    gap: 6px;
+  }
+
+  .input-panel,
+  .panel {
+    padding: 9px;
+  }
+
+  .panel-heading {
+    gap: 6px;
+    margin-bottom: 7px;
+  }
+
+  .data-awal-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 390px), 1fr));
+    gap: 7px;
+    margin-bottom: 8px;
+  }
+
+  .data-awal-card {
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .input-section-title {
+    gap: 5px;
+    margin-bottom: 6px;
+  }
+
+  .input-section-title svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .input-grid {
+    gap: 6px;
+  }
+
+  .case-transaction-grid {
+    grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+    gap: 6px;
+  }
+
+  .period-section-heading {
+    gap: 6px;
+    margin: 0 0 6px;
+    padding-top: 8px;
+  }
+
+  .period-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 288px), 1fr));
+    gap: 6px;
+  }
+
+  .period-card {
+    gap: 5px;
+    padding: 6px;
+  }
+
+  .period-card label,
+  .field {
+    gap: 3px;
+  }
+
+  .period-card input,
+  .field input,
+  .account-entry-table input,
+  .account-entry-table select,
+  select {
+    height: 30px;
+    padding-inline: 7px;
+  }
+
+  .derived-field {
+    gap: 3px;
+  }
+
+  .derived-field output,
+  .derived-sector-field output {
+    min-height: 30px;
+    padding-inline: 7px;
+  }
+
+  .smart-suggestion-badge {
+    min-height: 16px;
+    padding-inline: 5px;
+  }
+
+  .status-pill {
+    min-height: 26px;
+    padding-inline: 7px;
+  }
+
+  .metric-card {
+    gap: 6px;
+    padding: 9px;
+  }
+
+  .workspace th,
+  .workspace td {
+    padding: 5px 6px;
+  }
+
+  .workspace td span {
+    margin-top: 2px;
+    line-height: 1.24;
+  }
+}
+
+@media (min-width: 1240px) {
+  :root {
+    --sticky-header-reserved: 62px;
+  }
+
+  .data-awal-grid {
+    grid-template-columns: minmax(280px, 0.86fr) minmax(280px, 0.86fr) minmax(400px, 1.28fr);
+    align-items: start;
+  }
+
+  .data-awal-card.wide {
+    grid-column: auto;
+  }
+}
+
 @media (max-width: 1180px) {
   .workflow-grid {
     grid-template-columns: 1fr;
@@ -6432,7 +6616,7 @@ td span {
 
 @media (max-width: 980px) {
   :root {
-    --sticky-header-reserved: 224px;
+    --sticky-header-reserved: 0px;
   }
 
   .app-shell,
@@ -6527,7 +6711,10 @@ td span {
   }
 
   .sticky-workspace-header {
-    left: var(--workspace-inline-padding);
+    position: sticky;
+    right: auto;
+    left: auto;
+    width: 100%;
   }
 
   .mobile-workflow-tabs {
@@ -6630,7 +6817,7 @@ td span {
 
 @media (max-width: 640px) {
   :root {
-    --sticky-header-reserved: 252px;
+    --sticky-header-reserved: 0px;
     --workspace-inline-padding: 12px;
   }
 
