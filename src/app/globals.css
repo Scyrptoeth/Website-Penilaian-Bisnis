@@ -2897,6 +2897,10 @@ select {
   gap: 8px;
 }
 
+.wacc-basis-grid.primary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .wacc-basis-option {
   display: grid;
   gap: 4px;
@@ -2937,7 +2941,7 @@ select {
 
 .wacc-basis-manual-row {
   display: grid;
-  grid-template-columns: minmax(220px, 0.75fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
 }
 
@@ -4180,7 +4184,7 @@ select {
 
 .active-driver-strip {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 1px;
   overflow: hidden;
   border: 1px solid var(--line);
@@ -4508,6 +4512,35 @@ select {
   border: 1px solid rgba(22, 101, 52, 0.18);
   border-radius: var(--radius);
   background: var(--ok-soft);
+}
+
+.projection-governance-panel summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 10px;
+  align-items: center;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.projection-governance-panel summary > span {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.projection-governance-panel summary > strong {
+  grid-column: 1;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.projection-governance-panel summary > em {
+  grid-column: 2;
+  grid-row: 1 / span 2;
 }
 
 .projection-governance-panel.review,
@@ -5905,6 +5938,13 @@ td span {
 
 .audit-disclosure[open] summary {
   border-bottom: 1px solid var(--line);
+}
+
+.audit-disclosure-content {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px;
 }
 
 .audit-disclosure-grid {

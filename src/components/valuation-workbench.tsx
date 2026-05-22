@@ -3838,7 +3838,6 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
             rawCalculation={rawWaccCalculation}
             governedCalculation={resolveWaccCalculationForBasis(waccResolvedAssumptions, "governed", rawWaccCalculation)}
             manualWacc={readRateInput(assumptions.wacc)}
-            terminalGrowth={snapshot.terminalGrowth}
             onBasisChange={(basis) => {
               clearGuidanceTarget("wacc-active-basis");
               commitCoreState((current) => ({
@@ -3887,7 +3886,12 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
             </div>
           </div>
           <ReadinessPanel status={readiness.eemDcfAssumptions} onNavigate={navigateToWorkflowTab} onAction={handleReadinessAction} />
-          <AssumptionDriverMatrix drivers={assumptionDriverSummaries} sourceFocusTarget={sourceFocusTarget} />
+          <details className="audit-disclosure compact">
+            <summary>Ringkasan driver lanjutan</summary>
+            <div className="audit-disclosure-content">
+              <AssumptionDriverMatrix drivers={assumptionDriverSummaries} sourceFocusTarget={sourceFocusTarget} />
+            </div>
+          </details>
           <div className="assumption-tax-row">
             <AssumptionDriverCard
               label="Tarif pajak"
@@ -4239,20 +4243,27 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
             <strong data-testid="eem-active-basis-label">{activeEemSelection.shortLabel}</strong>
             <small>{activeEemBasis === "base" ? "Default sistem dipertahankan" : "Skenario terpilih user menjadi basis aktif"}</small>
           </div>
-          {eemDriverSummaries.map((driver) => (
-            <div key={driver.label}>
-              <span>{driver.label}</span>
-              <strong>{driver.valueLabel}</strong>
-              <small>{driver.sourceLabel}</small>
-            </div>
-          ))}
+          {eemDriverSummaries
+            .filter((driver) => driver.label === "Return on Tangible Asset")
+            .map((driver) => (
+              <div key={driver.label}>
+                <span>{driver.label}</span>
+                <strong>{driver.valueLabel}</strong>
+                <small>{driver.sourceLabel}</small>
+              </div>
+            ))}
         </section>
 
-        <AssumptionGovernancePanel
-          ariaLabel="Audit asumsi material EEM"
-          governance={eemAssumptionGovernance}
-          onNavigate={navigateToGovernanceTarget}
-        />
+        <details className="audit-disclosure compact">
+          <summary>Tata kelola asumsi EEM</summary>
+          <div className="audit-disclosure-content">
+            <AssumptionGovernancePanel
+              ariaLabel="Audit asumsi material EEM"
+              governance={eemAssumptionGovernance}
+              onNavigate={navigateToGovernanceTarget}
+            />
+          </div>
+        </details>
 
         <section className="panel">
           <div className="panel-heading">
@@ -4284,15 +4295,6 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               <span>Nilai aktif</span>
               <strong data-testid="eem-active-equity-value">{formatIdr(activeEem.equityValue)}</strong>
               <small>{activeEemSelection.summary}</small>
-            </div>
-            <div>
-              <span>Selisih vs skenario dasar</span>
-              <strong>{formatIdr(activeEem.equityValue - results.eem.equityValue)}</strong>
-              <small>
-                {activeEemBasis === "base"
-                  ? "Tidak ada penyesuaian debt-like yang aktif."
-                  : `Utang pajak dikurangkan sebagai debt-like: ${formatIdr(activeEemSelection.debtLikeTaxPayable)}.`}
-              </small>
             </div>
           </div>
           <div className="sensitivity-grid two-column eem-sensitivity-grid" data-testid="eem-sensitivity-grid">
@@ -4380,13 +4382,15 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
                   : "Skenario terpilih user menjadi basis aktif"}
             </small>
           </div>
-          {dcfDriverSummaries.map((driver) => (
-            <div key={driver.label}>
-              <span>{driver.label}</span>
-              <strong>{driver.valueLabel}</strong>
-              <small>{driver.sourceLabel}</small>
-            </div>
-          ))}
+          {dcfDriverSummaries
+            .filter((driver) => driver.label !== "Tarif pajak")
+            .map((driver) => (
+              <div key={driver.label}>
+                <span>{driver.label}</span>
+                <strong>{driver.valueLabel}</strong>
+                <small>{driver.sourceLabel}</small>
+              </div>
+            ))}
         </section>
 
         <ProjectionPlanningPanel
@@ -7230,14 +7234,6 @@ function ProjectionStatementSection({
           <strong>{horizonLabel}</strong>
           <p>Proyeksi {activeDcfSelection.projectionHorizonYears} tahun dimulai setelah tanggal penilaian aktif.</p>
         </article>
-        <article className="metric-card">
-          <div className="card-title">
-            <FileSearch size={20} />
-            <span>Status audit</span>
-          </div>
-          <strong>Formula-driven</strong>
-          <p>Formula tersedia di detail audit; tabel utama hanya menampilkan sumber, status, dan angka.</p>
-        </article>
       </section>
 
       {kind === "fixedAssets" ? (
@@ -7252,11 +7248,6 @@ function ProjectionStatementSection({
               <span>Terminal growth aktif</span>
               <strong>{formatTerminalGrowthPercent(activeDcfSelection.terminalGrowth)}</strong>
               <small>{terminalTreatmentLabels[activeDcfSelection.terminalTreatment]?.label ?? "Dipakai di nilai terminal DCF"}</small>
-            </div>
-            <div>
-              <span>Working capital</span>
-              <strong>{activeDcfSelection.includeWorkingCapitalChange ? "Incremental" : "Diabaikan"}</strong>
-              <small>Perlakuan perubahan modal kerja pada FCFF</small>
             </div>
           </section>
           <FixedAssetProjectionModeSelector
@@ -7279,11 +7270,6 @@ function ProjectionStatementSection({
             <small>{scenarioPreviewForecast ? "Scenario reviewer live preview" : "Driver pertumbuhan pendapatan aktif"}</small>
           </div>
           <div>
-            <span>Tax rate</span>
-            <strong>{formatPercent(snapshot.taxRate)}</strong>
-            <small>Statutory tax untuk NOPLAT</small>
-          </div>
-          <div>
             <span>WACC</span>
             <strong>{formatPercent(snapshot.wacc)}</strong>
             <small>{activeWaccBasisLabel} basis untuk discount factor dan nilai terminal</small>
@@ -7292,11 +7278,6 @@ function ProjectionStatementSection({
             <span>Terminal growth aktif</span>
             <strong>{formatTerminalGrowthPercent(activeDcfSelection.terminalGrowth)}</strong>
             <small>{terminalTreatmentLabels[activeDcfSelection.terminalTreatment]?.label ?? "Dipakai di nilai terminal DCF"}</small>
-          </div>
-          <div>
-            <span>Working capital</span>
-            <strong>{activeDcfSelection.includeWorkingCapitalChange ? "Incremental" : "Diabaikan"}</strong>
-            <small>Perlakuan perubahan modal kerja pada FCFF</small>
           </div>
         </section>
       )}
@@ -7335,16 +7316,20 @@ function ProjectionStatementSection({
 
 function IncomeProjectionReliancePanel({ governance }: { governance: IncomeProjectionRelianceGovernanceResult }) {
   return (
-    <div className={`projection-governance-panel ${governance.level}`} data-testid="income-projection-reliance-governance">
+    <details className={`projection-governance-panel ${governance.level}`} data-testid="income-projection-reliance-governance">
+      <summary>
+        <span>Governance final report reliance</span>
+        <strong>{governance.title}</strong>
+        <em className={`source-badge ${governance.level === "critical" ? "warning" : governance.level === "review" ? "sensitivity" : "recommended"}`}>
+          {incomeProjectionRelianceDecisionLabel[governance.decision]}
+        </em>
+      </summary>
       <div className="projection-governance-heading">
         <div>
           <span>Governance final report reliance</span>
           <strong>{governance.title}</strong>
           <small>{governance.summary}</small>
         </div>
-        <em className={`source-badge ${governance.level === "critical" ? "warning" : governance.level === "review" ? "sensitivity" : "recommended"}`}>
-          {incomeProjectionRelianceDecisionLabel[governance.decision]}
-        </em>
       </div>
       <div className="projection-governance-grid">
         <div>
@@ -7384,7 +7369,7 @@ function IncomeProjectionReliancePanel({ governance }: { governance: IncomeProje
           </div>
         ))}
       </div>
-    </div>
+    </details>
   );
 }
 
@@ -7432,23 +7417,26 @@ function IncomeProjectionControlsPanel({
         </div>
       </div>
 
-      <div className="projection-governance-grid">
-        <div>
-          <span>Scenario DCF</span>
-          <strong>{formatIdr(scenario.dcf.equityValue)}</strong>
-          <small>{scenario.hasScenarioInput ? "Reviewer-owned scenario" : "Belum ada override reviewer"}</small>
+      <details className="audit-disclosure compact">
+        <summary>Ringkasan scenario DCF</summary>
+        <div className="projection-governance-grid">
+          <div>
+            <span>Scenario DCF</span>
+            <strong>{formatIdr(scenario.dcf.equityValue)}</strong>
+            <small>{scenario.hasScenarioInput ? "Reviewer-owned scenario" : "Belum ada override reviewer"}</small>
+          </div>
+          <div>
+            <span>Variance vs baseline</span>
+            <strong>{formatIdr(scenario.absoluteVariance)}</strong>
+            <small>{formatPercent(scenario.relativeVariance)}</small>
+          </div>
+          <div>
+            <span>Reviewer decision</span>
+            <strong>{formatReviewerDecision(controls.reviewerDecision.decision)}</strong>
+            <small>{scenario.summary}</small>
+          </div>
         </div>
-        <div>
-          <span>Variance vs baseline</span>
-          <strong>{formatIdr(scenario.absoluteVariance)}</strong>
-          <small>{formatPercent(scenario.relativeVariance)}</small>
-        </div>
-        <div>
-          <span>Reviewer decision</span>
-          <strong>{formatReviewerDecision(controls.reviewerDecision.decision)}</strong>
-          <small>{scenario.summary}</small>
-        </div>
-      </div>
+      </details>
 
       <div className="table-wrap">
         <table className="analysis-table compact-input-table" data-testid="income-projection-yearly-overrides">
@@ -7768,7 +7756,7 @@ function DcfProjectionPanel({
                 <tr className={line.kind === "subtotal" ? "analysis-total-row" : ""} key={line.key}>
                   <td>
                     <strong>{line.label}</strong>
-                    {lineNote ? <span>{lineNote}</span> : null}
+                    {lineNote && config.testId !== "dcf-fixed-asset-projection-table" ? <span>{lineNote}</span> : null}
                     {workingCapitalRowKey && workingCapitalCandidates && onToggleWorkingCapitalInclusion ? (
                       <DcfProjectionWorkingCapitalDisclosure
                         rowKey={workingCapitalRowKey}
@@ -11411,7 +11399,6 @@ function WaccBasisControl({
   rawCalculation,
   governedCalculation,
   manualWacc,
-  terminalGrowth,
   onBasisChange,
   onManualWaccChange,
 }: {
@@ -11423,13 +11410,13 @@ function WaccBasisControl({
   rawCalculation: WaccCalculation | null;
   governedCalculation: WaccCalculation | null;
   manualWacc: number | null;
-  terminalGrowth: number;
   onBasisChange: (basis: WaccBasis) => void;
   onManualWaccChange: (value: string) => void;
 }) {
-  const manualIsWaiting = activeBasis === "manual" && manualWacc === null;
   const isSourceFocusTarget =
     sourceFocusTarget?.tabId === "wacc" && sourceFocusTarget.targetKey === "wacc-required-return-on-nta";
+  const primaryOptions = activeWaccBasisOptions.filter((option) => option.value !== "raw");
+  const rawOption = activeWaccBasisOptions.find((option) => option.value === "raw");
   const optionValue = (basis: WaccBasis) => {
     if (basis === "raw") {
       return rawCalculation ? formatPercentFixed(rawCalculation.wacc, 2) : "Belum dihitung";
@@ -11458,8 +11445,8 @@ function WaccBasisControl({
         value={formatPercentFixed(activeWacc, 2)}
         impact={`${activeWaccBasisLabels[effectiveBasis].label} mengalir ke EEM/DCF`}
       />
-      <div className="wacc-basis-grid" role="radiogroup" aria-label="Basis WACC aktif">
-        {activeWaccBasisOptions.map((option) => (
+      <div className="wacc-basis-grid primary" role="radiogroup" aria-label="Basis WACC aktif">
+        {primaryOptions.map((option) => (
           <label className={activeBasis === option.value ? "wacc-basis-option active" : "wacc-basis-option"} key={option.value}>
             <input
               checked={activeBasis === option.value}
@@ -11474,6 +11461,25 @@ function WaccBasisControl({
           </label>
         ))}
       </div>
+      {rawOption ? (
+        <details className="audit-disclosure compact">
+          <summary>Basis WACC lanjutan</summary>
+          <div className="audit-disclosure-content">
+            <label className={activeBasis === rawOption.value ? "wacc-basis-option active" : "wacc-basis-option"}>
+              <input
+                checked={activeBasis === rawOption.value}
+                name="active-wacc-basis"
+                type="radio"
+                value={rawOption.value}
+                onChange={() => onBasisChange(rawOption.value)}
+              />
+              <span>{rawOption.label}</span>
+              <strong>{optionValue(rawOption.value)}</strong>
+              <small>{rawOption.summary}</small>
+            </label>
+          </div>
+        </details>
+      ) : null}
       <div className="wacc-basis-manual-row">
         <AssumptionInput
           label="Manual WACC reviewer"
@@ -11482,15 +11488,6 @@ function WaccBasisControl({
           note="Mengisi nilai ini otomatis memilih basis Manual WACC. Kosongkan atau pilih basis lain untuk kembali ke kalkulasi sistem."
           onChange={onManualWaccChange}
         />
-        <div className={manualIsWaiting ? "wacc-basis-status warning" : "wacc-basis-status"}>
-          <span>Spread kapitalisasi aktif</span>
-          <strong>{formatPercentFixed(activeWacc - terminalGrowth, 2)}</strong>
-          <small>
-            {manualIsWaiting
-              ? "Manual WACC belum diisi; sistem menjaga basis governed sampai angka tersedia."
-              : "EEM dan terminal DCF memakai WACC aktif dikurangi terminal growth aktif."}
-          </small>
-        </div>
       </div>
     </article>
   );
@@ -11571,18 +11568,23 @@ function WaccCalculatorPanel({
           smartSuggestionState={marketSuggestionState}
           onChange={(value) => onChange("waccCountryRiskPremium", value)}
         />
-        <AssumptionInput
-          label="Premi risiko spesifik"
-          value={assumptions.waccSpecificRiskPremium}
-          onChange={(value) => onChange("waccSpecificRiskPremium", value)}
-        />
-        <AssumptionInput
-          label="Fallback beta (jika beta pembanding tidak lengkap)"
-          value={assumptions.waccBeta}
-          note="Dipakai hanya jika beta relevered dari pembanding tidak tersedia; isi dengan beta manual yang memiliki sumber dan justifikasi penilai."
-          onChange={(value) => onChange("waccBeta", value)}
-        />
       </div>
+      <details className="audit-disclosure compact advanced-override-disclosure">
+        <summary>Input lanjutan WACC</summary>
+        <div className="audit-disclosure-grid">
+          <AssumptionInput
+            label="Premi risiko spesifik"
+            value={assumptions.waccSpecificRiskPremium}
+            onChange={(value) => onChange("waccSpecificRiskPremium", value)}
+          />
+          <AssumptionInput
+            label="Fallback beta (jika beta pembanding tidak lengkap)"
+            value={assumptions.waccBeta}
+            note="Dipakai hanya jika beta relevered dari pembanding tidak tersedia; isi dengan beta manual yang memiliki sumber dan justifikasi penilai."
+            onChange={(value) => onChange("waccBeta", value)}
+          />
+        </div>
+      </details>
       <WaccComparableTable
         assumptions={assumptions}
         comparableBeta={comparableBeta}
@@ -11651,23 +11653,28 @@ function WaccCalculatorPanel({
       </div>
       <WaccCapitalStructureTable assumptions={assumptions} calculation={calculation} autoCapitalValues={autoCapitalValues} onChange={onChange} />
       <DiscountRateAnalysisPanel assumptions={assumptions} calculation={calculation} bankLoanRate={bankLoanRate} />
-      <MetricTraceGrid
-        metrics={[
-          ["Beta terpakai", calculation ? formatNumber(calculation.beta) : "Belum dihitung"],
-          ["Cost of equity", calculation ? formatPercent(calculation.costOfEquity) : "Belum dihitung"],
-          ["Pre-tax cost of debt", calculation ? formatPercent(calculation.preTaxCostOfDebt) : "Belum dihitung"],
-          ["After-tax cost of debt", calculation ? formatPercent(calculation.afterTaxCostOfDebt) : "Belum dihitung"],
-          ["Basis WACC", "Bobot utang dan ekuitas dikalikan dengan biaya modal aktif masing-masing."],
-        ]}
-      />
-      <ReferenceList references={waccInputReferences} />
-      <AssumptionReasonField
-        id="assumption-wacc-support"
-        label="Bukti / dasar pendukung"
-        placeholder="Sumber risk-free rate, beta, ERP, debt rate, dan bobot struktur modal."
-        value={assumptions.waccOverrideReason}
-        onChange={onReasonChange}
-      />
+      <details className="audit-disclosure compact">
+        <summary>Detail audit WACC</summary>
+        <div className="audit-disclosure-content">
+          <MetricTraceGrid
+            metrics={[
+              ["Beta terpakai", calculation ? formatNumber(calculation.beta) : "Belum dihitung"],
+              ["Cost of equity", calculation ? formatPercent(calculation.costOfEquity) : "Belum dihitung"],
+              ["Pre-tax cost of debt", calculation ? formatPercent(calculation.preTaxCostOfDebt) : "Belum dihitung"],
+              ["After-tax cost of debt", calculation ? formatPercent(calculation.afterTaxCostOfDebt) : "Belum dihitung"],
+              ["Basis WACC", "Bobot utang dan ekuitas dikalikan dengan biaya modal aktif masing-masing."],
+            ]}
+          />
+          <ReferenceList references={waccInputReferences} />
+          <AssumptionReasonField
+            id="assumption-wacc-support"
+            label="Bukti / dasar pendukung"
+            placeholder="Sumber risk-free rate, beta, ERP, debt rate, dan bobot struktur modal."
+            value={assumptions.waccOverrideReason}
+            onChange={onReasonChange}
+          />
+        </div>
+      </details>
     </article>
   );
 }
@@ -12296,21 +12303,26 @@ function TerminalGrowthPanel({
           onChange={(value) => onChange("terminalGrowthUpside", value)}
         />
       </div>
-      <MetricTraceGrid
-        metrics={[
-          ["Spread WACC", baseGrowth !== null && wacc > 0 ? formatPercent(wacc - baseGrowth) : "Belum dihitung"],
-          ["Validasi", hasInvalidSpread ? "Terminal growth harus di bawah WACC" : "Spread valid bila WACC tersedia"],
-          ["Metode", "Nilai terminal diproses engine DCF dari FCFF final, WACC, dan terminal growth aktif"],
-        ]}
-      />
-      <ReferenceList references={terminalGrowthInputReferences} />
-      <AssumptionReasonField
-        id="assumption-terminal-growth-support"
-        label="Basis asumsi"
-        placeholder="Dasar long-term growth, industri, inflasi, reinvestment, atau scenario memo."
-        value={assumptions.terminalGrowthOverrideReason}
-        onChange={onReasonChange}
-      />
+      <details className="audit-disclosure compact">
+        <summary>Detail audit terminal growth</summary>
+        <div className="audit-disclosure-content">
+          <MetricTraceGrid
+            metrics={[
+              ["Spread WACC", baseGrowth !== null && wacc > 0 ? formatPercent(wacc - baseGrowth) : "Belum dihitung"],
+              ["Validasi", hasInvalidSpread ? "Terminal growth harus di bawah WACC" : "Spread valid bila WACC tersedia"],
+              ["Metode", "Nilai terminal diproses engine DCF dari FCFF final, WACC, dan terminal growth aktif"],
+            ]}
+          />
+          <ReferenceList references={terminalGrowthInputReferences} />
+          <AssumptionReasonField
+            id="assumption-terminal-growth-support"
+            label="Basis asumsi"
+            placeholder="Dasar long-term growth, industri, inflasi, reinvestment, atau scenario memo."
+            value={assumptions.terminalGrowthOverrideReason}
+            onChange={onReasonChange}
+          />
+        </div>
+      </details>
       {hasInvalidSpread ? <small className="field-warning">Terminal growth base tidak boleh sama dengan atau lebih tinggi dari WACC.</small> : null}
     </article>
   );
@@ -12660,23 +12672,28 @@ function RequiredReturnOnNtaPanel({
         field={suggestion.fields.requiredReturnEquityCost}
         waccCalculation={waccCalculation}
       />
-      <MetricTraceGrid
-        metrics={[
-          ["Basis", calculation ? calculation.basisLabel : "Belum dihitung"],
-          ["Basis aset berwujud", calculation ? formatIdr(calculation.tangibleAssetBase) : "Belum dihitung"],
-          ["Kapasitas utang", calculation ? formatIdr(calculation.debtCapacity) : "Belum dihitung"],
-          ["Bobot kapasitas", calculation ? `${formatPercent(calculation.debtWeight)} utang / ${formatPercent(calculation.equityWeight)} ekuitas` : "Belum dihitung"],
-          ["Formula", calculation ? formatRequiredReturnFormulaLabel(calculation) : "Bobot utang x Kd + bobot ekuitas x Ke"],
-        ]}
-      />
-      <ReferenceList references={requiredReturnOnNtaInputReferences} />
-      <AssumptionReasonField
-        id="assumption-required-return-support"
-        label="Bukti / dasar pendukung"
-        placeholder="Sumber capacity rate, biaya modal hutang, dan return ekuitas aset berwujud."
-        value={assumptions.requiredReturnOnNtaOverrideReason}
-        onChange={onReasonChange}
-      />
+      <details className="audit-disclosure compact">
+        <summary>Detail audit required return on NTA</summary>
+        <div className="audit-disclosure-content">
+          <MetricTraceGrid
+            metrics={[
+              ["Basis", calculation ? calculation.basisLabel : "Belum dihitung"],
+              ["Basis aset berwujud", calculation ? formatIdr(calculation.tangibleAssetBase) : "Belum dihitung"],
+              ["Kapasitas utang", calculation ? formatIdr(calculation.debtCapacity) : "Belum dihitung"],
+              ["Bobot kapasitas", calculation ? `${formatPercent(calculation.debtWeight)} utang / ${formatPercent(calculation.equityWeight)} ekuitas` : "Belum dihitung"],
+              ["Formula", calculation ? formatRequiredReturnFormulaLabel(calculation) : "Bobot utang x Kd + bobot ekuitas x Ke"],
+            ]}
+          />
+          <ReferenceList references={requiredReturnOnNtaInputReferences} />
+          <AssumptionReasonField
+            id="assumption-required-return-support"
+            label="Bukti / dasar pendukung"
+            placeholder="Sumber capacity rate, biaya modal hutang, dan return ekuitas aset berwujud."
+            value={assumptions.requiredReturnOnNtaOverrideReason}
+            onChange={onReasonChange}
+          />
+        </div>
+      </details>
     </article>
   );
 }

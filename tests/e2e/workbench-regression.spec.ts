@@ -663,6 +663,7 @@ test("added analysis sections use readiness gates before sample data and render 
   await page.getByLabel("Opex margin override 2022").fill(approvalSafeOpexMargin);
   await page.getByLabel("Depreciation override 2022").fill(approvalSafeDepreciation);
   await page.getByTestId("income-projection-controls").getByLabel("Decision").selectOption("approved");
+  await page.getByTestId("income-projection-controls").getByText("Ringkasan scenario DCF").click();
   const approvedScenarioDcfValue = await page
     .getByTestId("income-projection-controls")
     .locator(".projection-governance-grid > div", { hasText: "Scenario DCF" })
@@ -721,8 +722,8 @@ test("added analysis sections use readiness gates before sample data and render 
   await openWorkflowTab(page, "Proyeksi Cash Flow Statement");
   const projectionDriverStrip = page.locator(".active-driver-strip").filter({ hasText: "Basis DCF aktif" }).first();
   await expect(projectionDriverStrip).toContainText("Tanpa WC incremental");
-  await expect(projectionDriverStrip).toContainText("Working capital");
-  await expect(projectionDriverStrip).toContainText("Diabaikan");
+  await expect(projectionDriverStrip).not.toContainText("Working capital");
+  await expect(projectionDriverStrip).not.toContainText("Diabaikan");
   await openWorkflowTab(page, "Simulasi Potensi Pajak");
   await page.locator(".tax-control-grid").getByLabel("Primary Method").selectOption("DCF");
   await expect(page.getByTestId("tax-simulation-table")).toContainText(noIncrementalWcValue ?? "");
@@ -1338,6 +1339,7 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await expect(waccBasisControl).toContainText("Governed WACC");
   await expect(waccBasisControl).toContainText("Raw calculated WACC");
   await expect(waccBasisControl).toContainText("Manual WACC");
+  await waccBasisControl.getByText("Basis WACC lanjutan").click();
   await waccBasisControl.locator('input[value="raw"]').check();
   await expect(waccBasisControl).toContainText("Raw calculated WACC mengalir ke EEM/DCF");
   await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").activeWaccBasis)).toBe("raw");
@@ -1405,7 +1407,7 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await expect(page.getByTestId("eem-return-on-tangible-asset-basis-control")).toContainText("Kalkulator required return on NTA");
   await expect(page.getByTestId("eem-return-on-tangible-asset-basis-control")).toContainText("Return ekuitas aset berwujud");
   await expect(page.getByTestId("eem-return-on-tangible-asset-basis-control")).toContainText("Rate aktif");
-  await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Manual WACC reviewer");
+  await expect(page.getByLabel("Driver aktif penilaian")).not.toContainText("Manual WACC reviewer");
   await expect(page.getByLabel("Driver aktif penilaian")).toContainText("Kalkulator required return on NTA");
   await expect(page.getByTestId("eem-sensitivity-grid")).toContainText("EEM - skenario dasar");
   await expect(page.getByTestId("eem-sensitivity-grid")).toContainText("EEM - utang pajak debt-like");
@@ -1519,7 +1521,7 @@ test("terminal growth renders with two decimals across EEM/DCF and projection ta
   await expect(page.getByTestId("assumption-driver-matrix")).toContainText("0,50%");
   await page.locator("#assumption-hari-piutang-ar-days-override-opsional").fill("4");
   await openWorkflowTab(page, "Penilaian EEM");
-  await expect(page.getByLabel("Driver aktif penilaian")).toContainText("0,50%");
+  await expect(page.getByLabel("Driver aktif penilaian")).not.toContainText("0,50%");
   await openWorkflowTab(page, "Penilaian DCF");
   await expect(page.getByLabel("Driver aktif penilaian")).toContainText("0,50%");
   await openWorkflowTab(page, "Proyeksi Laba Rugi");
