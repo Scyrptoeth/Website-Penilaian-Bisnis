@@ -6,10 +6,10 @@ import type {
 import { getChronologicalPeriods } from "./case-model";
 import type { DcfForecastRow } from "./types";
 
-export type FixedAssetProjectionMode = "workbook-formula" | "dcf-proxy";
+export type FixedAssetProjectionMode = "workbook-formula" | "dcf-proxy" | "historical-replacement-floor";
 
 export type FixedAssetProjectionDiagnostic = {
-  code: "negative-net-value" | "zero-additions";
+  code: "negative-net-value" | "zero-additions" | "replacement-floor-applied";
   severity: "info" | "warning";
   message: string;
 };
@@ -31,6 +31,8 @@ export type FixedAssetProjectionRow = {
   acquisitionAdditionsGrowthRate: number;
   depreciationAdditionsGrowthRate: number;
   hasHistoricalBasis: boolean;
+  replacementFloorNetValue?: number;
+  replacementAdditions?: Record<number, number>;
 };
 
 export type FixedAssetProjectionSummary = {
@@ -109,8 +111,14 @@ export function buildFixedAssetProjection(
 
   const workbookFormula = buildWorkbookFormulaProjection(forecast, rows);
   const dcfProxy = buildDcfProxyProjection(forecast, rows);
-  const primary = options.preferredMode === "dcf-proxy" ? dcfProxy : workbookFormula;
-  const fallback = primary.mode === "workbook-formula" ? dcfProxy : workbookFormula;
+  const historicalReplacementFloor = buildHistoricalReplacementFloorProjection(forecast, rows);
+  const primary =
+    options.preferredMode === "dcf-proxy"
+      ? dcfProxy
+      : options.preferredMode === "historical-replacement-floor"
+        ? historicalReplacementFloor
+        : workbookFormula;
+  const fallback = primary.mode === "dcf-proxy" ? workbookFormula : dcfProxy;
   const reconciliation = buildProjectionReconciliation(forecast, primary, dcfProxy);
 
   return {
@@ -248,6 +256,89 @@ function buildWorkbookFormulaProjection(forecast: DcfForecastRow[], rows: Projec
   };
 }
 
+function buildHistoricalReplacementFloorProjection(
+  forecast: DcfForecastRow[],
+  rows: ProjectionBasisRow[],
+): FixedAssetProjectionScenario {
+  const capexWeights =
+    normalizeWeights(rows, (row) => row.activeAmounts.acquisitionAdditions) ??
+    normalizeWeights(rows, (row) => row.activeAmounts.netValue) ??
+    normalizeWeights(rows, (row) => row.activeAmounts.acquisitionEnding) ??
+    equalWeights(rows.length);
+  const depreciationWeights =
+    normalizeWeights(rows, (row) => row.activeAmounts.depreciationAdditions) ??
+    normalizeWeights(rows, (row) => row.activeAmounts.depreciationEnding) ??
+    equalWeights(rows.length);
+  const projectedRows: FixedAssetProjectionRow[] = rows.map((row, rowIndex) => {
+    const amounts: Record<number, FixedAssetPeriodAmounts> = {};
+    const replacementAdditions: Record<number, number> = {};
+    const replacementFloorNetValue = resolveHistoricalReplacementFloor(row.historicalAmounts);
+    const acquisitionAdditionsGrowthRate = resolveHistoricalGrowthRate(row.historicalAmounts, "acquisitionAdditions");
+    const depreciationAdditionsGrowthRate = resolveHistoricalGrowthRate(row.historicalAmounts, "depreciationAdditions");
+    let priorAcquisitionEnding = row.activeAmounts.acquisitionEnding;
+    let priorAcquisitionAdditions = row.activeAmounts.acquisitionAdditions;
+    let priorDepreciationEnding = row.activeAmounts.depreciationEnding;
+    let priorDepreciationAdditions = row.activeAmounts.depreciationAdditions;
+
+    forecast.forEach((forecastRow) => {
+      const acquisitionBeginning = priorAcquisitionEnding;
+      const recurringAcquisitionAdditions = priorAcquisitionAdditions * (1 + acquisitionAdditionsGrowthRate);
+      let acquisitionAdditions = recurringAcquisitionAdditions;
+      let acquisitionEnding = acquisitionBeginning + acquisitionAdditions;
+      const depreciationBeginning = priorDepreciationEnding;
+      const depreciationAdditions = priorDepreciationAdditions * (1 + depreciationAdditionsGrowthRate);
+      const depreciationEnding = depreciationBeginning + depreciationAdditions;
+      let netValue = acquisitionEnding - depreciationEnding;
+
+      if (replacementFloorNetValue > 0 && netValue <= 0) {
+        const replacementAddition = replacementFloorNetValue - netValue;
+        acquisitionAdditions += replacementAddition;
+        acquisitionEnding += replacementAddition;
+        netValue = replacementFloorNetValue;
+        replacementAdditions[forecastRow.year] = replacementAddition;
+      }
+
+      amounts[forecastRow.year] = {
+        acquisitionBeginning,
+        acquisitionAdditions,
+        acquisitionEnding,
+        depreciationBeginning,
+        depreciationAdditions,
+        depreciationEnding,
+        netValue,
+      };
+
+      priorAcquisitionEnding = acquisitionEnding;
+      priorAcquisitionAdditions = recurringAcquisitionAdditions;
+      priorDepreciationEnding = depreciationEnding;
+      priorDepreciationAdditions = depreciationAdditions;
+    });
+
+    return {
+      assetName: row.assetName,
+      amounts,
+      capexWeight: capexWeights[rowIndex],
+      depreciationWeight: depreciationWeights[rowIndex],
+      acquisitionAdditionsGrowthRate,
+      depreciationAdditionsGrowthRate,
+      hasHistoricalBasis: row.hasHistoricalBasis,
+      replacementFloorNetValue,
+      replacementAdditions,
+    };
+  });
+  const totals = buildProjectionTotals(forecast, projectedRows);
+
+  return {
+    mode: "historical-replacement-floor",
+    rows: projectedRows,
+    totals,
+    hasProjection: true,
+    source: "Roll-forward historis dengan replacement floor",
+    note: "Additions dan penyusutan mengikuti tren historis; jika nilai buku neto kelas aset jatuh ke nol atau negatif, sistem menambah capex agar kembali minimal ke nilai buku neto positif historis pertama.",
+    diagnostics: buildHistoricalReplacementFloorDiagnostics(forecast, projectedRows),
+  };
+}
+
 function buildProjectionBasisRows(
   periods: Period[],
   activePeriodId: string,
@@ -340,6 +431,10 @@ function resolveHistoricalGrowthRate(
   return Number.isFinite(averageGrowth) ? averageGrowth : 0;
 }
 
+function resolveHistoricalReplacementFloor(historicalAmounts: FixedAssetPeriodAmounts[]): number {
+  return historicalAmounts.find((amounts) => amounts.netValue > 0)?.netValue ?? 0;
+}
+
 function buildProjectionReconciliation(
   forecast: DcfForecastRow[],
   primary: FixedAssetProjectionScenario,
@@ -363,6 +458,45 @@ function buildProjectionReconciliation(
       ];
     }),
   );
+}
+
+function buildHistoricalReplacementFloorDiagnostics(
+  forecast: DcfForecastRow[],
+  rows: FixedAssetProjectionRow[],
+): FixedAssetProjectionDiagnostic[] {
+  const diagnostics: FixedAssetProjectionDiagnostic[] = [];
+  const replacementRows = rows
+    .flatMap((row) =>
+      forecast
+        .filter((forecastRow) => (row.replacementAdditions?.[forecastRow.year] ?? 0) > 0)
+        .map((forecastRow) => `${row.assetName} ${forecastRow.year}`),
+    )
+    .slice(0, 3);
+  const negativeRows = rows
+    .flatMap((row) =>
+      forecast
+        .filter((forecastRow) => (row.amounts[forecastRow.year]?.netValue ?? 0) < 0)
+        .map((forecastRow) => `${row.assetName} ${forecastRow.year}`),
+    )
+    .slice(0, 3);
+
+  if (replacementRows.length > 0) {
+    diagnostics.push({
+      code: "replacement-floor-applied",
+      severity: "info",
+      message: `Replacement floor diterapkan pada ${replacementRows.join(", ")}; capex tambahan otomatis memakai nilai buku neto positif historis pertama sebagai minimum.`,
+    });
+  }
+
+  if (negativeRows.length > 0) {
+    diagnostics.push({
+      code: "negative-net-value",
+      severity: "warning",
+      message: `Nilai buku neto masih negatif pada ${negativeRows.join(", ")} karena tidak ada nilai buku neto positif historis yang dapat dijadikan floor.`,
+    });
+  }
+
+  return diagnostics;
 }
 
 function buildWorkbookFormulaDiagnostics(

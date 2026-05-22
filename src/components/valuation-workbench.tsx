@@ -6548,11 +6548,25 @@ function describeFixedAssetProjectionSummary(projection: FixedAssetProjectionSum
       : `${modeLabel} aktif mengikuti roll-forward aset tetap historis dan menjadi driver DCF.`;
   }
 
+  if (projection.mode === "historical-replacement-floor") {
+    return warningCount > 0
+      ? `${modeLabel} aktif memakai tren historis dengan capex korektif saat nilai buku neto nol atau negatif; ada ${warningCount} warning model yang perlu direview.`
+      : `${modeLabel} aktif memakai tren historis dengan capex korektif saat nilai buku neto nol atau negatif.`;
+  }
+
   return `${modeLabel} aktif sebagai baseline maintenance capex dan menjadi driver DCF.`;
 }
 
 function formatFixedAssetProjectionMode(mode: FixedAssetProjectionSummary["mode"]): string {
-  return mode === "workbook-formula" ? "Roll-forward Historis" : "Proksi DCF";
+  if (mode === "workbook-formula") {
+    return "Roll-forward Historis";
+  }
+
+  if (mode === "historical-replacement-floor") {
+    return "Roll-forward + Replacement Floor";
+  }
+
+  return "Proksi DCF";
 }
 
 function buildDcfFixedAssetProjectionInput(
@@ -7600,6 +7614,11 @@ function FixedAssetProjectionModeSelector({
       mode: "workbook-formula",
       label: "Roll-forward Historis",
       description: "Additions dan depresiasi mengikuti tren historis jadwal aset tetap.",
+    },
+    {
+      mode: "historical-replacement-floor",
+      label: "Replacement Floor",
+      description: "Tren historis tetap dipakai; NBV nol/negatif dipulihkan ke NBV positif historis pertama.",
     },
     {
       mode: "dcf-proxy",
@@ -9691,7 +9710,9 @@ function cloneCoreState(state: WorkbenchCoreState): WorkbenchCoreState {
 }
 
 function sanitizeFixedAssetProjectionMode(value: unknown): FixedAssetProjectionMode {
-  return value === "dcf-proxy" || value === "workbook-formula" ? value : defaultFixedAssetProjectionMode;
+  return value === "dcf-proxy" || value === "workbook-formula" || value === "historical-replacement-floor"
+    ? value
+    : defaultFixedAssetProjectionMode;
 }
 
 function sanitizeWaccBasis(value: unknown): WaccBasis {

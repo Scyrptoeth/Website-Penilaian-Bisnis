@@ -81,6 +81,34 @@ describe("fixed asset projection", () => {
     assert.equal(projection.fallback?.mode, "workbook-formula");
   });
 
+  it("adds replacement capex when historical roll-forward would make net book value non-positive", () => {
+    const schedule = buildFixedAssetScheduleSummary(basePeriods, [
+      fixedAssetRow("Office inventory", [
+        ["100", "0", "0", "40"],
+        ["", "0", "", "40"],
+      ]),
+    ]);
+    const forecast = [
+      forecastRow({ year: 2022, capitalExpenditure: 0, depreciation: 40, fixedAssetsBeginning: 20, fixedAssetsEnding: 0 }),
+      forecastRow({ year: 2023, capitalExpenditure: 0, depreciation: 40, fixedAssetsBeginning: 0, fixedAssetsEnding: 0 }),
+    ];
+
+    const projection = buildFixedAssetProjection(forecast, basePeriods, "p1", schedule, {
+      preferredMode: "historical-replacement-floor",
+    });
+    const officeInventory = projection.rows.find((row) => row.assetName === "Office inventory");
+
+    assert.equal(projection.mode, "historical-replacement-floor");
+    assert.equal(projection.source, "Roll-forward historis dengan replacement floor");
+    assertAlmostEqual(officeInventory?.replacementFloorNetValue ?? 0, 60, 1e-9);
+    assertAlmostEqual(officeInventory?.replacementAdditions?.[2022] ?? 0, 80, 1e-9);
+    assertAlmostEqual(officeInventory?.amounts[2022].acquisitionAdditions ?? 0, 80, 1e-9);
+    assertAlmostEqual(officeInventory?.amounts[2022].netValue ?? 0, 60, 1e-9);
+    assertAlmostEqual(officeInventory?.amounts[2023].netValue ?? 0, 20, 1e-9);
+    assert.equal(projection.diagnostics.some((diagnostic) => diagnostic.code === "negative-net-value"), false);
+    assert.equal(projection.diagnostics.some((diagnostic) => diagnostic.code === "replacement-floor-applied"), true);
+  });
+
   it("keeps projection unavailable when no historical fixed asset schedule exists", () => {
     const schedule = buildFixedAssetScheduleSummary(basePeriods, []);
     const projection = buildFixedAssetProjection([forecastRow({ year: 2022, capitalExpenditure: 100, depreciation: 80 })], basePeriods, "p1", schedule);
