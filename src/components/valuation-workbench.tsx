@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties } from "react";
 import {
   AlertTriangle,
   ArrowRight,
@@ -7696,6 +7696,8 @@ function DcfProjectionPanel({
   onToggleWorkingCapitalInclusion?: (rowKey: CashFlowWorkingCapitalRowKey, accountRowId: string, included: boolean) => void;
 }) {
   const context = { forecast, snapshot, fixedAssetProjection };
+  const tableStyle = { "--projection-table-min-width": `${612 + forecast.length * 178}px` } as CSSProperties;
+
   return (
     <article className="panel dcf-projection-panel">
       <div className="panel-heading">
@@ -7714,8 +7716,8 @@ function DcfProjectionPanel({
           ))}
         </div>
       ) : null}
-      <div className="table-wrap">
-        <table className="analysis-table dcf-projection-table" data-testid={config.testId}>
+      <div className="table-wrap dcf-projection-table-wrap" data-testid={`${config.testId}-wrap`}>
+        <table className="analysis-table dcf-projection-table" data-testid={config.testId} style={tableStyle}>
           <thead>
             <tr>
               <th>Pos</th>
@@ -14099,6 +14101,8 @@ function DcfAuditTrailPanel({
   auditTrail: DcfAuditTrail;
   onSourceNavigate: (tabId: WorkflowTabId) => void;
 }) {
+  const tableStyle = { "--dcf-audit-table-min-width": `${660 + auditTrail.periods.length * 164}px` } as CSSProperties;
+
   return (
     <article className="panel dcf-audit-panel" data-testid="dcf-audit-trail">
       <div className="panel-heading">
@@ -14121,18 +14125,18 @@ function DcfAuditTrailPanel({
           );
         })}
       </div>
-      <div className="dcf-audit-table-wrap">
-        <table className="dcf-audit-table" aria-label="Jejak rinci Discounted Cash Flow">
+      <div className="dcf-audit-table-wrap" data-testid="dcf-audit-table-wrap">
+        <table className="dcf-audit-table" aria-label="Jejak rinci Discounted Cash Flow" style={tableStyle}>
           <thead>
             <tr>
-              <th scope="col">Komponen</th>
+              <th className="dcf-audit-component-column" scope="col">Komponen</th>
               {auditTrail.periods.map((period) => (
-                <th scope="col" key={period.key}>
+                <th className="dcf-audit-period-column" scope="col" key={period.key}>
                   <span>{period.label}</span>
                   {!period.includedInExplicitPv ? <small>benchmark</small> : null}
                 </th>
               ))}
-              <th scope="col">Sumber dan audit</th>
+              <th className="dcf-audit-source-column" scope="col">Sumber dan audit</th>
             </tr>
           </thead>
           <tbody>
@@ -14167,18 +14171,21 @@ function DcfAuditTrailTableRow({
 }) {
   return (
     <tr data-testid="dcf-audit-row">
-      <td>
+      <td className="dcf-audit-component-column">
         <div className="dcf-audit-component">
           <strong>{row.label}</strong>
           <p>{row.note}</p>
         </div>
       </td>
       {periods.map((period, index) => (
-        <td className={!period.includedInExplicitPv ? "dcf-audit-benchmark-cell" : ""} key={period.key}>
+        <td
+          className={period.includedInExplicitPv ? "dcf-audit-period-column" : "dcf-audit-period-column dcf-audit-benchmark-cell"}
+          key={period.key}
+        >
           <span>{formatDcfAuditValue(row.values[index] ?? null, row.valueFormat)}</span>
         </td>
       ))}
-      <td>
+      <td className="dcf-audit-source-column">
         <DcfAuditSourceStack row={row} onSourceNavigate={onSourceNavigate} />
       </td>
     </tr>

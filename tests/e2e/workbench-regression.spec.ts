@@ -1530,6 +1530,57 @@ test("terminal growth renders with two decimals across EEM/DCF and projection ta
   await expect(page.getByLabel("Driver aktif Proyeksi Cash Flow Statement")).toContainText("0,50%");
 });
 
+test("extended DCF projection horizon keeps projection and audit tables horizontally scrollable", async ({ page }) => {
+  await loadSampleWorkbook(page);
+  await openWorkflowTab(page, "Penilaian DCF");
+
+  const planningPanel = page.locator(".projection-planning-panel");
+  await planningPanel.getByLabel("Horizon proyeksi", { exact: true }).fill("10");
+  await planningPanel.getByLabel("Entity life", { exact: true }).selectOption("finite-life");
+  await planningPanel.getByLabel("Terminal treatment", { exact: true }).selectOption("no-terminal-value");
+  await expect(planningPanel).toContainText("10 tahun eksplisit");
+  await expect(page.getByTestId("dcf-audit-trail")).toContainText("Y+10");
+
+  const auditMetrics = await page.getByTestId("dcf-audit-table-wrap").evaluate((element) => {
+    const firstCell = element.querySelector("tbody td:first-child");
+    return {
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+      firstCellWidth: firstCell?.getBoundingClientRect().width ?? 0,
+    };
+  });
+  expect(auditMetrics.scrollWidth).toBeGreaterThan(auditMetrics.clientWidth);
+  expect(auditMetrics.firstCellWidth).toBeGreaterThanOrEqual(280);
+
+  const projectionTables = [
+    { tab: "Proyeksi Laba Rugi", testId: "dcf-income-projection-table" },
+    { tab: "Proyeksi Neraca", testId: "dcf-balance-projection-table" },
+    { tab: "Proyeksi Cash Flow Statement", testId: "dcf-cash-flow-projection-table" },
+    { tab: "Proyeksi Aset Tetap", testId: "dcf-fixed-asset-projection-table" },
+  ];
+
+  for (const projectionTable of projectionTables) {
+    await openWorkflowTab(page, projectionTable.tab);
+    await expect(page.getByTestId(projectionTable.testId)).toContainText("2031");
+    const projectionMetrics = await page.getByTestId(`${projectionTable.testId}-wrap`).evaluate((element) => {
+      const table = element.querySelector("table");
+      const firstCell = element.querySelector("tbody tr:not(.analysis-section-row) td:first-child");
+      const periodCell = element.querySelector("tbody tr:not(.analysis-section-row) td.period-column");
+      return {
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+        tableWidth: table?.getBoundingClientRect().width ?? 0,
+        firstCellWidth: firstCell?.getBoundingClientRect().width ?? 0,
+        periodCellWidth: periodCell?.getBoundingClientRect().width ?? 0,
+      };
+    });
+    expect(projectionMetrics.scrollWidth).toBeGreaterThan(projectionMetrics.clientWidth);
+    expect(projectionMetrics.tableWidth).toBeGreaterThan(projectionMetrics.clientWidth);
+    expect(projectionMetrics.firstCellWidth).toBeGreaterThanOrEqual(300);
+    expect(projectionMetrics.periodCellWidth).toBeGreaterThanOrEqual(170);
+  }
+});
+
 test("legacy positive income-statement expense drafts migrate once and remain user-editable", async ({ page }) => {
   await page.addInitScript(({ key, markerKey, state }) => {
     if (window.sessionStorage.getItem(markerKey)) {
