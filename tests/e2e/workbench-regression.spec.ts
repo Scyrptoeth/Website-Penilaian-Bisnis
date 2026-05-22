@@ -130,7 +130,7 @@ test("JSON export and import round-trip the full workbench draft", async ({ page
 
   expect(payload.schema).toBe("penilaian-valuasi-bisnis.full-workbench-json");
   expect(payload.schemaVersion).toBe(1);
-  expect(payload.data?.version).toBe(21);
+  expect(payload.data?.version).toBe(22);
   expect(payload.data?.caseProfile?.objectTaxpayerName).toBe("Makmur Jaya Sejati Raya");
   expect(payload.data?.rows?.length).toBeGreaterThan(0);
   expect(payload.data?.fixedAssetProjectionMode).toBe("workbook-formula");
@@ -328,6 +328,11 @@ test("period workflow, scoped categories, and display-only balance sheet classif
   await expect(balanceRow.getByLabel("Tahun Y amount")).toHaveValue("1.000");
   await expect(balanceRow).toContainText("Saran: Kas di tangan");
   await expect(balanceRow.getByLabel("Kategori utama").locator("option", { hasText: "Pendapatan usaha" })).toHaveCount(0);
+  await page.locator("#balance").getByRole("button", { name: "Ringkas tabel" }).click();
+  await expect(page.getByTestId("balance-account-table")).toHaveCount(0);
+  await expect(page.getByTestId("balance-account-table-summary")).toContainText("akun neraca");
+  await page.locator("#balance").getByRole("button", { name: "Tampilkan tabel" }).click();
+  await expect(page.getByTestId("balance-account-table")).toBeVisible();
 
   const totalBefore = await getTotalAssetsText(page);
   await balanceRow.getByLabel("Klasifikasi neraca").selectOption("non_current_asset");
@@ -360,6 +365,11 @@ test("period workflow, scoped categories, and display-only balance sheet classif
   await incomeRow.getByLabel("Tahun Y amount").fill("436128347");
   await expect(incomeRow).toContainText("Saran: Pajak penghasilan badan");
   await expect(incomeRow.getByLabel("Tahun Y amount")).toHaveValue("-436.128.347");
+  await incomePanel.getByRole("button", { name: "Ringkas tabel" }).click();
+  await expect(page.getByTestId("income-account-table")).toHaveCount(0);
+  await expect(page.getByTestId("income-account-table-summary")).toContainText("akun laba rugi");
+  await incomePanel.getByRole("button", { name: "Tampilkan tabel" }).click();
+  await expect(page.getByTestId("income-account-table")).toBeVisible();
   await expect(page.getByTestId("income-statement-report-table")).toContainText("Pajak penghasilan badan");
   await expect(page.getByTestId("income-statement-report-table")).toContainText("-436.128.347");
 
@@ -505,6 +515,8 @@ test("AAM valuation remains available without WACC or EEM/DCF driver inputs", as
 });
 
 test("added analysis sections use readiness gates before sample data and render formula-derived bridges after loading sample", async ({ page }) => {
+  test.setTimeout(90_000);
+
   await openWorkflowTab(page, "NOPLAT & FCF");
   await expect(page.getByTestId("readiness-noplatFcf")).toBeVisible();
   await expect(page.getByTestId("readiness-noplatFcf")).toContainText("Masih diperlukan");
@@ -522,6 +534,8 @@ test("added analysis sections use readiness gates before sample data and render 
   const cashFlowStatementTable = page.locator("table.cash-flow-statement-table");
   await expect(cashFlowStatementTable).not.toContainText(/CFS!\d/);
   await expect(cashFlowStatementTable).not.toContainText("Auto");
+  await expect(cashFlowStatementTable.locator("thead th.period-group-start").first()).toBeVisible();
+  await expect(cashFlowStatementTable.locator("tbody td.period-group-start").first()).toBeVisible();
   const ocaRow = page.getByTestId("cash-flow-row-oca-change");
   const oclRow = page.getByTestId("cash-flow-row-ocl-change");
   await expect(ocaRow.getByTestId("cash-flow-account-disclosure-oca-change")).toContainText("2/5 disertakan");
@@ -553,7 +567,8 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByLabel("Sertakan Kas dalam (Kenaikan) penurunan aset lancar operasional")).toBeChecked();
   await expect(page.getByLabel("Sertakan Utang pajak dalam Kenaikan (penurunan) liabilitas lancar operasional")).toBeChecked();
   await expect(page.getByLabel("Alasan override Non-operating cash flow 2021")).toHaveCount(0);
-  await page.getByRole("textbox", { name: "Override Non-operating cash flow 2021", exact: true }).fill("100000000");
+  await expect(page.getByRole("textbox", { name: "Override Non-operating cash flow 2021", exact: true })).toHaveCount(0);
+  await page.getByRole("textbox", { name: "Override (Kenaikan) penurunan aset lancar operasional 2019", exact: true }).fill("100000000");
   await expect(cashFlowStatementTable.getByText("Override diterapkan", { exact: true })).toBeVisible();
   await expect(page.getByText("100.000.000").first()).toBeVisible();
 
@@ -591,6 +606,7 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByTestId("fcf-panel").locator(".status-pill")).toHaveText("Interoperable + editable CFS rows");
   const fcfOcaRow = page.getByTestId("fcf-panel").locator("tbody tr").filter({ hasText: "(Kenaikan) penurunan aset lancar operasional" }).first();
   await expect(fcfOcaRow.getByRole("textbox").first()).toBeVisible();
+  await expect(fcfOcaRow.getByRole("textbox", { name: /2021/ })).toHaveCount(0);
   await expect(fcfOcaRow).toContainText("Final:");
   await expect(fcfOcaRow).toContainText("Editable");
   await expect(page.getByRole("heading", { name: "Bridge NOPLAT" })).toHaveCount(0);
@@ -797,6 +813,11 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(ratioTable).toContainText("Operating cash flow / capex");
   await expect(ratioTable.locator("thead th").last()).toHaveCSS("text-align", "right");
   await expect(ratioTable.locator("tbody tr").first().locator("td").last()).toHaveCSS("text-align", "right");
+  const ocfSalesRow = ratioTable.locator("tbody tr").filter({ hasText: "Operating Cash Flow / Sales" }).first();
+  await expect(ocfSalesRow.getByRole("textbox", { name: "Override Operating Cash Flow / Sales 2019" })).toBeVisible();
+  await expect(ocfSalesRow.getByRole("textbox", { name: /2021/ })).toHaveCount(0);
+  await ocfSalesRow.getByRole("textbox", { name: "Override Operating Cash Flow / Sales 2019" }).fill("12,5");
+  await expect(ocfSalesRow).toContainText("Final: 12,5%");
   await expect(page.getByRole("heading", { name: "Bridge efisiensi modal" })).toHaveCount(0);
 
   await openWorkflowTab(page, "ROIC");
@@ -804,6 +825,11 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByText("Basis NOPLAT terkoreksi")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Basis kapital ROIC" })).toHaveCount(0);
   await expect(page.locator(".roic-table-panel")).toBeVisible();
+  const investedCapitalBeginningRow = page.locator(".roic-table-panel tbody tr").filter({ hasText: "Invested capital awal tahun" }).first();
+  await expect(investedCapitalBeginningRow.getByRole("textbox", { name: "Override Invested capital awal tahun 2019" })).toBeVisible();
+  await expect(investedCapitalBeginningRow.getByRole("textbox", { name: /2021/ })).toHaveCount(0);
+  await investedCapitalBeginningRow.getByRole("textbox", { name: "Override Invested capital awal tahun 2019" }).fill("10000000000");
+  await expect(investedCapitalBeginningRow).toContainText("Final: Rp 10.000.000.000");
   const roicLayout = await page.evaluate(() => {
     const tablePanel = document.querySelector(".roic-table-panel");
     const tableWrap = document.querySelector(".roic-table-panel .table-wrap");
@@ -1031,7 +1057,7 @@ test("legacy workbook-like DLOM drafts migrate to workbook UPDATE basis without 
   await expect(page.getByTestId("dlom-basis-grid")).not.toContainText("Workbook UPDATE DLOM!C31");
   await expect(page.getByTestId("dlom-basis-grid")).not.toContainText("Formula");
   await expect(page.getByTestId("dlom-summary")).toContainText("35%");
-  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(21);
+  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(22);
 });
 
 test("exports the active workbench state to a print-ready PDF report view", async ({ page }) => {
@@ -1633,7 +1659,7 @@ test("legacy positive income-statement expense drafts migrate once and remain us
   await amountInput.press("Home");
   await amountInput.press("Delete");
   await expect(amountInput).toHaveValue("100");
-  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(21);
+  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").version)).toBe(22);
 
   await page.reload();
   await openWorkflowTab(page, "Laba Rugi");

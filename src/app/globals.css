@@ -1947,6 +1947,36 @@ select {
   margin: 8px 0 6px;
 }
 
+.account-input-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.input-collapse-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+  color: var(--ink-soft);
+}
+
+.input-collapse-summary strong {
+  color: var(--ink);
+  font-size: 10px;
+}
+
+.input-collapse-summary span {
+  color: var(--muted);
+  font-size: 9.4px;
+}
+
 .account-input-footer {
   display: flex;
   justify-content: flex-end;
@@ -2325,6 +2355,21 @@ select {
   width: 122px;
 }
 
+.cash-flow-statement-table th.period-group-start,
+.cash-flow-statement-table td.period-group-start {
+  border-left: 2px solid rgba(15, 118, 110, 0.28);
+}
+
+.cash-flow-statement-table th.period-group-end,
+.cash-flow-statement-table td.period-group-end {
+  border-right: 2px solid rgba(15, 118, 110, 0.28);
+}
+
+.cash-flow-statement-table thead th.period-group-start,
+.cash-flow-statement-table thead th.first-period-group {
+  background: #e7eee9;
+}
+
 .debt-schedule-panel {
   display: grid;
   gap: 10px;
@@ -2549,6 +2594,12 @@ select {
   min-width: 104px;
 }
 
+.comparative-override-stack {
+  display: grid;
+  gap: 4px;
+  min-width: 112px;
+}
+
 .cash-flow-override-stack input {
   width: 100%;
   min-width: 0;
@@ -2559,9 +2610,30 @@ select {
   font-size: 8.8px;
 }
 
+.comparative-override-stack input {
+  width: 100%;
+  min-width: 0;
+  min-height: 30px;
+  padding: 0 7px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 8.8px;
+  text-align: right;
+}
+
 .cash-flow-override-stack input {
   min-height: 30px;
   padding: 0 7px;
+  text-align: right;
+}
+
+.comparative-override-stack span,
+.comparative-override-stack small {
+  color: var(--muted);
+  font-size: 8.2px;
+  line-height: 1.25;
   text-align: right;
 }
 

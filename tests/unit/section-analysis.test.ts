@@ -9,7 +9,11 @@ import {
   type AccountRow,
   type DebtScheduleInputState,
 } from "../../src/lib/valuation/case-model";
-import { buildCashFlowWorkingCapitalAccountCandidates, buildSectionAnalysis } from "../../src/lib/valuation/section-analysis";
+import {
+  buildAnalysisValueOverrideKey,
+  buildCashFlowWorkingCapitalAccountCandidates,
+  buildSectionAnalysis,
+} from "../../src/lib/valuation/section-analysis";
 import { assertAlmostEqual } from "./test-utils";
 
 const periods = buildSamplePeriods();
@@ -122,29 +126,37 @@ describe("section analysis", () => {
     assert.equal(equityInjection.values.p2021, -3_150_000_000);
   });
 
-  it("applies cash-flow overrides when input is present and recomputes final subtotals", () => {
-    const withOverride = buildSectionAnalysis(periods, rows, assumptions, [], {
-      "non-operating-income": {
-        p2021: { value: "100.000.000", reason: "", updatedAt: "2026-05-05T00:00:00.000Z" },
-      },
-    });
-    const appliedNonOperating = withOverride.cashFlowStatementRows.find((row) => row.key === "non-operating-income");
-    const beforeFinancing = withOverride.cashFlowStatementRows.find((row) => row.key === "cash-flow-before-financing");
-
-    assert.ok(appliedNonOperating);
-    assert.ok(beforeFinancing);
-    assert.equal(appliedNonOperating.overrideStatuses.p2021, "applied");
-    assert.equal(appliedNonOperating.values.p2021, 100_000_000);
-    assert.equal(
-      beforeFinancing.values.p2021,
-      Number(withOverride.cashFlowStatementRows.find((row) => row.key === "cfo")?.values.p2021) + 100_000_000 + Number(withOverride.cashFlowStatementRows.find((row) => row.key === "capex")?.values.p2021),
-    );
-  });
-
-  it("flows editable Cash Flow Statement working-capital rows into FCF", () => {
+  it("applies cash-flow comparative seeds only when prior-period data is missing", () => {
     const withOverride = buildSectionAnalysis(periods, rows, assumptions, [], {
       "oca-change": {
-        p2021: { value: "-250.000.000", reason: "", updatedAt: "2026-05-21T00:00:00.000Z" },
+        p2019: { value: "100.000.000", reason: "", updatedAt: "2026-05-05T00:00:00.000Z" },
+        p2021: { value: "250.000.000", reason: "", updatedAt: "2026-05-05T00:00:00.000Z" },
+      },
+      "ocl-change": {
+        p2019: { value: "200.000.000", reason: "", updatedAt: "2026-05-05T00:00:00.000Z" },
+      },
+    });
+    const oca = withOverride.cashFlowStatementRows.find((row) => row.key === "oca-change");
+    const ocl = withOverride.cashFlowStatementRows.find((row) => row.key === "ocl-change");
+    const workingCapitalEffect = withOverride.cashFlowStatementRows.find((row) => row.key === "working-capital-effect");
+
+    assert.ok(oca);
+    assert.ok(ocl);
+    assert.ok(workingCapitalEffect);
+    assert.equal(oca.overrideAllowedByPeriod.p2019, true);
+    assert.equal(oca.overrideStatuses.p2019, "applied");
+    assert.equal(oca.values.p2019, 100_000_000);
+    assert.equal(ocl.values.p2019, 200_000_000);
+    assert.equal(workingCapitalEffect.values.p2019, 300_000_000);
+    assert.equal(oca.overrideAllowedByPeriod.p2021, false);
+    assert.equal(oca.overrideStatuses.p2021, "not_allowed");
+    assert.notEqual(oca.values.p2021, 250_000_000);
+  });
+
+  it("flows comparative Cash Flow Statement working-capital seeds into FCF", () => {
+    const withOverride = buildSectionAnalysis(periods, rows, assumptions, [], {
+      "oca-change": {
+        p2019: { value: "-250.000.000", reason: "", updatedAt: "2026-05-21T00:00:00.000Z" },
       },
     });
     const fcfOca = withOverride.fcfRows.find((row) => row.key === "oca-change");
@@ -161,7 +173,8 @@ describe("section analysis", () => {
     assert.ok(fcf);
     assert.ok(capex);
     assert.equal(fcfOca.sourceType, "manual");
-    assert.equal(fcfOca.values.p2021, -250_000_000);
+    assert.equal(fcfOca.values.p2019, -250_000_000);
+    assert.equal(fcfOca.values.p2021, withOverride.cashFlowStatementRows.find((row) => row.key === "oca-change")?.calculatedValues.p2021);
     assertAlmostEqual(
       Number(fcfGrossInvestment.values.p2021),
       Number(fcfOca.values.p2021) + Number(fcfOcl.values.p2021) + Number(capex.values.p2021),
@@ -231,6 +244,33 @@ describe("section analysis", () => {
     assert.ok(periodAnalysis);
     assert.equal(roic.values.p2019, null);
     assertAlmostEqual(Number(roic.values.p2021), periodAnalysis.roic ?? 0, 1e-12);
+  });
+
+  it("applies comparative overrides only to Financial Ratio and ROIC cells missing prior-period data", () => {
+    const withOverrides = buildSectionAnalysis(periods, rows, assumptions, [], {}, {}, {}, {
+      [buildAnalysisValueOverrideKey("ratio", "ocf-sales")]: {
+        p2019: { value: "12,5", reason: "", updatedAt: "2026-05-22T00:00:00.000Z" },
+        p2021: { value: "99", reason: "", updatedAt: "2026-05-22T00:00:00.000Z" },
+      },
+      [buildAnalysisValueOverrideKey("roic", "invested-capital-beginning")]: {
+        p2019: { value: "10.000.000.000", reason: "", updatedAt: "2026-05-22T00:00:00.000Z" },
+      },
+    });
+    const ocfSales = withOverrides.ratioRows.find((row) => row.key === "ocf-sales");
+    const investedBeginning = withOverrides.roicRows.find((row) => row.key === "invested-capital-beginning");
+    const roic = withOverrides.roicRows.find((row) => row.key === "roic");
+    const p2019Noplat = withOverrides.periodAnalyses.find((item) => item.period.id === "p2019")?.normalizedNoplat ?? 0;
+
+    assert.ok(ocfSales);
+    assert.ok(investedBeginning);
+    assert.ok(roic);
+    assert.equal(ocfSales.overrideAllowedByPeriod?.p2019, true);
+    assert.equal(ocfSales.overrideStatuses?.p2019, "applied");
+    assert.equal(ocfSales.values.p2019, 0.125);
+    assert.equal(ocfSales.overrideAllowedByPeriod?.p2021, false);
+    assert.notEqual(ocfSales.values.p2021, 0.99);
+    assert.equal(investedBeginning.values.p2019, 10_000_000_000);
+    assertAlmostEqual(Number(roic.values.p2019), p2019Noplat / 10_000_000_000, 1e-12);
   });
 
   it("adds workbook-referenced cash flow indicator ratios with formula trace", () => {

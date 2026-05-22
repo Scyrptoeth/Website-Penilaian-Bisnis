@@ -161,9 +161,12 @@ import {
 import {
   buildSectionAnalysis,
   buildCashFlowWorkingCapitalAccountCandidates,
+  buildAnalysisValueOverrideKey,
   isCashFlowWorkingCapitalRowKey,
   type AnalysisRow,
   type AnalysisValue,
+  type AnalysisValueOverrideSection,
+  type AnalysisValueOverrideState,
   type CashFlowAccountInclusionState,
   type CashFlowOverrideEntry,
   type CashFlowOverrideState,
@@ -466,7 +469,7 @@ const requiredReturnSuggestionOrder: RequiredReturnOnNtaSuggestionKey[] = [
 const WORKBENCH_STORAGE_KEY = "penilaian-valuasi-bisnis.workbench.v1";
 const WORKBENCH_SCROLL_STORAGE_KEY = "penilaian-valuasi-bisnis.scroll.v1";
 const WORKBENCH_SIDEBAR_STORAGE_KEY = "penilaian-valuasi-bisnis.sidebar.v1";
-const WORKBENCH_STORAGE_VERSION = 21;
+const WORKBENCH_STORAGE_VERSION = 22;
 const WORKSPACE_MANIFEST_STORAGE_KEY = "penilaian-valuasi-bisnis.workspaces.v1";
 const WORKSPACE_DATA_STORAGE_PREFIX = "penilaian-valuasi-bisnis.workspace.";
 const WORKSPACE_DATA_STORAGE_SUFFIX = ".v1";
@@ -622,6 +625,7 @@ type PersistedWorkbenchState = {
   dlocPfc: DlocPfcState;
   taxSimulation: TaxSimulationState;
   cashFlowOverrides: CashFlowOverrideState;
+  analysisValueOverrides: AnalysisValueOverrideState;
   cashFlowAccountInclusions: CashFlowAccountInclusionState;
   incomeProjectionControls: IncomeProjectionControlState;
 };
@@ -644,6 +648,7 @@ type ValuationJsonImportSummary = {
   fixedAssetClassCount: number;
   debtScheduleInputCount: number;
   cashFlowOverrideCount: number;
+  analysisOverrideCount: number;
   incomeProjectionAuditCount: number;
   hasSensitiveData: boolean;
 };
@@ -1080,6 +1085,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   const [dlocPfc, setDlocPfc] = useState<DlocPfcState>(createEmptyDlocPfcState);
   const [taxSimulation, setTaxSimulation] = useState<TaxSimulationState>(createEmptyTaxSimulationState);
   const [cashFlowOverrides, setCashFlowOverrides] = useState<CashFlowOverrideState>({});
+  const [analysisValueOverrides, setAnalysisValueOverrides] = useState<AnalysisValueOverrideState>({});
   const [cashFlowAccountInclusions, setCashFlowAccountInclusions] = useState<CashFlowAccountInclusionState>({});
   const [incomeProjectionControls, setIncomeProjectionControls] = useState<IncomeProjectionControlState>(
     createEmptyIncomeProjectionControls,
@@ -1105,6 +1111,8 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   const [isXlsxExportMenuOpen, setIsXlsxExportMenuOpen] = useState(false);
   const [isJsonMenuOpen, setIsJsonMenuOpen] = useState(false);
   const [isJsonImporting, setIsJsonImporting] = useState(false);
+  const [isBalanceInputCollapsed, setIsBalanceInputCollapsed] = useState(false);
+  const [isIncomeInputCollapsed, setIsIncomeInputCollapsed] = useState(false);
   const [pendingConfirmation, setPendingConfirmation] = useState<ConfirmationDialogState | null>(null);
   const [guidanceTarget, setGuidanceTarget] = useState<GuidanceTarget | null>(null);
   const [sourceFocusTarget, setSourceFocusTarget] = useState<SourceFocusTarget | null>(null);
@@ -1243,8 +1251,9 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         cashFlowOverrides,
         debtScheduleInputs,
         cashFlowAccountInclusions,
+        analysisValueOverrides,
       ),
-    [periods, rows, assumptions, fixedAssetScheduleRows, cashFlowOverrides, debtScheduleInputs, cashFlowAccountInclusions],
+    [periods, rows, assumptions, fixedAssetScheduleRows, cashFlowOverrides, debtScheduleInputs, cashFlowAccountInclusions, analysisValueOverrides],
   );
   const cashFlowWorkingCapitalAccountCandidates = useMemo(
     () => buildCashFlowWorkingCapitalAccountCandidates(rows, cashFlowAccountInclusions),
@@ -1541,6 +1550,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     Object.values(assumptions).some((value) => value.trim() !== "") ||
     hasDebtScheduleInput(debtScheduleInputs) ||
     hasCashFlowOverrideInput(cashFlowOverrides) ||
+    hasAnalysisValueOverrideInput(analysisValueOverrides) ||
     hasCashFlowAccountInclusionInput(cashFlowAccountInclusions) ||
     hasIncomeProjectionControlInput(incomeProjectionControls) ||
     activeWaccBasis !== defaultActiveWaccBasis ||
@@ -1606,6 +1616,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       dlocPfc,
       taxSimulation,
       cashFlowOverrides,
+      analysisValueOverrides,
       cashFlowAccountInclusions,
       incomeProjectionControls,
     };
@@ -1631,6 +1642,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     setDlocPfc(state.dlocPfc);
     setTaxSimulation(state.taxSimulation);
     setCashFlowOverrides(state.cashFlowOverrides);
+    setAnalysisValueOverrides(state.analysisValueOverrides);
     setCashFlowAccountInclusions(state.cashFlowAccountInclusions);
     setIncomeProjectionControls(state.incomeProjectionControls);
   }
@@ -2082,6 +2094,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         dlocPfc,
         taxSimulation,
         cashFlowOverrides,
+        analysisValueOverrides,
         cashFlowAccountInclusions,
         incomeProjectionControls,
       },
@@ -2105,6 +2118,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     activePeriodId,
     activeWorkspaceId,
     assumptions,
+    analysisValueOverrides,
     cashFlowAccountInclusions,
     cashFlowOverrides,
     caseProfile,
@@ -2369,6 +2383,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         fixedAssetScheduleRows,
         debtScheduleInputs,
         cashFlowOverrides: removeCashFlowOverridePeriod(current.cashFlowOverrides, id),
+        analysisValueOverrides: removeCashFlowOverridePeriod(current.analysisValueOverrides, id),
         activePeriodId:
           current.activePeriodId === id ? (defaultActivePeriod?.id ?? nextPeriods[nextPeriods.length - 1].id) : current.activePeriodId,
       };
@@ -2623,6 +2638,49 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       return {
         ...current,
         cashFlowOverrides: nextOverrides,
+      };
+    });
+  }
+
+  function updateAnalysisValueOverride(
+    section: AnalysisValueOverrideSection,
+    rowKey: string,
+    periodId: string,
+    display: "currency" | "percent" | "multiple",
+    patch: Partial<CashFlowOverrideEntry>,
+  ) {
+    commitCoreState((current) => {
+      const overrideKey = buildAnalysisValueOverrideKey(section, rowKey);
+      const currentEntry = current.analysisValueOverrides[overrideKey]?.[periodId] ?? { value: "", reason: "", updatedAt: "" };
+      const nextEntry: CashFlowOverrideEntry = {
+        ...currentEntry,
+        ...patch,
+        value:
+          patch.value !== undefined
+            ? display === "currency"
+              ? formatEditableInteger(patch.value)
+              : formatEditableNumber(patch.value)
+            : currentEntry.value,
+        updatedAt: new Date().toISOString(),
+      };
+      const nextOverrides = { ...current.analysisValueOverrides };
+      const nextRowOverrides = { ...(nextOverrides[overrideKey] ?? {}) };
+
+      if (!nextEntry.value.trim()) {
+        delete nextRowOverrides[periodId];
+      } else {
+        nextRowOverrides[periodId] = nextEntry;
+      }
+
+      if (Object.keys(nextRowOverrides).length === 0) {
+        delete nextOverrides[overrideKey];
+      } else {
+        nextOverrides[overrideKey] = nextRowOverrides;
+      }
+
+      return {
+        ...current,
+        analysisValueOverrides: nextOverrides,
       };
     });
   }
@@ -3050,6 +3108,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       dlocPfc: buildSampleDlocPfcState(),
       taxSimulation: buildSampleTaxSimulationState(),
       cashFlowOverrides: {},
+      analysisValueOverrides: {},
       cashFlowAccountInclusions: {},
       incomeProjectionControls: createEmptyIncomeProjectionControls(),
     }));
@@ -3715,29 +3774,53 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               <p className="eyebrow">Neraca</p>
               <h4>Akun neraca manual</h4>
             </div>
-            <button className="button secondary" type="button" onClick={() => addRow("balance_sheet")}>
-              <Plus size={18} />
-              Tambah akun neraca
-            </button>
+            <div className="account-input-actions">
+              <button
+                aria-controls="balance-account-input-region"
+                aria-expanded={!isBalanceInputCollapsed}
+                className="button secondary"
+                type="button"
+                onClick={() => setIsBalanceInputCollapsed((current) => !current)}
+              >
+                <TableProperties size={18} />
+                {isBalanceInputCollapsed ? "Tampilkan tabel" : "Ringkas tabel"}
+              </button>
+              <button className="button secondary" type="button" onClick={() => addRow("balance_sheet")}>
+                <Plus size={18} />
+                Tambah akun neraca
+              </button>
+            </div>
           </div>
 
-          <AccountInputTable
-            emptyMessage="Belum ada akun neraca. Tambahkan baris dari tombol Tambah akun neraca di atas."
-            hideStatementColumn
-            mappedRows={balanceSheetRows}
-            periods={periods}
-            testId="balance-account-table"
-            onRemoveRow={removeRow}
-            onToggleLabel={toggleRowLabel}
-            onUpdateRow={updateRow}
-            onUpdateRowValue={updateRowValue}
-          />
+          <div id="balance-account-input-region">
+            {isBalanceInputCollapsed ? (
+              <div className="input-collapse-summary" data-testid="balance-account-table-summary">
+                <TableProperties size={16} />
+                <strong>{balanceSheetRows.length} akun neraca</strong>
+                <span>{periods.length} periode input tersimpan</span>
+              </div>
+            ) : (
+              <>
+                <AccountInputTable
+                  emptyMessage="Belum ada akun neraca. Tambahkan baris dari tombol Tambah akun neraca di atas."
+                  hideStatementColumn
+                  mappedRows={balanceSheetRows}
+                  periods={periods}
+                  testId="balance-account-table"
+                  onRemoveRow={removeRow}
+                  onToggleLabel={toggleRowLabel}
+                  onUpdateRow={updateRow}
+                  onUpdateRowValue={updateRowValue}
+                />
 
-          <div className="account-input-footer">
-            <button className="button secondary" type="button" onClick={() => addRow("balance_sheet")}>
-              <Plus size={18} />
-              Tambah akun neraca
-            </button>
+                <div className="account-input-footer">
+                  <button className="button secondary" type="button" onClick={() => addRow("balance_sheet")}>
+                    <Plus size={18} />
+                    Tambah akun neraca
+                  </button>
+                </div>
+              </>
+            )}
           </div>
 
           <BalanceSheetPositionTable periods={periods} view={balanceSheetView} />
@@ -3768,28 +3851,52 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               <p className="eyebrow">Laba Rugi</p>
               <h4>Laba rugi dan driver operasi</h4>
             </div>
-            <button className="button secondary" type="button" onClick={() => addRow("income_statement")}>
-              <Plus size={18} />
-              Tambah akun laba rugi
-            </button>
+            <div className="account-input-actions">
+              <button
+                aria-controls="income-account-input-region"
+                aria-expanded={!isIncomeInputCollapsed}
+                className="button secondary"
+                type="button"
+                onClick={() => setIsIncomeInputCollapsed((current) => !current)}
+              >
+                <TableProperties size={18} />
+                {isIncomeInputCollapsed ? "Tampilkan tabel" : "Ringkas tabel"}
+              </button>
+              <button className="button secondary" type="button" onClick={() => addRow("income_statement")}>
+                <Plus size={18} />
+                Tambah akun laba rugi
+              </button>
+            </div>
           </div>
 
-          <AccountInputTable
-            emptyMessage="Belum ada akun laba rugi. Tambahkan baris dari tombol Tambah akun laba rugi di atas."
-            hideStatementColumn
-            mappedRows={incomeStatementRows}
-            periods={periods}
-            testId="income-account-table"
-            onRemoveRow={removeRow}
-            onToggleLabel={toggleRowLabel}
-            onUpdateRow={updateRow}
-            onUpdateRowValue={updateRowValue}
-          />
-          <div className="account-input-footer">
-            <button className="button secondary" type="button" onClick={() => addRow("income_statement")}>
-              <Plus size={18} />
-              Tambah akun laba rugi
-            </button>
+          <div id="income-account-input-region">
+            {isIncomeInputCollapsed ? (
+              <div className="input-collapse-summary" data-testid="income-account-table-summary">
+                <TableProperties size={16} />
+                <strong>{incomeStatementRows.length} akun laba rugi</strong>
+                <span>{periods.length} periode input tersimpan</span>
+              </div>
+            ) : (
+              <>
+                <AccountInputTable
+                  emptyMessage="Belum ada akun laba rugi. Tambahkan baris dari tombol Tambah akun laba rugi di atas."
+                  hideStatementColumn
+                  mappedRows={incomeStatementRows}
+                  periods={periods}
+                  testId="income-account-table"
+                  onRemoveRow={removeRow}
+                  onToggleLabel={toggleRowLabel}
+                  onUpdateRow={updateRow}
+                  onUpdateRowValue={updateRowValue}
+                />
+                <div className="account-input-footer">
+                  <button className="button secondary" type="button" onClick={() => addRow("income_statement")}>
+                    <Plus size={18} />
+                    Tambah akun laba rugi
+                  </button>
+                </div>
+              </>
+            )}
           </div>
           <IncomeStatementReportTable periods={periods} view={incomeStatementView} />
         </section>
@@ -4634,7 +4741,12 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
 
         {activeWorkflowTab === "financialRatio" ? (
           readiness.financialRatio.isReady ? (
-            <FinancialRatioSection analysis={sectionAnalysis} readiness={readiness.financialRatio} onNavigate={navigateToWorkflowTab} />
+            <FinancialRatioSection
+              analysis={sectionAnalysis}
+              readiness={readiness.financialRatio}
+              onNavigate={navigateToWorkflowTab}
+              onUpdateOverride={updateAnalysisValueOverride}
+            />
           ) : (
             <ReadinessPanel status={readiness.financialRatio} onNavigate={navigateToWorkflowTab} onAction={handleReadinessAction} force />
           )
@@ -4642,7 +4754,12 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
 
         {activeWorkflowTab === "roic" ? (
           readiness.roic.isReady ? (
-            <RoicSection analysis={sectionAnalysis} readiness={readiness.roic} onNavigate={navigateToWorkflowTab} />
+            <RoicSection
+              analysis={sectionAnalysis}
+              readiness={readiness.roic}
+              onNavigate={navigateToWorkflowTab}
+              onUpdateOverride={updateAnalysisValueOverride}
+            />
           ) : (
             <ReadinessPanel status={readiness.roic} onNavigate={navigateToWorkflowTab} onAction={handleReadinessAction} force />
           )
@@ -8425,21 +8542,25 @@ function CashFlowStatementTable({
             <th rowSpan={2}>Pos</th>
             <th rowSpan={2}>Trace</th>
             <th rowSpan={2}>Status</th>
-            {periods.map((period) => (
-              <th className="period-column" colSpan={3} key={period.id}>
+            {periods.map((period, index) => (
+              <th
+                className={`period-column period-group-start period-group-end ${index === 0 ? "first-period-group" : ""}`}
+                colSpan={3}
+                key={period.id}
+              >
                 {period.label || "Periode"}
               </th>
             ))}
           </tr>
           <tr>
             {periods.flatMap((period) => [
-              <th className="period-column" key={`${period.id}-calculated`}>
+              <th className="period-column period-group-start" key={`${period.id}-calculated`}>
                 Calculated
               </th>,
               <th className="period-column" key={`${period.id}-override`}>
                 Override
               </th>,
-              <th className="period-column" key={`${period.id}-final`}>
+              <th className="period-column period-group-end" key={`${period.id}-final`}>
                 Final
               </th>,
             ])}
@@ -8475,13 +8596,14 @@ function CashFlowStatementTable({
                   const status = row.overrideStatuses[period.id] ?? "none";
                   const validationMessage = row.validationMessages[period.id] ?? "";
                   const statusLabel = cashFlowOverrideStatusLabel(status);
+                  const canOverridePeriod = row.overrideAllowedByPeriod[period.id] ?? false;
 
                   return [
-                    <td className="numeric-cell period-column" data-testid={`cash-flow-${row.key}-${period.id}-calculated`} key={`${row.key}-${period.id}-calculated`}>
+                    <td className="numeric-cell period-column period-group-start" data-testid={`cash-flow-${row.key}-${period.id}-calculated`} key={`${row.key}-${period.id}-calculated`}>
                       {formatAnalysisValue(row.calculatedValues[period.id] ?? null, "currency")}
                     </td>,
                     <td className="override-cell period-column" key={`${row.key}-${period.id}-override`}>
-                      {row.isOverridable ? (
+                      {canOverridePeriod ? (
                         <div className="cash-flow-override-stack">
                           <input
                             aria-label={`Override ${row.label} ${period.label || "Periode"}`}
@@ -8497,7 +8619,7 @@ function CashFlowStatementTable({
                         <span className="status-pill muted">Formula locked</span>
                       )}
                     </td>,
-                    <td className="numeric-cell period-column" data-testid={`cash-flow-${row.key}-${period.id}-final`} key={`${row.key}-${period.id}-final`}>
+                    <td className="numeric-cell period-column period-group-end" data-testid={`cash-flow-${row.key}-${period.id}-final`} key={`${row.key}-${period.id}-final`}>
                       <strong>{formatAnalysisValue(row.values[period.id] ?? null, "currency")}</strong>
                     </td>,
                   ];
@@ -8582,7 +8704,7 @@ function CashFlowReliabilityBadge({ row }: { row: CashFlowStatementRow }) {
   return (
     <span className={className}>
       {label}
-      {row.isOverridable ? " · override" : ""}
+      {row.isOverridable ? " · comparative seed" : ""}
     </span>
   );
 }
@@ -8812,7 +8934,7 @@ function FcfTable({
             const rowClassName =
               row.kind === "subtotal" ? "analysis-total-row" : row.kind === "warning" ? "analysis-warning-row" : "";
             const cashFlowRow = cashFlowRowsByKey.get(row.key);
-            const isEditable = Boolean(cashFlowRow?.isOverridable && (row.key === "oca-change" || row.key === "ocl-change"));
+            const isEditableRow = Boolean(cashFlowRow?.isOverridable && (row.key === "oca-change" || row.key === "ocl-change"));
 
             return (
               <tr className={rowClassName} key={row.key}>
@@ -8830,10 +8952,11 @@ function FcfTable({
                   const value = row.values[period.id] ?? null;
                   const inputValue = cashFlowRow?.overrideInputs[period.id] ?? "";
                   const calculatedValue = cashFlowRow?.calculatedValues[period.id] ?? null;
+                  const canOverridePeriod = Boolean(isEditableRow && cashFlowRow?.overrideAllowedByPeriod[period.id]);
 
                   return (
-                    <td className={isEditable ? "override-cell period-column" : "numeric-cell period-column"} key={period.id}>
-                      {isEditable ? (
+                    <td className={canOverridePeriod ? "override-cell period-column" : "numeric-cell period-column"} key={period.id}>
+                      {canOverridePeriod ? (
                         <div className="fcf-override-stack">
                           <input
                             aria-label={`Override ${row.label} ${period.label || "Periode"} dari NOPLAT & FCF`}
@@ -8877,10 +9000,18 @@ function FinancialRatioSection({
   analysis,
   readiness,
   onNavigate,
+  onUpdateOverride,
 }: {
   analysis: SectionAnalysis;
   readiness: SectionReadiness;
   onNavigate: (tabId: WorkflowTabId) => void;
+  onUpdateOverride: (
+    section: AnalysisValueOverrideSection,
+    rowKey: string,
+    periodId: string,
+    display: "currency" | "percent" | "multiple",
+    patch: Partial<CashFlowOverrideEntry>,
+  ) => void;
 }) {
   return (
     <>
@@ -8894,7 +9025,7 @@ function FinancialRatioSection({
           </div>
           <span className="status-pill muted">Rata-rata mengikuti periode tersedia</span>
         </div>
-        <RatioTable rows={analysis.ratioRows} periods={analysis.periods} />
+        <RatioTable rows={analysis.ratioRows} periods={analysis.periods} onUpdateOverride={onUpdateOverride} />
       </section>
     </>
   );
@@ -8904,10 +9035,18 @@ function RoicSection({
   analysis,
   readiness,
   onNavigate,
+  onUpdateOverride,
 }: {
   analysis: SectionAnalysis;
   readiness: SectionReadiness;
   onNavigate: (tabId: WorkflowTabId) => void;
+  onUpdateOverride: (
+    section: AnalysisValueOverrideSection,
+    rowKey: string,
+    periodId: string,
+    display: "currency" | "percent" | "multiple",
+    patch: Partial<CashFlowOverrideEntry>,
+  ) => void;
 }) {
   return (
     <>
@@ -8922,7 +9061,13 @@ function RoicSection({
             </div>
             <span className="status-pill muted">Basis NOPLAT terkoreksi</span>
           </div>
-          <AnalysisTable rows={analysis.roicRows} periods={analysis.periods} percentRowKeys={new Set(["roic"])} />
+          <AnalysisTable
+            rows={analysis.roicRows}
+            periods={analysis.periods}
+            percentRowKeys={new Set(["roic"])}
+            overrideSection="roic"
+            onUpdateOverride={onUpdateOverride}
+          />
         </article>
       </section>
     </>
@@ -8933,10 +9078,20 @@ function AnalysisTable({
   rows,
   periods,
   percentRowKeys = new Set<string>(),
+  overrideSection,
+  onUpdateOverride,
 }: {
   rows: AnalysisRow[];
   periods: Period[];
   percentRowKeys?: Set<string>;
+  overrideSection?: AnalysisValueOverrideSection;
+  onUpdateOverride?: (
+    section: AnalysisValueOverrideSection,
+    rowKey: string,
+    periodId: string,
+    display: "currency" | "percent" | "multiple",
+    patch: Partial<CashFlowOverrideEntry>,
+  ) => void;
 }) {
   return (
     <div className="table-wrap">
@@ -8974,11 +9129,30 @@ function AnalysisTable({
                   <code>{row.formula}</code>
                   {row.note ? <span>{row.note}</span> : null}
                 </td>
-                {periods.map((period) => (
-                  <td className="numeric-cell period-column" key={period.id}>
-                    {formatAnalysisValue(row.values[period.id] ?? null, percentRowKeys.has(row.key) ? "percent" : "currency")}
-                  </td>
-                ))}
+                {periods.map((period) => {
+                  const display = percentRowKeys.has(row.key) ? "percent" : "currency";
+                  const canOverridePeriod = Boolean(row.overrideAllowedByPeriod?.[period.id] && overrideSection && onUpdateOverride);
+
+                  return (
+                    <td className={canOverridePeriod ? "override-cell period-column" : "numeric-cell period-column"} key={period.id}>
+                      {canOverridePeriod && overrideSection && onUpdateOverride ? (
+                        <ComparativeOverrideInput
+                          display={display}
+                          label={row.label}
+                          period={period}
+                          rowKey={row.key}
+                          section={overrideSection}
+                          value={row.values[period.id] ?? null}
+                          inputValue={row.overrideInputs?.[period.id] ?? ""}
+                          calculatedValue={row.calculatedValues?.[period.id] ?? null}
+                          onUpdate={onUpdateOverride}
+                        />
+                      ) : (
+                        formatAnalysisValue(row.values[period.id] ?? null, display)
+                      )}
+                    </td>
+                  );
+                })}
               </tr>
             );
           })}
@@ -8988,7 +9162,63 @@ function AnalysisTable({
   );
 }
 
-function RatioTable({ rows, periods }: { rows: RatioRow[]; periods: Period[] }) {
+function ComparativeOverrideInput({
+  section,
+  rowKey,
+  label,
+  period,
+  display,
+  value,
+  inputValue,
+  calculatedValue,
+  onUpdate,
+}: {
+  section: AnalysisValueOverrideSection;
+  rowKey: string;
+  label: string;
+  period: Period;
+  display: "currency" | "percent" | "multiple";
+  value: AnalysisValue;
+  inputValue: string;
+  calculatedValue: AnalysisValue;
+  onUpdate: (
+    section: AnalysisValueOverrideSection,
+    rowKey: string,
+    periodId: string,
+    display: "currency" | "percent" | "multiple",
+    patch: Partial<CashFlowOverrideEntry>,
+  ) => void;
+}) {
+  return (
+    <div className="comparative-override-stack">
+      <input
+        aria-label={`Override ${label} ${period.label || "Periode"}`}
+        inputMode="decimal"
+        placeholder={display === "percent" ? "Persen" : display === "multiple" ? "Rasio" : "Nilai"}
+        value={inputValue}
+        onChange={(event) => onUpdate(section, rowKey, period.id, display, { value: event.target.value })}
+      />
+      <span>Final: {formatAnalysisValue(value, display)}</span>
+      <small>Model: {formatAnalysisValue(calculatedValue, display)}</small>
+    </div>
+  );
+}
+
+function RatioTable({
+  rows,
+  periods,
+  onUpdateOverride,
+}: {
+  rows: RatioRow[];
+  periods: Period[];
+  onUpdateOverride: (
+    section: AnalysisValueOverrideSection,
+    rowKey: string,
+    periodId: string,
+    display: "currency" | "percent" | "multiple",
+    patch: Partial<CashFlowOverrideEntry>,
+  ) => void;
+}) {
   return (
     <div className="table-wrap">
       <table className="analysis-table ratio-table">
@@ -9014,11 +9244,29 @@ function RatioTable({ rows, periods }: { rows: RatioRow[]; periods: Period[] }) 
               <td>
                 <code>{row.formula}</code>
               </td>
-              {periods.map((period) => (
-                <td className="numeric-cell period-column" key={period.id}>
-                  {formatAnalysisValue(row.values[period.id] ?? null, row.display)}
-                </td>
-              ))}
+              {periods.map((period) => {
+                const canOverridePeriod = Boolean(row.overrideAllowedByPeriod?.[period.id]);
+
+                return (
+                  <td className={canOverridePeriod ? "override-cell period-column" : "numeric-cell period-column"} key={period.id}>
+                    {canOverridePeriod ? (
+                      <ComparativeOverrideInput
+                        display={row.display}
+                        label={row.label}
+                        period={period}
+                        rowKey={row.key}
+                        section="ratio"
+                        value={row.values[period.id] ?? null}
+                        inputValue={row.overrideInputs?.[period.id] ?? ""}
+                        calculatedValue={row.calculatedValues?.[period.id] ?? null}
+                        onUpdate={onUpdateOverride}
+                      />
+                    ) : (
+                      formatAnalysisValue(row.values[period.id] ?? null, row.display)
+                    )}
+                  </td>
+                );
+              })}
               <td className="numeric-cell period-column">{formatAnalysisValue(row.average, row.display)}</td>
             </tr>
           ))}
@@ -9220,6 +9468,7 @@ function normalizeWorkbenchStatePayload(value: unknown): PersistedWorkbenchState
   const dlocPfc = sanitizeDlocPfcState(value.dlocPfc);
   const taxSimulation = sanitizeTaxSimulationState(value.taxSimulation);
   const cashFlowOverrides = sanitizeCashFlowOverrides(value.cashFlowOverrides);
+  const analysisValueOverrides = sanitizeCashFlowOverrides(value.analysisValueOverrides);
   const cashFlowAccountInclusions = sanitizeCashFlowAccountInclusions(value.cashFlowAccountInclusions);
   const incomeProjectionControls = sanitizeIncomeProjectionControls(value.incomeProjectionControls);
   const activePeriodId = typeof value.activePeriodId === "string" ? value.activePeriodId : "";
@@ -9257,6 +9506,7 @@ function normalizeWorkbenchStatePayload(value: unknown): PersistedWorkbenchState
     dlocPfc,
     taxSimulation,
     cashFlowOverrides,
+    analysisValueOverrides,
     cashFlowAccountInclusions,
     incomeProjectionControls,
   };
@@ -9301,6 +9551,7 @@ function buildEmptyCoreState(): WorkbenchCoreState {
     dlocPfc: createEmptyDlocPfcState(),
     taxSimulation: createEmptyTaxSimulationState(),
     cashFlowOverrides: {},
+    analysisValueOverrides: {},
     cashFlowAccountInclusions: {},
     incomeProjectionControls: createEmptyIncomeProjectionControls(),
   };
@@ -9493,6 +9744,7 @@ function buildRestoredCoreState(state: PersistedWorkbenchState): WorkbenchCoreSt
     dlocPfc: state.dlocPfc,
     taxSimulation: state.taxSimulation,
     cashFlowOverrides: state.cashFlowOverrides,
+    analysisValueOverrides: state.analysisValueOverrides,
     cashFlowAccountInclusions: state.cashFlowAccountInclusions,
     incomeProjectionControls: state.incomeProjectionControls,
   };
@@ -9601,6 +9853,10 @@ function buildJsonImportSummary(state: PersistedWorkbenchState, exportedAt: stri
     (total, periodEntries) => total + Object.keys(periodEntries).length,
     0,
   );
+  const analysisOverrideCount = Object.values(state.analysisValueOverrides).reduce(
+    (total, periodEntries) => total + Object.keys(periodEntries).length,
+    0,
+  );
 
   return {
     fileName,
@@ -9611,6 +9867,7 @@ function buildJsonImportSummary(state: PersistedWorkbenchState, exportedAt: stri
     fixedAssetClassCount: state.fixedAssetScheduleRows.length,
     debtScheduleInputCount,
     cashFlowOverrideCount,
+    analysisOverrideCount,
     incomeProjectionAuditCount: state.incomeProjectionControls.auditEvents.length,
     hasSensitiveData: Boolean(state.caseProfile.objectTaxpayerNpwp.trim() || state.caseProfile.subjectTaxpayerNpwp.trim()),
   };
@@ -9622,7 +9879,7 @@ function formatJsonImportConfirmationDescription(summary: ValuationJsonImportSum
     ? " File ini memuat data lengkap termasuk NPWP bila tersedia."
     : " File ini tetap memuat seluruh data angka dan asumsi model.";
 
-  return `File ${summary.fileName} berisi ${summary.accountRowCount} akun, ${summary.periodCount} periode, ${summary.fixedAssetClassCount} kelas aset tetap, ${summary.debtScheduleInputCount} input jadwal utang, ${summary.cashFlowOverrideCount} override cash-flow, dan ${summary.incomeProjectionAuditCount} audit proyeksi untuk ${summary.caseName}.${exportedAt} Workspace baru akan dibuat dan workspace aktif saat ini tetap tersimpan.${sensitiveDataNote}`;
+  return `File ${summary.fileName} berisi ${summary.accountRowCount} akun, ${summary.periodCount} periode, ${summary.fixedAssetClassCount} kelas aset tetap, ${summary.debtScheduleInputCount} input jadwal utang, ${summary.cashFlowOverrideCount} override cash-flow, ${summary.analysisOverrideCount} override analisis, dan ${summary.incomeProjectionAuditCount} audit proyeksi untuk ${summary.caseName}.${exportedAt} Workspace baru akan dibuat dan workspace aktif saat ini tetap tersimpan.${sensitiveDataNote}`;
 }
 
 function buildJsonExportFilename(caseName: string, exportedAt: string): string {
@@ -10133,6 +10390,12 @@ function sanitizeCashFlowOverrides(value: unknown): CashFlowOverrideState {
 }
 
 function hasCashFlowOverrideInput(value: CashFlowOverrideState): boolean {
+  return Object.values(value).some((row) =>
+    Object.values(row).some((entry) => entry.value.trim() !== "" || entry.reason.trim() !== ""),
+  );
+}
+
+function hasAnalysisValueOverrideInput(value: AnalysisValueOverrideState): boolean {
   return Object.values(value).some((row) =>
     Object.values(row).some((entry) => entry.value.trim() !== "" || entry.reason.trim() !== ""),
   );

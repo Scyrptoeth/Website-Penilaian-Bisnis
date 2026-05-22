@@ -37,6 +37,12 @@ export type AnalysisRow = {
   editablePeriodIds?: string[];
   valueFormat?: "currency" | "percent";
   lockReason?: string;
+  isComparativeOverrideable?: boolean;
+  calculatedValues?: Record<string, AnalysisValue>;
+  overrideAllowedByPeriod?: Record<string, boolean>;
+  overrideInputs?: Record<string, string>;
+  overrideStatuses?: Record<string, CashFlowOverrideStatus>;
+  validationMessages?: Record<string, string>;
 };
 
 export type CashFlowOverrideEntry = {
@@ -46,6 +52,8 @@ export type CashFlowOverrideEntry = {
 };
 
 export type CashFlowOverrideState = Record<string, Record<string, CashFlowOverrideEntry>>;
+export type AnalysisValueOverrideState = Record<string, Record<string, CashFlowOverrideEntry>>;
+export type AnalysisValueOverrideSection = "ratio" | "roic";
 
 export type CashFlowOverrideStatus = "none" | "applied" | "not_allowed";
 
@@ -80,6 +88,7 @@ export type CashFlowStatementRow = AnalysisRow & {
   workbookReference: string;
   reliability: "derived" | "review" | "reconciliation";
   isOverridable: boolean;
+  overrideAllowedByPeriod: Record<string, boolean>;
   calculatedValues: Record<string, AnalysisValue>;
   overrideInputs: Record<string, string>;
   overrideValues: Record<string, AnalysisValue>;
@@ -95,6 +104,10 @@ export type RatioRow = AnalysisRow & {
 };
 
 export const cashFlowWorkingCapitalRowKeys = ["oca-change", "ocl-change"] as const;
+
+export function buildAnalysisValueOverrideKey(section: AnalysisValueOverrideSection, rowKey: string): string {
+  return `${section}:${rowKey}`;
+}
 
 const ocaCandidateCategories = new Set<AccountCategory>([
   "CURRENT_ASSET",
@@ -233,6 +246,7 @@ export function buildSectionAnalysis(
   cashFlowOverrides: CashFlowOverrideState = {},
   debtScheduleInputs: DebtScheduleInputState = {},
   cashFlowAccountInclusions: CashFlowAccountInclusionState = {},
+  analysisValueOverrides: AnalysisValueOverrideState = {},
 ): SectionAnalysis {
   const chronologicalPeriods = getChronologicalPeriods(periods);
   const fixedAssetSchedule = buildFixedAssetScheduleSummary(periods, fixedAssetScheduleRows);
@@ -332,8 +346,8 @@ export function buildSectionAnalysis(
     cashFlowStatementRows,
     noplatRows: buildNoplatRows(periodAnalyses),
     fcfRows: buildFcfRows(periodAnalyses, cashFlowStatementRows),
-    ratioRows: buildRatioRows(periodAnalyses),
-    roicRows: buildRoicRows(periodAnalyses),
+    ratioRows: buildRatioRows(periodAnalyses, analysisValueOverrides),
+    roicRows: buildRoicRows(periodAnalyses, analysisValueOverrides),
   };
 }
 
@@ -516,6 +530,7 @@ type CashFlowStatementRowSpec = Pick<
   "key" | "label" | "source" | "formula" | "section" | "workbookReference" | "reliability" | "isOverridable" | "kind" | "note"
 > & {
   calculate: (item: PeriodAnalysis, finalValues: Record<string, AnalysisValue>) => AnalysisValue;
+  requiresComparativePeriodOverride?: boolean;
 };
 
 const cashFlowStatementRowSpecs: CashFlowStatementRowSpec[] = [
@@ -527,7 +542,7 @@ const cashFlowStatementRowSpecs: CashFlowStatementRowSpec[] = [
     formula: "EBIT komersial + penyusutan",
     workbookReference: "CFS!5; INCOME STATEMENT!18",
     reliability: "derived",
-    isOverridable: true,
+    isOverridable: false,
     calculate: (item) => item.ebitda,
   },
   {
@@ -538,7 +553,7 @@ const cashFlowStatementRowSpecs: CashFlowStatementRowSpec[] = [
     formula: "Pajak badan input; jika kosong -(EBIT x tarif pajak)",
     workbookReference: "CFS!6; INCOME STATEMENT!33",
     reliability: "review",
-    isOverridable: true,
+    isOverridable: false,
     calculate: (item) => item.snapshot.corporateTax || -item.normalizedTaxOnEbit,
   },
   {
@@ -550,6 +565,7 @@ const cashFlowStatementRowSpecs: CashFlowStatementRowSpec[] = [
     workbookReference: "CFS!8; BALANCE SHEET current-asset inclusion policy",
     reliability: "derived",
     isOverridable: true,
+    requiresComparativePeriodOverride: true,
     calculate: (item) => (item.previousSnapshot ? item.changeInOperatingCurrentAssets : null),
   },
   {
@@ -561,6 +577,7 @@ const cashFlowStatementRowSpecs: CashFlowStatementRowSpec[] = [
     workbookReference: "CFS!9; BALANCE SHEET current-liability inclusion policy",
     reliability: "derived",
     isOverridable: true,
+    requiresComparativePeriodOverride: true,
     calculate: (item) => (item.previousSnapshot ? item.changeInOperatingCurrentLiabilities : null),
   },
   {
@@ -596,7 +613,7 @@ const cashFlowStatementRowSpecs: CashFlowStatementRowSpec[] = [
     formula: "Pendapatan / beban non-operasional",
     workbookReference: "CFS!13; INCOME STATEMENT!30",
     reliability: "review",
-    isOverridable: true,
+    isOverridable: false,
     calculate: (item) => item.snapshot.nonOperatingIncome,
   },
   {
@@ -608,6 +625,7 @@ const cashFlowStatementRowSpecs: CashFlowStatementRowSpec[] = [
     workbookReference: "CFS!17; FIXED ASSET!23",
     reliability: "review",
     isOverridable: true,
+    requiresComparativePeriodOverride: true,
     calculate: (item) => (item.previousSnapshot ? -item.capitalExpenditure : null),
   },
   {
@@ -631,6 +649,7 @@ const cashFlowStatementRowSpecs: CashFlowStatementRowSpec[] = [
     workbookReference: "CFS!22; BALANCE SHEET!42,43",
     reliability: "review",
     isOverridable: true,
+    requiresComparativePeriodOverride: true,
     note: "Memakai movement antarperiode, bukan saldo akhir workbook.",
     calculate: (item) =>
       item.previousSnapshot
@@ -648,6 +667,7 @@ const cashFlowStatementRowSpecs: CashFlowStatementRowSpec[] = [
     workbookReference: "CFS!23; ACC PAYABLES!10,19",
     reliability: "review",
     isOverridable: true,
+    requiresComparativePeriodOverride: true,
     calculate: (item) => (item.previousSnapshot ? item.loanMovement.shortTermAddition + item.loanMovement.longTermAddition : null),
   },
   {
@@ -658,7 +678,7 @@ const cashFlowStatementRowSpecs: CashFlowStatementRowSpec[] = [
     formula: "Beban bunga",
     workbookReference: "CFS!24; INCOME STATEMENT!27",
     reliability: "review",
-    isOverridable: true,
+    isOverridable: false,
     calculate: (item) => item.snapshot.interestExpense,
   },
   {
@@ -669,7 +689,7 @@ const cashFlowStatementRowSpecs: CashFlowStatementRowSpec[] = [
     formula: "Pendapatan bunga",
     workbookReference: "CFS!25; INCOME STATEMENT!26",
     reliability: "review",
-    isOverridable: true,
+    isOverridable: false,
     calculate: (item) => item.snapshot.interestIncome,
   },
   {
@@ -681,6 +701,7 @@ const cashFlowStatementRowSpecs: CashFlowStatementRowSpec[] = [
     workbookReference: "CFS!26; ACC PAYABLES!20",
     reliability: "review",
     isOverridable: true,
+    requiresComparativePeriodOverride: true,
     calculate: (item) => (item.previousSnapshot ? item.loanMovement.shortTermRepayment + item.loanMovement.longTermRepayment : null),
   },
   {
@@ -723,6 +744,7 @@ const cashFlowStatementRowSpecs: CashFlowStatementRowSpec[] = [
     workbookReference: "CFS!32",
     reliability: "review",
     isOverridable: true,
+    requiresComparativePeriodOverride: true,
     calculate: (item) => (item.previousSnapshot ? item.previousSnapshot.cashOnHand + item.previousSnapshot.cashOnBankDeposit : null),
   },
   {
@@ -798,6 +820,7 @@ function buildCashFlowStatementRows(
       workbookReference: spec.workbookReference,
       reliability: spec.reliability,
       isOverridable: spec.isOverridable,
+      overrideAllowedByPeriod: {},
       kind: spec.kind,
       note: spec.note,
       values: {},
@@ -821,9 +844,15 @@ function buildCashFlowStatementRows(
       const overrideReason = overrideEntry?.reason ?? "";
       const hasOverrideInput = overrideInput.trim() !== "";
       const overrideValue = hasOverrideInput ? parseInputNumber(overrideInput) : null;
-      const isOverrideApplied = spec.isOverridable && hasOverrideInput;
+      const isCellOverridable = Boolean(
+        spec.isOverridable &&
+          spec.requiresComparativePeriodOverride &&
+          !item.previousSnapshot &&
+          (calculatedValue === null || !Number.isFinite(calculatedValue)),
+      );
+      const isOverrideApplied = isCellOverridable && hasOverrideInput;
       const finalValue = isOverrideApplied ? overrideValue : calculatedValue;
-      const status: CashFlowOverrideStatus = !spec.isOverridable
+      const status: CashFlowOverrideStatus = !isCellOverridable
         ? "not_allowed"
         : isOverrideApplied
           ? "applied"
@@ -832,13 +861,15 @@ function buildCashFlowStatementRows(
       finalValues[spec.key] = finalValue;
 
       const row = rows[index];
+      row.overrideAllowedByPeriod[item.period.id] = isCellOverridable;
       row.calculatedValues[item.period.id] = calculatedValue;
       row.overrideInputs[item.period.id] = overrideInput;
       row.overrideValues[item.period.id] = isOverrideApplied ? overrideValue : null;
       row.overrideReasons[item.period.id] = overrideReason;
       row.overrideStatuses[item.period.id] = status;
       row.overrideUpdatedAt[item.period.id] = overrideEntry?.updatedAt ?? "";
-      row.validationMessages[item.period.id] = "";
+      row.validationMessages[item.period.id] =
+        !isCellOverridable && hasOverrideInput ? "Override hanya aktif saat baris memerlukan data pembanding." : "";
       row.values[item.period.id] = finalValue;
     });
   }
@@ -934,7 +965,7 @@ function buildFcfRows(periodAnalyses: PeriodAnalysis[], cashFlowStatementRows: C
   ];
 }
 
-function buildRatioRows(periodAnalyses: PeriodAnalysis[]): RatioRow[] {
+function buildRatioRows(periodAnalyses: PeriodAnalysis[], analysisValueOverrides: AnalysisValueOverrideState): RatioRow[] {
   const rows: RatioRow[] = [
     ratioRow(periodAnalyses, "gross-margin", "Margin laba kotor", "Laba Rugi", "Laba kotor / revenue", "percent", (item) =>
       safeRatio(item.snapshot.revenue + item.snapshot.cogs, item.snapshot.revenue),
@@ -978,9 +1009,13 @@ function buildRatioRows(periodAnalyses: PeriodAnalysis[]): RatioRow[] {
     ),
     ratioRow(periodAnalyses, "ocf-sales", "Operating Cash Flow / Sales", "Laporan arus kas terkoreksi", "CFO / revenue", "percent", (item) =>
       item.previousSnapshot ? safeRatio(item.cashFlowFromOperations, item.snapshot.revenue) : null,
+      analysisValueOverrides,
+      true,
     ),
     ratioRow(periodAnalyses, "fcf-ocf", "FCF / Operating Cash Ratio", "Laporan arus kas terkoreksi", "FCF / operating cash flow", "percent", (item) =>
       item.previousSnapshot ? safeRatio(item.freeCashFlow, item.cashFlowFromOperations) : null,
+      analysisValueOverrides,
+      true,
     ),
     ratioRow(
       periodAnalyses,
@@ -990,16 +1025,58 @@ function buildRatioRows(periodAnalyses: PeriodAnalysis[]): RatioRow[] {
       "Operating cash flow / bank loan short term",
       "multiple",
       (item) => (item.previousSnapshot ? safeRatio(item.cashFlowFromOperations, item.snapshot.bankLoanShortTerm) : null),
+      analysisValueOverrides,
+      true,
     ),
     ratioRow(periodAnalyses, "capex-coverage", "Capex Coverage", "Laporan arus kas terkoreksi", "Operating cash flow / capex", "multiple", (item) =>
       item.previousSnapshot ? safeRatio(item.cashFlowFromOperations, item.capitalExpenditure) : null,
+      analysisValueOverrides,
+      true,
     ),
   ];
 
   return rows;
 }
 
-function buildRoicRows(periodAnalyses: PeriodAnalysis[]): AnalysisRow[] {
+function buildRoicRows(periodAnalyses: PeriodAnalysis[], analysisValueOverrides: AnalysisValueOverrideState): AnalysisRow[] {
+  const investedCapitalBeginning = valueRow(
+    periodAnalyses,
+    "invested-capital-beginning",
+    "Invested capital awal tahun",
+    "Model terkoreksi",
+    "Invested capital akhir periode sebelumnya",
+    (item) => item.investedCapitalBeginning,
+    undefined,
+    undefined,
+    {},
+    {
+      section: "roic",
+      display: "currency",
+      overrides: analysisValueOverrides,
+      comparativeOverride: true,
+    },
+  );
+  const roic = valueRow(
+    periodAnalyses,
+    "roic",
+    "ROIC",
+    "Model terkoreksi",
+    "NOPLAT / invested capital awal",
+    (item) => {
+      const beginning = investedCapitalBeginning.values[item.period.id];
+      return beginning ? item.normalizedNoplat / beginning : null;
+    },
+    "subtotal",
+    undefined,
+    {},
+    {
+      section: "roic",
+      display: "percent",
+      overrides: analysisValueOverrides,
+      comparativeOverride: true,
+    },
+  );
+
   return [
     valueRow(periodAnalyses, "noplat", "NOPLAT", "NOPLAT terkoreksi", "EBIT komersial x (1 - tarif pajak)", (item) => item.normalizedNoplat),
     valueRow(periodAnalyses, "total-assets", "Total aset dalam neraca", "Neraca", "Total aset terpetakan atau total komponen turunan", (item) => item.snapshot.totalAssets),
@@ -1009,8 +1086,8 @@ function buildRoicRows(periodAnalyses: PeriodAnalysis[]): AnalysisRow[] {
     valueRow(periodAnalyses, "operating-nwc", "Operating working capital", "Klasifikasi CFS terkoreksi", "OCA terpilih - OCL terpilih", (item) => item.operatingWorkingCapital),
     valueRow(periodAnalyses, "fixed-assets-net", "Aset tetap operasional neto", "Model aset tetap", "Aset tetap neto kecuali aset idle teridentifikasi", (item) => item.snapshot.fixedAssetsNet),
     valueRow(periodAnalyses, "invested-capital-end", "Invested capital akhir tahun", "Model terkoreksi", "Aset tetap neto + operating working capital", (item) => item.investedCapitalEnd, "subtotal"),
-    valueRow(periodAnalyses, "invested-capital-beginning", "Invested capital awal tahun", "Model terkoreksi", "Invested capital akhir periode sebelumnya", (item) => item.investedCapitalBeginning),
-    valueRow(periodAnalyses, "roic", "ROIC", "Model terkoreksi", "NOPLAT / invested capital awal", (item) => item.roic, "subtotal"),
+    investedCapitalBeginning,
+    roic,
   ];
 }
 
@@ -1024,15 +1101,62 @@ function valueRow(
   kind?: AnalysisRow["kind"],
   note?: string,
   extra: Partial<Omit<AnalysisRow, "key" | "label" | "source" | "formula" | "values" | "kind" | "note">> = {},
+  overrideConfig?: {
+    section: AnalysisValueOverrideSection;
+    display: "currency" | "percent" | "multiple";
+    overrides: AnalysisValueOverrideState;
+    comparativeOverride: boolean;
+  },
 ): AnalysisRow {
+  const overrideKey = overrideConfig ? buildAnalysisValueOverrideKey(overrideConfig.section, key) : "";
+  const calculatedValues = Object.fromEntries(periodAnalyses.map((item) => [item.period.id, value(item)]));
+  const overrideInputs: Record<string, string> = {};
+  const overrideAllowedByPeriod: Record<string, boolean> = {};
+  const overrideStatuses: Record<string, CashFlowOverrideStatus> = {};
+  const validationMessages: Record<string, string> = {};
+  const values = Object.fromEntries(
+    periodAnalyses.map((item) => {
+      const calculatedValue = calculatedValues[item.period.id] ?? null;
+      const overrideEntry = overrideConfig?.overrides[overrideKey]?.[item.period.id];
+      const overrideInput = overrideEntry?.value ?? "";
+      const hasOverrideInput = overrideInput.trim() !== "";
+      const isCellOverridable = Boolean(
+        overrideConfig?.comparativeOverride &&
+          !item.previousSnapshot &&
+          (calculatedValue === null || !Number.isFinite(calculatedValue)),
+      );
+      const overrideValue =
+        hasOverrideInput && overrideConfig ? parseAnalysisOverrideInput(overrideInput, overrideConfig.display) : null;
+      const isOverrideApplied = isCellOverridable && hasOverrideInput;
+
+      overrideInputs[item.period.id] = overrideInput;
+      overrideAllowedByPeriod[item.period.id] = isCellOverridable;
+      overrideStatuses[item.period.id] = !isCellOverridable ? "not_allowed" : isOverrideApplied ? "applied" : "none";
+      validationMessages[item.period.id] =
+        !isCellOverridable && hasOverrideInput ? "Override hanya aktif saat baris memerlukan data pembanding." : "";
+
+      return [item.period.id, isOverrideApplied ? overrideValue : calculatedValue];
+    }),
+  );
+
   return {
     key,
     label,
     source,
     formula,
-    values: Object.fromEntries(periodAnalyses.map((item) => [item.period.id, value(item)])),
+    values,
     kind,
     note,
+    ...(overrideConfig
+      ? {
+          isComparativeOverrideable: overrideConfig.comparativeOverride,
+          calculatedValues,
+          overrideAllowedByPeriod,
+          overrideInputs,
+          overrideStatuses,
+          validationMessages,
+        }
+      : {}),
     ...extra,
   };
 }
@@ -1057,8 +1181,36 @@ function ratioRow(
   formula: string,
   display: RatioRow["display"],
   value: (item: PeriodAnalysis) => AnalysisValue,
+  analysisValueOverrides: AnalysisValueOverrideState = {},
+  comparativeOverride = false,
 ): RatioRow {
-  const values = Object.fromEntries(periodAnalyses.map((item) => [item.period.id, value(item)]));
+  const overrideKey = buildAnalysisValueOverrideKey("ratio", key);
+  const calculatedValues = Object.fromEntries(periodAnalyses.map((item) => [item.period.id, value(item)]));
+  const overrideInputs: Record<string, string> = {};
+  const overrideAllowedByPeriod: Record<string, boolean> = {};
+  const overrideStatuses: Record<string, CashFlowOverrideStatus> = {};
+  const validationMessages: Record<string, string> = {};
+  const values = Object.fromEntries(
+    periodAnalyses.map((item) => {
+      const calculatedValue = calculatedValues[item.period.id] ?? null;
+      const overrideEntry = analysisValueOverrides[overrideKey]?.[item.period.id];
+      const overrideInput = overrideEntry?.value ?? "";
+      const hasOverrideInput = overrideInput.trim() !== "";
+      const isCellOverridable = Boolean(
+        comparativeOverride && !item.previousSnapshot && (calculatedValue === null || !Number.isFinite(calculatedValue)),
+      );
+      const overrideValue = hasOverrideInput ? parseAnalysisOverrideInput(overrideInput, display) : null;
+      const isOverrideApplied = isCellOverridable && hasOverrideInput;
+
+      overrideInputs[item.period.id] = overrideInput;
+      overrideAllowedByPeriod[item.period.id] = isCellOverridable;
+      overrideStatuses[item.period.id] = !isCellOverridable ? "not_allowed" : isOverrideApplied ? "applied" : "none";
+      validationMessages[item.period.id] =
+        !isCellOverridable && hasOverrideInput ? "Override hanya aktif saat baris memerlukan data pembanding." : "";
+
+      return [item.period.id, isOverrideApplied ? overrideValue : calculatedValue];
+    }),
+  );
   const numericValues = Object.values(values).filter((item): item is number => item !== null && Number.isFinite(item));
 
   return {
@@ -1069,7 +1221,26 @@ function ratioRow(
     values,
     display,
     average: numericValues.length ? numericValues.reduce((sum, item) => sum + item, 0) / numericValues.length : null,
+    ...(comparativeOverride
+      ? {
+          isComparativeOverrideable: true,
+          calculatedValues,
+          overrideAllowedByPeriod,
+          overrideInputs,
+          overrideStatuses,
+          validationMessages,
+        }
+      : {}),
   };
+}
+
+function parseAnalysisOverrideInput(input: string, display: "currency" | "percent" | "multiple"): AnalysisValue {
+  if (!input.trim()) {
+    return null;
+  }
+
+  const parsed = parseInputNumber(input);
+  return display === "percent" ? parsed / 100 : parsed;
 }
 
 function sectionRow(key: string, label: string): AnalysisRow {
