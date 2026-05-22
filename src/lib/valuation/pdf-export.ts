@@ -1,5 +1,5 @@
 import type { AamAdjustmentModel } from "./aam-adjustments";
-import type { calculateAllMethods } from "./calculations";
+import type { calculateAllMethods, DcfTerminalTreatment } from "./calculations";
 import type {
   AccountRow,
   AssumptionState,
@@ -54,6 +54,12 @@ export type ValuationPdfExportInput = {
   activeDcfBasis?: string;
   activeDcfBasisLabel?: string;
   activeDcfBasisSummary?: string;
+  activeDcfProjectionHorizonYears?: number;
+  activeDcfTerminalTreatment?: DcfTerminalTreatment;
+  activeDcfTerminalTreatmentLabel?: string;
+  activeDcfTerminalTreatmentSummary?: string;
+  activeDcfTerminalTreatmentReason?: string;
+  activeDcfTerminalValue?: number;
   dlomCalculation: DlomCalculation;
   dlocPfcCalculation: DlocPfcCalculation;
   taxSimulation: TaxSimulationState;

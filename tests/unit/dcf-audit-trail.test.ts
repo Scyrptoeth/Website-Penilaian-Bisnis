@@ -57,6 +57,39 @@ describe("DCF audit trail", () => {
     assertAlmostEqual(terminalValue.value, expectedTerminalValue, 1e-6);
   });
 
+  it("carries dynamic forecast horizon and finite-life terminal treatment into bridge rows", () => {
+    const tenYearFiniteLifeDcf = calculateDcf(snapshot, {
+      projectionHorizonYears: 10,
+      terminalTreatment: "no-terminal-value",
+    });
+    const trail = buildDcfAuditTrail({
+      snapshot,
+      dcf: tenYearFiniteLifeDcf,
+      historical: {
+        periodLabel: "2021 (Y)",
+        year: 2021,
+        depreciation: 125,
+        currentAssetMovement: -45,
+        currentLiabilityMovement: 20,
+        capitalExpenditures: -80,
+      },
+      terminalGrowth: snapshot.terminalGrowth,
+      wacc: snapshot.wacc,
+      terminalTreatment: "no-terminal-value",
+      includeWorkingCapitalChange: true,
+    });
+    const explicitPv = getBridgeRow(trail, "dcf-total-explicit-pv");
+    const terminalValue = getBridgeRow(trail, "dcf-terminal-value");
+    const terminalPv = getBridgeRow(trail, "dcf-pv-terminal-value");
+
+    assert.equal(trail.periods.length, 11);
+    assert.match(explicitPv.formula, /Y\+1:Y\+10/);
+    assert.equal(terminalValue.formula, "0");
+    assert.match(terminalValue.note, /Finite-life entity/);
+    assertAlmostEqual(terminalValue.value, 0, 1e-9);
+    assertAlmostEqual(terminalPv.value, 0, 1e-9);
+  });
+
   it("keeps no-incremental-working-capital scenario trace at zero WC movement", () => {
     const noWcDcf = calculateDcf(snapshot, { includeWorkingCapitalChange: false });
     const trail = buildDcfAuditTrail({

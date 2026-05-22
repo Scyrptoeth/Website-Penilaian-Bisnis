@@ -4211,6 +4211,49 @@ select {
   overflow-wrap: anywhere;
 }
 
+.projection-planning-panel {
+  display: grid;
+  grid-template-columns: minmax(170px, 0.7fr) repeat(3, minmax(0, 1fr)) minmax(190px, 0.85fr);
+  gap: 8px;
+  align-items: stretch;
+  margin: 10px 0;
+  padding: 10px;
+  border: 1px solid rgba(15, 118, 110, 0.18);
+  border-radius: var(--radius);
+  background: #f8fbfa;
+}
+
+.projection-planning-summary,
+.projection-planning-status {
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.projection-planning-summary strong,
+.projection-planning-status strong {
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.projection-planning-summary span,
+.projection-planning-status span,
+.projection-planning-status small {
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.projection-planning-reason {
+  grid-column: span 2;
+}
+
 .projection-mode-panel {
   display: grid;
   grid-template-columns: minmax(180px, 0.45fr) minmax(0, 1fr);
@@ -6268,6 +6311,7 @@ td span {
   .assumption-reference-list,
   .terminal-growth-suggestion-grid,
   .dcf-active-basis-control,
+  .projection-planning-panel,
   .eem-return-basis-control,
   .eem-return-basis-options,
   .sensitivity-grid,
@@ -6287,6 +6331,10 @@ td span {
   .period-grid,
   .input-grid {
     grid-template-columns: 1fr;
+  }
+
+  .projection-planning-reason {
+    grid-column: auto;
   }
 
   .sensitivity-grid.two-column {

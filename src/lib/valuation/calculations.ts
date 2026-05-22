@@ -40,6 +40,10 @@ export type DcfWorkingCapitalInclusionOptions = {
 export type DcfOptions = {
   terminalGrowth?: number;
   wacc?: number;
+  projectionHorizonYears?: number;
+  terminalTreatment?: DcfTerminalTreatment;
+  terminalValueOverride?: number;
+  residualValue?: number;
   includeWorkingCapitalChange?: boolean;
   debtLikeTaxPayable?: boolean;
   workingCapitalInclusions?: DcfWorkingCapitalInclusionOptions;
@@ -48,6 +52,23 @@ export type DcfOptions = {
   projectionEngine?: "balance-reconciled" | "historical-derived";
   incomeProjectionOverrides?: Record<number, IncomeProjectionYearOverrideInput>;
   incomeProjectionPresentation?: IncomeProjectionPresentationAssumptionsInput;
+};
+
+export const defaultProjectionHorizonYears = 5;
+export const minimumProjectionHorizonYears = 1;
+export const maximumProjectionHorizonYears = 15;
+
+export type DcfTerminalTreatment =
+  | "going-concern-terminal-value"
+  | "no-terminal-value"
+  | "residual-liquidation-value"
+  | "reviewer-approved-terminal";
+
+export type DcfTerminalValueResolution = {
+  treatment: DcfTerminalTreatment;
+  terminalValue: number;
+  formula: string;
+  note: string;
 };
 
 type AamOptions = {
@@ -86,6 +107,85 @@ export type DcfFixedAssetProjectionInput = {
   accumulatedDepreciation?: number;
   fixedAssetsEnding: number;
 };
+
+export function normalizeProjectionHorizonYears(value: unknown): number {
+  const numericValue =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && value.trim()
+        ? Number(value.replace(",", "."))
+        : defaultProjectionHorizonYears;
+
+  if (!Number.isFinite(numericValue)) {
+    return defaultProjectionHorizonYears;
+  }
+
+  return Math.min(maximumProjectionHorizonYears, Math.max(minimumProjectionHorizonYears, Math.trunc(numericValue)));
+}
+
+export function normalizeDcfTerminalTreatment(value: unknown): DcfTerminalTreatment {
+  return value === "no-terminal-value" ||
+    value === "residual-liquidation-value" ||
+    value === "reviewer-approved-terminal" ||
+    value === "going-concern-terminal-value"
+    ? value
+    : "going-concern-terminal-value";
+}
+
+export function resolveDcfTerminalValue({
+  finalFcf,
+  terminalGrowth,
+  wacc,
+  terminalTreatment,
+  terminalValueOverride,
+  residualValue,
+}: {
+  finalFcf: number;
+  terminalGrowth: number;
+  wacc: number;
+  terminalTreatment?: DcfTerminalTreatment;
+  terminalValueOverride?: number;
+  residualValue?: number;
+}): DcfTerminalValueResolution {
+  const treatment = normalizeDcfTerminalTreatment(terminalTreatment);
+
+  if (treatment === "no-terminal-value") {
+    return {
+      treatment,
+      terminalValue: 0,
+      formula: "0",
+      note: "Finite-life entity: tidak ada terminal value setelah periode eksplisit.",
+    };
+  }
+
+  if (treatment === "residual-liquidation-value") {
+    return {
+      treatment,
+      terminalValue: finiteOption(residualValue) ?? 0,
+      formula: "Residual atau liquidation value reviewer",
+      note: "Finite-life entity: nilai akhir memakai residual/liquidation value yang diinput reviewer.",
+    };
+  }
+
+  if (treatment === "reviewer-approved-terminal") {
+    return {
+      treatment,
+      terminalValue: finiteOption(terminalValueOverride) ?? 0,
+      formula: "Reviewer-approved terminal value",
+      note: "Terminal value eksplisit dari reviewer digunakan setelah periode proyeksi.",
+    };
+  }
+
+  const terminalDenominator = wacc - terminalGrowth;
+  const terminalValue = terminalDenominator > 0 ? (finalFcf * (1 + terminalGrowth)) / terminalDenominator : 0;
+
+  return {
+    treatment,
+    terminalValue,
+    formula: "FCFF final x (1 + g) / (WACC - g)",
+    note: "Going-concern terminal value dengan model Gordon Growth.",
+  };
+}
 
 export type ProjectionGovernanceLevel = "ok" | "review" | "critical";
 
@@ -756,6 +856,7 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
   const useHistoricalDerivedProjection = options.projectionEngine === "historical-derived";
   const wacc = options.wacc ?? snapshot.wacc;
   const startYear = forecastStartYear(snapshot);
+  const projectionHorizonYears = normalizeProjectionHorizonYears(options.projectionHorizonYears);
   const baseCash = snapshot.cashOnHand + snapshot.cashOnBankDeposit;
   const interestIncomeCashYield =
     finiteOption(options.incomeProjectionPresentation?.cashYield) ??
@@ -791,7 +892,7 @@ export function buildDcfForecast(snapshot: FinancialStatementSnapshot, options: 
   );
   const otherNonCurrentLiabilitiesBase = positiveResidual(snapshot.nonCurrentLiabilities, snapshot.bankLoanLongTerm);
 
-  for (let period = 1; period <= 5; period += 1) {
+  for (let period = 1; period <= projectionHorizonYears; period += 1) {
     const year = startYear + period;
     const fixedAssetProjection = options.fixedAssetProjection?.[year];
     const incomeProjectionOverride = options.incomeProjectionOverrides?.[year];
@@ -1115,8 +1216,15 @@ export function calculateDcf(
   const finalFcf = forecast[forecast.length - 1]?.freeCashFlow ?? 0;
   const terminalGrowth = options.terminalGrowth ?? snapshot.terminalGrowth;
   const wacc = options.wacc ?? snapshot.wacc;
-  const terminalDenominator = wacc - terminalGrowth;
-  const terminalValue = terminalDenominator > 0 ? (finalFcf * (1 + terminalGrowth)) / terminalDenominator : 0;
+  const terminalResolution = resolveDcfTerminalValue({
+    finalFcf,
+    terminalGrowth,
+    wacc,
+    terminalTreatment: options.terminalTreatment,
+    terminalValueOverride: options.terminalValueOverride,
+    residualValue: options.residualValue,
+  });
+  const terminalValue = terminalResolution.terminalValue;
   const terminalPv = wacc > -1 ? terminalValue / Math.pow(1 + wacc, forecast.length) : 0;
   const enterpriseValue = explicitPv + terminalPv;
   const debtLikeTaxPayable = options.debtLikeTaxPayable ? snapshot.taxPayable : 0;
@@ -1130,16 +1238,19 @@ export function calculateDcf(
       note: options.projectionEngine === "historical-derived"
         ? `Skenario pembanding memakai kebijakan kas, jadwal utang pajak, dan roll-forward ekuitas yang diturunkan dari ${snapshot.historicalProjectionYearCount || 1} periode historis pengguna.`
         : options.fixedAssetProjectionSource
-        ? `Proyeksi eksplisit lima tahun memakai ${options.fixedAssetProjectionSource} untuk depresiasi, capex, dan aset tetap neto.`
-        : "Proyeksi eksplisit lima tahun berbasis margin historis dan operating WC days.",
+        ? `Proyeksi eksplisit ${forecast.length} tahun memakai ${options.fixedAssetProjectionSource} untuk depresiasi, capex, dan aset tetap neto.`
+        : `Proyeksi eksplisit ${forecast.length} tahun berbasis margin historis dan operating WC days.`,
     },
     {
       label: "PV nilai terminal",
-      formula: "[FCFF final x (1 + g) / (WACC - g)] / (1 + WACC)^5",
+      formula: `${terminalResolution.formula} / (1 + WACC)^${forecast.length}`,
       value: terminalPv,
-      note: options.terminalGrowth === undefined
-        ? "Terminal growth berasal dari input skenario dasar pengguna dan wajib lebih rendah dari WACC."
-        : "Terminal growth berasal dari skenario DCF aktif dan wajib lebih rendah dari WACC.",
+      note:
+        terminalResolution.treatment === "going-concern-terminal-value"
+          ? options.terminalGrowth === undefined
+            ? "Terminal growth berasal dari input skenario dasar pengguna dan wajib lebih rendah dari WACC."
+            : "Terminal growth berasal dari skenario DCF aktif dan wajib lebih rendah dari WACC."
+          : terminalResolution.note,
     },
     {
       label: "Aset non-operasional",
@@ -1177,7 +1288,7 @@ export function calculateAllMethods(snapshot: FinancialStatementSnapshot, option
   const dcfTaxPayableDebtLike = calculateDcf(snapshot, { ...dcfOptions, debtLikeTaxPayable: true });
   const dcfHistoricalDerivedProjection = calculateDcf(snapshot, { ...dcfOptions, projectionEngine: "historical-derived" });
   const projectionGovernance = buildDcfProjectionGovernance(snapshot, dcf, dcfHistoricalDerivedProjection);
-  const incomeProjectionRelianceGovernance = buildIncomeProjectionRelianceGovernance(snapshot, dcf);
+  const incomeProjectionRelianceGovernance = buildIncomeProjectionRelianceGovernance(snapshot, dcf, dcfOptions);
   const eem = calculateEem(snapshot, options.eem);
   const eemTaxPayableDebtLike = {
     ...eem,
@@ -1210,8 +1321,9 @@ export function calculateAllMethods(snapshot: FinancialStatementSnapshot, option
 function buildIncomeProjectionRelianceGovernance(
   snapshot: FinancialStatementSnapshot,
   baseline: MethodOutput & { forecast: DcfForecastRow[] },
+  options: DcfOptions = {},
 ): IncomeProjectionRelianceGovernanceResult {
-  const presentationStressEquityValue = calculateAccountingPresentationStressEquityValue(snapshot, baseline.forecast);
+  const presentationStressEquityValue = calculateAccountingPresentationStressEquityValue(snapshot, baseline.forecast, options);
   const absoluteVariance = presentationStressEquityValue - baseline.equityValue;
   const relativeVariance = safeAbsRatio(absoluteVariance, baseline.equityValue);
   const interestBearingDebtBalance = interestBearingDebt(snapshot);
@@ -1516,6 +1628,7 @@ function buildDcfProjectionGovernance(
 function calculateAccountingPresentationStressEquityValue(
   snapshot: FinancialStatementSnapshot,
   forecast: DcfForecastRow[],
+  options: DcfOptions = {},
 ): number {
   if (!forecast.length) {
     return 0;
@@ -1529,10 +1642,16 @@ function calculateAccountingPresentationStressEquityValue(
   const finalRow = forecast[forecast.length - 1];
   const finalStressFreeCashFlow =
     finalRow.accountingNetProfitAfterTax + finalRow.depreciation - finalRow.capitalExpenditure - finalRow.changeInNwc;
-  const terminalDenominator = snapshot.wacc - snapshot.terminalGrowth;
-  const terminalValue =
-    terminalDenominator > 0 ? (finalStressFreeCashFlow * (1 + snapshot.terminalGrowth)) / terminalDenominator : 0;
-  const terminalPv = snapshot.wacc > -1 ? terminalValue / Math.pow(1 + snapshot.wacc, forecast.length) : 0;
+  const stressWacc = options.wacc ?? snapshot.wacc;
+  const terminalValue = resolveDcfTerminalValue({
+    finalFcf: finalStressFreeCashFlow,
+    terminalGrowth: options.terminalGrowth ?? snapshot.terminalGrowth,
+    wacc: stressWacc,
+    terminalTreatment: options.terminalTreatment,
+    terminalValueOverride: options.terminalValueOverride,
+    residualValue: options.residualValue,
+  }).terminalValue;
+  const terminalPv = stressWacc > -1 ? terminalValue / Math.pow(1 + stressWacc, forecast.length) : 0;
   const enterpriseValue = explicitPv + terminalPv;
 
   return enterpriseValue + nonOperatingAssets(snapshot) - interestBearingDebt(snapshot);

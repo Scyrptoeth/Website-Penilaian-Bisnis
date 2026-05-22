@@ -6,6 +6,8 @@ import {
   calculateDcf,
   calculateEem,
   buildDcfForecast,
+  maximumProjectionHorizonYears,
+  minimumProjectionHorizonYears,
   adjustedTotalAssets,
   adjustedTotalLiabilities,
   interestBearingDebt,
@@ -270,6 +272,38 @@ describe("valuation calculations", () => {
       assert.ok(Number.isFinite(row.cashTaxVarianceToSchedule));
       assert.ok(Number.isFinite(row.cashPolicyGap));
     });
+  });
+
+  it("honors configurable DCF projection horizon within guarded range", () => {
+    const tenYearForecast = buildDcfForecast(snapshot, { projectionHorizonYears: 10 });
+    const cappedForecast = buildDcfForecast(snapshot, { projectionHorizonYears: 99 });
+    const flooredForecast = buildDcfForecast(snapshot, { projectionHorizonYears: 0 });
+
+    assert.equal(tenYearForecast.length, 10);
+    assert.equal(tenYearForecast[0].year, 2022);
+    assert.equal(tenYearForecast.at(-1)?.year, 2031);
+    assert.equal(cappedForecast.length, maximumProjectionHorizonYears);
+    assert.equal(flooredForecast.length, minimumProjectionHorizonYears);
+  });
+
+  it("supports finite-life DCF terminal treatments without forcing Gordon terminal value", () => {
+    const baseDcf = calculateDcf(snapshot);
+    const noTerminalDcf = calculateDcf(snapshot, { terminalTreatment: "no-terminal-value" });
+    const residualDcf = calculateDcf(snapshot, {
+      terminalTreatment: "residual-liquidation-value",
+      residualValue: 1_000_000,
+    });
+    const reviewerTerminalDcf = calculateDcf(snapshot, {
+      terminalTreatment: "reviewer-approved-terminal",
+      terminalValueOverride: 2_000_000,
+    });
+    const terminalPv = (dcf: ReturnType<typeof calculateDcf>) =>
+      dcf.traces.find((trace) => trace.label === "PV nilai terminal")?.value ?? Number.NaN;
+
+    assertAlmostEqual(terminalPv(noTerminalDcf), 0, 1e-9);
+    assert.ok(noTerminalDcf.equityValue < baseDcf.equityValue);
+    assertAlmostEqual(terminalPv(residualDcf), 1_000_000 / Math.pow(1 + snapshot.wacc, residualDcf.forecast.length), 0.01);
+    assertAlmostEqual(terminalPv(reviewerTerminalDcf), 2_000_000 / Math.pow(1 + snapshot.wacc, reviewerTerminalDcf.forecast.length), 0.01);
   });
 
   it("keeps minimum operating cash in balance-reconciled DCF forecasts", () => {

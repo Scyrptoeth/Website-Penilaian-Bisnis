@@ -288,7 +288,7 @@ export function encodeXlsxWorkbook(sheets: XlsxSheet[]): Uint8Array {
 }
 
 function buildSummaryRows(input: ValuationPdfExportInput, scope: ValuationExportScope, exportedAt: Date): XlsxCellValue[][] {
-  return [
+  const rows: XlsxCellValue[][] = [
     ["Penilaian Bisnis II - Export XLSX", scope.title],
     ["Scope", scope.label],
     ["Metode", scope.methods.join(" / ")],
@@ -319,6 +319,17 @@ function buildSummaryRows(input: ValuationPdfExportInput, scope: ValuationExport
     ["Active DCF Basis", scope.methods.includes("DCF") ? input.activeDcfBasisLabel || input.activeDcfBasis || "-" : "Tidak termasuk scope"],
     ["Active DCF Summary", scope.methods.includes("DCF") ? input.activeDcfBasisSummary || "-" : "Tidak termasuk scope"],
   ];
+
+  if (scope.methods.includes("DCF")) {
+    rows.push(
+      ["DCF Projection Horizon", input.activeDcfProjectionHorizonYears ?? input.results.dcf.forecast.length],
+      ["DCF Terminal Treatment", input.activeDcfTerminalTreatmentLabel || "Default terminal value"],
+      ["DCF Terminal Treatment Summary", input.activeDcfTerminalTreatmentSummary || "-"],
+      ["DCF Terminal Treatment Reason", input.activeDcfTerminalTreatmentReason || "-"],
+    );
+  }
+
+  return rows;
 }
 
 type CalculationModelBuild = {
@@ -362,6 +373,9 @@ function buildCalculationModelRows(input: ValuationPdfExportInput, scope: Valuat
   add("terminalGrowthDownside", "Input", "Terminal growth downside", input.snapshot.terminalGrowthDownside ?? input.snapshot.terminalGrowth, "Input", "DCF downside scenario input.");
   add("terminalGrowthUpside", "Input", "Terminal growth upside", input.snapshot.terminalGrowthUpside ?? input.snapshot.terminalGrowth, "Input", "DCF upside scenario input.");
   add("dcfTerminalGrowth", "Input", "Active DCF terminal growth", resolveActiveDcfTerminalGrowth(input), "Input", input.activeDcfBasisSummary || "DCF active basis.");
+  add("dcfProjectionHorizonYears", "Input", "Active DCF projection horizon years", input.activeDcfProjectionHorizonYears ?? input.results.dcf.forecast.length, "Input", "Explicit forecast horizon used by DCF projection tabs and valuation output.");
+  add("dcfTerminalTreatment", "Input", "Active DCF terminal treatment", input.activeDcfTerminalTreatmentLabel || "Default terminal value", "Input", input.activeDcfTerminalTreatmentSummary || "Terminal value follows growth/WACC.");
+  add("dcfTerminalTreatmentValue", "Input", "Finite-life terminal/residual value", input.activeDcfTerminalValue ?? null, "Input", "Used only for residual/liquidation value or reviewer-approved terminal treatment.");
   add("revenueGrowth", "Input", "Revenue growth", input.snapshot.revenueGrowth, "Input", "DCF forecast driver.");
   add("requiredReturnOnNta", "Input", "Required return on NTA", input.snapshot.requiredReturnOnNta, "Input", input.resolvedAssumptions.requiredReturnOnNtaSource || input.assumptions.requiredReturnOnNtaSource);
   add(
@@ -469,16 +483,29 @@ function buildCalculationModelRows(input: ValuationPdfExportInput, scope: Valuat
     const forecastFirstRow = 2;
     const forecastLastRow = forecastFirstRow + forecastLength - 1;
     const activeDebtLikeTaxPayable = input.activeDcfBasis === "taxPayableDebtLike" ? input.snapshot.taxPayable : 0;
+    const explicitPv = input.results.dcf.forecast.reduce((sum, row) => sum + row.presentValue, 0);
+    const dcfTerminalValue = calculateTerminalValue(
+      input.results.dcf.equityValue,
+      input.results.nonOperatingAssets,
+      input.results.interestBearingDebt,
+      activeDebtLikeTaxPayable,
+      explicitPv,
+      input.snapshot.wacc,
+      forecastLength,
+    );
+    const dcfTerminalValueFormula = buildDcfTerminalValueFormula(input, refs);
+    const dcfTerminalSensitivityDownsideFormula = buildDcfTerminalSensitivityEquityFormula(input, refs, refs.terminalGrowthDownside, forecastLength);
+    const dcfTerminalSensitivityUpsideFormula = buildDcfTerminalSensitivityEquityFormula(input, refs, refs.terminalGrowthUpside, forecastLength);
 
-    add("dcfExplicitPv", "DCF", "PV explicit FCFF", formulaCell(`SUM(${sheetCell(dcfForecastSheetName, `N${forecastFirstRow}:N${forecastLastRow}`)})`, input.results.dcf.forecast.reduce((sum, row) => sum + row.presentValue, 0)), "Formula", "Sum of projected FCFF present values.");
+    add("dcfExplicitPv", "DCF", "PV explicit FCFF", formulaCell(`SUM(${sheetCell(dcfForecastSheetName, `N${forecastFirstRow}:N${forecastLastRow}`)})`, explicitPv), "Formula", "Sum of projected FCFF present values.");
     add("dcfFinalFcff", "DCF", "Final projected FCFF", formulaCell(sheetCell(dcfForecastSheetName, `L${forecastLastRow}`), input.results.dcf.forecast.at(-1)?.freeCashFlow ?? 0), "Formula", "Last forecast year FCFF.");
-    add("dcfTerminalValue", "DCF", "Terminal value", formulaCell(`IF(${refs.wacc}-${refs.dcfTerminalGrowth}>0,${refs.dcfFinalFcff}*(1+${refs.dcfTerminalGrowth})/(${refs.wacc}-${refs.dcfTerminalGrowth}),0)`, calculateTerminalValue(input.results.dcf.equityValue, input.results.nonOperatingAssets, input.results.interestBearingDebt, activeDebtLikeTaxPayable, input.results.dcf.forecast.reduce((sum, row) => sum + row.presentValue, 0), input.snapshot.wacc, forecastLength)), "Formula", "Final FCFF x (1 + active terminal growth) / (WACC - active terminal growth).");
-    add("dcfTerminalPv", "DCF", "PV terminal value", formulaCell(`${refs.dcfTerminalValue}/(1+${refs.wacc})^${forecastLength}`, calculateTerminalValue(input.results.dcf.equityValue, input.results.nonOperatingAssets, input.results.interestBearingDebt, activeDebtLikeTaxPayable, input.results.dcf.forecast.reduce((sum, row) => sum + row.presentValue, 0), input.snapshot.wacc, forecastLength) / Math.pow(1 + input.snapshot.wacc, forecastLength)), "Formula", "Terminal value discounted to present value.");
+    add("dcfTerminalValue", "DCF", "Terminal value", formulaCell(dcfTerminalValueFormula.formula, dcfTerminalValue), "Formula", dcfTerminalValueFormula.source);
+    add("dcfTerminalPv", "DCF", "PV terminal value", formulaCell(`${refs.dcfTerminalValue}/(1+${refs.wacc})^${forecastLength}`, dcfTerminalValue / Math.pow(1 + input.snapshot.wacc, forecastLength)), "Formula", "Terminal value discounted to present value.");
     add("dcfEnterpriseValue", "DCF", "Enterprise value", formulaCell(`${refs.dcfExplicitPv}+${refs.dcfTerminalPv}`, input.results.dcf.equityValue - input.results.nonOperatingAssets + input.results.interestBearingDebt + activeDebtLikeTaxPayable), "Formula", "PV explicit FCFF + PV terminal value.");
     add("dcfDebtLikeTaxPayable", "DCF", "Debt-like tax payable active", activeDebtLikeTaxPayable, "System", "Applied only when active DCF basis is tax payable debt-like.");
     add("dcfEquityValue", "DCF", "Equity value 100%", formulaCell(`${refs.dcfEnterpriseValue}+${refs.nonOperatingAssets}-${refs.interestBearingDebt}-${refs.dcfDebtLikeTaxPayable}`, input.results.dcf.equityValue), "Formula", "Enterprise value + non-operating assets - debt - active debt-like tax payable.");
-    add("dcfTerminalDownsideValue", "DCF", "DCF terminal downside value", formulaCell(`${refs.dcfExplicitPv}+(IF(${refs.wacc}-${refs.terminalGrowthDownside}>0,${refs.dcfFinalFcff}*(1+${refs.terminalGrowthDownside})/(${refs.wacc}-${refs.terminalGrowthDownside}),0)/(1+${refs.wacc})^${forecastLength})+${refs.nonOperatingAssets}-${refs.interestBearingDebt}`, input.baseResults?.sensitivities.dcfTerminalDownside.equityValue ?? input.results.sensitivities.dcfTerminalDownside.equityValue), "Formula", "Active forecast with downside terminal growth.");
-    add("dcfTerminalUpsideValue", "DCF", "DCF terminal upside value", formulaCell(`${refs.dcfExplicitPv}+(IF(${refs.wacc}-${refs.terminalGrowthUpside}>0,${refs.dcfFinalFcff}*(1+${refs.terminalGrowthUpside})/(${refs.wacc}-${refs.terminalGrowthUpside}),0)/(1+${refs.wacc})^${forecastLength})+${refs.nonOperatingAssets}-${refs.interestBearingDebt}`, input.baseResults?.sensitivities.dcfTerminalUpside.equityValue ?? input.results.sensitivities.dcfTerminalUpside.equityValue), "Formula", "Active forecast with upside terminal growth.");
+    add("dcfTerminalDownsideValue", "DCF", "DCF terminal downside value", formulaCell(dcfTerminalSensitivityDownsideFormula, input.baseResults?.sensitivities.dcfTerminalDownside.equityValue ?? input.results.sensitivities.dcfTerminalDownside.equityValue), "Formula", "Active forecast with downside terminal growth or finite-life terminal treatment.");
+    add("dcfTerminalUpsideValue", "DCF", "DCF terminal upside value", formulaCell(dcfTerminalSensitivityUpsideFormula, input.baseResults?.sensitivities.dcfTerminalUpside.equityValue ?? input.results.sensitivities.dcfTerminalUpside.equityValue), "Formula", "Active forecast with upside terminal growth or finite-life terminal treatment.");
   }
 
   return { rows, refs };
@@ -576,6 +603,18 @@ function buildDriverMetrics(input: ValuationPdfExportInput, scope: ValuationExpo
   if (scope.methods.includes("DCF")) {
     metrics.push(
       { label: "Basis DCF aktif", value: input.activeDcfBasisLabel || "DCF - skenario dasar", note: input.activeDcfBasisSummary || "Default sistem" },
+      {
+        label: "Horizon proyeksi DCF",
+        value: input.activeDcfProjectionHorizonYears ?? input.results.dcf.forecast.length,
+        sourceType: "Input",
+        note: "Periode proyeksi eksplisit yang dihitung engine DCF.",
+      },
+      {
+        label: "Terminal treatment",
+        value: input.activeDcfTerminalTreatmentLabel || "Default terminal value",
+        sourceType: "Input",
+        note: input.activeDcfTerminalTreatmentSummary || "Terminal value follows growth/WACC.",
+      },
       {
         label: "Terminal growth",
         value: formulaCell(refs.terminalGrowth, input.snapshot.terminalGrowth),
@@ -1374,6 +1413,53 @@ function resolveActiveDcfTerminalGrowth(input: ValuationPdfExportInput): number 
   }
 
   return input.snapshot.terminalGrowth;
+}
+
+function buildDcfTerminalValueFormula(
+  input: ValuationPdfExportInput,
+  refs: Record<string, string>,
+): { formula: string; source: string } {
+  if (input.activeDcfTerminalTreatment === "no-terminal-value") {
+    return {
+      formula: "0",
+      source: "Finite-life entity: no terminal value after explicit projection horizon.",
+    };
+  }
+
+  if (
+    input.activeDcfTerminalTreatment === "residual-liquidation-value" ||
+    input.activeDcfTerminalTreatment === "reviewer-approved-terminal"
+  ) {
+    return {
+      formula: refs.dcfTerminalTreatmentValue,
+      source: input.activeDcfTerminalTreatmentSummary || "Finite-life terminal value approved by reviewer.",
+    };
+  }
+
+  return {
+    formula: `IF(${refs.wacc}-${refs.dcfTerminalGrowth}>0,${refs.dcfFinalFcff}*(1+${refs.dcfTerminalGrowth})/(${refs.wacc}-${refs.dcfTerminalGrowth}),0)`,
+    source: "Final FCFF x (1 + active terminal growth) / (WACC - active terminal growth).",
+  };
+}
+
+function buildDcfTerminalSensitivityEquityFormula(
+  input: ValuationPdfExportInput,
+  refs: Record<string, string>,
+  terminalGrowthRef: string,
+  forecastLength: number,
+): string {
+  if (input.activeDcfTerminalTreatment === "no-terminal-value") {
+    return `${refs.dcfExplicitPv}+${refs.nonOperatingAssets}-${refs.interestBearingDebt}`;
+  }
+
+  if (
+    input.activeDcfTerminalTreatment === "residual-liquidation-value" ||
+    input.activeDcfTerminalTreatment === "reviewer-approved-terminal"
+  ) {
+    return `${refs.dcfExplicitPv}+(${refs.dcfTerminalTreatmentValue}/(1+${refs.wacc})^${forecastLength})+${refs.nonOperatingAssets}-${refs.interestBearingDebt}`;
+  }
+
+  return `${refs.dcfExplicitPv}+(IF(${refs.wacc}-${terminalGrowthRef}>0,${refs.dcfFinalFcff}*(1+${terminalGrowthRef})/(${refs.wacc}-${terminalGrowthRef}),0)/(1+${refs.wacc})^${forecastLength})+${refs.nonOperatingAssets}-${refs.interestBearingDebt}`;
 }
 
 function buildWorksheetXml(

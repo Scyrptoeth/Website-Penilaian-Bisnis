@@ -51,9 +51,15 @@ import {
   buildDcfForecast,
   calculateAllMethods,
   calculateDcf,
+  defaultProjectionHorizonYears,
+  maximumProjectionHorizonYears,
+  minimumProjectionHorizonYears,
   normalizedNoplat,
+  normalizeDcfTerminalTreatment,
+  normalizeProjectionHorizonYears,
   type DcfOptions,
   type DcfFixedAssetProjectionInput,
+  type DcfTerminalTreatment,
   type DcfWorkingCapitalCurrentAssetKey,
   type DcfWorkingCapitalCurrentLiabilityKey,
   type DcfWorkingCapitalInclusionOptions,
@@ -460,7 +466,7 @@ const requiredReturnSuggestionOrder: RequiredReturnOnNtaSuggestionKey[] = [
 const WORKBENCH_STORAGE_KEY = "penilaian-valuasi-bisnis.workbench.v1";
 const WORKBENCH_SCROLL_STORAGE_KEY = "penilaian-valuasi-bisnis.scroll.v1";
 const WORKBENCH_SIDEBAR_STORAGE_KEY = "penilaian-valuasi-bisnis.sidebar.v1";
-const WORKBENCH_STORAGE_VERSION = 20;
+const WORKBENCH_STORAGE_VERSION = 21;
 const WORKSPACE_MANIFEST_STORAGE_KEY = "penilaian-valuasi-bisnis.workspaces.v1";
 const WORKSPACE_DATA_STORAGE_PREFIX = "penilaian-valuasi-bisnis.workspace.";
 const WORKSPACE_DATA_STORAGE_SUFFIX = ".v1";
@@ -492,8 +498,12 @@ type ActiveDcfSelection = {
   summary: string;
   dcf: DcfOutput;
   terminalGrowth: number;
+  terminalTreatment: DcfTerminalTreatment;
+  terminalValueOverride?: number;
+  residualValue?: number;
   includeWorkingCapitalChange: boolean;
   debtLikeTaxPayable: number;
+  projectionHorizonYears: number;
   projectionEngineLabel: string;
 };
 type ActiveEemSelection = {
@@ -580,6 +590,16 @@ type IncomeProjectionScenarioResult = {
   summary: string;
 };
 
+type ProjectionEntityLife = "going-concern" | "finite-life";
+
+type ProjectionPlanningState = {
+  horizonYears: string;
+  entityLife: ProjectionEntityLife;
+  terminalTreatment: DcfTerminalTreatment;
+  terminalValue: string;
+  terminalTreatmentReason: string;
+};
+
 type PersistedWorkbenchState = {
   version: typeof WORKBENCH_STORAGE_VERSION;
   savedAt: string;
@@ -594,6 +614,7 @@ type PersistedWorkbenchState = {
   eemReturnOnTangibleAssetBasis: EemReturnOnTangibleAssetBasis;
   activeEemBasis: ActiveEemBasis;
   activeDcfBasis: ActiveDcfBasis;
+  projectionPlanning: ProjectionPlanningState;
   aamAdjustments: AamAdjustmentState;
   assumptions: AssumptionState;
   caseProfile: CaseProfile;
@@ -813,6 +834,64 @@ const activeDcfBasisLabels = Object.fromEntries(activeDcfBasisOptions.map((optio
 >;
 const defaultActiveDcfBasis: ActiveDcfBasis = "base";
 
+const defaultProjectionPlanning: ProjectionPlanningState = {
+  horizonYears: String(defaultProjectionHorizonYears),
+  entityLife: "going-concern",
+  terminalTreatment: "going-concern-terminal-value",
+  terminalValue: "",
+  terminalTreatmentReason: "",
+};
+
+const projectionEntityLifeOptions: Array<{ value: ProjectionEntityLife; label: string; description: string }> = [
+  {
+    value: "going-concern",
+    label: "Going concern",
+    description: "Default: explicit forecast diikuti terminal value.",
+  },
+  {
+    value: "finite-life",
+    label: "Finite-life entity",
+    description: "Gunakan saat umur entitas/proyek terbatas dan terminal harus eksplisit.",
+  },
+];
+
+const terminalTreatmentOptions: Array<{
+  value: DcfTerminalTreatment;
+  label: string;
+  description: string;
+  finiteLifeRecommended: boolean;
+}> = [
+  {
+    value: "going-concern-terminal-value",
+    label: "Default terminal value",
+    description: "Gordon Growth, paling sesuai untuk going concern.",
+    finiteLifeRecommended: false,
+  },
+  {
+    value: "no-terminal-value",
+    label: "No terminal value",
+    description: "Paling konservatif untuk finite-life tanpa residual yang dapat dibuktikan.",
+    finiteLifeRecommended: true,
+  },
+  {
+    value: "residual-liquidation-value",
+    label: "Residual/liquidation value",
+    description: "Gunakan jika ada nilai sisa aset, kontrak, atau liquidation value yang supportable.",
+    finiteLifeRecommended: true,
+  },
+  {
+    value: "reviewer-approved-terminal",
+    label: "Reviewer-approved terminal",
+    description: "Terminal eksplisit berbasis memo reviewer dan audit trail.",
+    finiteLifeRecommended: true,
+  },
+];
+
+const terminalTreatmentLabels = Object.fromEntries(terminalTreatmentOptions.map((option) => [option.value, option])) as Record<
+  DcfTerminalTreatment,
+  (typeof terminalTreatmentOptions)[number]
+>;
+
 const activeWaccBasisOptions: Array<{
   value: WaccBasis;
   label: string;
@@ -993,6 +1072,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   );
   const [activeEemBasis, setActiveEemBasis] = useState<ActiveEemBasis>(defaultActiveEemBasis);
   const [activeDcfBasis, setActiveDcfBasis] = useState<ActiveDcfBasis>(defaultActiveDcfBasis);
+  const [projectionPlanning, setProjectionPlanning] = useState<ProjectionPlanningState>(defaultProjectionPlanning);
   const [aamAdjustments, setAamAdjustments] = useState<AamAdjustmentState>({});
   const [assumptions, setAssumptions] = useState<AssumptionState>(emptyAssumptions);
   const [caseProfile, setCaseProfile] = useState<CaseProfile>(emptyCaseProfile);
@@ -1122,9 +1202,14 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     () => buildDcfProjectionWorkingCapitalCandidates(cashFlowAccountInclusions),
     [cashFlowAccountInclusions],
   );
+  const projectionPlanningDcfOptions = useMemo(
+    () => buildProjectionPlanningDcfOptions(projectionPlanning),
+    [projectionPlanning],
+  );
+  const projectionHorizonYears = projectionPlanningDcfOptions.projectionHorizonYears ?? defaultProjectionHorizonYears;
   const baseDcfForecast = useMemo(
-    () => buildDcfForecast(snapshot, { workingCapitalInclusions: dcfWorkingCapitalInclusionOptions }),
-    [dcfWorkingCapitalInclusionOptions, snapshot],
+    () => buildDcfForecast(snapshot, { ...projectionPlanningDcfOptions, workingCapitalInclusions: dcfWorkingCapitalInclusionOptions }),
+    [dcfWorkingCapitalInclusionOptions, projectionPlanningDcfOptions, snapshot],
   );
   const fixedAssetProjection = useMemo(
     () => buildFixedAssetProjection(baseDcfForecast, periods, activePeriodId, fixedAssetSchedule, { preferredMode: fixedAssetProjectionMode }),
@@ -1195,11 +1280,12 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         eem: eemCalculationOptions,
         dcf: dcfFixedAssetProjection
           ? {
+              ...projectionPlanningDcfOptions,
               workingCapitalInclusions: dcfWorkingCapitalInclusionOptions,
               fixedAssetProjection: dcfFixedAssetProjection,
               fixedAssetProjectionSource: fixedAssetProjection.source,
             }
-          : { workingCapitalInclusions: dcfWorkingCapitalInclusionOptions },
+          : { ...projectionPlanningDcfOptions, workingCapitalInclusions: dcfWorkingCapitalInclusionOptions },
       }),
     [
       aamAdjustmentModel.assetAdjustmentTotal,
@@ -1213,6 +1299,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       dcfWorkingCapitalInclusionOptions,
       eemCalculationOptions,
       fixedAssetProjection.source,
+      projectionPlanningDcfOptions,
       snapshot,
     ],
   );
@@ -1223,8 +1310,8 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   );
   const activeEem = activeEemSelection.eem;
   const baseActiveDcfSelection = useMemo(
-    () => buildActiveDcfSelection(results, activeDcfBasis, snapshot),
-    [activeDcfBasis, results, snapshot],
+    () => buildActiveDcfSelection(results, activeDcfBasis, snapshot, projectionPlanningDcfOptions),
+    [activeDcfBasis, projectionPlanningDcfOptions, results, snapshot],
   );
   const baseActiveDcf = baseActiveDcfSelection.dcf;
   const incomeProjectionScenario = useMemo(
@@ -1234,6 +1321,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         baselineEquityValue: baseActiveDcf.equityValue,
         controls: incomeProjectionControls,
         activeDcfOptions: {
+          ...projectionPlanningDcfOptions,
           ...buildActiveDcfBasisDcfOptions(activeDcfBasis, snapshot),
           workingCapitalInclusions: dcfWorkingCapitalInclusionOptions,
         },
@@ -1247,6 +1335,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       baseActiveDcf.equityValue,
       fixedAssetProjection.source,
       incomeProjectionControls,
+      projectionPlanningDcfOptions,
       snapshot,
     ],
   );
@@ -1301,6 +1390,9 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         },
         terminalGrowth: activeDcfSelection.terminalGrowth,
         wacc: snapshot.wacc,
+        terminalTreatment: activeDcfSelection.terminalTreatment,
+        terminalValueOverride: activeDcfSelection.terminalValueOverride,
+        residualValue: activeDcfSelection.residualValue,
         includeWorkingCapitalChange: activeDcfSelection.includeWorkingCapitalChange,
         debtLikeTaxPayable: activeDcfSelection.debtLikeTaxPayable,
       }),
@@ -1308,7 +1400,10 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       activeDcf,
       activeDcfSelection.debtLikeTaxPayable,
       activeDcfSelection.includeWorkingCapitalChange,
+      activeDcfSelection.residualValue,
       activeDcfSelection.terminalGrowth,
+      activeDcfSelection.terminalTreatment,
+      activeDcfSelection.terminalValueOverride,
       activePeriod?.label,
       activePeriod?.valuationDate,
       eemCalculationOptions.capitalExpenditures,
@@ -1452,6 +1547,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     eemReturnOnTangibleAssetBasis !== defaultEemReturnOnTangibleAssetBasis ||
     activeEemBasis !== defaultActiveEemBasis ||
     activeDcfBasis !== defaultActiveDcfBasis ||
+    hasProjectionPlanningInput(projectionPlanning) ||
     hasDlomInput(dlom) ||
     hasDlocPfcInput(dlocPfc) ||
     hasTaxSimulationInput(taxSimulation);
@@ -1502,6 +1598,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       eemReturnOnTangibleAssetBasis,
       activeEemBasis,
       activeDcfBasis,
+      projectionPlanning,
       aamAdjustments,
       assumptions,
       caseProfile,
@@ -1526,6 +1623,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     setEemReturnOnTangibleAssetBasis(state.eemReturnOnTangibleAssetBasis);
     setActiveEemBasis(state.activeEemBasis);
     setActiveDcfBasis(state.activeDcfBasis);
+    setProjectionPlanning(state.projectionPlanning);
     setAamAdjustments(state.aamAdjustments);
     setAssumptions(state.assumptions);
     setCaseProfile(state.caseProfile);
@@ -1976,6 +2074,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         eemReturnOnTangibleAssetBasis,
         activeDcfBasis,
         activeEemBasis,
+        projectionPlanning,
         aamAdjustments,
         assumptions,
         caseProfile,
@@ -2018,6 +2117,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     isDraftRestored,
     isFixedAssetScheduleEnabled,
     periods,
+    projectionPlanning,
     rows,
     taxSimulation,
     workspaces,
@@ -2753,6 +2853,17 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     }));
   }
 
+  function updateProjectionPlanning(patch: Partial<ProjectionPlanningState>) {
+    commitCoreState((current) => {
+      const nextProjectionPlanning = normalizeProjectionPlanningPatch(current.projectionPlanning, patch);
+
+      return {
+        ...current,
+        projectionPlanning: nextProjectionPlanning,
+      };
+    });
+  }
+
   function applyIncomeProjectionSmartSuggestions() {
     const forecast = activeDcf.forecast;
     const now = new Date().toISOString();
@@ -2931,6 +3042,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       eemReturnOnTangibleAssetBasis: defaultEemReturnOnTangibleAssetBasis,
       activeEemBasis: defaultActiveEemBasis,
       activeDcfBasis: defaultActiveDcfBasis,
+      projectionPlanning: { ...defaultProjectionPlanning },
       aamAdjustments: {},
       assumptions: sampleAssumptions,
       caseProfile: buildSampleCaseProfile(),
@@ -2985,6 +3097,14 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       activeDcfBasis,
       activeDcfBasisLabel: activeDcfSelection.label,
       activeDcfBasisSummary: activeDcfSelection.summary,
+      activeDcfProjectionHorizonYears: activeDcfSelection.projectionHorizonYears,
+      activeDcfTerminalTreatment: activeDcfSelection.terminalTreatment,
+      activeDcfTerminalTreatmentLabel:
+        terminalTreatmentLabels[activeDcfSelection.terminalTreatment]?.label ?? "Default terminal value",
+      activeDcfTerminalTreatmentSummary:
+        terminalTreatmentLabels[activeDcfSelection.terminalTreatment]?.description ?? "Terminal value mengikuti growth/WACC.",
+      activeDcfTerminalTreatmentReason: projectionPlanning.terminalTreatmentReason,
+      activeDcfTerminalValue: activeDcfSelection.terminalValueOverride ?? activeDcfSelection.residualValue,
       dlomCalculation,
       dlocPfcCalculation,
       taxSimulation,
@@ -4268,6 +4388,13 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
             </div>
           ))}
         </section>
+
+        <ProjectionPlanningPanel
+          planning={projectionPlanning}
+          horizonYears={projectionHorizonYears}
+          activeDcfSelection={activeDcfSelection}
+          onChange={updateProjectionPlanning}
+        />
 
         <section className="panel">
           <div className="panel-heading">
@@ -6876,7 +7003,7 @@ const dcfProjectionConfigs: Record<ProjectionStatementKind, DcfProjectionConfig>
     eyebrow: "MODEL NERACA",
     title: "Proyeksi Neraca",
     badge: "Integrated BS",
-    summary: "Neraca lima tahun dihitung dari driver operasi, jadwal aset tetap, roll-forward ekuitas, kontrol balancing, dan rekonsiliasi arus kas.",
+    summary: "Neraca proyeksi dihitung dari driver operasi, jadwal aset tetap, roll-forward ekuitas, kontrol balancing, dan rekonsiliasi arus kas.",
     rows: dcfBalanceProjectionRows,
     testId: "dcf-balance-projection-table",
   },
@@ -6898,6 +7025,116 @@ const dcfProjectionConfigs: Record<ProjectionStatementKind, DcfProjectionConfig>
     testId: "dcf-cash-flow-projection-table",
   },
 };
+
+function ProjectionPlanningPanel({
+  planning,
+  horizonYears,
+  activeDcfSelection,
+  onChange,
+}: {
+  planning: ProjectionPlanningState;
+  horizonYears: number;
+  activeDcfSelection: ActiveDcfSelection;
+  onChange: (patch: Partial<ProjectionPlanningState>) => void;
+}) {
+  const isFiniteLife = planning.entityLife === "finite-life";
+  const showTerminalValueInput =
+    planning.terminalTreatment === "residual-liquidation-value" ||
+    planning.terminalTreatment === "reviewer-approved-terminal";
+  const terminalTreatmentLabel = terminalTreatmentLabels[planning.terminalTreatment]?.label ?? "Default terminal value";
+
+  return (
+    <section className="projection-planning-panel" aria-label="Pengaturan horizon dan terminal DCF">
+      <div className="projection-planning-summary">
+        <p className="eyebrow">Planning DCF</p>
+        <strong>{horizonYears} tahun eksplisit</strong>
+        <span>{terminalTreatmentLabel}</span>
+      </div>
+      <label className="field">
+        <span>Horizon proyeksi</span>
+        <input
+          aria-label="Horizon proyeksi"
+          min={minimumProjectionHorizonYears}
+          max={maximumProjectionHorizonYears}
+          step={1}
+          type="number"
+          value={planning.horizonYears}
+          onChange={(event) => onChange({ horizonYears: event.target.value })}
+        />
+        <small className="field-help">Default 5 tahun; rentang {minimumProjectionHorizonYears}-{maximumProjectionHorizonYears} tahun.</small>
+      </label>
+      <label className="field">
+        <span>Entity life</span>
+        <select
+          aria-label="Entity life"
+          value={planning.entityLife}
+          onChange={(event) => onChange({ entityLife: event.target.value as ProjectionEntityLife })}
+        >
+          {projectionEntityLifeOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <small className="field-help">
+          {projectionEntityLifeOptions.find((option) => option.value === planning.entityLife)?.description}
+        </small>
+      </label>
+      <label className="field">
+        <span>Terminal treatment</span>
+        <select
+          aria-label="Terminal treatment"
+          value={planning.terminalTreatment}
+          onChange={(event) => onChange({ terminalTreatment: event.target.value as DcfTerminalTreatment })}
+          disabled={!isFiniteLife}
+        >
+          {terminalTreatmentOptions
+            .filter((option) => isFiniteLife || option.value === "going-concern-terminal-value")
+            .map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+        </select>
+        <small className="field-help">
+          {terminalTreatmentLabels[planning.terminalTreatment]?.description}
+        </small>
+      </label>
+      {showTerminalValueInput ? (
+        <label className="field">
+          <span>Terminal/residual value</span>
+          <input
+            aria-label="Terminal/residual value"
+            inputMode="decimal"
+            value={planning.terminalValue}
+            onChange={(event) => onChange({ terminalValue: event.target.value })}
+          />
+          <small className="field-help">Nilai akan didiskonto pada tahun proyeksi terakhir.</small>
+        </label>
+      ) : null}
+      {isFiniteLife ? (
+        <label className="field projection-planning-reason">
+          <span>Alasan terminal treatment</span>
+          <textarea
+            aria-label="Alasan terminal treatment"
+            rows={2}
+            value={planning.terminalTreatmentReason}
+            onChange={(event) => onChange({ terminalTreatmentReason: event.target.value })}
+          />
+        </label>
+      ) : null}
+      <div className="projection-planning-status">
+        <span>Basis aktif</span>
+        <strong>{activeDcfSelection.shortLabel}</strong>
+        <small>
+          {activeDcfSelection.terminalTreatment === "going-concern-terminal-value"
+            ? "Terminal value mengikuti growth/WACC."
+            : terminalTreatmentLabels[activeDcfSelection.terminalTreatment]?.description}
+        </small>
+      </div>
+    </section>
+  );
+}
 
 function ProjectionStatementSection({
   kind,
@@ -6977,7 +7214,7 @@ function ProjectionStatementSection({
             <span>Horizon</span>
           </div>
           <strong>{horizonLabel}</strong>
-          <p>Proyeksi lima tahun dimulai setelah tanggal penilaian aktif.</p>
+          <p>Proyeksi {activeDcfSelection.projectionHorizonYears} tahun dimulai setelah tanggal penilaian aktif.</p>
         </article>
         <article className="metric-card">
           <div className="card-title">
@@ -7000,7 +7237,7 @@ function ProjectionStatementSection({
             <div>
               <span>Terminal growth aktif</span>
               <strong>{formatTerminalGrowthPercent(activeDcfSelection.terminalGrowth)}</strong>
-              <small>Dipakai di nilai terminal DCF</small>
+              <small>{terminalTreatmentLabels[activeDcfSelection.terminalTreatment]?.label ?? "Dipakai di nilai terminal DCF"}</small>
             </div>
             <div>
               <span>Working capital</span>
@@ -7040,7 +7277,7 @@ function ProjectionStatementSection({
           <div>
             <span>Terminal growth aktif</span>
             <strong>{formatTerminalGrowthPercent(activeDcfSelection.terminalGrowth)}</strong>
-            <small>Dipakai di nilai terminal DCF</small>
+            <small>{terminalTreatmentLabels[activeDcfSelection.terminalTreatment]?.label ?? "Dipakai di nilai terminal DCF"}</small>
           </div>
           <div>
             <span>Working capital</span>
@@ -7686,6 +7923,7 @@ function buildActiveDcfSelection(
   results: CalculationResults,
   basis: ActiveDcfBasis,
   snapshot: FinancialStatementSnapshot,
+  options: DcfOptions = {},
 ): ActiveDcfSelection {
   const option = activeDcfBasisLabels[basis] ?? activeDcfBasisLabels[defaultActiveDcfBasis];
   const dcf = resolveActiveDcf(results, basis);
@@ -7696,6 +7934,7 @@ function buildActiveDcfSelection(
         ? snapshot.terminalGrowthUpside ?? snapshot.terminalGrowth
         : snapshot.terminalGrowth;
   const includeWorkingCapitalChange = basis !== "noIncrementalWorkingCapital";
+  const terminalTreatment = normalizeDcfTerminalTreatment(options.terminalTreatment);
   const projectionEngineLabel =
     basis === "historicalDerivedProjection"
       ? "Projection engine historis-terturunkan"
@@ -7708,8 +7947,12 @@ function buildActiveDcfSelection(
     summary: option.summary,
     dcf,
     terminalGrowth,
+    terminalTreatment,
+    terminalValueOverride: options.terminalValueOverride,
+    residualValue: options.residualValue,
     includeWorkingCapitalChange,
     debtLikeTaxPayable: basis === "taxPayableDebtLike" ? snapshot.taxPayable : 0,
+    projectionHorizonYears: normalizeProjectionHorizonYears(options.projectionHorizonYears),
     projectionEngineLabel,
   };
 }
@@ -8979,6 +9222,7 @@ function normalizeWorkbenchStatePayload(value: unknown): PersistedWorkbenchState
   const eemReturnOnTangibleAssetBasis = sanitizeEemReturnOnTangibleAssetBasis(value.eemReturnOnTangibleAssetBasis);
   const activeEemBasis = sanitizeActiveEemBasis(value.activeEemBasis);
   const activeDcfBasis = sanitizeActiveDcfBasis(value.activeDcfBasis);
+  const projectionPlanning = sanitizeProjectionPlanning(value.projectionPlanning);
   const isFixedAssetScheduleEnabled =
     typeof value.isFixedAssetScheduleEnabled === "boolean" ? value.isFixedAssetScheduleEnabled : fixedAssetScheduleRows.length > 0;
 
@@ -8996,6 +9240,7 @@ function normalizeWorkbenchStatePayload(value: unknown): PersistedWorkbenchState
     eemReturnOnTangibleAssetBasis,
     activeEemBasis,
     activeDcfBasis,
+    projectionPlanning,
     aamAdjustments,
     assumptions,
     caseProfile,
@@ -9039,6 +9284,7 @@ function buildEmptyCoreState(): WorkbenchCoreState {
     eemReturnOnTangibleAssetBasis: defaultEemReturnOnTangibleAssetBasis,
     activeEemBasis: defaultActiveEemBasis,
     activeDcfBasis: defaultActiveDcfBasis,
+    projectionPlanning: { ...defaultProjectionPlanning },
     aamAdjustments: {},
     assumptions: { ...emptyAssumptions },
     caseProfile: { ...emptyCaseProfile },
@@ -9230,6 +9476,7 @@ function buildRestoredCoreState(state: PersistedWorkbenchState): WorkbenchCoreSt
     eemReturnOnTangibleAssetBasis: state.eemReturnOnTangibleAssetBasis,
     activeEemBasis: state.activeEemBasis,
     activeDcfBasis: state.activeDcfBasis,
+    projectionPlanning: state.projectionPlanning,
     aamAdjustments: state.aamAdjustments,
     assumptions: state.assumptions,
     caseProfile: state.caseProfile,
@@ -9471,6 +9718,77 @@ function sanitizeActiveDcfBasis(value: unknown): ActiveDcfBasis {
   return typeof value === "string" && value in activeDcfBasisLabels
     ? (value as ActiveDcfBasis)
     : defaultActiveDcfBasis;
+}
+
+function sanitizeProjectionPlanning(value: unknown): ProjectionPlanningState {
+  if (!isRecord(value)) {
+    return { ...defaultProjectionPlanning };
+  }
+
+  const entityLife = value.entityLife === "finite-life" ? "finite-life" : "going-concern";
+  const requestedTerminalTreatment = normalizeDcfTerminalTreatment(value.terminalTreatment);
+  const terminalTreatment =
+    entityLife === "finite-life" && requestedTerminalTreatment === "going-concern-terminal-value"
+      ? "no-terminal-value"
+      : entityLife === "going-concern"
+        ? "going-concern-terminal-value"
+        : requestedTerminalTreatment;
+
+  return {
+    horizonYears: String(normalizeProjectionHorizonYears(value.horizonYears)),
+    entityLife,
+    terminalTreatment,
+    terminalValue: typeof value.terminalValue === "string" ? formatEditableNumber(value.terminalValue) : "",
+    terminalTreatmentReason: typeof value.terminalTreatmentReason === "string" ? value.terminalTreatmentReason : "",
+  };
+}
+
+function normalizeProjectionPlanningPatch(
+  current: ProjectionPlanningState,
+  patch: Partial<ProjectionPlanningState>,
+): ProjectionPlanningState {
+  const next: ProjectionPlanningState = {
+    ...current,
+    ...patch,
+  };
+  const entityLife = next.entityLife === "finite-life" ? "finite-life" : "going-concern";
+  const terminalTreatment =
+    entityLife === "going-concern"
+      ? "going-concern-terminal-value"
+      : patch.entityLife === "finite-life" && current.terminalTreatment === "going-concern-terminal-value"
+        ? "no-terminal-value"
+        : normalizeDcfTerminalTreatment(next.terminalTreatment);
+
+  return {
+    horizonYears: String(normalizeProjectionHorizonYears(next.horizonYears)),
+    entityLife,
+    terminalTreatment,
+    terminalValue: formatEditableNumber(next.terminalValue),
+    terminalTreatmentReason: next.terminalTreatmentReason,
+  };
+}
+
+function buildProjectionPlanningDcfOptions(planning: ProjectionPlanningState): DcfOptions {
+  const horizonYears = normalizeProjectionHorizonYears(planning.horizonYears);
+  const terminalTreatment = normalizeDcfTerminalTreatment(planning.terminalTreatment);
+  const terminalValue = parseInputNumber(planning.terminalValue);
+
+  return {
+    projectionHorizonYears: horizonYears,
+    terminalTreatment,
+    ...(terminalTreatment === "residual-liquidation-value" ? { residualValue: terminalValue } : {}),
+    ...(terminalTreatment === "reviewer-approved-terminal" ? { terminalValueOverride: terminalValue } : {}),
+  };
+}
+
+function hasProjectionPlanningInput(planning: ProjectionPlanningState): boolean {
+  return (
+    normalizeProjectionHorizonYears(planning.horizonYears) !== defaultProjectionHorizonYears ||
+    planning.entityLife !== defaultProjectionPlanning.entityLife ||
+    planning.terminalTreatment !== defaultProjectionPlanning.terminalTreatment ||
+    planning.terminalValue.trim() !== "" ||
+    planning.terminalTreatmentReason.trim() !== ""
+  );
 }
 
 function sanitizeFixedAssetScheduleRows(value: unknown): FixedAssetScheduleRow[] {

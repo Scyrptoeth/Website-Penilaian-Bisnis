@@ -68,10 +68,41 @@ describe("valuation XLSX export", () => {
     assert.equal(sheetNames.includes("AAM Adjustments"), false);
     assert.equal(sheetNames.includes("EEM Sensitivity"), false);
     assert.ok(summaryRows.some((row) => row[0] === "Active DCF Basis" && row[1] === "DCF - skenario dasar"));
+    assert.ok(summaryRows.some((row) => row[0] === "DCF Projection Horizon" && row[1] === 5));
+    assert.ok(summaryRows.some((row) => row[0] === "DCF Terminal Treatment" && row[1] === "Default terminal value"));
     assert.equal(workbook.sheets.find((sheet) => sheet.name === "Formula Trace")?.rows.slice(1).every((row) => row[0] === "DCF"), true);
     assert.ok(countFormulaCells(workbook.sheets.find((sheet) => sheet.name === "DCF Forecast")?.rows ?? []) >= 35);
     assert.ok(countFormulaCells(workbook.sheets.find((sheet) => sheet.name === "DLOM")?.rows ?? []) >= 15);
     assert.ok(countFormulaCells(workbook.sheets.find((sheet) => sheet.name === "DLOC PFC")?.rows ?? []) >= 10);
+  });
+
+  it("keeps finite-life terminal treatment formulas consistent in DCF workbook export", () => {
+    const baseInput = buildSampleExportInput();
+    const finiteLifeResults = calculateAllMethods(baseInput.snapshot, {
+      dcf: {
+        projectionHorizonYears: 10,
+        terminalTreatment: "no-terminal-value",
+      },
+    });
+    const workbook = buildValuationXlsxWorkbook(
+      {
+        ...baseInput,
+        results: finiteLifeResults,
+        baseResults: finiteLifeResults,
+        activeDcfProjectionHorizonYears: 10,
+        activeDcfTerminalTreatment: "no-terminal-value",
+        activeDcfTerminalTreatmentLabel: "No terminal value",
+        activeDcfTerminalTreatmentSummary: "Finite-life entity: no terminal value after explicit horizon.",
+      },
+      "dcf",
+      exportedAt,
+    );
+    const summaryRows = workbook.sheets.find((sheet) => sheet.name === "Summary")?.rows ?? [];
+    const calculationRows = workbook.sheets.find((sheet) => sheet.name === "Calculation Model")?.rows ?? [];
+    const terminalValueRow = calculationRows.find((row) => row[1] === "Terminal value");
+
+    assert.ok(summaryRows.some((row) => row[0] === "DCF Projection Horizon" && row[1] === 10));
+    assert.equal((terminalValueRow?.[2] as { formula?: string }).formula, "0");
   });
 
   it("includes EEM sensitivity scenario context and tax-payable subtraction in EEM scope", () => {

@@ -534,6 +534,16 @@ function DcfSensitivityReportTable({ payload }: { payload: ValuationPdfExportPay
       value: formatIdr(input.results.dcf.equityValue),
       note: input.activeDcfBasisSummary || "Default sistem.",
     },
+    {
+      label: "Horizon proyeksi DCF",
+      value: `${input.activeDcfProjectionHorizonYears ?? input.results.dcf.forecast.length} tahun`,
+      note: "Horizon eksplisit yang dipakai tab proyeksi dan nilai DCF.",
+    },
+    {
+      label: "Terminal treatment",
+      value: input.activeDcfTerminalTreatmentLabel || "Default terminal value",
+      note: input.activeDcfTerminalTreatmentReason || input.activeDcfTerminalTreatmentSummary || "Terminal value mengikuti growth/WACC.",
+    },
     { label: "DCF - skenario dasar", value: formatIdr(baseResults.dcf.equityValue), note: "Nilai dasar dari engine FCFF/WACC." },
     {
       label: "DCF - terminal downside",
@@ -890,6 +900,16 @@ function buildDriverMetrics(payload: ValuationPdfExportPayload, scope: Valuation
   if (scope.methods.includes("DCF")) {
     metrics.push(
       { label: "Basis DCF aktif", value: input.activeDcfBasisLabel || "DCF - skenario dasar", note: input.activeDcfBasisSummary || "Default sistem" },
+      {
+        label: "Horizon proyeksi DCF",
+        value: `${input.activeDcfProjectionHorizonYears ?? input.results.dcf.forecast.length} tahun`,
+        note: "Periode proyeksi eksplisit yang dihitung engine DCF.",
+      },
+      {
+        label: "Terminal treatment",
+        value: input.activeDcfTerminalTreatmentLabel || "Default terminal value",
+        note: input.activeDcfTerminalTreatmentSummary || "Terminal value mengikuti growth/WACC.",
+      },
       {
         label: "Terminal growth",
         value: formatPercentFixed(input.snapshot.terminalGrowth),

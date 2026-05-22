@@ -2,6 +2,8 @@ import {
   interestBearingDebt,
   nonOperatingAssets,
   normalizedNoplat,
+  resolveDcfTerminalValue,
+  type DcfTerminalTreatment,
 } from "./calculations";
 import type { AccountCategory, DcfForecastRow, FinancialStatementSnapshot, MethodOutput } from "./types";
 
@@ -54,6 +56,9 @@ export type DcfAuditTrailInput = {
   historical: DcfHistoricalAuditInputs;
   terminalGrowth: number;
   wacc: number;
+  terminalTreatment?: DcfTerminalTreatment;
+  terminalValueOverride?: number;
+  residualValue?: number;
   includeWorkingCapitalChange: boolean;
   debtLikeTaxPayable?: number;
 };
@@ -98,6 +103,9 @@ export function buildDcfAuditTrail({
   historical,
   terminalGrowth,
   wacc,
+  terminalTreatment,
+  terminalValueOverride,
+  residualValue,
   includeWorkingCapitalChange,
   debtLikeTaxPayable = 0,
 }: DcfAuditTrailInput): DcfAuditTrail {
@@ -125,8 +133,15 @@ export function buildDcfAuditTrail({
   const explicitPv = dcf.forecast.reduce((sum, row) => sum + row.presentValue, 0);
   const finalFreeCashFlow = dcf.forecast.at(-1)?.freeCashFlow ?? 0;
   const finalDiscountFactor = dcf.forecast.at(-1)?.discountFactor ?? 0;
-  const terminalDenominator = wacc - terminalGrowth;
-  const terminalValue = terminalDenominator > 0 ? (finalFreeCashFlow * (1 + terminalGrowth)) / terminalDenominator : 0;
+  const terminalResolution = resolveDcfTerminalValue({
+    finalFcf: finalFreeCashFlow,
+    terminalGrowth,
+    wacc,
+    terminalTreatment,
+    terminalValueOverride,
+    residualValue,
+  });
+  const terminalValue = terminalResolution.terminalValue;
   const terminalPv = terminalValue * finalDiscountFactor;
   const enterpriseValue = explicitPv + terminalPv;
   const surplusAssetCash = nonOperatingAssets(snapshot) - snapshot.nonOperatingFixedAssets;
@@ -261,7 +276,7 @@ export function buildDcfAuditTrail({
       bridgeRow({
         id: "dcf-total-explicit-pv",
         label: "Total PV FCF Explicit Period",
-        formula: "SUM(PV of Free Cash Flow Y+1:Y+5)",
+        formula: `SUM(PV of Free Cash Flow Y+1:Y+${dcf.forecast.length})`,
         workbookReference: "DCF!C25",
         sourceTabs: ["Penilaian DCF"],
         accountCategories: ["CASH_FLOW_AVAILABLE_TO_INVESTOR"],
@@ -282,11 +297,11 @@ export function buildDcfAuditTrail({
       bridgeRow({
         id: "dcf-terminal-value",
         label: "Terminal Value",
-        formula: "FCFF final x (1 + g) / (WACC - g)",
+        formula: terminalResolution.formula,
         workbookReference: "DCF!C27",
         sourceTabs: ["Penilaian DCF", "WACC", "Asumsi EEM/DCF"],
         accountCategories: ["CASH_FLOW_AVAILABLE_TO_INVESTOR"],
-        note: "Gordon growth terminal value dari FCFF tahun proyeksi terakhir.",
+        note: terminalResolution.note,
         value: terminalValue,
       }),
       bridgeRow({
