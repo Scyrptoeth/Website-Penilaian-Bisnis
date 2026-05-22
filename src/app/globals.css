@@ -7568,6 +7568,251 @@ td span {
   }
 }
 
+.app-shell {
+  --workbench-font-xs: 9.8px;
+  --workbench-font-sm: 10.6px;
+  --workbench-font-md: 11.4px;
+  --workbench-font-lg: 13px;
+  --workbench-control-height: 38px;
+  --workbench-compact-control-height: 34px;
+  --workbench-focus-ring: rgba(11, 107, 99, 0.48);
+  --workbench-focus-halo: rgba(11, 107, 99, 0.14);
+  font-size: var(--workbench-font-md);
+}
+
+.app-shell a {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+.app-shell a:focus-visible,
+.app-shell button:focus-visible,
+.app-shell input:focus-visible,
+.app-shell textarea:focus-visible,
+.app-shell select:focus-visible,
+.app-shell summary:focus-visible {
+  outline: 2px solid var(--workbench-focus-ring);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--workbench-focus-halo);
+}
+
+.app-shell .sticky-workspace-header {
+  border-bottom-color: rgba(189, 199, 192, 0.92);
+  box-shadow: 0 8px 22px rgba(21, 24, 22, 0.075);
+}
+
+.app-shell .panel,
+.app-shell .metric-card,
+.app-shell .review-band,
+.app-shell .input-panel,
+.app-shell .data-awal-card,
+.app-shell .period-card,
+.app-shell .assumption-calculator-card,
+.app-shell .fixed-asset-editor {
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 1px 0 rgba(23, 25, 24, 0.035);
+}
+
+.app-shell .panel-heading {
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(217, 222, 216, 0.82);
+}
+
+.app-shell .panel-heading h2,
+.app-shell .panel-heading h3,
+.app-shell .card-title {
+  color: var(--ink);
+  font-size: var(--workbench-font-lg);
+  line-height: 1.25;
+}
+
+.app-shell .button,
+.app-shell .workspace-switcher-trigger,
+.app-shell .active-workflow-context,
+.app-shell .autosave-header-note,
+.app-shell .workflow-tabs button,
+.app-shell .mobile-auth-actions .auth-nav-action {
+  min-height: var(--workbench-control-height);
+  font-size: var(--workbench-font-sm);
+  line-height: 1.25;
+}
+
+.app-shell .icon-button,
+.app-shell .sidebar-toggle {
+  width: var(--workbench-control-height);
+  height: var(--workbench-control-height);
+  min-height: var(--workbench-control-height);
+}
+
+.app-shell .button.compact-button,
+.app-shell .workspace-text-action,
+.app-shell .suggestion-apply-button,
+.app-shell .workspace-menu-switch,
+.app-shell .cash-flow-account-disclosure summary,
+.app-shell .audit-disclosure summary {
+  min-height: var(--workbench-compact-control-height);
+  font-size: var(--workbench-font-xs);
+}
+
+.app-shell .nav-list button,
+.app-shell .nav-list a.auth-nav-action {
+  min-height: 34px;
+  padding: 5px 7px;
+  font-size: var(--workbench-font-xs);
+}
+
+.app-shell .nav-group-label,
+.app-shell .eyebrow {
+  font-size: 8.4px;
+}
+
+.app-shell .method-badge {
+  min-width: 27px;
+  min-height: 18px;
+  font-size: 7.8px;
+}
+
+.app-shell input,
+.app-shell select,
+.app-shell textarea {
+  font-size: var(--workbench-font-sm);
+}
+
+.app-shell .period-card input,
+.app-shell .field input,
+.app-shell .account-entry-table input,
+.app-shell .account-entry-table select,
+.app-shell .input-panel input,
+.app-shell .input-panel select,
+.app-shell .compact-input-table input,
+.app-shell select {
+  min-height: 36px;
+  height: auto;
+}
+
+.app-shell .fixed-asset-table input,
+.app-shell .fixed-asset-table output,
+.app-shell .aam-adjustment-table input,
+.app-shell .aam-readonly-value,
+.app-shell .debt-schedule-input-stack input,
+.app-shell .fcf-override-stack input,
+.app-shell .cash-flow-override-stack input,
+.app-shell .comparative-override-stack input {
+  min-height: 34px;
+  font-size: var(--workbench-font-xs);
+}
+
+.app-shell input::placeholder,
+.app-shell textarea::placeholder,
+.app-shell .account-entry-table input::placeholder,
+.app-shell .account-textarea::placeholder {
+  color: #68736e;
+  opacity: 1;
+}
+
+.app-shell th {
+  background: #edf2ee;
+  color: #44504a;
+  font-size: var(--workbench-font-xs);
+  font-weight: 750;
+  line-height: 1.28;
+}
+
+.app-shell td {
+  font-size: var(--workbench-font-sm);
+  line-height: 1.42;
+}
+
+.app-shell td span,
+.app-shell small,
+.app-shell .field-help,
+.app-shell .row-hint,
+.app-shell .source-status-pill,
+.app-shell .smart-suggestion-badge,
+.app-shell .badge,
+.app-shell .status-pill {
+  font-size: var(--workbench-font-xs);
+  line-height: 1.32;
+}
+
+.app-shell .numeric-cell,
+.app-shell .account-entry-table td.period-entry-column input,
+.app-shell .fixed-asset-table td:not(:first-child) input,
+.app-shell .fixed-asset-table output,
+.app-shell .analysis-table code,
+.app-shell .formula-row code {
+  font-size: var(--workbench-font-xs);
+}
+
+.app-shell tbody tr:not(.total-row):not(.analysis-total-row):not(.income-total-row):not(.balance-section-row):not(.analysis-section-row):hover td {
+  background-color: #fbfdfb;
+}
+
+.app-shell .total-row td,
+.app-shell .analysis-total-row td,
+.app-shell .income-total-row td,
+.app-shell .balance-sheet-table .total-row td {
+  background: #dff4ee;
+}
+
+@media (min-width: 981px) and (max-height: 820px) {
+  .app-shell .nav-list button,
+  .app-shell .nav-list a.auth-nav-action {
+    min-height: 30px;
+    font-size: 9.4px;
+  }
+
+  .app-shell .brand-block .sidebar-toggle {
+    width: 34px;
+    height: 34px;
+    min-height: 34px;
+  }
+}
+
+@media (min-width: 981px) {
+  .app-shell .workspace-switcher-trigger,
+  .app-shell .active-workflow-context,
+  .app-shell .autosave-header-note,
+  .app-shell .button {
+    min-height: 36px;
+  }
+
+  .app-shell .icon-button,
+  .app-shell .sidebar-toggle {
+    width: 36px;
+    height: 36px;
+    min-height: 36px;
+  }
+
+  .app-shell .button.compact-button {
+    min-height: 32px;
+  }
+}
+
+@media (max-width: 980px) {
+  .app-shell .button,
+  .app-shell .icon-button,
+  .app-shell .sidebar-toggle,
+  .app-shell .workspace-switcher-trigger,
+  .app-shell .autosave-header-note,
+  .app-shell .workspace-text-action,
+  .app-shell .workflow-tabs button,
+  .app-shell .mobile-auth-actions .auth-nav-action {
+    min-height: 44px;
+  }
+
+  .app-shell .autosave-header-note {
+    flex: 0 0 auto;
+  }
+
+  .app-shell .icon-button,
+  .app-shell .sidebar-toggle {
+    width: 44px;
+    height: 44px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

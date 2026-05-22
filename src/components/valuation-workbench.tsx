@@ -476,6 +476,13 @@ const WORKSPACE_DATA_STORAGE_SUFFIX = ".v1";
 const WORKSPACE_STORAGE_VERSION = 1;
 const DEFAULT_WORKSPACE_ID = "workspace-default";
 const DEFAULT_WORKSPACE_NAME = "Workspace Utama";
+const DEV_PREVIEW_FIXTURE_QUERY_KEY = "previewFixture";
+const DEV_PREVIEW_FIXTURE_QUERY_VALUE = "tuwa";
+const DEV_PREVIEW_FIXTURE_URL = "/api/dev/preview-fixture?name=tuwa";
+const DEV_PREVIEW_FIXTURE_FILE_NAME = "penilaian-bisnis-pt-tuwa-tuwa-maju-mapan-12125758-2026-05-21.json";
+const DEV_PREVIEW_FIXTURE_WORKSPACE_ID = "workspace-preview-tuwa-tuwa-maju-mapan";
+const DEV_PREVIEW_FIXTURE_WORKSPACE_NAME = "Preview - PT Tuwa Tuwa Maju Mapan";
+const DEV_PREVIEW_FIXTURE_STORAGE_KEY = "penilaian-valuasi-bisnis.preview-fixture.tuwa.v1";
 const JSON_EXPORT_SCHEMA_ID = "penilaian-valuasi-bisnis.full-workbench-json";
 const JSON_EXPORT_SCHEMA_VERSION = 1;
 const defaultFixedAssetProjectionMode: FixedAssetProjectionMode = "workbook-formula";
@@ -1155,6 +1162,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   const xlsxExportMenuRef = useRef<HTMLDivElement>(null);
   const jsonMenuRef = useRef<HTMLDivElement>(null);
   const jsonImportInputRef = useRef<HTMLInputElement>(null);
+  const devPreviewFixtureLoadRef = useRef(false);
 
   const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId) ?? workspaces[0];
   const activeWorkflowTabItem = workflowTabRegistry[activeWorkflowTab] ?? workflowTabRegistry.periods;
@@ -2161,6 +2169,63 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     setIsSidebarCollapsed(readStoredSidebarState());
     setIsDraftRestored(true);
   }, []);
+
+  useEffect(() => {
+    if (!isDraftRestored || devPreviewFixtureLoadRef.current || !isLocalDevPreviewFixtureRequested()) {
+      return;
+    }
+
+    devPreviewFixtureLoadRef.current = true;
+
+    async function loadDevPreviewFixture() {
+      try {
+        const response = await fetch(DEV_PREVIEW_FIXTURE_URL, { cache: "no-store" });
+
+        if (!response.ok) {
+          throw new Error("Fixture preview lokal belum bisa dimuat.");
+        }
+
+        const candidate = parseValuationJsonImport(await response.text(), DEV_PREVIEW_FIXTURE_FILE_NAME);
+        const fixtureRevision = candidate.summary.exportedAt || candidate.state.savedAt || "";
+        const currentRevision = readDevPreviewFixtureRevision();
+        const createdAt = new Date().toISOString();
+        const importedState: PersistedWorkbenchState = {
+          ...candidate.state,
+          version: WORKBENCH_STORAGE_VERSION,
+          savedAt: createdAt,
+        };
+        const previewWorkspace: WorkspaceMetadata = {
+          id: DEV_PREVIEW_FIXTURE_WORKSPACE_ID,
+          name: DEV_PREVIEW_FIXTURE_WORKSPACE_NAME,
+          createdAt,
+          updatedAt: createdAt,
+        };
+        const nextWorkspaces = upsertWorkspaceMetadata(workspaces, previewWorkspace);
+
+        if (currentRevision !== fixtureRevision || activeWorkspaceId !== DEV_PREVIEW_FIXTURE_WORKSPACE_ID) {
+          if (activeWorkspaceId !== DEV_PREVIEW_FIXTURE_WORKSPACE_ID) {
+            saveActiveWorkspaceNow(workspaces, activeWorkspaceId);
+          }
+
+          persistWorkspaceState(DEV_PREVIEW_FIXTURE_WORKSPACE_ID, importedState);
+          persistWorkspaceManifest({
+            version: WORKSPACE_STORAGE_VERSION,
+            activeWorkspaceId: DEV_PREVIEW_FIXTURE_WORKSPACE_ID,
+            workspaces: nextWorkspaces,
+          });
+          persistLegacyWorkbenchMirror(importedState);
+          setWorkspaces(nextWorkspaces);
+          applyWorkspaceState(DEV_PREVIEW_FIXTURE_WORKSPACE_ID, importedState);
+          persistDevPreviewFixtureRevision(fixtureRevision);
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    void loadDevPreviewFixture();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot dev preview import after restored local state.
+  }, [activeWorkspaceId, isDraftRestored, workspaces]);
 
   useEffect(() => {
     if (!isDraftRestored) {
@@ -9868,6 +9933,25 @@ function markWorkspaceSaved(workspaces: WorkspaceMetadata[], workspaceId: string
   );
 }
 
+function upsertWorkspaceMetadata(workspaces: WorkspaceMetadata[], nextWorkspace: WorkspaceMetadata): WorkspaceMetadata[] {
+  const existingIndex = workspaces.findIndex((workspace) => workspace.id === nextWorkspace.id);
+
+  if (existingIndex === -1) {
+    return [...workspaces, nextWorkspace];
+  }
+
+  return workspaces.map((workspace, index) =>
+    index === existingIndex
+      ? {
+          ...workspace,
+          name: nextWorkspace.name,
+          updatedAt: nextWorkspace.updatedAt,
+          createdAt: workspace.createdAt || nextWorkspace.createdAt,
+        }
+      : workspace,
+  );
+}
+
 function createWorkspaceId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return `workspace-${crypto.randomUUID()}`;
@@ -9979,6 +10063,43 @@ function readStoredSidebarState(): boolean {
   } catch {
     return false;
   }
+}
+
+function isLocalDevPreviewFixtureRequested(): boolean {
+  if (process.env.NODE_ENV !== "development" || typeof window === "undefined") {
+    return false;
+  }
+
+  const hostname = window.location.hostname;
+  const isLocalHost = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+
+  if (!isLocalHost) {
+    return false;
+  }
+
+  const fixtureName = new URLSearchParams(window.location.search).get(DEV_PREVIEW_FIXTURE_QUERY_KEY);
+
+  return fixtureName === DEV_PREVIEW_FIXTURE_QUERY_VALUE || fixtureName === "1" || fixtureName === "true";
+}
+
+function readDevPreviewFixtureRevision(): string {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  try {
+    return window.localStorage.getItem(DEV_PREVIEW_FIXTURE_STORAGE_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+function persistDevPreviewFixtureRevision(revision: string) {
+  if (!revision) {
+    return;
+  }
+
+  safeSetLocalStorage(DEV_PREVIEW_FIXTURE_STORAGE_KEY, revision);
 }
 
 function buildRestoredCoreState(state: PersistedWorkbenchState): WorkbenchCoreState {
