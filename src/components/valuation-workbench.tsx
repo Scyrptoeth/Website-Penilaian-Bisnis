@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties } from "react";
+import Link from "next/link";
 import {
   AlertTriangle,
   ArrowRight,
@@ -3516,7 +3517,9 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       ) : (
         <aside className="sidebar">
           <div className="brand-block">
-            <div className="brand-mark">B-2</div>
+            <Link className="brand-mark" href="/" aria-label="Buka beranda Penilaian Bisnis II">
+              B-2
+            </Link>
             <div className="brand-copy">
               <h1>PENILAIAN BISNIS II</h1>
             </div>
@@ -3913,15 +3916,11 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
                         <button className="icon-button" type="button" onClick={() => activatePeriod(period.id)} title="Gunakan periode ini">
                           <CheckCircle2 size={18} />
                         </button>
-                        <button
-                          className="icon-button danger"
-                          type="button"
-                          onClick={() => removePeriod(period.id)}
-                          disabled={!canRemovePeriod}
-                          title={isValuationYear ? "Tahun Y tidak bisa dihapus" : "Hapus periode"}
-                        >
-                          <Trash2 size={18} />
-                        </button>
+                        {canRemovePeriod ? (
+                          <button className="icon-button danger" type="button" onClick={() => removePeriod(period.id)} title="Hapus periode">
+                            <Trash2 size={18} />
+                          </button>
+                        ) : null}
                       </div>
                     </div>
                   );

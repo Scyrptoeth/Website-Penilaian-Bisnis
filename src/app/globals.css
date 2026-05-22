@@ -141,6 +141,7 @@ svg {
   display: grid;
   width: 34px;
   height: 34px;
+  min-height: 34px;
   place-items: center;
   border: 1px solid var(--ink);
   border-radius: var(--radius);
@@ -7584,6 +7585,10 @@ td span {
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 2px;
+}
+
+.app-shell a.brand-mark {
+  text-decoration: none;
 }
 
 .app-shell a:focus-visible,

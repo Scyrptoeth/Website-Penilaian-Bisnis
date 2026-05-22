@@ -220,6 +220,7 @@ test("local workspaces isolate active valuation drafts across create, rename, du
 test("period workflow, scoped categories, and display-only balance sheet classification", async ({ page }) => {
   await expect(page.locator(".mobile-workflow-tabs")).toBeHidden();
   await expect(page.locator(".brand-mark")).toHaveText("B-2");
+  await expect(page.getByRole("link", { name: "Buka beranda Penilaian Bisnis II" })).toHaveAttribute("href", "/");
   await expect(page.getByRole("button", { name: "Muat contoh workbook" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Kosongkan" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Export XLSX" })).toBeVisible();
@@ -306,7 +307,8 @@ test("period workflow, scoped categories, and display-only balance sheet classif
     { offset: "-1", label: "Tahun Y-1", dateInputCount: 0 },
     { offset: "0", label: "Tahun Y", dateInputCount: 1 },
   ]);
-  await expect(page.locator('[data-testid="period-card"][data-year-offset="0"]').getByTitle("Tahun Y tidak bisa dihapus")).toBeDisabled();
+  await expect(page.locator('[data-testid="period-card"][data-year-offset="0"]').getByTitle("Hapus periode")).toHaveCount(0);
+  await expect(page.locator('[data-testid="period-card"][data-year-offset="-1"]').getByTitle("Hapus periode")).toBeVisible();
 
   await openWorkflowTab(page, "WACC");
   await expect(page.getByLabel("Pembanding 1")).toHaveValue(/Indal Aluminium Industry Tbk\. \(Data Pembanding Bersifat Ideal\)/);
