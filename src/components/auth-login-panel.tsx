@@ -87,6 +87,14 @@ export function AuthLoginPanel() {
                 (Goradok Pande Raja Sinabutar / Dedek) apabila lupa password.
               </p>
             </div>
+            <div>
+              <BadgeCheck size={16} />
+              <p>Terimakasih kepada pengembang &quot;KKP Saham Irwan Djaja&quot; sebab KKP tersebut menjadi prototipe dalam pengembangan aplikasi ini.</p>
+            </div>
+            <div>
+              <BadgeCheck size={16} />
+              <p>Terimakasih kepada seluruh Penilai yang telah berpartisipasi mengisi Survei Kebutuhan Aplikasi dan berperan aktif memberikan feedback dalam pengembangan aplikasi ini.</p>
+            </div>
           </div>
         </div>
 
