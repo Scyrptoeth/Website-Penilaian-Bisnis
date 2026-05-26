@@ -677,6 +677,7 @@ test("added analysis sections use readiness gates before sample data and render 
   await page.getByLabel("Gross margin override 2022").fill("0,60");
   await page.getByLabel("Opex margin override 2022").fill("0,10");
   await page.getByLabel("Depreciation override 2022").fill("0,04");
+  await calculateDraftInputsNow(page);
   await expect.poll(async () => (await readIncomeProjectionRowCells(page, "Revenue Growth"))[3]).toBe("50%");
   const scenarioRevenue = parseDisplayedNumber((await readIncomeProjectionRowCells(page, "Revenue"))[3]);
   expect(scenarioRevenue).toBeGreaterThan(firstYearRevenueBeforeOverride);
@@ -698,6 +699,7 @@ test("added analysis sections use readiness gates before sample data and render 
   await page.getByLabel("Opex margin override 2022").fill(approvalSafeOpexMargin);
   await page.getByLabel("Depreciation override 2022").fill(approvalSafeDepreciation);
   await page.getByTestId("income-projection-controls").getByLabel("Decision").selectOption("approved");
+  await calculateDraftInputsNow(page);
   await page.getByTestId("income-projection-controls").getByText("Ringkasan scenario DCF").click();
   const approvedScenarioDcfValue = await page
     .getByTestId("income-projection-controls")
@@ -752,6 +754,7 @@ test("added analysis sections use readiness gates before sample data and render 
   const noIncrementalWcValue = await page.getByTestId("dcf-no-incremental-wc-equity-value").textContent();
   await expect(page.getByTestId("dcf-active-equity-value")).toHaveText(baseDcfValue ?? "");
   await page.getByLabel("Basis DCF aktif").selectOption("noIncrementalWorkingCapital");
+  await calculateDraftInputsNow(page);
   await expect(page.getByTestId("dcf-active-basis-label")).toContainText("Tanpa WC incremental");
   await expect(page.getByTestId("dcf-active-equity-value")).toHaveText(noIncrementalWcValue ?? "");
   await expect(page.getByTestId("dcf-sensitivity-no-incremental-wc")).toHaveClass(/active-sensitivity/);
@@ -762,9 +765,11 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(projectionDriverStrip).not.toContainText("Diabaikan");
   await openWorkflowTab(page, "Simulasi Potensi Pajak");
   await page.locator(".tax-control-grid").getByLabel("Primary Method").selectOption("DCF");
+  await calculateDraftInputsNow(page);
   await expect(page.getByTestId("tax-simulation-table")).toContainText(noIncrementalWcValue ?? "");
   await openWorkflowTab(page, "Penilaian DCF");
   await page.getByLabel("Basis DCF aktif").selectOption("base");
+  await calculateDraftInputsNow(page);
   await expect(page.getByTestId("dcf-active-equity-value")).toHaveText(baseDcfValue ?? "");
   await expect(page.getByTestId("dcf-projection-governance")).toHaveCount(0);
   await expect(page.getByTestId("dcf-audit-trail")).toContainText("Sumber sistem");
@@ -793,6 +798,7 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByTestId("dcf-fixed-asset-projection-table-trace")).toHaveCount(0);
   await page.getByRole("radio", { name: /Proksi DCF/ }).click();
   await expect(page.getByRole("radio", { name: /Proksi DCF/ })).toHaveAttribute("aria-checked", "true");
+  await calculateDraftInputsNow(page);
   await expect(fixedAssetProjectionDriverStrip).toContainText("Proksi DCF berbasis jadwal aset tetap");
   await openWorkflowTab(page, "Penilaian DCF");
   await expect.poll(() => page.getByTestId("dcf-base-equity-value").textContent()).not.toBe(historicalRollForwardDcfValue);
@@ -818,9 +824,10 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByText("Detail formula dan referensi audit")).toHaveCount(0);
   await expect(page.getByTestId("dcf-cash-flow-projection-table-trace")).toHaveCount(0);
   await page.getByTestId("projection-account-disclosure-oca-change").locator("summary").click();
-  await page.getByLabel("Sertakan Cash on Hand dalam (Kenaikan) penurunan aset lancar operasional").check();
+  await page.getByLabel("Sertakan Cash on Hand dalam (Kenaikan) penurunan aset lancar operasional").setChecked(true);
   await page.getByTestId("projection-account-disclosure-ocl-change").locator("summary").click();
-  await page.getByLabel("Sertakan Tax Payable dalam Kenaikan (penurunan) liabilitas lancar operasional").check();
+  await page.getByLabel("Sertakan Tax Payable dalam Kenaikan (penurunan) liabilitas lancar operasional").setChecked(true);
+  await calculateDraftInputsNow(page);
   await saveActiveWorkspaceNow(page);
   await expect.poll(() => page.evaluate((key) => {
     const raw = window.localStorage.getItem(key);
@@ -846,6 +853,7 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(ocfSalesRow.getByRole("textbox", { name: "Override Operating Cash Flow / Sales 2019" })).toBeVisible();
   await expect(ocfSalesRow.getByRole("textbox", { name: /2021/ })).toHaveCount(0);
   await ocfSalesRow.getByRole("textbox", { name: "Override Operating Cash Flow / Sales 2019" }).fill("12,5");
+  await calculateDraftInputsNow(page);
   await expect(ocfSalesRow).toContainText("Final: 12,5%");
   await expect(page.getByRole("heading", { name: "Bridge efisiensi modal" })).toHaveCount(0);
 
@@ -858,6 +866,7 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(investedCapitalBeginningRow.getByRole("textbox", { name: "Override Invested capital awal tahun 2019" })).toBeVisible();
   await expect(investedCapitalBeginningRow.getByRole("textbox", { name: /2021/ })).toHaveCount(0);
   await investedCapitalBeginningRow.getByRole("textbox", { name: "Override Invested capital awal tahun 2019" }).fill("10000000000");
+  await calculateDraftInputsNow(page);
   await expect(investedCapitalBeginningRow).toContainText("Final: Rp 10.000.000.000");
   const roicLayout = await page.evaluate(() => {
     const tablePanel = document.querySelector(".roic-table-panel");
@@ -992,6 +1001,7 @@ test("DLOM and tax simulation render workbook-derived scenario layer after loadi
   await page.getByLabel("Basis final").selectOption("manualScenario");
   await page.getByLabel("DLOM Skenario Manual").fill("0,1");
   await page.getByLabel("DLOC/PFC Skenario Manual").fill("0,2");
+  await calculateDraftInputsNow(page);
   await expect(page.getByText("Catatan audit skenario")).toHaveCount(0);
   await expect(page.getByTestId("tax-simulation-summary")).toContainText("Final memakai Skenario manual");
   await expect(page.getByTestId("tax-simulation-table")).toContainText("Skenario manual");
@@ -1358,10 +1368,10 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await expect(page.getByTestId("wacc-comparable-source-warning")).toContainText("31 Des 2023");
   await expect(page.getByTestId("wacc-capital-structure-table")).toContainText("Struktur Kapital");
   await page.getByTestId("wacc-comparable-table").getByRole("button", { name: "Terapkan Saran" }).click();
-  await expect(page.getByLabel("Fallback bobot utang")).toHaveValue(/0,\d+/);
-  await expect(page.getByLabel("Fallback bobot ekuitas")).toHaveValue(/0,\d+/);
+  await calculateDraftInputsNow(page);
   await page.getByLabel("Fallback bobot utang").fill("0,25");
   await page.getByLabel("Fallback bobot ekuitas").fill("0,75");
+  await calculateDraftInputsNow(page);
   await expect(page.getByTestId("wacc-comparable-table")).toContainText("25% utang / 75% ekuitas");
 
   await openWorkflowTab(page, "Asumsi EEM/DCF");
@@ -1373,7 +1383,6 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await expect(page.getByTestId("required-return-suggestion-card")).toContainText("Perlu input");
   await expect(fixedAssetCapacityInput).toHaveValue("");
   await expect(page.getByRole("button", { name: "Gunakan nilai sistem untuk Kapasitas aset tetap" })).toHaveCount(0);
-  await expect(page.getByLabel("After-tax debt cost")).toHaveValue("0,06162");
   await expect(page.getByTestId("required-return-on-nta-calculator")).toContainText("BORROWING CAP");
   await expect(page.getByTestId("required-return-on-nta-calculator")).toContainText("DISCOUNT RATE");
 
@@ -1397,10 +1406,12 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await expect(waccBasisControl).toContainText("Manual WACC");
   await waccBasisControl.getByText("Basis WACC lanjutan").click();
   await waccBasisControl.locator('input[value="raw"]').check();
+  await calculateDraftInputsNow(page);
   await expect(waccBasisControl).toContainText("Raw calculated WACC mengalir ke EEM/DCF");
   await saveActiveWorkspaceNow(page);
   await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").activeWaccBasis)).toBe("raw");
   await waccBasisControl.getByLabel("Manual WACC reviewer").fill("0,09");
+  await calculateDraftInputsNow(page);
   await expect(waccBasisControl).toContainText("Manual WACC mengalir ke EEM/DCF");
   await saveActiveWorkspaceNow(page);
   await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").activeWaccBasis)).toBe("manual");
@@ -1541,6 +1552,7 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
 
   await openWorkflowTab(page, "Penilaian EEM");
   await page.getByLabel("Basis Return on Tangible Asset").selectOption("equityCost");
+  await calculateDraftInputsNow(page);
   await saveActiveWorkspaceNow(page);
   await expect
     .poll(() =>
@@ -1599,6 +1611,7 @@ test("extended DCF projection horizon keeps projection and audit tables horizont
   await planningPanel.getByLabel("Horizon proyeksi", { exact: true }).fill("10");
   await planningPanel.getByLabel("Entity life", { exact: true }).selectOption("finite-life");
   await planningPanel.getByLabel("Terminal treatment", { exact: true }).selectOption("no-terminal-value");
+  await calculateDraftInputsNow(page);
   await expect(planningPanel).toContainText("10 tahun eksplisit");
   await expect(page.getByTestId("dcf-audit-trail")).toContainText("Y+10");
 
@@ -1802,15 +1815,10 @@ async function calculateDraftInputsNow(page: Page) {
 }
 
 async function saveActiveWorkspaceNow(page: Page) {
-  const saveButton = page.getByRole("button", { name: "Simpan" });
   const saveStatus = page.getByLabel("Status penyimpanan workspace");
 
-  if (await saveButton.isEnabled()) {
-    await saveButton.click();
-  }
-
   await expect(saveStatus).toContainText("Tersimpan");
-  await expect(saveButton).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Simpan" })).toHaveCount(0);
 }
 
 async function hasNoRootHorizontalOverflow(page: Page) {

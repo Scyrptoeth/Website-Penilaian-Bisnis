@@ -49,8 +49,7 @@ test("integer amount fields keep accepting typed digits after thousands separato
 test("autosave persists active workspace after each change", async ({ page }) => {
   const saveButton = page.getByRole("button", { name: "Simpan" });
 
-  await expect(saveButton).toBeDisabled();
-  await expect(saveButton).toHaveAttribute("title", "Autosave aktif: setiap perubahan tersimpan otomatis");
+  await expect(saveButton).toHaveCount(0);
   await expect(page.getByLabel("Status penyimpanan workspace")).toContainText(/Tersimpan/);
   await expect(page.getByLabel("Status penyimpanan workspace")).toContainText("autosave setiap perubahan");
 
@@ -61,7 +60,7 @@ test("autosave persists active workspace after each change", async ({ page }) =>
   await balanceRow.getByLabel("Tahun Y amount").pressSequentially("1500000");
 
   await expect(page.getByLabel("Status penyimpanan workspace")).toContainText("Tersimpan");
-  await expect(saveButton).toBeDisabled();
+  await expect(saveButton).toHaveCount(0);
 
   await page.reload();
   await loginIfAuthGateVisible(page);

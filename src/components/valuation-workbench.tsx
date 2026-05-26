@@ -19,7 +19,6 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
-  Save,
   TableProperties,
   Trash2,
 } from "lucide-react";
@@ -1144,26 +1143,43 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   const [fixedAssetScheduleRows, setFixedAssetScheduleRows] = useState<FixedAssetScheduleRow[]>([]);
   const [calculatedFixedAssetScheduleRows, setCalculatedFixedAssetScheduleRows] = useState<FixedAssetScheduleRow[]>([]);
   const [debtScheduleInputs, setDebtScheduleInputs] = useState<DebtScheduleInputState>(() => createEmptyDebtScheduleInputs(initialPeriods));
+  const [calculatedDebtScheduleInputs, setCalculatedDebtScheduleInputs] = useState<DebtScheduleInputState>(() => createEmptyDebtScheduleInputs(initialPeriods));
   const [fixedAssetProjectionMode, setFixedAssetProjectionMode] = useState<FixedAssetProjectionMode>(defaultFixedAssetProjectionMode);
+  const [calculatedFixedAssetProjectionMode, setCalculatedFixedAssetProjectionMode] = useState<FixedAssetProjectionMode>(defaultFixedAssetProjectionMode);
   const [activeWaccBasis, setActiveWaccBasis] = useState<WaccBasis>(defaultActiveWaccBasis);
+  const [calculatedActiveWaccBasis, setCalculatedActiveWaccBasis] = useState<WaccBasis>(defaultActiveWaccBasis);
   const [eemReturnOnTangibleAssetBasis, setEemReturnOnTangibleAssetBasis] = useState<EemReturnOnTangibleAssetBasis>(
     defaultEemReturnOnTangibleAssetBasis,
   );
+  const [calculatedEemReturnOnTangibleAssetBasis, setCalculatedEemReturnOnTangibleAssetBasis] = useState<EemReturnOnTangibleAssetBasis>(
+    defaultEemReturnOnTangibleAssetBasis,
+  );
   const [activeEemBasis, setActiveEemBasis] = useState<ActiveEemBasis>(defaultActiveEemBasis);
+  const [calculatedActiveEemBasis, setCalculatedActiveEemBasis] = useState<ActiveEemBasis>(defaultActiveEemBasis);
   const [activeDcfBasis, setActiveDcfBasis] = useState<ActiveDcfBasis>(defaultActiveDcfBasis);
+  const [calculatedActiveDcfBasis, setCalculatedActiveDcfBasis] = useState<ActiveDcfBasis>(defaultActiveDcfBasis);
   const [projectionPlanning, setProjectionPlanning] = useState<ProjectionPlanningState>(defaultProjectionPlanning);
+  const [calculatedProjectionPlanning, setCalculatedProjectionPlanning] = useState<ProjectionPlanningState>(defaultProjectionPlanning);
   const [aamAdjustments, setAamAdjustments] = useState<AamAdjustmentState>({});
   const [assumptions, setAssumptions] = useState<AssumptionState>(emptyAssumptions);
+  const [calculatedAssumptions, setCalculatedAssumptions] = useState<AssumptionState>(emptyAssumptions);
   const [caseProfile, setCaseProfile] = useState<CaseProfile>(emptyCaseProfile);
   const [dlom, setDlom] = useState<DlomState>(createEmptyDlomState);
+  const [calculatedDlom, setCalculatedDlom] = useState<DlomState>(createEmptyDlomState);
   const [dlocPfc, setDlocPfc] = useState<DlocPfcState>(createEmptyDlocPfcState);
+  const [calculatedDlocPfc, setCalculatedDlocPfc] = useState<DlocPfcState>(createEmptyDlocPfcState);
   const [taxSimulation, setTaxSimulation] = useState<TaxSimulationState>(createEmptyTaxSimulationState);
+  const [calculatedTaxSimulation, setCalculatedTaxSimulation] = useState<TaxSimulationState>(createEmptyTaxSimulationState);
   const [cashFlowOverrides, setCashFlowOverrides] = useState<CashFlowOverrideState>({});
   const [calculatedCashFlowOverrides, setCalculatedCashFlowOverrides] = useState<CashFlowOverrideState>({});
   const [analysisValueOverrides, setAnalysisValueOverrides] = useState<AnalysisValueOverrideState>({});
+  const [calculatedAnalysisValueOverrides, setCalculatedAnalysisValueOverrides] = useState<AnalysisValueOverrideState>({});
   const [cashFlowAccountInclusions, setCashFlowAccountInclusions] = useState<CashFlowAccountInclusionState>({});
   const [calculatedCashFlowAccountInclusions, setCalculatedCashFlowAccountInclusions] = useState<CashFlowAccountInclusionState>({});
   const [incomeProjectionControls, setIncomeProjectionControls] = useState<IncomeProjectionControlState>(
+    createEmptyIncomeProjectionControls,
+  );
+  const [calculatedIncomeProjectionControls, setCalculatedIncomeProjectionControls] = useState<IncomeProjectionControlState>(
     createEmptyIncomeProjectionControls,
   );
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -1218,6 +1234,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     () => getSuggestedIdxComparables(caseProfile.companySector, 3, { valuationDate: effectiveValuationDate }),
     [caseProfile.companySector, effectiveValuationDate],
   );
+  const calculatedCaseProfileDerived = caseProfileDerived;
   const balanceSheetRows = useMemo(() => draftMappedRows.filter((item) => item.row.statement === "balance_sheet"), [draftMappedRows]);
   const incomeStatementRows = useMemo(() => draftMappedRows.filter((item) => item.row.statement === "income_statement"), [draftMappedRows]);
   const calculatedIncomeStatementRows = useMemo(
@@ -1234,8 +1251,8 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   );
   const hasPendingCalculationInputs = Object.values(pendingCalculationInputSections).some(Boolean);
   const accountingSnapshot = useMemo(
-    () => buildSnapshot(periods, activePeriodId, calculatedRows, assumptions, calculatedFixedAssetScheduleRows, { debtScheduleInputs }),
-    [periods, activePeriodId, calculatedRows, assumptions, calculatedFixedAssetScheduleRows, debtScheduleInputs],
+    () => buildSnapshot(periods, activePeriodId, calculatedRows, calculatedAssumptions, calculatedFixedAssetScheduleRows, { debtScheduleInputs: calculatedDebtScheduleInputs }),
+    [periods, activePeriodId, calculatedRows, calculatedAssumptions, calculatedFixedAssetScheduleRows, calculatedDebtScheduleInputs],
   );
   const autoWaccCapitalValues = useMemo(
     () => ({
@@ -1250,13 +1267,13 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     ],
   );
   const waccResolvedAssumptions = useMemo(
-    () => resolveAutoWaccCapitalValues(assumptions, autoWaccCapitalValues),
-    [assumptions, autoWaccCapitalValues],
+    () => resolveAutoWaccCapitalValues(calculatedAssumptions, autoWaccCapitalValues),
+    [calculatedAssumptions, autoWaccCapitalValues],
   );
   const rawWaccCalculation = useMemo(() => calculateWaccAssumption(waccResolvedAssumptions), [waccResolvedAssumptions]);
   const effectiveActiveWaccBasis = useMemo(
-    () => resolveEffectiveWaccBasis(waccResolvedAssumptions, activeWaccBasis),
-    [activeWaccBasis, waccResolvedAssumptions],
+    () => resolveEffectiveWaccBasis(waccResolvedAssumptions, calculatedActiveWaccBasis),
+    [calculatedActiveWaccBasis, waccResolvedAssumptions],
   );
   const waccCalculation = useMemo(
     () => resolveWaccCalculationForBasis(waccResolvedAssumptions, effectiveActiveWaccBasis, rawWaccCalculation),
@@ -1288,7 +1305,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     () =>
       buildSnapshot(periods, activePeriodId, calculatedRows, resolvedAssumptions, calculatedFixedAssetScheduleRows, {
         waccBasis: effectiveActiveWaccBasis,
-        debtScheduleInputs,
+        debtScheduleInputs: calculatedDebtScheduleInputs,
       }),
     [
       periods,
@@ -1297,7 +1314,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       resolvedAssumptions,
       calculatedFixedAssetScheduleRows,
       effectiveActiveWaccBasis,
-      debtScheduleInputs,
+      calculatedDebtScheduleInputs,
     ],
   );
   const aamAdjustmentModel = useMemo(() => buildAamAdjustmentModel(snapshot, aamAdjustments), [aamAdjustments, snapshot]);
@@ -1305,13 +1322,13 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     () => buildDcfWorkingCapitalInclusionOptions(calculatedCashFlowAccountInclusions),
     [calculatedCashFlowAccountInclusions],
   );
-  const dcfProjectionWorkingCapitalCandidates = useMemo(
-    () => buildDcfProjectionWorkingCapitalCandidates(calculatedCashFlowAccountInclusions),
-    [calculatedCashFlowAccountInclusions],
+  const draftDcfProjectionWorkingCapitalCandidates = useMemo(
+    () => buildDcfProjectionWorkingCapitalCandidates(cashFlowAccountInclusions),
+    [cashFlowAccountInclusions],
   );
   const projectionPlanningDcfOptions = useMemo(
-    () => buildProjectionPlanningDcfOptions(projectionPlanning),
-    [projectionPlanning],
+    () => buildProjectionPlanningDcfOptions(calculatedProjectionPlanning),
+    [calculatedProjectionPlanning],
   );
   const projectionHorizonYears = projectionPlanningDcfOptions.projectionHorizonYears ?? defaultProjectionHorizonYears;
   const baseDcfForecast = useMemo(
@@ -1319,8 +1336,8 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     [dcfWorkingCapitalInclusionOptions, projectionPlanningDcfOptions, snapshot],
   );
   const fixedAssetProjection = useMemo(
-    () => buildFixedAssetProjection(baseDcfForecast, periods, activePeriodId, fixedAssetSchedule, { preferredMode: fixedAssetProjectionMode }),
-    [activePeriodId, baseDcfForecast, fixedAssetProjectionMode, fixedAssetSchedule, periods],
+    () => buildFixedAssetProjection(baseDcfForecast, periods, activePeriodId, fixedAssetSchedule, { preferredMode: calculatedFixedAssetProjectionMode }),
+    [activePeriodId, baseDcfForecast, calculatedFixedAssetProjectionMode, fixedAssetSchedule, periods],
   );
   const dcfFixedAssetProjection = useMemo(
     () => buildDcfFixedAssetProjectionInput(fixedAssetProjection),
@@ -1333,34 +1350,34 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   const eemReturnOnTangibleAssetSelection = useMemo(
     () =>
       buildEemReturnOnTangibleAssetSelection({
-        basis: eemReturnOnTangibleAssetBasis,
+        basis: calculatedEemReturnOnTangibleAssetBasis,
         requiredReturnOnNta: snapshot.requiredReturnOnNta,
         equityCost: eemEquityCostRate,
-        hasEquityCostOverride: assumptions.requiredReturnEquityCost.trim() !== "",
+        hasEquityCostOverride: calculatedAssumptions.requiredReturnEquityCost.trim() !== "",
       }),
-    [assumptions.requiredReturnEquityCost, eemEquityCostRate, eemReturnOnTangibleAssetBasis, snapshot.requiredReturnOnNta],
+    [calculatedAssumptions.requiredReturnEquityCost, calculatedEemReturnOnTangibleAssetBasis, eemEquityCostRate, snapshot.requiredReturnOnNta],
   );
   const sectionAnalysis = useMemo(
     () =>
       buildSectionAnalysis(
         periods,
         calculatedRows,
-        assumptions,
+        calculatedAssumptions,
         calculatedFixedAssetScheduleRows,
         calculatedCashFlowOverrides,
-        debtScheduleInputs,
+        calculatedDebtScheduleInputs,
         calculatedCashFlowAccountInclusions,
-        analysisValueOverrides,
+        calculatedAnalysisValueOverrides,
       ),
     [
       periods,
       calculatedRows,
-      assumptions,
+      calculatedAssumptions,
       calculatedFixedAssetScheduleRows,
       calculatedCashFlowOverrides,
-      debtScheduleInputs,
+      calculatedDebtScheduleInputs,
       calculatedCashFlowAccountInclusions,
-      analysisValueOverrides,
+      calculatedAnalysisValueOverrides,
     ],
   );
   const cashFlowWorkingCapitalAccountCandidates = useMemo(
@@ -1422,13 +1439,13 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   );
   const eemTaxPayableDebtLikeDifference = results.eem.equityValue - results.sensitivities.eemTaxPayableDebtLike.equityValue;
   const activeEemSelection = useMemo(
-    () => buildActiveEemSelection(results, activeEemBasis, snapshot),
-    [activeEemBasis, results, snapshot],
+    () => buildActiveEemSelection(results, calculatedActiveEemBasis, snapshot),
+    [calculatedActiveEemBasis, results, snapshot],
   );
   const activeEem = activeEemSelection.eem;
   const baseActiveDcfSelection = useMemo(
-    () => buildActiveDcfSelection(results, activeDcfBasis, snapshot, projectionPlanningDcfOptions),
-    [activeDcfBasis, projectionPlanningDcfOptions, results, snapshot],
+    () => buildActiveDcfSelection(results, calculatedActiveDcfBasis, snapshot, projectionPlanningDcfOptions),
+    [calculatedActiveDcfBasis, projectionPlanningDcfOptions, results, snapshot],
   );
   const baseActiveDcf = baseActiveDcfSelection.dcf;
   const incomeProjectionScenario = useMemo(
@@ -1436,22 +1453,22 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       buildIncomeProjectionScenario({
         snapshot,
         baselineEquityValue: baseActiveDcf.equityValue,
-        controls: incomeProjectionControls,
+        controls: calculatedIncomeProjectionControls,
         activeDcfOptions: {
           ...projectionPlanningDcfOptions,
-          ...buildActiveDcfBasisDcfOptions(activeDcfBasis, snapshot),
+          ...buildActiveDcfBasisDcfOptions(calculatedActiveDcfBasis, snapshot),
           workingCapitalInclusions: dcfWorkingCapitalInclusionOptions,
         },
         fixedAssetProjection: dcfFixedAssetProjection,
         fixedAssetProjectionSource: dcfFixedAssetProjection ? fixedAssetProjection.source : undefined,
       }),
     [
-      activeDcfBasis,
+      calculatedActiveDcfBasis,
       dcfFixedAssetProjection,
       dcfWorkingCapitalInclusionOptions,
       baseActiveDcf.equityValue,
       fixedAssetProjection.source,
-      incomeProjectionControls,
+      calculatedIncomeProjectionControls,
       projectionPlanningDcfOptions,
       snapshot,
     ],
@@ -1465,20 +1482,20 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     () => ({ ...results, eem: activeEem, dcf: activeDcf }),
     [activeDcf, activeEem, results],
   );
-  const dlomCalculation = useMemo(() => calculateDlom(dlom, snapshot, caseProfile), [caseProfile, dlom, snapshot]);
-  const dlocPfcCalculation = useMemo(() => calculateDlocPfc(dlocPfc, caseProfile), [caseProfile, dlocPfc]);
+  const dlomCalculation = useMemo(() => calculateDlom(calculatedDlom, snapshot, caseProfile), [calculatedDlom, caseProfile, snapshot]);
+  const dlocPfcCalculation = useMemo(() => calculateDlocPfc(calculatedDlocPfc, caseProfile), [calculatedDlocPfc, caseProfile]);
   const taxSimulationResult = useMemo(
     () =>
       calculateTaxSimulation({
         methods: [results.aam, activeEem, activeDcf],
         dlom: dlomCalculation,
         dlocPfc: dlocPfcCalculation,
-        state: taxSimulation,
+        state: calculatedTaxSimulation,
         caseProfile,
-        caseProfileDerived,
+        caseProfileDerived: calculatedCaseProfileDerived,
         snapshot,
       }),
-    [activeDcf, activeEem, caseProfile, caseProfileDerived, dlocPfcCalculation, dlomCalculation, results.aam, snapshot, taxSimulation],
+    [activeDcf, activeEem, calculatedCaseProfileDerived, calculatedTaxSimulation, caseProfile, dlocPfcCalculation, dlomCalculation, results.aam, snapshot],
   );
   const balanceSheetView = useMemo(
     () => buildBalanceSheetView(periods, mappedRows, fixedAssetSchedule),
@@ -1554,9 +1571,9 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         waccCalculation: rawWaccCalculation,
         requiredReturnCalculation,
         dcfTraces: activeDcf.traces,
-        hasRevenueGrowthOverride: assumptions.revenueGrowth.trim() !== "",
+        hasRevenueGrowthOverride: calculatedAssumptions.revenueGrowth.trim() !== "",
       }),
-    [activeDcf.traces, assumptions.revenueGrowth, rawWaccCalculation, requiredReturnCalculation, snapshot],
+    [activeDcf.traces, calculatedAssumptions.revenueGrowth, rawWaccCalculation, requiredReturnCalculation, snapshot],
   );
   const eemAssumptionGovernance = useMemo(
     () => scopeAssumptionGovernance(assumptionGovernance, (item) => item.target !== "valuationDcf", "EEM"),
@@ -1569,12 +1586,12 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         revenue: snapshot.revenue,
         netProfit: snapshot.commercialNpat || normalizedNoplat(snapshot),
         wacc: snapshot.wacc,
-        existingDownside: readRateInput(assumptions.terminalGrowthDownside),
-        existingUpside: readRateInput(assumptions.terminalGrowthUpside),
+        existingDownside: readRateInput(calculatedAssumptions.terminalGrowthDownside),
+        existingUpside: readRateInput(calculatedAssumptions.terminalGrowthUpside),
       }),
     [
-      assumptions.terminalGrowthDownside,
-      assumptions.terminalGrowthUpside,
+      calculatedAssumptions.terminalGrowthDownside,
+      calculatedAssumptions.terminalGrowthUpside,
       caseProfile.companySector,
       snapshot,
     ],
@@ -1583,29 +1600,29 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     () => buildInvestedCapitalGrowthRateSuggestion(sectionAnalysis, snapshot.wacc),
     [sectionAnalysis, snapshot.wacc],
   );
-  const rawWaccValue = rawWaccCalculation?.wacc ?? readRateInput(assumptions.wacc);
-  const rawTerminalGrowthValue = readRateInput(assumptions.terminalGrowth);
-  const rawRequiredReturnValue = requiredReturnCalculation?.requiredReturn ?? readRateInput(assumptions.requiredReturnOnNta);
+  const rawWaccValue = rawWaccCalculation?.wacc ?? readRateInput(calculatedAssumptions.wacc);
+  const rawTerminalGrowthValue = readRateInput(calculatedAssumptions.terminalGrowth);
+  const rawRequiredReturnValue = requiredReturnCalculation?.requiredReturn ?? readRateInput(calculatedAssumptions.requiredReturnOnNta);
   const isGovernedWacc = rawWaccValue !== null && Math.abs(rawWaccValue - snapshot.wacc) > 0.0001;
   const isGovernedTerminalGrowth = rawTerminalGrowthValue !== null && Math.abs(rawTerminalGrowthValue - snapshot.terminalGrowth) > 0.0001;
   const isGovernedRequiredReturn = rawRequiredReturnValue !== null && Math.abs(rawRequiredReturnValue - snapshot.requiredReturnOnNta) > 0.0001;
   const assumptionDriverSummaries = [
-    buildAssumptionDriverSummary("Tarif pajak", assumptions.taxRate, assumptions.taxRateSource, taxRateCandidates),
+    buildAssumptionDriverSummary("Tarif pajak", calculatedAssumptions.taxRate, calculatedAssumptions.taxRateSource, taxRateCandidates),
     buildCalculatedDriverSummary(
       "WACC",
       snapshot.wacc,
-      formatWaccBasisSourceLabel(activeWaccBasis, effectiveActiveWaccBasis, isGovernedWacc, rawWaccCalculation, assumptions.wacc),
+      formatWaccBasisSourceLabel(calculatedActiveWaccBasis, effectiveActiveWaccBasis, isGovernedWacc, rawWaccCalculation, calculatedAssumptions.wacc),
     ),
     buildCalculatedDriverSummary(
       "Terminal growth",
       snapshot.terminalGrowth,
       isGovernedTerminalGrowth
         ? "Basis governed dengan cap dari sumber pendukung"
-        : assumptions.terminalGrowthSource === investedCapitalGrowthSuggestion?.sourceId
+        : calculatedAssumptions.terminalGrowthSource === investedCapitalGrowthSuggestion?.sourceId
         ? "Growth Rate invested capital dari Aset Tetap/Neraca/ROIC"
-        : assumptions.terminalGrowthSource === terminalGrowthSuggestion?.sourceId
+        : calculatedAssumptions.terminalGrowthSource === terminalGrowthSuggestion?.sourceId
         ? "Saran terkalibrasi sektor dengan band downside/upside"
-        : assumptions.terminalGrowth.trim() ? "Base case pengguna dengan input sensitivitas" : "Belum dipilih",
+        : calculatedAssumptions.terminalGrowth.trim() ? "Base case pengguna dengan input sensitivitas" : "Belum dipilih",
       formatTerminalGrowthPercent,
     ),
     buildCalculatedDriverSummary(
@@ -1613,7 +1630,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       snapshot.requiredReturnOnNta,
       isGovernedRequiredReturn
         ? "Proxy kapasitas aset berwujud yang di-govern"
-      : requiredReturnCalculation ? requiredReturnCalculation.basisLabel : sourceLabelFromManual(assumptions.requiredReturnOnNta),
+      : requiredReturnCalculation ? requiredReturnCalculation.basisLabel : sourceLabelFromManual(calculatedAssumptions.requiredReturnOnNta),
     ),
   ];
   const eemDriverSummaries = assumptionDriverSummaries.map((driver) =>
@@ -1631,7 +1648,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       ? {
           ...driver,
           valueLabel: formatTerminalGrowthPercent(activeDcfSelection.terminalGrowth),
-          sourceLabel: activeDcfBasis === "base" ? driver.sourceLabel : activeDcfSelection.label,
+          sourceLabel: calculatedActiveDcfBasis === "base" ? driver.sourceLabel : activeDcfSelection.label,
         }
       : driver,
   );
@@ -1673,60 +1690,60 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     () =>
       buildAuditDetailCards({
         activeDcf,
-        activeDcfBasis,
+        activeDcfBasis: calculatedActiveDcfBasis,
         activeEem,
-        activeEemBasis,
-        activeWaccBasis,
-        assumptions,
+        activeEemBasis: calculatedActiveEemBasis,
+        activeWaccBasis: calculatedActiveWaccBasis,
+        assumptions: calculatedAssumptions,
         caseProfile,
         caseProfileDerived,
-        dlocPfc,
+        dlocPfc: calculatedDlocPfc,
         dlocPfcCalculation,
-        dlom,
+        dlom: calculatedDlom,
         dlomCalculation,
         fixedAssetSchedule,
         fixedAssetScheduleRows: calculatedFixedAssetScheduleRows,
-        incomeProjectionControls,
+        incomeProjectionControls: calculatedIncomeProjectionControls,
         mappedRows,
         periods,
         projectionHorizonYears,
-        projectionPlanning,
+        projectionPlanning: calculatedProjectionPlanning,
         rawWaccCalculation,
         requiredReturnCalculation,
         results,
         rows: calculatedRows,
         sectionAnalysis,
         snapshot,
-        taxSimulation,
+        taxSimulation: calculatedTaxSimulation,
         taxSimulationResult,
       }),
     [
       activeDcf,
-      activeDcfBasis,
+      calculatedActiveDcfBasis,
       activeEem,
-      activeEemBasis,
-      activeWaccBasis,
-      assumptions,
+      calculatedActiveEemBasis,
+      calculatedActiveWaccBasis,
+      calculatedAssumptions,
       caseProfile,
       caseProfileDerived,
-      dlocPfc,
+      calculatedDlocPfc,
       dlocPfcCalculation,
-      dlom,
+      calculatedDlom,
       dlomCalculation,
       fixedAssetSchedule,
       calculatedFixedAssetScheduleRows,
-      incomeProjectionControls,
+      calculatedIncomeProjectionControls,
       mappedRows,
       periods,
       projectionHorizonYears,
-      projectionPlanning,
+      calculatedProjectionPlanning,
       rawWaccCalculation,
       requiredReturnCalculation,
       results,
       calculatedRows,
       sectionAnalysis,
       snapshot,
-      taxSimulation,
+      calculatedTaxSimulation,
       taxSimulationResult,
     ],
   );
@@ -1734,6 +1751,20 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     () => buildValidationChecks(calculatedRows, mappedRows, resolvedAssumptions, snapshot, balanceSheetGap, fixedAssetSchedule),
     [balanceSheetGap, fixedAssetSchedule, mappedRows, resolvedAssumptions, calculatedRows, snapshot],
   );
+  const isAdvancedCalculationPending =
+    debtScheduleInputs !== calculatedDebtScheduleInputs ||
+    fixedAssetProjectionMode !== calculatedFixedAssetProjectionMode ||
+    activeWaccBasis !== calculatedActiveWaccBasis ||
+    eemReturnOnTangibleAssetBasis !== calculatedEemReturnOnTangibleAssetBasis ||
+    activeEemBasis !== calculatedActiveEemBasis ||
+    activeDcfBasis !== calculatedActiveDcfBasis ||
+    projectionPlanning !== calculatedProjectionPlanning ||
+    assumptions !== calculatedAssumptions ||
+    dlom !== calculatedDlom ||
+    dlocPfc !== calculatedDlocPfc ||
+    taxSimulation !== calculatedTaxSimulation ||
+    analysisValueOverrides !== calculatedAnalysisValueOverrides ||
+    incomeProjectionControls !== calculatedIncomeProjectionControls;
   const isCashFlowStatementCalculationPending =
     cashFlowOverrides !== calculatedCashFlowOverrides || cashFlowAccountInclusions !== calculatedCashFlowAccountInclusions;
   const cashFlowStatementRows = useMemo(
@@ -1800,7 +1831,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       activeDcfBasis,
       projectionPlanning,
       aamAdjustments,
-      assumptions,
+      assumptions: calculatedAssumptions,
       caseProfile,
       dlom,
       dlocPfc,
@@ -1839,8 +1870,21 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     if (options.syncCalculationInputs) {
       setCalculatedRows(state.rows);
       setCalculatedFixedAssetScheduleRows(state.fixedAssetScheduleRows);
+      setCalculatedDebtScheduleInputs(state.debtScheduleInputs);
+      setCalculatedFixedAssetProjectionMode(state.fixedAssetProjectionMode);
+      setCalculatedActiveWaccBasis(state.activeWaccBasis);
+      setCalculatedEemReturnOnTangibleAssetBasis(state.eemReturnOnTangibleAssetBasis);
+      setCalculatedActiveEemBasis(state.activeEemBasis);
+      setCalculatedActiveDcfBasis(state.activeDcfBasis);
+      setCalculatedProjectionPlanning(state.projectionPlanning);
+      setCalculatedAssumptions(state.assumptions);
+      setCalculatedDlom(state.dlom);
+      setCalculatedDlocPfc(state.dlocPfc);
+      setCalculatedTaxSimulation(state.taxSimulation);
       setCalculatedCashFlowOverrides(state.cashFlowOverrides);
+      setCalculatedAnalysisValueOverrides(state.analysisValueOverrides);
       setCalculatedCashFlowAccountInclusions(state.cashFlowAccountInclusions);
+      setCalculatedIncomeProjectionControls(state.incomeProjectionControls);
       setPendingCalculationInputSections(createEmptyPendingCalculationInputSections());
     }
   }
@@ -1908,6 +1952,22 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     setCalculatedCashFlowAccountInclusions(cashFlowAccountInclusions);
   }
 
+  function calculateAdvancedDraftsNow() {
+    setCalculatedDebtScheduleInputs(debtScheduleInputs);
+    setCalculatedFixedAssetProjectionMode(fixedAssetProjectionMode);
+    setCalculatedActiveWaccBasis(activeWaccBasis);
+    setCalculatedEemReturnOnTangibleAssetBasis(eemReturnOnTangibleAssetBasis);
+    setCalculatedActiveEemBasis(activeEemBasis);
+    setCalculatedActiveDcfBasis(activeDcfBasis);
+    setCalculatedProjectionPlanning(projectionPlanning);
+    setCalculatedAssumptions(assumptions);
+    setCalculatedDlom(dlom);
+    setCalculatedDlocPfc(dlocPfc);
+    setCalculatedTaxSimulation(taxSimulation);
+    setCalculatedAnalysisValueOverrides(analysisValueOverrides);
+    setCalculatedIncomeProjectionControls(incomeProjectionControls);
+  }
+
   function saveActiveWorkspaceNow(workspaceList = workspaces, workspaceId = activeWorkspaceId) {
     const savedAt = new Date().toISOString();
     const persistedState = buildPersistedWorkbenchState(getCurrentCoreState(), savedAt);
@@ -1922,15 +1982,6 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     persistLegacyWorkbenchMirror(persistedState);
 
     return persistedState;
-  }
-
-  function saveActiveWorkspaceFromButton() {
-    setIsSavingWorkspace(true);
-    const savedState = saveActiveWorkspaceNow();
-    setWorkspaces((current) => markWorkspaceSaved(current, activeWorkspaceId, savedState.savedAt));
-    setLastSavedAt(savedState.savedAt);
-    setHasUnsavedChanges(false);
-    window.setTimeout(() => setIsSavingWorkspace(false), 120);
   }
 
   function applyWorkspaceState(workspaceId: string, state: PersistedWorkbenchState) {
@@ -2117,6 +2168,10 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
 
       if (isCashFlowStatementCalculationPending) {
         calculateCashFlowStatementDraftNow();
+      }
+
+      if (isAdvancedCalculationPending) {
+        calculateAdvancedDraftsNow();
       }
     }
 
@@ -2983,8 +3038,6 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   }
 
   function updateCashFlowOverride(rowKey: string, periodId: string, patch: Partial<CashFlowOverrideEntry>) {
-    let nextCashFlowOverrides = cashFlowOverrides;
-
     commitCoreState((current) => {
       const currentEntry = current.cashFlowOverrides[rowKey]?.[periodId] ?? { value: "", reason: "", updatedAt: "" };
       const nextEntry: CashFlowOverrideEntry = {
@@ -3007,7 +3060,6 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       } else {
         nextOverrides[rowKey] = nextRowOverrides;
       }
-      nextCashFlowOverrides = nextOverrides;
 
       return {
         ...current,
@@ -3015,9 +3067,6 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       };
     });
 
-    if (activeWorkflowTab !== "cashFlowStatement") {
-      setCalculatedCashFlowOverrides(nextCashFlowOverrides);
-    }
   }
 
   function updateAnalysisValueOverride(
@@ -3064,15 +3113,12 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   }
 
   function toggleCashFlowAccountInclusion(rowKey: CashFlowWorkingCapitalRowKey, accountRowId: string, included: boolean) {
-    let nextCashFlowAccountInclusions = cashFlowAccountInclusions;
-
     commitCoreState((current) => {
       const nextInclusions: CashFlowAccountInclusionState = { ...current.cashFlowAccountInclusions };
       nextInclusions[rowKey] = {
         ...(nextInclusions[rowKey] ?? {}),
         [accountRowId]: included,
       };
-      nextCashFlowAccountInclusions = nextInclusions;
 
       return {
         ...current,
@@ -3080,9 +3126,6 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       };
     });
 
-    if (activeWorkflowTab !== "cashFlowStatement") {
-      setCalculatedCashFlowAccountInclusions(nextCashFlowAccountInclusions);
-    }
   }
 
   function updateDebtScheduleInput(periodId: string, key: DebtScheduleInputKey, value: string) {
@@ -3537,10 +3580,10 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       activeEemReturnOnTangibleAssetBasis: eemReturnOnTangibleAssetSelection.value,
       activeEemReturnOnTangibleAssetLabel: eemReturnOnTangibleAssetSelection.label,
       activeEemReturnOnTangibleAssetSummary: eemReturnOnTangibleAssetSelection.summary,
-      activeEemBasis,
+      activeEemBasis: calculatedActiveEemBasis,
       activeEemBasisLabel: activeEemSelection.label,
       activeEemBasisSummary: activeEemSelection.summary,
-      activeDcfBasis,
+      activeDcfBasis: calculatedActiveDcfBasis,
       activeDcfBasisLabel: activeDcfSelection.label,
       activeDcfBasisSummary: activeDcfSelection.summary,
       activeDcfProjectionHorizonYears: activeDcfSelection.projectionHorizonYears,
@@ -3549,11 +3592,11 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         terminalTreatmentLabels[activeDcfSelection.terminalTreatment]?.label ?? "Default terminal value",
       activeDcfTerminalTreatmentSummary:
         terminalTreatmentLabels[activeDcfSelection.terminalTreatment]?.description ?? "Terminal value mengikuti growth/WACC.",
-      activeDcfTerminalTreatmentReason: projectionPlanning.terminalTreatmentReason,
+      activeDcfTerminalTreatmentReason: calculatedProjectionPlanning.terminalTreatmentReason,
       activeDcfTerminalValue: activeDcfSelection.terminalValueOverride ?? activeDcfSelection.residualValue,
       dlomCalculation,
       dlocPfcCalculation,
-      taxSimulation,
+      taxSimulation: calculatedTaxSimulation,
       taxSimulationResult,
       sectionAnalysis,
       readiness,
@@ -3933,16 +3976,6 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               </div>
             ) : null}
             <div className="toolbar">
-              <button
-                className="button secondary"
-                type="button"
-                onClick={saveActiveWorkspaceFromButton}
-                disabled
-                title="Autosave aktif: setiap perubahan tersimpan otomatis"
-              >
-                <Save size={18} />
-                Simpan
-              </button>
               <div className="export-menu" ref={pdfExportMenuRef}>
                 <button
                   className="button secondary export-menu-trigger"
@@ -5089,7 +5122,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               snapshot={snapshot}
               activeDcfSelection={activeDcfSelection}
               activeWaccBasisLabel={activeWaccBasisLabels[effectiveActiveWaccBasis].shortLabel}
-              workingCapitalCandidates={dcfProjectionWorkingCapitalCandidates}
+              workingCapitalCandidates={draftDcfProjectionWorkingCapitalCandidates}
               onToggleWorkingCapitalInclusion={toggleCashFlowAccountInclusion}
             />
           ) : (
