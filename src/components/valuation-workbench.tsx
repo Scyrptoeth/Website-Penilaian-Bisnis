@@ -19,10 +19,9 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
-  Redo2,
+  Save,
   TableProperties,
   Trash2,
-  Undo2,
 } from "lucide-react";
 import { AuthSidebarActions } from "@/components/auth-sidebar-actions";
 import { accountMappingRules } from "@/lib/valuation/account-taxonomy";
@@ -1091,7 +1090,8 @@ const reviewerDecisionOptions: Array<{ value: IncomeProjectionReviewerDecision; 
   { value: "rejected", label: "Rejected" },
 ];
 
-const MAX_HISTORY_STEPS = 80;
+const WORKBENCH_AUTOSAVE_DELAY_MS = 180_000;
+const mappedRowCache = new WeakMap<AccountRow, MappedRow>();
 
 type ConfirmationDialogState = {
   title: string;
@@ -1104,6 +1104,24 @@ type ValuationWorkbenchProps = {
   authUserId?: string;
   isSuperAdmin?: boolean;
 };
+
+function useMappedRows(rows: AccountRow[]): MappedRow[] {
+  return useMemo(
+    () =>
+      rows.map((row) => {
+        const cachedRow = mappedRowCache.get(row);
+
+        if (cachedRow) {
+          return cachedRow;
+        }
+
+        const mappedRow = mapRow(row);
+        mappedRowCache.set(row, mappedRow);
+        return mappedRow;
+      }),
+    [rows],
+  );
+}
 
 export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: ValuationWorkbenchProps) {
   const [periods, setPeriods] = useState<Period[]>(initialPeriods);
@@ -1147,8 +1165,9 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   const [renamingWorkspaceId, setRenamingWorkspaceId] = useState<string | null>(null);
   const [workspaceNameDraft, setWorkspaceNameDraft] = useState("");
   const [activeWorkflowTab, setActiveWorkflowTab] = useState<WorkflowTabId>("periods");
-  const [undoStack, setUndoStack] = useState<WorkbenchCoreState[]>([]);
-  const [redoStack, setRedoStack] = useState<WorkbenchCoreState[]>([]);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState("");
+  const [isSavingWorkspace, setIsSavingWorkspace] = useState(false);
   const [isPdfExportMenuOpen, setIsPdfExportMenuOpen] = useState(false);
   const [isXlsxExportMenuOpen, setIsXlsxExportMenuOpen] = useState(false);
   const [isJsonMenuOpen, setIsJsonMenuOpen] = useState(false);
@@ -1167,7 +1186,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
 
   const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId) ?? workspaces[0];
   const activeWorkflowTabItem = workflowTabRegistry[activeWorkflowTab] ?? workflowTabRegistry.periods;
-  const mappedRows = useMemo(() => rows.map((row) => mapRow(row)), [rows]);
+  const mappedRows = useMappedRows(rows);
   const caseProfileDerived = useMemo(() => buildCaseProfileDerived(caseProfile), [caseProfile]);
   const activePeriod = periods.find((period) => period.id === activePeriodId) ?? getDefaultActivePeriod(periods);
   const effectiveValuationDate = caseProfileDerived.cutOffDate || activePeriod?.valuationDate || "";
@@ -1665,7 +1684,10 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       taxSimulationResult,
     ],
   );
-  const checks = buildValidationChecks(rows, mappedRows, resolvedAssumptions, snapshot, balanceSheetGap, fixedAssetSchedule);
+  const checks = useMemo(
+    () => buildValidationChecks(rows, mappedRows, resolvedAssumptions, snapshot, balanceSheetGap, fixedAssetSchedule),
+    [balanceSheetGap, fixedAssetSchedule, mappedRows, resolvedAssumptions, rows, snapshot],
+  );
   const readiness = useMemo(
     () =>
       buildWorkbenchReadiness({
@@ -1752,40 +1774,27 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   }
 
   function commitCoreState(update: (current: WorkbenchCoreState) => WorkbenchCoreState) {
-    const current = cloneCoreState(getCurrentCoreState());
-    const next = cloneCoreState(update(current));
+    const current = getCurrentCoreState();
+    const next = update(current);
 
-    if (JSON.stringify(current) === JSON.stringify(next)) {
+    if (next === current) {
       return;
     }
 
-    setUndoStack((stack) => [...stack.slice(-(MAX_HISTORY_STEPS - 1)), current]);
-    setRedoStack([]);
+    setHasUnsavedChanges(true);
     applyCoreState(next);
   }
 
-  function undoCoreChange() {
-    const previous = undoStack[undoStack.length - 1];
+  function updateCoreStateDraft(update: (current: WorkbenchCoreState) => WorkbenchCoreState) {
+    const current = getCurrentCoreState();
+    const next = update(current);
 
-    if (!previous) {
+    if (next === current) {
       return;
     }
 
-    setUndoStack((stack) => stack.slice(0, -1));
-    setRedoStack((stack) => [cloneCoreState(getCurrentCoreState()), ...stack].slice(0, MAX_HISTORY_STEPS));
-    applyCoreState(cloneCoreState(previous));
-  }
-
-  function redoCoreChange() {
-    const next = redoStack[0];
-
-    if (!next) {
-      return;
-    }
-
-    setRedoStack((stack) => stack.slice(1));
-    setUndoStack((stack) => [...stack.slice(-(MAX_HISTORY_STEPS - 1)), cloneCoreState(getCurrentCoreState())]);
-    applyCoreState(cloneCoreState(next));
+    setHasUnsavedChanges(true);
+    applyCoreState(next);
   }
 
   function saveActiveWorkspaceNow(workspaceList = workspaces, workspaceId = activeWorkspaceId) {
@@ -1804,11 +1813,20 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     return persistedState;
   }
 
+  function saveActiveWorkspaceFromButton() {
+    setIsSavingWorkspace(true);
+    const savedState = saveActiveWorkspaceNow();
+    setWorkspaces((current) => markWorkspaceSaved(current, activeWorkspaceId, savedState.savedAt));
+    setLastSavedAt(savedState.savedAt);
+    setHasUnsavedChanges(false);
+    window.setTimeout(() => setIsSavingWorkspace(false), 120);
+  }
+
   function applyWorkspaceState(workspaceId: string, state: PersistedWorkbenchState) {
     setActiveWorkspaceId(workspaceId);
     applyCoreState(buildRestoredCoreState(state));
-    setUndoStack([]);
-    setRedoStack([]);
+    setHasUnsavedChanges(false);
+    setLastSavedAt(state.savedAt);
     setActiveWorkflowTab("periods");
 
     if (typeof window !== "undefined") {
@@ -2164,8 +2182,8 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     setWorkspaces(storedWorkspace.manifest.workspaces);
     setActiveWorkspaceId(storedWorkspace.manifest.activeWorkspaceId);
     applyCoreState(buildRestoredCoreState(storedWorkspace.activeState));
-    setUndoStack([]);
-    setRedoStack([]);
+    setHasUnsavedChanges(false);
+    setLastSavedAt(storedWorkspace.activeState.savedAt);
 
     setIsSidebarCollapsed(readStoredSidebarState());
     setIsDraftRestored(true);
@@ -2229,47 +2247,69 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   }, [activeWorkspaceId, isDraftRestored, workspaces]);
 
   useEffect(() => {
-    if (!isDraftRestored) {
+    if (!isDraftRestored || !hasUnsavedChanges) {
       return;
     }
 
-    const savedAt = new Date().toISOString();
-    const persistedState = buildPersistedWorkbenchState(
-      {
-        periods,
-        activePeriodId,
-        rows,
-        isFixedAssetScheduleEnabled,
-        fixedAssetScheduleRows,
-        debtScheduleInputs,
-        fixedAssetProjectionMode,
-        activeWaccBasis,
-        eemReturnOnTangibleAssetBasis,
-        activeDcfBasis,
-        activeEemBasis,
-        projectionPlanning,
-        aamAdjustments,
-        assumptions,
-        caseProfile,
-        dlom,
-        dlocPfc,
-        taxSimulation,
-        cashFlowOverrides,
-        analysisValueOverrides,
-        cashFlowAccountInclusions,
-        incomeProjectionControls,
-      },
-      savedAt,
-    );
-    const nextWorkspaces = markWorkspaceSaved(workspaces, activeWorkspaceId, savedAt);
+    const persistCurrentWorkspace = (showSavingState: boolean) => {
+      if (showSavingState) {
+        setIsSavingWorkspace(true);
+      }
 
-    persistWorkspaceState(activeWorkspaceId, persistedState);
-    persistWorkspaceManifest({
-      version: WORKSPACE_STORAGE_VERSION,
-      activeWorkspaceId,
-      workspaces: nextWorkspaces,
-    });
-    persistLegacyWorkbenchMirror(persistedState);
+      const savedAt = new Date().toISOString();
+      const persistedState = buildPersistedWorkbenchState(
+        {
+          periods,
+          activePeriodId,
+          rows,
+          isFixedAssetScheduleEnabled,
+          fixedAssetScheduleRows,
+          debtScheduleInputs,
+          fixedAssetProjectionMode,
+          activeWaccBasis,
+          eemReturnOnTangibleAssetBasis,
+          activeDcfBasis,
+          activeEemBasis,
+          projectionPlanning,
+          aamAdjustments,
+          assumptions,
+          caseProfile,
+          dlom,
+          dlocPfc,
+          taxSimulation,
+          cashFlowOverrides,
+          analysisValueOverrides,
+          cashFlowAccountInclusions,
+          incomeProjectionControls,
+        },
+        savedAt,
+      );
+      const nextWorkspaces = markWorkspaceSaved(workspaces, activeWorkspaceId, savedAt);
+
+      persistWorkspaceState(activeWorkspaceId, persistedState);
+      persistWorkspaceManifest({
+        version: WORKSPACE_STORAGE_VERSION,
+        activeWorkspaceId,
+        workspaces: nextWorkspaces,
+      });
+      persistLegacyWorkbenchMirror(persistedState);
+      setWorkspaces(nextWorkspaces);
+      setLastSavedAt(savedAt);
+      setHasUnsavedChanges(false);
+
+      if (showSavingState) {
+        setIsSavingWorkspace(false);
+      }
+    };
+    const saveBeforePageHide = () => persistCurrentWorkspace(false);
+    const autosaveTimeoutId = window.setTimeout(() => persistCurrentWorkspace(true), WORKBENCH_AUTOSAVE_DELAY_MS);
+
+    window.addEventListener("pagehide", saveBeforePageHide);
+
+    return () => {
+      window.clearTimeout(autosaveTimeoutId);
+      window.removeEventListener("pagehide", saveBeforePageHide);
+    };
   }, [
     aamAdjustments,
     activeWaccBasis,
@@ -2288,6 +2328,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     dlom,
     fixedAssetScheduleRows,
     fixedAssetProjectionMode,
+    hasUnsavedChanges,
     incomeProjectionControls,
     isDraftRestored,
     isFixedAssetScheduleEnabled,
@@ -2508,7 +2549,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     setPendingConfirmation({
       title: `Hapus periode ${periodToRemove.label || "ini"}?`,
       description:
-        "Seluruh nilai akun, jadwal aset tetap, dan override cash-flow pada periode ini akan dihapus dari model aktif. Tindakan ini dapat dibatalkan melalui Undo.",
+        "Seluruh nilai akun, jadwal aset tetap, dan override cash-flow pada periode ini akan dihapus dari model aktif.",
       confirmLabel: "Hapus periode",
       onConfirm: () => deletePeriod(id),
     });
@@ -2574,7 +2615,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   }
 
   function updateFixedAssetScheduleValue(rowId: string, periodId: string, key: FixedAssetScheduleValueKey, value: string) {
-    commitCoreState((current) => ({
+    updateCoreStateDraft((current) => ({
       ...current,
       fixedAssetScheduleRows: current.fixedAssetScheduleRows.map((row) =>
         row.id === rowId
@@ -2599,7 +2640,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
 
     setPendingConfirmation({
       title: "Hapus kelas aset?",
-      description: `Kelas aset ${assetName} beserta biaya perolehan dan penyusutannya akan dihapus dari jadwal aset tetap aktif. Tindakan ini dapat dibatalkan melalui Undo.`,
+      description: `Kelas aset ${assetName} beserta biaya perolehan dan penyusutannya akan dihapus dari jadwal aset tetap aktif.`,
       confirmLabel: "Hapus kelas aset",
       onConfirm: () => deleteFixedAssetScheduleRow(id),
     });
@@ -2642,8 +2683,15 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     }));
   }
 
+  function updateRowAccountName(id: string, accountName: string) {
+    updateCoreStateDraft((current) => ({
+      ...current,
+      rows: current.rows.map((row) => (row.id === id ? { ...row, accountName } : row)),
+    }));
+  }
+
   function updateRowValue(rowId: string, periodId: string, value: string) {
-    commitCoreState((current) => ({
+    updateCoreStateDraft((current) => ({
       ...current,
       rows: current.rows.map((row) => {
         if (row.id !== rowId) {
@@ -2665,7 +2713,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
 
     setPendingConfirmation({
       title: "Hapus akun?",
-      description: `Akun ${accountName} pada ${statementLabel} akan dihapus dari model aktif. Tindakan ini memengaruhi perhitungan sampai Anda membatalkannya melalui Undo.`,
+      description: `Akun ${accountName} pada ${statementLabel} akan dihapus dari model aktif dan memengaruhi perhitungan.`,
       confirmLabel: "Hapus akun",
       onConfirm: () => deleteRow(id),
     });
@@ -3453,13 +3501,36 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   }
 
   function executeResetForm() {
+    const savedAt = new Date().toISOString();
+    const emptyState = buildEmptyCoreState();
+    const persistedState = buildPersistedWorkbenchState(emptyState, savedAt);
+    const nextWorkspaces = markWorkspaceSaved(workspaces, activeWorkspaceId, savedAt);
+
     clearPersistedWorkbenchState();
-    commitCoreState(() => buildEmptyCoreState());
+    persistWorkspaceState(activeWorkspaceId, persistedState);
+    persistWorkspaceManifest({
+      version: WORKSPACE_STORAGE_VERSION,
+      activeWorkspaceId,
+      workspaces: nextWorkspaces,
+    });
+    persistLegacyWorkbenchMirror(persistedState);
+    setWorkspaces(nextWorkspaces);
+    applyCoreState(emptyState);
+    setHasUnsavedChanges(false);
+    setLastSavedAt(savedAt);
 
     if (typeof window !== "undefined") {
       window.scrollTo({ top: 0 });
     }
   }
+
+  const workspaceSaveStatusLabel = isSavingWorkspace
+    ? "Menyimpan..."
+    : hasUnsavedChanges
+      ? "Belum disimpan"
+      : lastSavedAt
+        ? "Tersimpan"
+        : "Tersimpan lokal";
 
   return (
     <main className={isSidebarCollapsed ? "app-shell sidebar-collapsed" : "app-shell"} data-testid="valuation-workbench">
@@ -3675,8 +3746,8 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
                 <WorkflowMethodBadges methods={activeWorkflowTabItem.methods} />
               </div>
             </div>
-            <div className="autosave-header-note" role="status" aria-label="Status penyimpanan otomatis">
-              Seluruh Data Auto-Save di Perangkat Bapak/Ibu
+            <div className="autosave-header-note" role="status" aria-label="Status penyimpanan workspace">
+              {workspaceSaveStatusLabel} - autosave tiap 3 menit
             </div>
             {authUserId ? (
               <div className="mobile-auth-actions" aria-label="Aksi akun">
@@ -3684,11 +3755,15 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               </div>
             ) : null}
             <div className="toolbar">
-              <button className="icon-button" type="button" onClick={undoCoreChange} disabled={undoStack.length === 0} title="Undo perubahan data">
-                <Undo2 size={18} />
-              </button>
-              <button className="icon-button" type="button" onClick={redoCoreChange} disabled={redoStack.length === 0} title="Redo perubahan data">
-                <Redo2 size={18} />
+              <button
+                className="button secondary"
+                type="button"
+                onClick={saveActiveWorkspaceFromButton}
+                disabled={!isDraftRestored || isSavingWorkspace || !hasUnsavedChanges}
+                title={hasUnsavedChanges ? "Simpan workspace aktif" : "Workspace sudah tersimpan"}
+              >
+                <Save size={18} />
+                Simpan
               </button>
               <div className="export-menu" ref={pdfExportMenuRef}>
                 <button
@@ -3975,6 +4050,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
                   testId="balance-account-table"
                   onRemoveRow={removeRow}
                   onToggleLabel={toggleRowLabel}
+                  onUpdateAccountName={updateRowAccountName}
                   onUpdateRow={updateRow}
                   onUpdateRowValue={updateRowValue}
                 />
@@ -4052,6 +4128,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
                   testId="income-account-table"
                   onRemoveRow={removeRow}
                   onToggleLabel={toggleRowLabel}
+                  onUpdateAccountName={updateRowAccountName}
                   onUpdateRow={updateRow}
                   onUpdateRowValue={updateRowValue}
                 />
@@ -11570,6 +11647,7 @@ function AccountInputTable({
   testId,
   onRemoveRow,
   onToggleLabel,
+  onUpdateAccountName,
   onUpdateRow,
   onUpdateRowValue,
 }: {
@@ -11580,6 +11658,7 @@ function AccountInputTable({
   testId: string;
   onRemoveRow: (id: string) => void;
   onToggleLabel: (rowId: string, labelId: AccountLabelId) => void;
+  onUpdateAccountName: (id: string, accountName: string) => void;
   onUpdateRow: (id: string, patch: Partial<AccountRow>) => void;
   onUpdateRowValue: (rowId: string, periodId: string, value: string) => void;
 }) {
@@ -11647,7 +11726,7 @@ function AccountInputTable({
                   aria-label="Nama akun"
                   placeholder="Ketik nama akun sesuai laporan"
                   value={row.accountName}
-                  onChange={(event) => onUpdateRow(row.id, { accountName: event.target.value })}
+                  onChange={(event) => onUpdateAccountName(row.id, event.target.value)}
                 />
                 <span className={mapping.needsReview || effectiveCategory === "UNMAPPED" ? "row-hint warning-text" : "row-hint ok-text"}>
                   Saran: {mapping.displayName} · {formatScore(mapping.confidence)}

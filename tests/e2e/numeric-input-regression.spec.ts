@@ -42,6 +42,27 @@ test("integer amount fields keep accepting typed digits after thousands separato
   await expect(acquisition.getByLabel("A. Biaya Perolehan Tahun Y-1 Saldo awal")).toHaveValue("9.876.543.210");
 });
 
+test("manual save button persists active workspace without waiting for autosave", async ({ page }) => {
+  const saveButton = page.getByRole("button", { name: "Simpan" });
+
+  await expect(saveButton).toBeDisabled();
+  await expect(page.getByLabel("Status penyimpanan workspace")).toContainText(/Tersimpan/);
+
+  await openWorkflowTab(page, "Neraca");
+  await page.getByRole("button", { name: "Tambah akun neraca" }).first().click();
+  const balanceRow = page.getByTestId("balance-account-table-row").last();
+  await balanceRow.getByLabel("Nama akun").fill("Kas dan bank");
+  await balanceRow.getByLabel("Tahun Y amount").pressSequentially("1500000");
+
+  await expect(page.getByLabel("Status penyimpanan workspace")).toContainText("Belum disimpan");
+  await expect(saveButton).toBeEnabled();
+
+  await saveButton.click();
+
+  await expect(page.getByLabel("Status penyimpanan workspace")).toContainText("Tersimpan");
+  await expect(saveButton).toBeDisabled();
+});
+
 async function loginIfAuthGateVisible(page: Page) {
   const loginPanel = page.getByTestId("auth-login-panel");
   const isLoginVisible = await loginPanel.isVisible({ timeout: 1_000 }).catch(() => false);
