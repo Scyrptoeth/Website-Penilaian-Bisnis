@@ -336,8 +336,10 @@ test("period workflow, scoped categories, and display-only balance sheet classif
   await page.locator("#balance").getByRole("button", { name: "Tampilkan tabel" }).click();
   await expect(page.getByTestId("balance-account-table")).toBeVisible();
 
+  await calculateDraftInputsNow(page);
   const totalBefore = await getTotalAssetsText(page);
   await balanceRow.getByLabel("Klasifikasi neraca").selectOption("non_current_asset");
+  await calculateDraftInputsNow(page);
   await expect(page.getByTestId("balance-sheet-position-table")).toContainText("Aset tidak lancar");
   await expect(page.getByTestId("balance-sheet-position-table")).toContainText("Total Liabilitas + Ekuitas");
   await expect(page.getByTestId("balance-sheet-position-table")).toContainText("Cek Kesesuaian");
@@ -372,6 +374,7 @@ test("period workflow, scoped categories, and display-only balance sheet classif
   await expect(page.getByTestId("income-account-table-summary")).toContainText("akun laba rugi");
   await incomePanel.getByRole("button", { name: "Tampilkan tabel" }).click();
   await expect(page.getByTestId("income-account-table")).toBeVisible();
+  await calculateDraftInputsNow(page);
   await expect(page.getByTestId("income-statement-report-table")).toContainText("Pajak penghasilan badan");
   await expect(page.getByTestId("income-statement-report-table")).toContainText("-436.128.347");
 
@@ -427,6 +430,7 @@ test("fixed asset schedule remains empty until user adds a class and then rolls 
     Array.from(table.querySelectorAll("thead th:not(.fixed-asset-asset-column)")).map((cell) => Math.round(cell.getBoundingClientRect().width)),
   );
   expect(Math.max(...netValuePeriodWidths) - Math.min(...netValuePeriodWidths)).toBeLessThanOrEqual(2);
+  await calculateDraftInputsNow(page);
   await openWorkflowTab(page, "Neraca");
   await expect(page.getByTestId("balance-sheet-position-table")).toContainText("Nilai buku bersih aset tetap");
   expect(await hasNoRootHorizontalOverflow(page)).toBe(true);
@@ -479,6 +483,7 @@ test("AAM valuation remains available without WACC or EEM/DCF driver inputs", as
   await balanceRow.getByLabel("Nama akun").fill("Utang usaha");
   await balanceRow.getByLabel("Tahun Y amount").fill("250000");
 
+  await calculateDraftInputsNow(page);
   await openWorkflowTab(page, "Penilaian AAM");
   await expect(page.getByText("Asset Accumulation Method (AAM)")).toBeVisible();
   await expect(page.getByText("Historis + Penyesuaian = Disesuaikan")).toBeVisible();
@@ -552,6 +557,7 @@ test("added analysis sections use readiness gates before sample data and render 
   await oclRow.locator("summary").click();
   await oclRow.getByLabel("Sertakan Utang pajak dalam Kenaikan (penurunan) liabilitas lancar operasional").check();
   await expect(oclRow.getByTestId("cash-flow-account-disclosure-ocl-change")).toContainText("3/3 disertakan");
+  await saveActiveWorkspaceNow(page);
   await expect
     .poll(() =>
       page.evaluate((key) => {
@@ -650,6 +656,7 @@ test("added analysis sections use readiness gates before sample data and render 
   const approvalSafeOpexMargin = await page.getByLabel("Opex margin override 2022").inputValue();
   const approvalSafeDepreciation = await page.getByLabel("Depreciation override 2022").inputValue();
   const firstYearRevenueBeforeOverride = parseDisplayedNumber((await readIncomeProjectionRowCells(page, "Revenue"))[3]);
+  await saveActiveWorkspaceNow(page);
   await expect.poll(() => page.evaluate((key) => {
     const raw = window.localStorage.getItem(key);
     const state = raw ? JSON.parse(raw) : {};
@@ -669,6 +676,7 @@ test("added analysis sections use readiness gates before sample data and render 
   const scenarioDepreciation = parseDisplayedNumber((await readIncomeProjectionRowCells(page, "Depreciation"))[3]);
   expect(Math.abs(scenarioOpex - scenarioRevenue * 0.1)).toBeLessThanOrEqual(1);
   expect(Math.abs(scenarioDepreciation - scenarioRevenue * 0.04)).toBeLessThanOrEqual(1);
+  await saveActiveWorkspaceNow(page);
   await expect.poll(() => page.evaluate((key) => {
     const raw = window.localStorage.getItem(key);
     const state = raw ? JSON.parse(raw) : {};
@@ -687,6 +695,7 @@ test("added analysis sections use readiness gates before sample data and render 
     .locator(".projection-governance-grid > div", { hasText: "Scenario DCF" })
     .locator("strong")
     .innerText();
+  await saveActiveWorkspaceNow(page);
   await expect.poll(() => page.evaluate((key) => {
     const raw = window.localStorage.getItem(key);
     const state = raw ? JSON.parse(raw) : {};
@@ -803,6 +812,7 @@ test("added analysis sections use readiness gates before sample data and render 
   await page.getByLabel("Sertakan Cash on Hand dalam (Kenaikan) penurunan aset lancar operasional").check();
   await page.getByTestId("projection-account-disclosure-ocl-change").locator("summary").click();
   await page.getByLabel("Sertakan Tax Payable dalam Kenaikan (penurunan) liabilitas lancar operasional").check();
+  await saveActiveWorkspaceNow(page);
   await expect.poll(() => page.evaluate((key) => {
     const raw = window.localStorage.getItem(key);
     const state = raw ? JSON.parse(raw) : {};
@@ -1167,6 +1177,7 @@ test("active EEM basis can switch to tax payable debt-like and flows to tax simu
   await openWorkflowTab(page, "Simulasi Potensi Pajak");
   await page.locator(".tax-control-grid").getByLabel("Primary Method").selectOption("EEM");
   await expect(page.getByTestId("tax-simulation-table")).toContainText(debtLikeEemValue ?? "");
+  await saveActiveWorkspaceNow(page);
   await expect
     .poll(() =>
       page.evaluate((key) => {
@@ -1378,9 +1389,11 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await waccBasisControl.getByText("Basis WACC lanjutan").click();
   await waccBasisControl.locator('input[value="raw"]').check();
   await expect(waccBasisControl).toContainText("Raw calculated WACC mengalir ke EEM/DCF");
+  await saveActiveWorkspaceNow(page);
   await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").activeWaccBasis)).toBe("raw");
   await waccBasisControl.getByLabel("Manual WACC reviewer").fill("0,09");
   await expect(waccBasisControl).toContainText("Manual WACC mengalir ke EEM/DCF");
+  await saveActiveWorkspaceNow(page);
   await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("penilaian-valuasi-bisnis.workbench.v1") ?? "{}").activeWaccBasis)).toBe("manual");
   await expect(page.getByTestId("discount-rate-analysis")).toContainText("Rata-rata mentah");
   await expect(page.getByTestId("discount-rate-analysis")).toContainText("8,804%");
@@ -1519,6 +1532,7 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
 
   await openWorkflowTab(page, "Penilaian EEM");
   await page.getByLabel("Basis Return on Tangible Asset").selectOption("equityCost");
+  await saveActiveWorkspaceNow(page);
   await expect
     .poll(() =>
       page.evaluate(() => {
@@ -1696,6 +1710,7 @@ test("localStorage persistence, fixed header, and root overflow checks remain st
   await expect.poll(() => page.evaluate(() => window.localStorage.getItem("penilaian-valuasi-bisnis.sidebar.v1"))).toBe("collapsed");
   await page.getByRole("button", { name: "Tambah akun neraca" }).first().click();
   await page.getByTestId("balance-account-table-row").last().getByLabel("Nama akun").fill("Piutang usaha");
+  await saveActiveWorkspaceNow(page);
   await page.reload();
 
   await expect(page.getByTestId("sidebar-rail")).toBeVisible();
@@ -1715,12 +1730,12 @@ test("localStorage persistence, fixed header, and root overflow checks remain st
   expect(sidebarBox?.y ?? 999).toBeLessThanOrEqual(1);
   await expect(page.locator(".brand-block")).toBeVisible();
   await expect(workflowNav(page).getByRole("button", { name: "Audit", exact: true })).toBeVisible();
-  await expect(page.getByText("Seluruh Data Auto-Save di Perangkat Bapak/Ibu")).toBeVisible();
+  await expect(page.getByText(/autosave tiap 10 menit/)).toBeVisible();
 
   expect(await hasNoRootHorizontalOverflow(page)).toBe(true);
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByTestId("workspace-header")).toBeVisible();
-  await expect(page.getByText("Seluruh Data Auto-Save di Perangkat Bapak/Ibu")).toBeVisible();
+  await expect(page.getByText(/autosave tiap 10 menit/)).toBeVisible();
   await expect(page.locator(".mobile-workflow-tabs")).toBeVisible();
   await expect(page.locator(".mobile-workflow-tabs").getByRole("tab", { name: "Kategorisasi Akun", exact: true })).toHaveCount(0);
   expect(await hasNoRootHorizontalOverflow(page)).toBe(true);
@@ -1765,6 +1780,19 @@ function workflowNav(page: Page) {
 
 async function openWorkflowTab(page: Page, name: string) {
   await workflowNav(page).getByRole("button", { name, exact: true }).click();
+}
+
+async function calculateDraftInputsNow(page: Page) {
+  const calculateButton = page.getByRole("button", { name: "Kalkulasikan Sekarang" });
+  await expect(calculateButton).toBeEnabled();
+  await calculateButton.click();
+}
+
+async function saveActiveWorkspaceNow(page: Page) {
+  const saveButton = page.getByRole("button", { name: "Simpan" });
+  await expect(saveButton).toBeEnabled();
+  await saveButton.click();
+  await expect(saveButton).toBeDisabled();
 }
 
 async function hasNoRootHorizontalOverflow(page: Page) {

@@ -21,6 +21,7 @@ test("readiness action links add the expected editable input rows", async ({ pag
   await page.getByTestId("readiness-fixedAssets").getByRole("link", { name: /Isi Aset Tetap/ }).click();
   await expect(page.getByTestId("fixed-asset-acquisition-table")).toBeVisible();
   await expect(page.getByTestId("fixed-asset-acquisition-table").getByTestId("fixed-asset-row")).toHaveCount(1);
+  await calculateDraftInputsNow(page);
   await expect(page.getByTestId("readiness-fixedAssets")).toHaveCount(0);
   await openWorkflowTab(page, "Cash Flow Statement");
   await expect(page.getByTestId("readiness-cashFlowStatement").locator(".readiness-list").first()).not.toContainText("Basis penyusutan/capex");
@@ -211,4 +212,10 @@ async function loginIfAuthGateVisible(page: Page) {
 
 async function openWorkflowTab(page: Page, name: string) {
   await workflowNav(page).getByRole("button", { name, exact: true }).click();
+}
+
+async function calculateDraftInputsNow(page: Page) {
+  const calculateButton = page.getByRole("button", { name: "Kalkulasikan Sekarang" });
+  await expect(calculateButton).toBeEnabled();
+  await calculateButton.click();
 }

@@ -1105,6 +1105,17 @@ type ValuationWorkbenchProps = {
   isSuperAdmin?: boolean;
 };
 
+type CalculationInputSection = "balance" | "income" | "fixedAssets";
+type PendingCalculationInputSections = Record<CalculationInputSection, boolean>;
+
+function createEmptyPendingCalculationInputSections(): PendingCalculationInputSections {
+  return {
+    balance: false,
+    income: false,
+    fixedAssets: false,
+  };
+}
+
 function useMappedRows(rows: AccountRow[]): MappedRow[] {
   return useMemo(
     () =>
@@ -1127,8 +1138,10 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   const [periods, setPeriods] = useState<Period[]>(initialPeriods);
   const [activePeriodId, setActivePeriodId] = useState(initialPeriods[0].id);
   const [rows, setRows] = useState<AccountRow[]>([]);
+  const [calculatedRows, setCalculatedRows] = useState<AccountRow[]>([]);
   const [isFixedAssetScheduleEnabled, setIsFixedAssetScheduleEnabled] = useState(false);
   const [fixedAssetScheduleRows, setFixedAssetScheduleRows] = useState<FixedAssetScheduleRow[]>([]);
+  const [calculatedFixedAssetScheduleRows, setCalculatedFixedAssetScheduleRows] = useState<FixedAssetScheduleRow[]>([]);
   const [debtScheduleInputs, setDebtScheduleInputs] = useState<DebtScheduleInputState>(() => createEmptyDebtScheduleInputs(initialPeriods));
   const [fixedAssetProjectionMode, setFixedAssetProjectionMode] = useState<FixedAssetProjectionMode>(defaultFixedAssetProjectionMode);
   const [activeWaccBasis, setActiveWaccBasis] = useState<WaccBasis>(defaultActiveWaccBasis);
@@ -1168,6 +1181,9 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState("");
   const [isSavingWorkspace, setIsSavingWorkspace] = useState(false);
+  const [pendingCalculationInputSections, setPendingCalculationInputSections] = useState<PendingCalculationInputSections>(
+    createEmptyPendingCalculationInputSections,
+  );
   const [isPdfExportMenuOpen, setIsPdfExportMenuOpen] = useState(false);
   const [isXlsxExportMenuOpen, setIsXlsxExportMenuOpen] = useState(false);
   const [isJsonMenuOpen, setIsJsonMenuOpen] = useState(false);
@@ -1186,7 +1202,8 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
 
   const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId) ?? workspaces[0];
   const activeWorkflowTabItem = workflowTabRegistry[activeWorkflowTab] ?? workflowTabRegistry.periods;
-  const mappedRows = useMappedRows(rows);
+  const draftMappedRows = useMappedRows(rows);
+  const mappedRows = useMappedRows(calculatedRows);
   const caseProfileDerived = useMemo(() => buildCaseProfileDerived(caseProfile), [caseProfile]);
   const activePeriod = periods.find((period) => period.id === activePeriodId) ?? getDefaultActivePeriod(periods);
   const effectiveValuationDate = caseProfileDerived.cutOffDate || activePeriod?.valuationDate || "";
@@ -1198,15 +1215,24 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     () => getSuggestedIdxComparables(caseProfile.companySector, 3, { valuationDate: effectiveValuationDate }),
     [caseProfile.companySector, effectiveValuationDate],
   );
-  const balanceSheetRows = useMemo(() => mappedRows.filter((item) => item.row.statement === "balance_sheet"), [mappedRows]);
-  const incomeStatementRows = useMemo(() => mappedRows.filter((item) => item.row.statement === "income_statement"), [mappedRows]);
-  const fixedAssetSchedule = useMemo(
+  const balanceSheetRows = useMemo(() => draftMappedRows.filter((item) => item.row.statement === "balance_sheet"), [draftMappedRows]);
+  const incomeStatementRows = useMemo(() => draftMappedRows.filter((item) => item.row.statement === "income_statement"), [draftMappedRows]);
+  const calculatedIncomeStatementRows = useMemo(
+    () => mappedRows.filter((item) => item.row.statement === "income_statement"),
+    [mappedRows],
+  );
+  const draftFixedAssetSchedule = useMemo(
     () => buildFixedAssetScheduleSummary(periods, fixedAssetScheduleRows),
     [fixedAssetScheduleRows, periods],
   );
+  const fixedAssetSchedule = useMemo(
+    () => buildFixedAssetScheduleSummary(periods, calculatedFixedAssetScheduleRows),
+    [calculatedFixedAssetScheduleRows, periods],
+  );
+  const hasPendingCalculationInputs = Object.values(pendingCalculationInputSections).some(Boolean);
   const accountingSnapshot = useMemo(
-    () => buildSnapshot(periods, activePeriodId, rows, assumptions, fixedAssetScheduleRows, { debtScheduleInputs }),
-    [periods, activePeriodId, rows, assumptions, fixedAssetScheduleRows, debtScheduleInputs],
+    () => buildSnapshot(periods, activePeriodId, calculatedRows, assumptions, calculatedFixedAssetScheduleRows, { debtScheduleInputs }),
+    [periods, activePeriodId, calculatedRows, assumptions, calculatedFixedAssetScheduleRows, debtScheduleInputs],
   );
   const autoWaccCapitalValues = useMemo(
     () => ({
@@ -1257,11 +1283,19 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   );
   const snapshot = useMemo(
     () =>
-      buildSnapshot(periods, activePeriodId, rows, resolvedAssumptions, fixedAssetScheduleRows, {
+      buildSnapshot(periods, activePeriodId, calculatedRows, resolvedAssumptions, calculatedFixedAssetScheduleRows, {
         waccBasis: effectiveActiveWaccBasis,
         debtScheduleInputs,
       }),
-    [periods, activePeriodId, rows, resolvedAssumptions, fixedAssetScheduleRows, effectiveActiveWaccBasis, debtScheduleInputs],
+    [
+      periods,
+      activePeriodId,
+      calculatedRows,
+      resolvedAssumptions,
+      calculatedFixedAssetScheduleRows,
+      effectiveActiveWaccBasis,
+      debtScheduleInputs,
+    ],
   );
   const aamAdjustmentModel = useMemo(() => buildAamAdjustmentModel(snapshot, aamAdjustments), [aamAdjustments, snapshot]);
   const dcfWorkingCapitalInclusionOptions = useMemo(
@@ -1307,19 +1341,28 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     () =>
       buildSectionAnalysis(
         periods,
-        rows,
+        calculatedRows,
         assumptions,
-        fixedAssetScheduleRows,
+        calculatedFixedAssetScheduleRows,
         cashFlowOverrides,
         debtScheduleInputs,
         cashFlowAccountInclusions,
         analysisValueOverrides,
       ),
-    [periods, rows, assumptions, fixedAssetScheduleRows, cashFlowOverrides, debtScheduleInputs, cashFlowAccountInclusions, analysisValueOverrides],
+    [
+      periods,
+      calculatedRows,
+      assumptions,
+      calculatedFixedAssetScheduleRows,
+      cashFlowOverrides,
+      debtScheduleInputs,
+      cashFlowAccountInclusions,
+      analysisValueOverrides,
+    ],
   );
   const cashFlowWorkingCapitalAccountCandidates = useMemo(
-    () => buildCashFlowWorkingCapitalAccountCandidates(rows, cashFlowAccountInclusions),
-    [cashFlowAccountInclusions, rows],
+    () => buildCashFlowWorkingCapitalAccountCandidates(calculatedRows, cashFlowAccountInclusions),
+    [calculatedRows, cashFlowAccountInclusions],
   );
   const eemCalculationOptions = useMemo(
     () =>
@@ -1439,8 +1482,8 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     [fixedAssetSchedule, mappedRows, periods],
   );
   const incomeStatementView = useMemo(
-    () => buildIncomeStatementView(periods, incomeStatementRows, fixedAssetSchedule),
-    [fixedAssetSchedule, incomeStatementRows, periods],
+    () => buildIncomeStatementView(periods, calculatedIncomeStatementRows, fixedAssetSchedule),
+    [calculatedIncomeStatementRows, fixedAssetSchedule, periods],
   );
   const eemNetOperatingTangibleAssets = findTraceValueById(activeEem.traces, "eem-net-tangible-asset-value");
   const eemExcessEarnings = findTraceValueById(activeEem.traces, "eem-excess-earning");
@@ -1599,7 +1642,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   const hasAnyInput =
     rows.length > 0 ||
     fixedAssetScheduleRows.length > 0 ||
-    fixedAssetSchedule.hasInput ||
+    draftFixedAssetSchedule.hasInput ||
     Object.values(aamAdjustments).some((entry) => entry.adjustment.trim() !== "" || entry.note.trim() !== "") ||
     periods.length !== 1 ||
     periods.some(
@@ -1639,7 +1682,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         dlom,
         dlomCalculation,
         fixedAssetSchedule,
-        fixedAssetScheduleRows,
+        fixedAssetScheduleRows: calculatedFixedAssetScheduleRows,
         incomeProjectionControls,
         mappedRows,
         periods,
@@ -1648,7 +1691,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         rawWaccCalculation,
         requiredReturnCalculation,
         results,
-        rows,
+        rows: calculatedRows,
         sectionAnalysis,
         snapshot,
         taxSimulation,
@@ -1668,7 +1711,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       dlom,
       dlomCalculation,
       fixedAssetSchedule,
-      fixedAssetScheduleRows,
+      calculatedFixedAssetScheduleRows,
       incomeProjectionControls,
       mappedRows,
       periods,
@@ -1677,7 +1720,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       rawWaccCalculation,
       requiredReturnCalculation,
       results,
-      rows,
+      calculatedRows,
       sectionAnalysis,
       snapshot,
       taxSimulation,
@@ -1685,14 +1728,14 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     ],
   );
   const checks = useMemo(
-    () => buildValidationChecks(rows, mappedRows, resolvedAssumptions, snapshot, balanceSheetGap, fixedAssetSchedule),
-    [balanceSheetGap, fixedAssetSchedule, mappedRows, resolvedAssumptions, rows, snapshot],
+    () => buildValidationChecks(calculatedRows, mappedRows, resolvedAssumptions, snapshot, balanceSheetGap, fixedAssetSchedule),
+    [balanceSheetGap, fixedAssetSchedule, mappedRows, resolvedAssumptions, calculatedRows, snapshot],
   );
   const readiness = useMemo(
     () =>
       buildWorkbenchReadiness({
         periods,
-        rows,
+        rows: calculatedRows,
         mappedRows,
         assumptions: resolvedAssumptions,
         snapshot,
@@ -1703,7 +1746,19 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         dlocPfc: dlocPfcCalculation,
         taxSimulation,
       }),
-    [caseProfile, caseProfileDerived, dlocPfcCalculation, dlomCalculation, fixedAssetSchedule, mappedRows, periods, resolvedAssumptions, rows, snapshot, taxSimulation],
+    [
+      caseProfile,
+      caseProfileDerived,
+      calculatedRows,
+      dlocPfcCalculation,
+      dlomCalculation,
+      fixedAssetSchedule,
+      mappedRows,
+      periods,
+      resolvedAssumptions,
+      snapshot,
+      taxSimulation,
+    ],
   );
 
   useEffect(() => {
@@ -1748,7 +1803,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     };
   }
 
-  function applyCoreState(state: WorkbenchCoreState) {
+  function applyCoreState(state: WorkbenchCoreState, options: { syncCalculationInputs?: boolean } = {}) {
     setPeriods(state.periods);
     setActivePeriodId(state.activePeriodId);
     setRows(state.rows);
@@ -1771,6 +1826,12 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     setAnalysisValueOverrides(state.analysisValueOverrides);
     setCashFlowAccountInclusions(state.cashFlowAccountInclusions);
     setIncomeProjectionControls(state.incomeProjectionControls);
+
+    if (options.syncCalculationInputs) {
+      setCalculatedRows(state.rows);
+      setCalculatedFixedAssetScheduleRows(state.fixedAssetScheduleRows);
+      setPendingCalculationInputSections(createEmptyPendingCalculationInputSections());
+    }
   }
 
   function commitCoreState(update: (current: WorkbenchCoreState) => WorkbenchCoreState) {
@@ -1795,6 +1856,40 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
 
     setHasUnsavedChanges(true);
     applyCoreState(next);
+  }
+
+  function markCalculationInputsPending(...sections: CalculationInputSection[]) {
+    setPendingCalculationInputSections((current) => {
+      let hasChange = false;
+      const next = { ...current };
+
+      for (const section of sections) {
+        if (!next[section]) {
+          next[section] = true;
+          hasChange = true;
+        }
+      }
+
+      return hasChange ? next : current;
+    });
+  }
+
+  function getRowCalculationSection(statement: StatementType): CalculationInputSection | null {
+    if (statement === "balance_sheet") {
+      return "balance";
+    }
+
+    if (statement === "income_statement") {
+      return "income";
+    }
+
+    return null;
+  }
+
+  function calculateDraftInputsNow() {
+    setCalculatedRows(rows);
+    setCalculatedFixedAssetScheduleRows(fixedAssetScheduleRows);
+    setPendingCalculationInputSections(createEmptyPendingCalculationInputSections());
   }
 
   function saveActiveWorkspaceNow(workspaceList = workspaces, workspaceId = activeWorkspaceId) {
@@ -1824,7 +1919,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
 
   function applyWorkspaceState(workspaceId: string, state: PersistedWorkbenchState) {
     setActiveWorkspaceId(workspaceId);
-    applyCoreState(buildRestoredCoreState(state));
+    applyCoreState(buildRestoredCoreState(state), { syncCalculationInputs: true });
     setHasUnsavedChanges(false);
     setLastSavedAt(state.savedAt);
     setActiveWorkflowTab("periods");
@@ -2181,7 +2276,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
 
     setWorkspaces(storedWorkspace.manifest.workspaces);
     setActiveWorkspaceId(storedWorkspace.manifest.activeWorkspaceId);
-    applyCoreState(buildRestoredCoreState(storedWorkspace.activeState));
+    applyCoreState(buildRestoredCoreState(storedWorkspace.activeState), { syncCalculationInputs: true });
     setHasUnsavedChanges(false);
     setLastSavedAt(storedWorkspace.activeState.savedAt);
 
@@ -2467,6 +2562,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       setGuidanceTarget(null);
     }
 
+    markCalculationInputsPending("balance", "income", "fixedAssets");
     commitCoreState((current) => {
       const period = createHistoricalPeriod(current.periods);
       const nextPeriods = normalizePeriods([...current.periods, period]);
@@ -2556,6 +2652,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   }
 
   function deletePeriod(id: string) {
+    markCalculationInputsPending("balance", "income", "fixedAssets");
     commitCoreState((current) => {
       const periodToRemove = current.periods.find((period) => period.id === id);
 
@@ -2597,10 +2694,17 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   }
 
   function addRow(statement: StatementType = "balance_sheet") {
+    const section = getRowCalculationSection(statement);
+
+    if (section) {
+      markCalculationInputsPending(section);
+    }
+
     commitCoreState((current) => ({ ...current, rows: [...current.rows, createRow(statement, current.periods)] }));
   }
 
   function addFixedAssetScheduleRow() {
+    markCalculationInputsPending("fixedAssets");
     commitCoreState((current) => ({
       ...current,
       fixedAssetScheduleRows: [...current.fixedAssetScheduleRows, createFixedAssetScheduleRow(current.periods)],
@@ -2608,6 +2712,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   }
 
   function updateFixedAssetScheduleRow(id: string, patch: Partial<FixedAssetScheduleRow>) {
+    markCalculationInputsPending("fixedAssets");
     commitCoreState((current) => ({
       ...current,
       fixedAssetScheduleRows: current.fixedAssetScheduleRows.map((row) => (row.id === id ? { ...row, ...patch } : row)),
@@ -2615,6 +2720,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   }
 
   function updateFixedAssetScheduleValue(rowId: string, periodId: string, key: FixedAssetScheduleValueKey, value: string) {
+    markCalculationInputsPending("fixedAssets");
     updateCoreStateDraft((current) => ({
       ...current,
       fixedAssetScheduleRows: current.fixedAssetScheduleRows.map((row) =>
@@ -2647,6 +2753,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   }
 
   function deleteFixedAssetScheduleRow(id: string) {
+    markCalculationInputsPending("fixedAssets");
     commitCoreState((current) => ({
       ...current,
       fixedAssetScheduleRows: current.fixedAssetScheduleRows.filter((row) => row.id !== id),
@@ -2677,6 +2784,12 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   }
 
   function updateRow(id: string, patch: Partial<AccountRow>) {
+    const currentRow = rows.find((row) => row.id === id);
+    const currentSection = currentRow ? getRowCalculationSection(currentRow.statement) : null;
+    const nextSection =
+      patch.statement && patch.statement !== currentRow?.statement ? getRowCalculationSection(patch.statement) : currentSection;
+
+    markCalculationInputsPending(...[currentSection, nextSection].filter((section): section is CalculationInputSection => Boolean(section)));
     commitCoreState((current) => ({
       ...current,
       rows: current.rows.map((row) => (row.id === id ? { ...row, ...patch } : row)),
@@ -2684,6 +2797,10 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   }
 
   function updateRowAccountName(id: string, accountName: string) {
+    const section = getRowCalculationSection(rows.find((row) => row.id === id)?.statement ?? "balance_sheet");
+    if (section) {
+      markCalculationInputsPending(section);
+    }
     updateCoreStateDraft((current) => ({
       ...current,
       rows: current.rows.map((row) => (row.id === id ? { ...row, accountName } : row)),
@@ -2691,6 +2808,10 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   }
 
   function updateRowValue(rowId: string, periodId: string, value: string) {
+    const section = getRowCalculationSection(rows.find((row) => row.id === rowId)?.statement ?? "balance_sheet");
+    if (section) {
+      markCalculationInputsPending(section);
+    }
     updateCoreStateDraft((current) => ({
       ...current,
       rows: current.rows.map((row) => {
@@ -2720,10 +2841,18 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   }
 
   function deleteRow(id: string) {
+    const section = getRowCalculationSection(rows.find((row) => row.id === id)?.statement ?? "balance_sheet");
+    if (section) {
+      markCalculationInputsPending(section);
+    }
     commitCoreState((current) => ({ ...current, rows: current.rows.filter((row) => row.id !== id) }));
   }
 
   function toggleRowLabel(rowId: string, labelId: AccountLabelId) {
+    const section = getRowCalculationSection(rows.find((row) => row.id === rowId)?.statement ?? "balance_sheet");
+    if (section) {
+      markCalculationInputsPending(section);
+    }
     commitCoreState((current) => ({
       ...current,
       rows: current.rows.map((row) => {
@@ -3296,8 +3425,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     const samplePeriods = buildSamplePeriods();
     const sampleFixedAssetScheduleRows = buildSampleFixedAssetScheduleRows();
     const sampleAssumptions = buildSampleAssumptions();
-    commitCoreState((current) => ({
-      ...current,
+    const sampleState: WorkbenchCoreState = {
       periods: samplePeriods,
       activePeriodId: "p2021",
       rows: buildSampleRows().filter((row) => row.id !== "sample-fixed-net"),
@@ -3320,7 +3448,10 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       analysisValueOverrides: {},
       cashFlowAccountInclusions: {},
       incomeProjectionControls: createEmptyIncomeProjectionControls(),
-    }));
+    };
+
+    setHasUnsavedChanges(true);
+    applyCoreState(sampleState, { syncCalculationInputs: true });
   }
 
   useEffect(() => {
@@ -3341,9 +3472,9 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     return {
       periods,
       activePeriodId,
-      rows,
+      rows: calculatedRows,
       mappedRows,
-      fixedAssetScheduleRows,
+      fixedAssetScheduleRows: calculatedFixedAssetScheduleRows,
       fixedAssetSchedule,
       assumptions,
       resolvedAssumptions,
@@ -3515,7 +3646,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     });
     persistLegacyWorkbenchMirror(persistedState);
     setWorkspaces(nextWorkspaces);
-    applyCoreState(emptyState);
+    applyCoreState(emptyState, { syncCalculationInputs: true });
     setHasUnsavedChanges(false);
     setLastSavedAt(savedAt);
 
@@ -4016,6 +4147,17 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               <h4>Akun neraca manual</h4>
             </div>
             <div className="account-input-actions">
+              {pendingCalculationInputSections.balance ? <span className="status-pill warning">Perubahan belum dikalkulasi</span> : null}
+              <button
+                className="button secondary"
+                type="button"
+                onClick={calculateDraftInputsNow}
+                disabled={!hasPendingCalculationInputs}
+                title={hasPendingCalculationInputs ? "Kalkulasikan data input terbaru" : "Semua input sudah dikalkulasi"}
+              >
+                <Calculator size={18} />
+                Kalkulasikan Sekarang
+              </button>
               <button
                 aria-controls="balance-account-input-region"
                 aria-expanded={!isBalanceInputCollapsed}
@@ -4072,10 +4214,24 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         {activeWorkflowTab === "fixedAssets" ? (
         <section id="fixedAssets" className="panel">
           <ReadinessPanel status={readiness.fixedAssets} onNavigate={navigateToWorkflowTab} onAction={handleReadinessAction} />
+          <div className="input-collapse-summary">
+            <Calculator size={16} />
+            <strong>{pendingCalculationInputSections.fixedAssets ? "Perubahan aset tetap belum dikalkulasi" : "Aset tetap sudah dikalkulasi"}</strong>
+            <button
+              className="button secondary"
+              type="button"
+              onClick={calculateDraftInputsNow}
+              disabled={!hasPendingCalculationInputs}
+              title={hasPendingCalculationInputs ? "Kalkulasikan data input terbaru" : "Semua input sudah dikalkulasi"}
+            >
+              <Calculator size={18} />
+              Kalkulasikan Sekarang
+            </button>
+          </div>
 
           <FixedAssetScheduleEditor
             periods={periods}
-            schedule={fixedAssetSchedule}
+            schedule={draftFixedAssetSchedule}
             onAddRow={addFixedAssetScheduleRow}
             onRemoveRow={removeFixedAssetScheduleRow}
             onUpdateRow={updateFixedAssetScheduleRow}
@@ -4094,6 +4250,17 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               <h4>Laba rugi dan driver operasi</h4>
             </div>
             <div className="account-input-actions">
+              {pendingCalculationInputSections.income ? <span className="status-pill warning">Perubahan belum dikalkulasi</span> : null}
+              <button
+                className="button secondary"
+                type="button"
+                onClick={calculateDraftInputsNow}
+                disabled={!hasPendingCalculationInputs}
+                title={hasPendingCalculationInputs ? "Kalkulasikan data input terbaru" : "Semua input sudah dikalkulasi"}
+              >
+                <Calculator size={18} />
+                Kalkulasikan Sekarang
+              </button>
               <button
                 aria-controls="income-account-input-region"
                 aria-expanded={!isIncomeInputCollapsed}
