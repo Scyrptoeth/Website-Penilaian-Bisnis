@@ -529,6 +529,7 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByTestId("readiness-noplatFcf")).toContainText("Masih diperlukan");
   await page.getByTestId("readiness-noplatFcf").getByRole("link", { name: /Isi Laba Rugi/ }).first().click();
   await expect(workflowNav(page).getByRole("button", { name: "Laba Rugi", exact: true })).toHaveAttribute("aria-current", "page");
+  await calculateDraftInputsNow(page);
   await openWorkflowTab(page, "Proyeksi Laba Rugi");
   await expect(page.getByTestId("readiness-projectedIncome")).toBeVisible();
   await expect(page.getByTestId("readiness-projectedIncome")).toContainText("Masih diperlukan");
@@ -551,6 +552,10 @@ test("added analysis sections use readiness gates before sample data and render 
   await ocaRow.locator("summary").click();
   await ocaRow.getByLabel("Sertakan Kas dalam (Kenaikan) penurunan aset lancar operasional").check();
   await expect(ocaRow.getByTestId("cash-flow-account-disclosure-oca-change")).toContainText("3/5 disertakan");
+  await expect(page.getByText("Perubahan dihitung saat pindah tab")).toBeVisible();
+  expect(parseDisplayedNumber((await page.getByTestId("cash-flow-oca-change-p2021-final").textContent()) ?? "")).toBe(ocaFinalBefore);
+  await openWorkflowTab(page, "Jadwal Utang");
+  await openWorkflowTab(page, "Cash Flow Statement");
   await expect
     .poll(async () => parseDisplayedNumber((await page.getByTestId("cash-flow-oca-change-p2021-final").textContent()) ?? ""))
     .not.toBe(ocaFinalBefore);
@@ -577,6 +582,10 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByLabel("Alasan override Non-operating cash flow 2021")).toHaveCount(0);
   await expect(page.getByRole("textbox", { name: "Override Non-operating cash flow 2021", exact: true })).toHaveCount(0);
   await page.getByRole("textbox", { name: "Override (Kenaikan) penurunan aset lancar operasional 2019", exact: true }).fill("100000000");
+  await expect(page.getByText("Perubahan dihitung saat pindah tab")).toBeVisible();
+  await expect(cashFlowStatementTable.getByText("Override diterapkan", { exact: true })).toHaveCount(0);
+  await openWorkflowTab(page, "Jadwal Utang");
+  await openWorkflowTab(page, "Cash Flow Statement");
   await expect(cashFlowStatementTable.getByText("Override diterapkan", { exact: true })).toBeVisible();
   await expect(page.getByText("100.000.000").first()).toBeVisible();
 

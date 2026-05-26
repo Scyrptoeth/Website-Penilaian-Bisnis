@@ -16,6 +16,7 @@ test("readiness action links add the expected editable input rows", async ({ pag
   await expect(incomeReadiness.locator(".badge.danger")).toContainText("Perlu dilengkapi");
   await incomeReadiness.getByRole("link", { name: /Isi Laba Rugi/ }).click();
   await expect(page.getByTestId("income-account-table-row")).toHaveCount(1);
+  await calculateDraftInputsNow(page);
 
   await openWorkflowTab(page, "Aset Tetap");
   await page.getByTestId("readiness-fixedAssets").getByRole("link", { name: /Isi Aset Tetap/ }).click();

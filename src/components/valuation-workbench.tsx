@@ -1165,8 +1165,10 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   const [dlocPfc, setDlocPfc] = useState<DlocPfcState>(createEmptyDlocPfcState);
   const [taxSimulation, setTaxSimulation] = useState<TaxSimulationState>(createEmptyTaxSimulationState);
   const [cashFlowOverrides, setCashFlowOverrides] = useState<CashFlowOverrideState>({});
+  const [calculatedCashFlowOverrides, setCalculatedCashFlowOverrides] = useState<CashFlowOverrideState>({});
   const [analysisValueOverrides, setAnalysisValueOverrides] = useState<AnalysisValueOverrideState>({});
   const [cashFlowAccountInclusions, setCashFlowAccountInclusions] = useState<CashFlowAccountInclusionState>({});
+  const [calculatedCashFlowAccountInclusions, setCalculatedCashFlowAccountInclusions] = useState<CashFlowAccountInclusionState>({});
   const [incomeProjectionControls, setIncomeProjectionControls] = useState<IncomeProjectionControlState>(
     createEmptyIncomeProjectionControls,
   );
@@ -1306,12 +1308,12 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   );
   const aamAdjustmentModel = useMemo(() => buildAamAdjustmentModel(snapshot, aamAdjustments), [aamAdjustments, snapshot]);
   const dcfWorkingCapitalInclusionOptions = useMemo(
-    () => buildDcfWorkingCapitalInclusionOptions(cashFlowAccountInclusions),
-    [cashFlowAccountInclusions],
+    () => buildDcfWorkingCapitalInclusionOptions(calculatedCashFlowAccountInclusions),
+    [calculatedCashFlowAccountInclusions],
   );
   const dcfProjectionWorkingCapitalCandidates = useMemo(
-    () => buildDcfProjectionWorkingCapitalCandidates(cashFlowAccountInclusions),
-    [cashFlowAccountInclusions],
+    () => buildDcfProjectionWorkingCapitalCandidates(calculatedCashFlowAccountInclusions),
+    [calculatedCashFlowAccountInclusions],
   );
   const projectionPlanningDcfOptions = useMemo(
     () => buildProjectionPlanningDcfOptions(projectionPlanning),
@@ -1351,9 +1353,9 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         calculatedRows,
         assumptions,
         calculatedFixedAssetScheduleRows,
-        cashFlowOverrides,
+        calculatedCashFlowOverrides,
         debtScheduleInputs,
-        cashFlowAccountInclusions,
+        calculatedCashFlowAccountInclusions,
         analysisValueOverrides,
       ),
     [
@@ -1361,9 +1363,9 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       calculatedRows,
       assumptions,
       calculatedFixedAssetScheduleRows,
-      cashFlowOverrides,
+      calculatedCashFlowOverrides,
       debtScheduleInputs,
-      cashFlowAccountInclusions,
+      calculatedCashFlowAccountInclusions,
       analysisValueOverrides,
     ],
   );
@@ -1738,6 +1740,12 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     () => buildValidationChecks(calculatedRows, mappedRows, resolvedAssumptions, snapshot, balanceSheetGap, fixedAssetSchedule),
     [balanceSheetGap, fixedAssetSchedule, mappedRows, resolvedAssumptions, calculatedRows, snapshot],
   );
+  const isCashFlowStatementCalculationPending =
+    cashFlowOverrides !== calculatedCashFlowOverrides || cashFlowAccountInclusions !== calculatedCashFlowAccountInclusions;
+  const cashFlowStatementRows = useMemo(
+    () => mergeCashFlowOverrideInputs(sectionAnalysis.cashFlowStatementRows, cashFlowOverrides),
+    [cashFlowOverrides, sectionAnalysis.cashFlowStatementRows],
+  );
   const readiness = useMemo(
     () =>
       buildWorkbenchReadiness({
@@ -1837,6 +1845,8 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     if (options.syncCalculationInputs) {
       setCalculatedRows(state.rows);
       setCalculatedFixedAssetScheduleRows(state.fixedAssetScheduleRows);
+      setCalculatedCashFlowOverrides(state.cashFlowOverrides);
+      setCalculatedCashFlowAccountInclusions(state.cashFlowAccountInclusions);
       setPendingCalculationInputSections(createEmptyPendingCalculationInputSections());
     }
   }
@@ -1897,6 +1907,11 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     setCalculatedRows(rows);
     setCalculatedFixedAssetScheduleRows(fixedAssetScheduleRows);
     setPendingCalculationInputSections(createEmptyPendingCalculationInputSections());
+  }
+
+  function calculateCashFlowStatementDraftNow() {
+    setCalculatedCashFlowOverrides(cashFlowOverrides);
+    setCalculatedCashFlowAccountInclusions(cashFlowAccountInclusions);
   }
 
   function saveActiveWorkspaceNow(workspaceList = workspaces, workspaceId = activeWorkspaceId) {
@@ -2118,6 +2133,10 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     tabId: WorkflowTabId,
     options: { preserveGuidance?: boolean; preserveSourceFocus?: boolean } = {},
   ) {
+    if (tabId !== activeWorkflowTab && activeWorkflowTab === "cashFlowStatement" && isCashFlowStatementCalculationPending) {
+      calculateCashFlowStatementDraftNow();
+    }
+
     setActiveWorkflowTab(tabId);
     if (!options.preserveGuidance) {
       setGuidanceTarget(null);
@@ -2981,6 +3000,8 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   }
 
   function updateCashFlowOverride(rowKey: string, periodId: string, patch: Partial<CashFlowOverrideEntry>) {
+    let nextCashFlowOverrides = cashFlowOverrides;
+
     commitCoreState((current) => {
       const currentEntry = current.cashFlowOverrides[rowKey]?.[periodId] ?? { value: "", reason: "", updatedAt: "" };
       const nextEntry: CashFlowOverrideEntry = {
@@ -3003,12 +3024,17 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       } else {
         nextOverrides[rowKey] = nextRowOverrides;
       }
+      nextCashFlowOverrides = nextOverrides;
 
       return {
         ...current,
         cashFlowOverrides: nextOverrides,
       };
     });
+
+    if (activeWorkflowTab !== "cashFlowStatement") {
+      setCalculatedCashFlowOverrides(nextCashFlowOverrides);
+    }
   }
 
   function updateAnalysisValueOverride(
@@ -3055,18 +3081,25 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   }
 
   function toggleCashFlowAccountInclusion(rowKey: CashFlowWorkingCapitalRowKey, accountRowId: string, included: boolean) {
+    let nextCashFlowAccountInclusions = cashFlowAccountInclusions;
+
     commitCoreState((current) => {
       const nextInclusions: CashFlowAccountInclusionState = { ...current.cashFlowAccountInclusions };
       nextInclusions[rowKey] = {
         ...(nextInclusions[rowKey] ?? {}),
         [accountRowId]: included,
       };
+      nextCashFlowAccountInclusions = nextInclusions;
 
       return {
         ...current,
         cashFlowAccountInclusions: nextInclusions,
       };
     });
+
+    if (activeWorkflowTab !== "cashFlowStatement") {
+      setCalculatedCashFlowAccountInclusions(nextCashFlowAccountInclusions);
+    }
   }
 
   function updateDebtScheduleInput(periodId: string, key: DebtScheduleInputKey, value: string) {
@@ -5147,7 +5180,9 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
           readiness.cashFlowStatement.isReady ? (
             <CashFlowStatementSection
               analysis={sectionAnalysis}
+              cashFlowStatementRows={cashFlowStatementRows}
               accountCandidates={cashFlowWorkingCapitalAccountCandidates}
+              isCalculationPending={isCashFlowStatementCalculationPending}
               readiness={readiness.cashFlowStatement}
               onNavigate={navigateToWorkflowTab}
               onToggleAccountInclusion={toggleCashFlowAccountInclusion}
@@ -9067,6 +9102,24 @@ function operatingCurrentLiabilitiesCashEffect(index: number, context: DcfProjec
   return current - previous;
 }
 
+function mergeCashFlowOverrideInputs(rows: CashFlowStatementRow[], overrides: CashFlowOverrideState): CashFlowStatementRow[] {
+  return rows.map((row) => {
+    const rowOverrides = overrides[row.key];
+
+    if (!rowOverrides) {
+      return row;
+    }
+
+    return {
+      ...row,
+      overrideInputs: {
+        ...row.overrideInputs,
+        ...Object.fromEntries(Object.entries(rowOverrides).map(([periodId, entry]) => [periodId, entry.value])),
+      },
+    };
+  });
+}
+
 const cashFlowStatementSectionLabels: Record<CashFlowStatementRow["section"], string> = {
   operating: "Arus kas operasi",
   working_capital: "Perubahan modal kerja operasional",
@@ -9077,14 +9130,18 @@ const cashFlowStatementSectionLabels: Record<CashFlowStatementRow["section"], st
 
 function CashFlowStatementSection({
   analysis,
+  cashFlowStatementRows,
   accountCandidates,
+  isCalculationPending,
   readiness,
   onNavigate,
   onToggleAccountInclusion,
   onUpdateOverride,
 }: {
   analysis: SectionAnalysis;
+  cashFlowStatementRows: CashFlowStatementRow[];
   accountCandidates: CashFlowWorkingCapitalAccountCandidates;
+  isCalculationPending: boolean;
   readiness: SectionReadiness;
   onNavigate: (tabId: WorkflowTabId) => void;
   onToggleAccountInclusion: (rowKey: CashFlowWorkingCapitalRowKey, accountRowId: string, included: boolean) => void;
@@ -9100,10 +9157,12 @@ function CashFlowStatementSection({
             <p className="eyebrow">Detail statement</p>
             <h3>Calculated · override · final · trace</h3>
           </div>
-          <span className="status-pill muted">Audit-ready table</span>
+          <span className={isCalculationPending ? "status-pill warning" : "status-pill muted"}>
+            {isCalculationPending ? "Perubahan dihitung saat pindah tab" : "Audit-ready table"}
+          </span>
         </div>
         <CashFlowStatementTable
-          rows={analysis.cashFlowStatementRows}
+          rows={cashFlowStatementRows}
           periods={analysis.periods}
           accountCandidates={accountCandidates}
           onToggleAccountInclusion={onToggleAccountInclusion}
