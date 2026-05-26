@@ -1968,6 +1968,15 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     setCalculatedIncomeProjectionControls(incomeProjectionControls);
   }
 
+  function calculateWorkbenchNow() {
+    calculateDraftInputsNow();
+    calculateCashFlowStatementDraftNow();
+    calculateAdvancedDraftsNow();
+    setIsPdfExportMenuOpen(false);
+    setIsXlsxExportMenuOpen(false);
+    setIsJsonMenuOpen(false);
+  }
+
   function saveActiveWorkspaceNow(workspaceList = workspaces, workspaceId = activeWorkspaceId) {
     const savedAt = new Date().toISOString();
     const persistedState = buildPersistedWorkbenchState(getCurrentCoreState(), savedAt);
@@ -3976,6 +3985,10 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               </div>
             ) : null}
             <div className="toolbar">
+              <button className="button secondary" type="button" onClick={calculateWorkbenchNow} disabled={!isDraftRestored}>
+                <Calculator size={18} />
+                Kalkulasikan Sekarang
+              </button>
               <div className="export-menu" ref={pdfExportMenuRef}>
                 <button
                   className="button secondary export-menu-trigger"

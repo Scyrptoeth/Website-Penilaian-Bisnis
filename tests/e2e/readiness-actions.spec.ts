@@ -216,11 +216,5 @@ async function openWorkflowTab(page: Page, name: string) {
 }
 
 async function calculateDraftInputsNow(page: Page) {
-  const activeTab = workflowNav(page).locator('button[aria-current="page"]');
-  const activeTabName =
-    (await activeTab.getAttribute("aria-label")) ?? (await activeTab.locator(".workflow-tab-label").innerText());
-  const calculationTriggerTab = activeTabName === "Data Awal" ? "Audit" : "Data Awal";
-
-  await openWorkflowTab(page, calculationTriggerTab);
-  await openWorkflowTab(page, activeTabName);
+  await page.getByRole("button", { name: "Kalkulasikan Sekarang" }).click();
 }
