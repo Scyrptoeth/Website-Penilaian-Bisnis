@@ -1109,12 +1109,6 @@ type ValuationWorkbenchProps = {
 type CalculationInputSection = "balance" | "income" | "fixedAssets";
 type PendingCalculationInputSections = Record<CalculationInputSection, boolean>;
 
-const workflowTabCalculationSections: Partial<Record<WorkflowTabId, CalculationInputSection>> = {
-  balance: "balance",
-  fixedAssets: "fixedAssets",
-  income: "income",
-};
-
 function createEmptyPendingCalculationInputSections(): PendingCalculationInputSections {
   return {
     balance: false,
@@ -2109,23 +2103,6 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     tabId: WorkflowTabId,
     options: { preserveGuidance?: boolean; preserveSourceFocus?: boolean } = {},
   ) {
-    const pendingSection = workflowTabCalculationSections[activeWorkflowTab];
-
-    if (tabId !== activeWorkflowTab && pendingSection && pendingCalculationInputSections[pendingSection]) {
-      const currentTabLabel = workflowTabRegistry[activeWorkflowTab]?.label ?? "bagian ini";
-      const nextTabLabel = workflowTabRegistry[tabId]?.label ?? "bagian yang dipilih";
-
-      setPendingConfirmation({
-        title: "Perhitungan belum diperbarui",
-        description: `Anda telah melakukan perubahan di bagian ${currentTabLabel} namun belum mengklik "Kalkulasikan Sekarang" sehingga perhitungan belum diperbarui. Apakah Anda yakin untuk melanjutkan pekerjaan ke ${nextTabLabel}?`,
-        cancelLabel: "Tetap di bagian ini",
-        confirmLabel: "Lanjutkan",
-        confirmTone: "primary",
-        onConfirm: () => commitWorkflowTabNavigation(tabId, options),
-      });
-      return;
-    }
-
     commitWorkflowTabNavigation(tabId, options);
   }
 
@@ -2133,8 +2110,14 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     tabId: WorkflowTabId,
     options: { preserveGuidance?: boolean; preserveSourceFocus?: boolean } = {},
   ) {
-    if (tabId !== activeWorkflowTab && activeWorkflowTab === "cashFlowStatement" && isCashFlowStatementCalculationPending) {
-      calculateCashFlowStatementDraftNow();
+    if (tabId !== activeWorkflowTab) {
+      if (hasPendingCalculationInputs) {
+        calculateDraftInputsNow();
+      }
+
+      if (isCashFlowStatementCalculationPending) {
+        calculateCashFlowStatementDraftNow();
+      }
     }
 
     setActiveWorkflowTab(tabId);
@@ -4211,17 +4194,9 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               <h4>Akun neraca manual</h4>
             </div>
             <div className="account-input-actions">
-              {pendingCalculationInputSections.balance ? <span className="status-pill warning">Perubahan belum dikalkulasi</span> : null}
-              <button
-                className="button secondary"
-                type="button"
-                onClick={calculateDraftInputsNow}
-                disabled={!hasPendingCalculationInputs}
-                title={hasPendingCalculationInputs ? "Kalkulasikan data input terbaru" : "Semua input sudah dikalkulasi"}
-              >
-                <Calculator size={18} />
-                Kalkulasikan Sekarang
-              </button>
+              <span className={pendingCalculationInputSections.balance ? "status-pill warning" : "status-pill muted"}>
+                {pendingCalculationInputSections.balance ? "Perubahan dihitung saat pindah tab" : "Neraca sudah dikalkulasi"}
+              </span>
               <button
                 aria-controls="balance-account-input-region"
                 aria-expanded={!isBalanceInputCollapsed}
@@ -4280,17 +4255,9 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
           <ReadinessPanel status={readiness.fixedAssets} onNavigate={navigateToWorkflowTab} onAction={handleReadinessAction} />
           <div className="input-collapse-summary">
             <Calculator size={16} />
-            <strong>{pendingCalculationInputSections.fixedAssets ? "Perubahan aset tetap belum dikalkulasi" : "Aset tetap sudah dikalkulasi"}</strong>
-            <button
-              className="button secondary"
-              type="button"
-              onClick={calculateDraftInputsNow}
-              disabled={!hasPendingCalculationInputs}
-              title={hasPendingCalculationInputs ? "Kalkulasikan data input terbaru" : "Semua input sudah dikalkulasi"}
-            >
-              <Calculator size={18} />
-              Kalkulasikan Sekarang
-            </button>
+            <strong>
+              {pendingCalculationInputSections.fixedAssets ? "Perubahan aset tetap dihitung saat pindah tab" : "Aset tetap sudah dikalkulasi"}
+            </strong>
           </div>
 
           <FixedAssetScheduleEditor
@@ -4314,17 +4281,9 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               <h4>Laba rugi dan driver operasi</h4>
             </div>
             <div className="account-input-actions">
-              {pendingCalculationInputSections.income ? <span className="status-pill warning">Perubahan belum dikalkulasi</span> : null}
-              <button
-                className="button secondary"
-                type="button"
-                onClick={calculateDraftInputsNow}
-                disabled={!hasPendingCalculationInputs}
-                title={hasPendingCalculationInputs ? "Kalkulasikan data input terbaru" : "Semua input sudah dikalkulasi"}
-              >
-                <Calculator size={18} />
-                Kalkulasikan Sekarang
-              </button>
+              <span className={pendingCalculationInputSections.income ? "status-pill warning" : "status-pill muted"}>
+                {pendingCalculationInputSections.income ? "Perubahan dihitung saat pindah tab" : "Laba rugi sudah dikalkulasi"}
+              </span>
               <button
                 aria-controls="income-account-input-region"
                 aria-expanded={!isIncomeInputCollapsed}

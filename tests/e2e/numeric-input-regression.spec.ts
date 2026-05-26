@@ -33,9 +33,9 @@ test("integer amount fields keep accepting typed digits after thousands separato
   await balanceRow.getByLabel("Nama akun").fill("Kas");
   await balanceRow.getByLabel("Tahun Y amount").pressSequentially("1234567890");
   await expect(balanceRow.getByLabel("Tahun Y amount")).toHaveValue("1.234.567.890");
-  const calculateNowButton = page.getByRole("button", { name: "Kalkulasikan Sekarang" });
-  await expect(calculateNowButton).toBeEnabled();
-  await calculateNowButton.click();
+  await expect(page.getByText("Perubahan dihitung saat pindah tab")).toBeVisible();
+  await openWorkflowTab(page, "Aset Tetap");
+  await openWorkflowTab(page, "Neraca");
   await expect(page.getByTestId("balance-sheet-position-table")).toContainText("1.234.567.890");
 
   await openWorkflowTab(page, "Aset Tetap");
@@ -71,22 +71,16 @@ test("autosave persists active workspace after each change", async ({ page }) =>
   await expect(restoredBalanceRow.getByLabel("Tahun Y amount")).toHaveValue("1.500.000");
 });
 
-test("warns before leaving input sections with pending calculations", async ({ page }) => {
+test("calculates pending input sections when users leave the tab", async ({ page }) => {
   await openWorkflowTab(page, "Neraca");
   await page.getByRole("button", { name: "Tambah akun neraca" }).first().click();
   await page.getByTestId("balance-account-table-row").last().getByLabel("Nama akun").fill("Piutang usaha");
 
   await workflowNav(page).getByRole("button", { name: "Laba Rugi", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Perhitungan belum diperbarui" });
-  await expect(dialog).toBeVisible();
-  await expect(dialog).toContainText('Anda telah melakukan perubahan di bagian Neraca namun belum mengklik "Kalkulasikan Sekarang"');
-
-  await dialog.getByRole("button", { name: "Tetap di bagian ini" }).click();
-  await expect(page.getByTestId("balance-account-table")).toBeVisible();
-
-  await workflowNav(page).getByRole("button", { name: "Laba Rugi", exact: true }).click();
-  await dialog.getByRole("button", { name: "Lanjutkan" }).click();
+  await expect(page.getByRole("dialog", { name: "Perhitungan belum diperbarui" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Laba rugi dan driver operasi" })).toBeVisible();
+  await openWorkflowTab(page, "Neraca");
+  await expect(page.getByText("Neraca sudah dikalkulasi")).toBeVisible();
 });
 
 async function loginIfAuthGateVisible(page: Page) {
