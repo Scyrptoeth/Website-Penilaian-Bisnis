@@ -1090,7 +1090,6 @@ const reviewerDecisionOptions: Array<{ value: IncomeProjectionReviewerDecision; 
   { value: "rejected", label: "Rejected" },
 ];
 
-const WORKBENCH_AUTOSAVE_DELAY_MS = 600_000;
 const mappedRowCache = new WeakMap<AccountRow, MappedRow>();
 
 type ConfirmationDialogState = {
@@ -2397,12 +2396,12 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       }
     };
     const saveBeforePageHide = () => persistCurrentWorkspace(false);
-    const autosaveTimeoutId = window.setTimeout(() => persistCurrentWorkspace(true), WORKBENCH_AUTOSAVE_DELAY_MS);
+
+    persistCurrentWorkspace(true);
 
     window.addEventListener("pagehide", saveBeforePageHide);
 
     return () => {
-      window.clearTimeout(autosaveTimeoutId);
       window.removeEventListener("pagehide", saveBeforePageHide);
     };
   }, [
@@ -3878,7 +3877,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               </div>
             </div>
             <div className="autosave-header-note" role="status" aria-label="Status penyimpanan workspace">
-              {workspaceSaveStatusLabel} - autosave tiap 10 menit
+              {workspaceSaveStatusLabel} - autosave setiap perubahan
             </div>
             {authUserId ? (
               <div className="mobile-auth-actions" aria-label="Aksi akun">

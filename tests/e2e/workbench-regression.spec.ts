@@ -1730,12 +1730,12 @@ test("localStorage persistence, fixed header, and root overflow checks remain st
   expect(sidebarBox?.y ?? 999).toBeLessThanOrEqual(1);
   await expect(page.locator(".brand-block")).toBeVisible();
   await expect(workflowNav(page).getByRole("button", { name: "Audit", exact: true })).toBeVisible();
-  await expect(page.getByText(/autosave tiap 10 menit/)).toBeVisible();
+  await expect(page.getByText(/autosave setiap perubahan/)).toBeVisible();
 
   expect(await hasNoRootHorizontalOverflow(page)).toBe(true);
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByTestId("workspace-header")).toBeVisible();
-  await expect(page.getByText(/autosave tiap 10 menit/)).toBeVisible();
+  await expect(page.getByText(/autosave setiap perubahan/)).toBeVisible();
   await expect(page.locator(".mobile-workflow-tabs")).toBeVisible();
   await expect(page.locator(".mobile-workflow-tabs").getByRole("tab", { name: "Kategorisasi Akun", exact: true })).toHaveCount(0);
   expect(await hasNoRootHorizontalOverflow(page)).toBe(true);
@@ -1790,8 +1790,13 @@ async function calculateDraftInputsNow(page: Page) {
 
 async function saveActiveWorkspaceNow(page: Page) {
   const saveButton = page.getByRole("button", { name: "Simpan" });
-  await expect(saveButton).toBeEnabled();
-  await saveButton.click();
+  const saveStatus = page.getByLabel("Status penyimpanan workspace");
+
+  if (await saveButton.isEnabled()) {
+    await saveButton.click();
+  }
+
+  await expect(saveStatus).toContainText("Tersimpan");
   await expect(saveButton).toBeDisabled();
 }
 

@@ -46,12 +46,12 @@ test("integer amount fields keep accepting typed digits after thousands separato
   await expect(acquisition.getByLabel("A. Biaya Perolehan Tahun Y-1 Saldo awal")).toHaveValue("9.876.543.210");
 });
 
-test("manual save button persists active workspace without waiting for autosave", async ({ page }) => {
+test("autosave persists active workspace after each change", async ({ page }) => {
   const saveButton = page.getByRole("button", { name: "Simpan" });
 
   await expect(saveButton).toBeDisabled();
   await expect(page.getByLabel("Status penyimpanan workspace")).toContainText(/Tersimpan/);
-  await expect(page.getByLabel("Status penyimpanan workspace")).toContainText("autosave tiap 10 menit");
+  await expect(page.getByLabel("Status penyimpanan workspace")).toContainText("autosave setiap perubahan");
 
   await openWorkflowTab(page, "Neraca");
   await page.getByRole("button", { name: "Tambah akun neraca" }).first().click();
@@ -59,13 +59,15 @@ test("manual save button persists active workspace without waiting for autosave"
   await balanceRow.getByLabel("Nama akun").fill("Kas dan bank");
   await balanceRow.getByLabel("Tahun Y amount").pressSequentially("1500000");
 
-  await expect(page.getByLabel("Status penyimpanan workspace")).toContainText("Belum disimpan");
-  await expect(saveButton).toBeEnabled();
-
-  await saveButton.click();
-
   await expect(page.getByLabel("Status penyimpanan workspace")).toContainText("Tersimpan");
   await expect(saveButton).toBeDisabled();
+
+  await page.reload();
+  await loginIfAuthGateVisible(page);
+  await openWorkflowTab(page, "Neraca");
+  const restoredBalanceRow = page.getByTestId("balance-account-table-row").last();
+  await expect(restoredBalanceRow.getByLabel("Nama akun")).toHaveValue("Kas dan bank");
+  await expect(restoredBalanceRow.getByLabel("Tahun Y amount")).toHaveValue("1.500.000");
 });
 
 async function loginIfAuthGateVisible(page: Page) {
