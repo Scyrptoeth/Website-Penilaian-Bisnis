@@ -50,6 +50,7 @@ test("autosave persists active workspace after each change", async ({ page }) =>
   const saveButton = page.getByRole("button", { name: "Simpan" });
 
   await expect(saveButton).toBeDisabled();
+  await expect(saveButton).toHaveAttribute("title", "Autosave aktif: setiap perubahan tersimpan otomatis");
   await expect(page.getByLabel("Status penyimpanan workspace")).toContainText(/Tersimpan/);
   await expect(page.getByLabel("Status penyimpanan workspace")).toContainText("autosave setiap perubahan");
 
@@ -68,6 +69,24 @@ test("autosave persists active workspace after each change", async ({ page }) =>
   const restoredBalanceRow = page.getByTestId("balance-account-table-row").last();
   await expect(restoredBalanceRow.getByLabel("Nama akun")).toHaveValue("Kas dan bank");
   await expect(restoredBalanceRow.getByLabel("Tahun Y amount")).toHaveValue("1.500.000");
+});
+
+test("warns before leaving input sections with pending calculations", async ({ page }) => {
+  await openWorkflowTab(page, "Neraca");
+  await page.getByRole("button", { name: "Tambah akun neraca" }).first().click();
+  await page.getByTestId("balance-account-table-row").last().getByLabel("Nama akun").fill("Piutang usaha");
+
+  await workflowNav(page).getByRole("button", { name: "Laba Rugi", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Perhitungan belum diperbarui" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText('Anda telah melakukan perubahan di bagian Neraca namun belum mengklik "Kalkulasikan Sekarang"');
+
+  await dialog.getByRole("button", { name: "Tetap di bagian ini" }).click();
+  await expect(page.getByTestId("balance-account-table")).toBeVisible();
+
+  await workflowNav(page).getByRole("button", { name: "Laba Rugi", exact: true }).click();
+  await dialog.getByRole("button", { name: "Lanjutkan" }).click();
+  await expect(page.getByRole("heading", { name: "Laba rugi dan driver operasi" })).toBeVisible();
 });
 
 async function loginIfAuthGateVisible(page: Page) {

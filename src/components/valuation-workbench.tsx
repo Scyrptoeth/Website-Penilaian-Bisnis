@@ -1096,6 +1096,8 @@ type ConfirmationDialogState = {
   title: string;
   description: string;
   confirmLabel: string;
+  cancelLabel?: string;
+  confirmTone?: "danger" | "primary";
   onConfirm: () => void;
 };
 
@@ -1106,6 +1108,12 @@ type ValuationWorkbenchProps = {
 
 type CalculationInputSection = "balance" | "income" | "fixedAssets";
 type PendingCalculationInputSections = Record<CalculationInputSection, boolean>;
+
+const workflowTabCalculationSections: Partial<Record<WorkflowTabId, CalculationInputSection>> = {
+  balance: "balance",
+  fixedAssets: "fixedAssets",
+  income: "income",
+};
 
 function createEmptyPendingCalculationInputSections(): PendingCalculationInputSections {
   return {
@@ -2083,6 +2091,30 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   }
 
   function navigateToWorkflowTab(
+    tabId: WorkflowTabId,
+    options: { preserveGuidance?: boolean; preserveSourceFocus?: boolean } = {},
+  ) {
+    const pendingSection = workflowTabCalculationSections[activeWorkflowTab];
+
+    if (tabId !== activeWorkflowTab && pendingSection && pendingCalculationInputSections[pendingSection]) {
+      const currentTabLabel = workflowTabRegistry[activeWorkflowTab]?.label ?? "bagian ini";
+      const nextTabLabel = workflowTabRegistry[tabId]?.label ?? "bagian yang dipilih";
+
+      setPendingConfirmation({
+        title: "Perhitungan belum diperbarui",
+        description: `Anda telah melakukan perubahan di bagian ${currentTabLabel} namun belum mengklik "Kalkulasikan Sekarang" sehingga perhitungan belum diperbarui. Apakah Anda yakin untuk melanjutkan pekerjaan ke ${nextTabLabel}?`,
+        cancelLabel: "Tetap di bagian ini",
+        confirmLabel: "Lanjutkan",
+        confirmTone: "primary",
+        onConfirm: () => commitWorkflowTabNavigation(tabId, options),
+      });
+      return;
+    }
+
+    commitWorkflowTabNavigation(tabId, options);
+  }
+
+  function commitWorkflowTabNavigation(
     tabId: WorkflowTabId,
     options: { preserveGuidance?: boolean; preserveSourceFocus?: boolean } = {},
   ) {
@@ -3686,10 +3718,10 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
             </div>
             <div className="confirmation-dialog-actions">
               <button className="button ghost" type="button" onClick={() => setPendingConfirmation(null)} autoFocus>
-                Batal
+                {pendingConfirmation.cancelLabel ?? "Batal"}
               </button>
               <button
-                className="button danger"
+                className={`button ${pendingConfirmation.confirmTone ?? "danger"}`}
                 type="button"
                 onClick={() => {
                   const action = pendingConfirmation.onConfirm;
@@ -3889,8 +3921,8 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
                 className="button secondary"
                 type="button"
                 onClick={saveActiveWorkspaceFromButton}
-                disabled={!isDraftRestored || isSavingWorkspace || !hasUnsavedChanges}
-                title={hasUnsavedChanges ? "Simpan workspace aktif" : "Workspace sudah tersimpan"}
+                disabled
+                title="Autosave aktif: setiap perubahan tersimpan otomatis"
               >
                 <Save size={18} />
                 Simpan
