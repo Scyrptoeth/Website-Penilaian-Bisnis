@@ -47,6 +47,7 @@ test("manual save button persists active workspace without waiting for autosave"
 
   await expect(saveButton).toBeDisabled();
   await expect(page.getByLabel("Status penyimpanan workspace")).toContainText(/Tersimpan/);
+  await expect(page.getByLabel("Status penyimpanan workspace")).toContainText("autosave tiap 10 menit");
 
   await openWorkflowTab(page, "Neraca");
   await page.getByRole("button", { name: "Tambah akun neraca" }).first().click();

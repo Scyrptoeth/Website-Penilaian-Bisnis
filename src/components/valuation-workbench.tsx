@@ -1090,7 +1090,7 @@ const reviewerDecisionOptions: Array<{ value: IncomeProjectionReviewerDecision; 
   { value: "rejected", label: "Rejected" },
 ];
 
-const WORKBENCH_AUTOSAVE_DELAY_MS = 180_000;
+const WORKBENCH_AUTOSAVE_DELAY_MS = 600_000;
 const mappedRowCache = new WeakMap<AccountRow, MappedRow>();
 
 type ConfirmationDialogState = {
@@ -3747,7 +3747,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               </div>
             </div>
             <div className="autosave-header-note" role="status" aria-label="Status penyimpanan workspace">
-              {workspaceSaveStatusLabel} - autosave tiap 3 menit
+              {workspaceSaveStatusLabel} - autosave tiap 10 menit
             </div>
             {authUserId ? (
               <div className="mobile-auth-actions" aria-label="Aksi akun">
