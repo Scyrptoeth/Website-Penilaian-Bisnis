@@ -33,7 +33,7 @@ test("integer amount fields keep accepting typed digits after thousands separato
   await balanceRow.getByLabel("Nama akun").fill("Kas");
   await balanceRow.getByLabel("Tahun Y amount").pressSequentially("1234567890");
   await expect(balanceRow.getByLabel("Tahun Y amount")).toHaveValue("1.234.567.890");
-  await expect(page.getByText("Perubahan dihitung saat pindah tab")).toBeVisible();
+  await expect(page.getByText("Perubahan dihitung saat tombol/pindah tab")).toBeVisible();
   await openWorkflowTab(page, "Aset Tetap");
   await openWorkflowTab(page, "Neraca");
   await expect(page.getByTestId("balance-sheet-position-table")).toContainText("1.234.567.890");

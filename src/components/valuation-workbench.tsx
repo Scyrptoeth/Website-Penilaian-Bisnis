@@ -1164,6 +1164,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   const [assumptions, setAssumptions] = useState<AssumptionState>(emptyAssumptions);
   const [calculatedAssumptions, setCalculatedAssumptions] = useState<AssumptionState>(emptyAssumptions);
   const [caseProfile, setCaseProfile] = useState<CaseProfile>(emptyCaseProfile);
+  const [calculatedCaseProfile, setCalculatedCaseProfile] = useState<CaseProfile>(emptyCaseProfile);
   const [dlom, setDlom] = useState<DlomState>(createEmptyDlomState);
   const [calculatedDlom, setCalculatedDlom] = useState<DlomState>(createEmptyDlomState);
   const [dlocPfc, setDlocPfc] = useState<DlocPfcState>(createEmptyDlocPfcState);
@@ -1224,6 +1225,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   const draftMappedRows = useMappedRows(rows);
   const mappedRows = useMappedRows(calculatedRows);
   const caseProfileDerived = useMemo(() => buildCaseProfileDerived(caseProfile), [caseProfile]);
+  const calculatedCaseProfileDerived = useMemo(() => buildCaseProfileDerived(calculatedCaseProfile), [calculatedCaseProfile]);
   const activePeriod = periods.find((period) => period.id === activePeriodId) ?? getDefaultActivePeriod(periods);
   const effectiveValuationDate = caseProfileDerived.cutOffDate || activePeriod?.valuationDate || "";
   const sectorComparableOptions = useMemo(
@@ -1234,7 +1236,6 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     () => getSuggestedIdxComparables(caseProfile.companySector, 3, { valuationDate: effectiveValuationDate }),
     [caseProfile.companySector, effectiveValuationDate],
   );
-  const calculatedCaseProfileDerived = caseProfileDerived;
   const balanceSheetRows = useMemo(() => draftMappedRows.filter((item) => item.row.statement === "balance_sheet"), [draftMappedRows]);
   const incomeStatementRows = useMemo(() => draftMappedRows.filter((item) => item.row.statement === "income_statement"), [draftMappedRows]);
   const calculatedIncomeStatementRows = useMemo(
@@ -1275,11 +1276,23 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     () => resolveEffectiveWaccBasis(waccResolvedAssumptions, calculatedActiveWaccBasis),
     [calculatedActiveWaccBasis, waccResolvedAssumptions],
   );
-  const waccCalculation = useMemo(
-    () => resolveWaccCalculationForBasis(waccResolvedAssumptions, effectiveActiveWaccBasis, rawWaccCalculation),
-    [effectiveActiveWaccBasis, rawWaccCalculation, waccResolvedAssumptions],
+  const draftWaccResolvedAssumptions = useMemo(
+    () => resolveAutoWaccCapitalValues(assumptions, autoWaccCapitalValues),
+    [assumptions, autoWaccCapitalValues],
   );
-  const waccComparableBeta = useMemo(() => calculateWaccComparableBetaAssumption(waccResolvedAssumptions), [waccResolvedAssumptions]);
+  const draftRawWaccCalculation = useMemo(() => calculateWaccAssumption(draftWaccResolvedAssumptions), [draftWaccResolvedAssumptions]);
+  const draftEffectiveActiveWaccBasis = useMemo(
+    () => resolveEffectiveWaccBasis(draftWaccResolvedAssumptions, activeWaccBasis),
+    [activeWaccBasis, draftWaccResolvedAssumptions],
+  );
+  const draftWaccCalculation = useMemo(
+    () => resolveWaccCalculationForBasis(draftWaccResolvedAssumptions, draftEffectiveActiveWaccBasis, draftRawWaccCalculation),
+    [draftEffectiveActiveWaccBasis, draftRawWaccCalculation, draftWaccResolvedAssumptions],
+  );
+  const draftWaccComparableBeta = useMemo(
+    () => calculateWaccComparableBetaAssumption(draftWaccResolvedAssumptions),
+    [draftWaccResolvedAssumptions],
+  );
   const requiredReturnSuggestion = useMemo(
     () =>
       buildRequiredReturnOnNtaSuggestion({
@@ -1443,6 +1456,11 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     [calculatedActiveEemBasis, results, snapshot],
   );
   const activeEem = activeEemSelection.eem;
+  const draftActiveEemSelection = useMemo(
+    () => buildActiveEemSelection(results, activeEemBasis, snapshot),
+    [activeEemBasis, results, snapshot],
+  );
+  const draftActiveEem = draftActiveEemSelection.eem;
   const baseActiveDcfSelection = useMemo(
     () => buildActiveDcfSelection(results, calculatedActiveDcfBasis, snapshot, projectionPlanningDcfOptions),
     [calculatedActiveDcfBasis, projectionPlanningDcfOptions, results, snapshot],
@@ -1482,8 +1500,16 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     () => ({ ...results, eem: activeEem, dcf: activeDcf }),
     [activeDcf, activeEem, results],
   );
-  const dlomCalculation = useMemo(() => calculateDlom(calculatedDlom, snapshot, caseProfile), [calculatedDlom, caseProfile, snapshot]);
-  const dlocPfcCalculation = useMemo(() => calculateDlocPfc(calculatedDlocPfc, caseProfile), [calculatedDlocPfc, caseProfile]);
+  const dlomCalculation = useMemo(
+    () => calculateDlom(calculatedDlom, snapshot, calculatedCaseProfile),
+    [calculatedDlom, calculatedCaseProfile, snapshot],
+  );
+  const draftDlomCalculation = useMemo(() => calculateDlom(dlom, snapshot, caseProfile), [dlom, caseProfile, snapshot]);
+  const dlocPfcCalculation = useMemo(
+    () => calculateDlocPfc(calculatedDlocPfc, calculatedCaseProfile),
+    [calculatedDlocPfc, calculatedCaseProfile],
+  );
+  const draftDlocPfcCalculation = useMemo(() => calculateDlocPfc(dlocPfc, caseProfile), [dlocPfc, caseProfile]);
   const taxSimulationResult = useMemo(
     () =>
       calculateTaxSimulation({
@@ -1491,11 +1517,34 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         dlom: dlomCalculation,
         dlocPfc: dlocPfcCalculation,
         state: calculatedTaxSimulation,
-        caseProfile,
+        caseProfile: calculatedCaseProfile,
         caseProfileDerived: calculatedCaseProfileDerived,
         snapshot,
       }),
-    [activeDcf, activeEem, calculatedCaseProfileDerived, calculatedTaxSimulation, caseProfile, dlocPfcCalculation, dlomCalculation, results.aam, snapshot],
+    [
+      activeDcf,
+      activeEem,
+      calculatedCaseProfile,
+      calculatedCaseProfileDerived,
+      calculatedTaxSimulation,
+      dlocPfcCalculation,
+      dlomCalculation,
+      results.aam,
+      snapshot,
+    ],
+  );
+  const draftTaxSimulationResult = useMemo(
+    () =>
+      calculateTaxSimulation({
+        methods: [results.aam, activeEem, activeDcf],
+        dlom: draftDlomCalculation,
+        dlocPfc: draftDlocPfcCalculation,
+        state: taxSimulation,
+        caseProfile,
+        caseProfileDerived,
+        snapshot,
+      }),
+    [activeDcf, activeEem, caseProfile, caseProfileDerived, draftDlocPfcCalculation, draftDlomCalculation, results.aam, snapshot, taxSimulation],
   );
   const balanceSheetView = useMemo(
     () => buildBalanceSheetView(periods, mappedRows, fixedAssetSchedule),
@@ -1582,7 +1631,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   const terminalGrowthSuggestion = useMemo(
     () =>
       buildTerminalGrowthSuggestion({
-        sector: caseProfile.companySector,
+        sector: calculatedCaseProfile.companySector,
         revenue: snapshot.revenue,
         netProfit: snapshot.commercialNpat || normalizedNoplat(snapshot),
         wacc: snapshot.wacc,
@@ -1592,7 +1641,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     [
       calculatedAssumptions.terminalGrowthDownside,
       calculatedAssumptions.terminalGrowthUpside,
-      caseProfile.companySector,
+      calculatedCaseProfile.companySector,
       snapshot,
     ],
   );
@@ -1695,8 +1744,8 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         activeEemBasis: calculatedActiveEemBasis,
         activeWaccBasis: calculatedActiveWaccBasis,
         assumptions: calculatedAssumptions,
-        caseProfile,
-        caseProfileDerived,
+        caseProfile: calculatedCaseProfile,
+        caseProfileDerived: calculatedCaseProfileDerived,
         dlocPfc: calculatedDlocPfc,
         dlocPfcCalculation,
         dlom: calculatedDlom,
@@ -1724,8 +1773,8 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       calculatedActiveEemBasis,
       calculatedActiveWaccBasis,
       calculatedAssumptions,
-      caseProfile,
-      caseProfileDerived,
+      calculatedCaseProfile,
+      calculatedCaseProfileDerived,
       calculatedDlocPfc,
       dlocPfcCalculation,
       calculatedDlom,
@@ -1760,6 +1809,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     activeDcfBasis !== calculatedActiveDcfBasis ||
     projectionPlanning !== calculatedProjectionPlanning ||
     assumptions !== calculatedAssumptions ||
+    caseProfile !== calculatedCaseProfile ||
     dlom !== calculatedDlom ||
     dlocPfc !== calculatedDlocPfc ||
     taxSimulation !== calculatedTaxSimulation ||
@@ -1780,16 +1830,17 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         assumptions: resolvedAssumptions,
         snapshot,
         fixedAssetSchedule,
-        caseProfile,
-        caseProfileDerived,
+        caseProfile: calculatedCaseProfile,
+        caseProfileDerived: calculatedCaseProfileDerived,
         dlom: dlomCalculation,
         dlocPfc: dlocPfcCalculation,
-        taxSimulation,
+        taxSimulation: calculatedTaxSimulation,
       }),
     [
-      caseProfile,
-      caseProfileDerived,
+      calculatedCaseProfile,
+      calculatedCaseProfileDerived,
       calculatedRows,
+      calculatedTaxSimulation,
       dlocPfcCalculation,
       dlomCalculation,
       fixedAssetSchedule,
@@ -1797,7 +1848,6 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       periods,
       resolvedAssumptions,
       snapshot,
-      taxSimulation,
     ],
   );
 
@@ -1831,7 +1881,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       activeDcfBasis,
       projectionPlanning,
       aamAdjustments,
-      assumptions: calculatedAssumptions,
+      assumptions,
       caseProfile,
       dlom,
       dlocPfc,
@@ -1878,6 +1928,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       setCalculatedActiveDcfBasis(state.activeDcfBasis);
       setCalculatedProjectionPlanning(state.projectionPlanning);
       setCalculatedAssumptions(state.assumptions);
+      setCalculatedCaseProfile(state.caseProfile);
       setCalculatedDlom(state.dlom);
       setCalculatedDlocPfc(state.dlocPfc);
       setCalculatedTaxSimulation(state.taxSimulation);
@@ -1961,6 +2012,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     setCalculatedActiveDcfBasis(activeDcfBasis);
     setCalculatedProjectionPlanning(projectionPlanning);
     setCalculatedAssumptions(assumptions);
+    setCalculatedCaseProfile(caseProfile);
     setCalculatedDlom(dlom);
     setCalculatedDlocPfc(dlocPfc);
     setCalculatedTaxSimulation(taxSimulation);
@@ -4241,7 +4293,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
             </div>
             <div className="account-input-actions">
               <span className={pendingCalculationInputSections.balance ? "status-pill warning" : "status-pill muted"}>
-                {pendingCalculationInputSections.balance ? "Perubahan dihitung saat pindah tab" : "Neraca sudah dikalkulasi"}
+                {pendingCalculationInputSections.balance ? "Perubahan dihitung saat tombol/pindah tab" : "Neraca sudah dikalkulasi"}
               </span>
               <button
                 aria-controls="balance-account-input-region"
@@ -4302,7 +4354,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
           <div className="input-collapse-summary">
             <Calculator size={16} />
             <strong>
-              {pendingCalculationInputSections.fixedAssets ? "Perubahan aset tetap dihitung saat pindah tab" : "Aset tetap sudah dikalkulasi"}
+              {pendingCalculationInputSections.fixedAssets ? "Perubahan aset tetap dihitung saat tombol/pindah tab" : "Aset tetap sudah dikalkulasi"}
             </strong>
           </div>
 
@@ -4328,7 +4380,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
             </div>
             <div className="account-input-actions">
               <span className={pendingCalculationInputSections.income ? "status-pill warning" : "status-pill muted"}>
-                {pendingCalculationInputSections.income ? "Perubahan dihitung saat pindah tab" : "Laba rugi sudah dikalkulasi"}
+                {pendingCalculationInputSections.income ? "Perubahan dihitung saat tombol/pindah tab" : "Laba rugi sudah dikalkulasi"}
               </span>
               <button
                 aria-controls="income-account-input-region"
@@ -4417,12 +4469,12 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
           />
           <WaccBasisControl
             activeBasis={activeWaccBasis}
-            effectiveBasis={effectiveActiveWaccBasis}
-            activeWacc={snapshot.wacc}
+            effectiveBasis={draftEffectiveActiveWaccBasis}
+            activeWacc={draftWaccCalculation?.wacc ?? snapshot.wacc}
             guidanceTarget={guidanceTarget === "wacc-active-basis" ? "wacc-active-basis" : undefined}
             sourceFocusTarget={sourceFocusTarget}
-            rawCalculation={rawWaccCalculation}
-            governedCalculation={resolveWaccCalculationForBasis(waccResolvedAssumptions, "governed", rawWaccCalculation)}
+            rawCalculation={draftRawWaccCalculation}
+            governedCalculation={resolveWaccCalculationForBasis(draftWaccResolvedAssumptions, "governed", draftRawWaccCalculation)}
             manualWacc={readRateInput(assumptions.wacc)}
             onBasisChange={(basis) => {
               clearGuidanceTarget("wacc-active-basis");
@@ -4446,8 +4498,8 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
           />
           <WaccCalculatorPanel
             assumptions={assumptions}
-            calculation={waccCalculation}
-            comparableBeta={waccComparableBeta}
+            calculation={draftWaccCalculation}
+            comparableBeta={draftWaccComparableBeta}
             companySector={caseProfile.companySector}
             comparableOptions={sectorComparableOptions}
             comparableSuggestions={sectorComparableSuggestions}
@@ -4731,8 +4783,8 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               <Calculator size={20} />
               <span>EEM</span>
             </div>
-            <strong data-testid="eem-active-summary-equity-value">{formatIdr(activeEem.equityValue)}</strong>
-            <p>{activePeriod?.label || "Periode aktif"} · Nilai Ekuitas 100% · {activeEemSelection.shortLabel}</p>
+            <strong data-testid="eem-active-summary-equity-value">{formatIdr(draftActiveEem.equityValue)}</strong>
+            <p>{activePeriod?.label || "Periode aktif"} · Nilai Ekuitas 100% · {draftActiveEemSelection.shortLabel}</p>
           </article>
           <article className="metric-card">
             <div className="card-title">
@@ -4824,7 +4876,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         <section className="active-driver-strip" aria-label="Driver aktif penilaian">
           <div>
             <span>Basis EEM aktif</span>
-            <strong data-testid="eem-active-basis-label">{activeEemSelection.shortLabel}</strong>
+            <strong data-testid="eem-active-basis-label">{draftActiveEemSelection.shortLabel}</strong>
             <small>{activeEemBasis === "base" ? "Default sistem dipertahankan" : "Skenario terpilih user menjadi basis aktif"}</small>
           </div>
           {eemDriverSummaries
@@ -4877,8 +4929,8 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
             </label>
             <div>
               <span>Nilai aktif</span>
-              <strong data-testid="eem-active-equity-value">{formatIdr(activeEem.equityValue)}</strong>
-              <small>{activeEemSelection.summary}</small>
+              <strong data-testid="eem-active-equity-value">{formatIdr(draftActiveEem.equityValue)}</strong>
+              <small>{draftActiveEemSelection.summary}</small>
             </div>
           </div>
           <div className="sensitivity-grid two-column eem-sensitivity-grid" data-testid="eem-sensitivity-grid">
@@ -4912,7 +4964,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               <FileSearch size={22} />
             </div>
             <EemTraceTable
-              traces={activeEem.traces}
+              traces={draftActiveEem.traces}
               sourceFocusTarget={sourceFocusTarget}
               onSourceNavigate={navigateToTraceSource}
             />
@@ -5146,7 +5198,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         {activeWorkflowTab === "dlom" ? (
           <DlomSection
             dlom={dlom}
-            calculation={dlomCalculation}
+            calculation={draftDlomCalculation}
             guidanceTarget={guidanceTarget === "dlom-questionnaire" ? "dlom-questionnaire" : undefined}
             readiness={readiness.dlom}
             onNavigate={navigateToWorkflowTab}
@@ -5157,7 +5209,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
 
         {activeWorkflowTab === "dlocPfc" ? (
           <DlocPfcSection
-            calculation={dlocPfcCalculation}
+            calculation={draftDlocPfcCalculation}
             guidanceTarget={guidanceTarget === "dloc-pfc-questionnaire" ? "dloc-pfc-questionnaire" : undefined}
             readiness={readiness.dlocPfc}
             onNavigate={navigateToWorkflowTab}
@@ -5169,9 +5221,9 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         {activeWorkflowTab === "taxSimulation" ? (
           <TaxSimulationSection
             state={taxSimulation}
-            result={taxSimulationResult}
-            dlom={dlomCalculation}
-            dlocPfc={dlocPfcCalculation}
+            result={draftTaxSimulationResult}
+            dlom={draftDlomCalculation}
+            dlocPfc={draftDlocPfcCalculation}
             caseProfileDerived={caseProfileDerived}
             guidanceTarget={guidanceTarget === "tax-primary-method" ? "tax-primary-method" : undefined}
             readiness={readiness.taxSimulation}
@@ -9163,7 +9215,7 @@ function CashFlowStatementSection({
             <h3>Calculated · override · final · trace</h3>
           </div>
           <span className={isCalculationPending ? "status-pill warning" : "status-pill muted"}>
-            {isCalculationPending ? "Perubahan dihitung saat pindah tab" : "Audit-ready table"}
+            {isCalculationPending ? "Perubahan dihitung saat tombol/pindah tab" : "Audit-ready table"}
           </span>
         </div>
         <CashFlowStatementTable

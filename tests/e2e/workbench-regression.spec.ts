@@ -552,7 +552,7 @@ test("added analysis sections use readiness gates before sample data and render 
   await ocaRow.locator("summary").click();
   await ocaRow.getByLabel("Sertakan Kas dalam (Kenaikan) penurunan aset lancar operasional").check();
   await expect(ocaRow.getByTestId("cash-flow-account-disclosure-oca-change")).toContainText("3/5 disertakan");
-  await expect(page.getByText("Perubahan dihitung saat pindah tab")).toBeVisible();
+  await expect(page.getByText("Perubahan dihitung saat tombol/pindah tab")).toBeVisible();
   expect(parseDisplayedNumber((await page.getByTestId("cash-flow-oca-change-p2021-final").textContent()) ?? "")).toBe(ocaFinalBefore);
   await openWorkflowTab(page, "Jadwal Utang");
   await openWorkflowTab(page, "Cash Flow Statement");
@@ -582,7 +582,7 @@ test("added analysis sections use readiness gates before sample data and render 
   await expect(page.getByLabel("Alasan override Non-operating cash flow 2021")).toHaveCount(0);
   await expect(page.getByRole("textbox", { name: "Override Non-operating cash flow 2021", exact: true })).toHaveCount(0);
   await page.getByRole("textbox", { name: "Override (Kenaikan) penurunan aset lancar operasional 2019", exact: true }).fill("100000000");
-  await expect(page.getByText("Perubahan dihitung saat pindah tab")).toBeVisible();
+  await expect(page.getByText("Perubahan dihitung saat tombol/pindah tab")).toBeVisible();
   await expect(cashFlowStatementTable.getByText("Override diterapkan", { exact: true })).toHaveCount(0);
   await openWorkflowTab(page, "Jadwal Utang");
   await openWorkflowTab(page, "Cash Flow Statement");
