@@ -3810,9 +3810,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     ? "Menyimpan..."
     : hasUnsavedChanges
       ? "Belum disimpan"
-      : lastSavedAt
-        ? "Tersimpan"
-        : "Tersimpan lokal";
+      : "Tersimpan Otomatis di Browser";
 
   return (
     <main className={isSidebarCollapsed ? "app-shell sidebar-collapsed" : "app-shell"} data-testid="valuation-workbench">
@@ -4029,7 +4027,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               </div>
             </div>
             <div className="autosave-header-note" role="status" aria-label="Status penyimpanan workspace">
-              {workspaceSaveStatusLabel} - autosave setiap perubahan
+              {workspaceSaveStatusLabel}
             </div>
             {authUserId ? (
               <div className="mobile-auth-actions" aria-label="Aksi akun">
@@ -8477,7 +8475,7 @@ function FixedAssetProjectionDriverStrip({
       </div>
       <div>
         <span>Capex awal</span>
-        <strong>{firstForecastYear && fixedAssetProjection?.totals[firstForecastYear] ? formatIdr(fixedAssetProjection.totals[firstForecastYear].acquisitionAdditions) : "—"}</strong>
+        <strong>{firstForecastYear && fixedAssetProjection?.totals[firstForecastYear] ? formatIdr(fixedAssetProjection.totals[firstForecastYear].acquisitionAdditions) : "-"}</strong>
         <small>Capital expenditure tahun proyeksi pertama yang masuk DCF.</small>
       </div>
       <div>
@@ -9035,7 +9033,7 @@ function readProjectionValue(
 
 function formatProjectionValue(value: number | null, display: DcfProjectionDisplay = "currency"): string {
   if (value === null || !Number.isFinite(value)) {
-    return "—";
+    return "-";
   }
 
   if (display === "percent") {
@@ -9567,7 +9565,7 @@ function DebtScheduleSourcePill({ sourceType }: { sourceType: NonNullable<Analys
 
 function formatDebtScheduleValue(value: AnalysisValue, valueFormat: AnalysisRow["valueFormat"] = "currency"): string {
   if (value === null || !Number.isFinite(value)) {
-    return "—";
+    return "-";
   }
 
   return valueFormat === "percent" ? formatPercent(value) : formatAnalysisValue(value, "currency");
@@ -12597,11 +12595,6 @@ function KluSectorField({
         <small className="field-help" role="alert">
           KLU tidak ditemukan dalam daftar KBLI 2020.
         </small>
-      ) : selectedRecord ? (
-        <SmartSuggestionBadge
-          label={isManualOverride ? "Saran KLU tersedia, sektor diedit manual" : "Saran KLU otomatis, dapat diedit"}
-          state={isManualOverride ? "available" : "auto"}
-        />
       ) : null}
     </label>
   );

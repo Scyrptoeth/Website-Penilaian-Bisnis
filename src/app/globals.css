@@ -1,19 +1,19 @@
 :root {
-  --bg: #f5f6f4;
+  --bg: #f2f5f2;
   --surface: #ffffff;
-  --surface-raised: #fbfbf8;
-  --surface-muted: #eef1ed;
-  --ink: #171918;
-  --ink-soft: #343a37;
-  --muted: #68736e;
-  --line: #d9ded8;
-  --line-strong: #bdc7c0;
-  --accent: #0f766e;
-  --accent-ink: #074c48;
-  --accent-soft: #dff4ee;
-  --smart: #0f766e;
-  --smart-blue: #1d4ed8;
-  --smart-soft: #e0f7f4;
+  --surface-raised: #fbfcf9;
+  --surface-muted: #e9efeb;
+  --ink: #121815;
+  --ink-soft: #2f3b35;
+  --muted: #5f6f67;
+  --line: #d2ddd6;
+  --line-strong: #aebfb5;
+  --accent: #0b6b63;
+  --accent-ink: #064b46;
+  --accent-soft: #dcefeb;
+  --smart: #0b6b63;
+  --smart-blue: #2458b8;
+  --smart-soft: #dcefeb;
   --smart-blue-soft: #e8f0ff;
   --review: #a16207;
   --review-soft: #fff7d6;
@@ -21,9 +21,9 @@
   --danger-soft: #fff1f0;
   --ok: #166534;
   --ok-soft: #e8f7ee;
-  --shadow: 0 18px 48px rgba(21, 24, 22, 0.08);
-  --radius: 6px;
-  --sidebar-width: 196px;
+  --shadow: 0 18px 44px rgba(18, 24, 21, 0.11);
+  --radius: 8px;
+  --sidebar-width: 212px;
   --sidebar-collapsed-width: 44px;
   --sticky-header-reserved: 108px;
   --workspace-inline-padding: clamp(10px, 1vw, 16px);
@@ -44,11 +44,33 @@ body {
   max-width: 100%;
   overflow-x: hidden;
   margin: 0;
-  background: var(--bg);
+  background:
+    radial-gradient(circle at 12% -10%, rgba(11, 107, 99, 0.12), transparent 28rem),
+    linear-gradient(180deg, #f7f9f6 0%, var(--bg) 44%, #edf2ef 100%);
   color: var(--ink);
   font-family: var(--font-sans), "Helvetica Neue", Arial, sans-serif;
   font-size: 10.4px;
   line-height: 1.42;
+}
+
+.skip-link {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 100;
+  padding: 10px 12px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--accent-ink);
+  font-weight: 800;
+  transform: translateY(-140%);
+}
+
+.skip-link:focus-visible {
+  outline: 2px solid rgba(11, 107, 99, 0.44);
+  outline-offset: 2px;
+  transform: translateY(0);
 }
 
 a {
@@ -102,10 +124,13 @@ svg {
   height: 100dvh;
   min-width: 0;
   overflow: hidden;
-  padding: 10px 8px;
-  border-right: 1px solid var(--line);
-  background: rgba(251, 251, 248, 0.92);
-  backdrop-filter: blur(18px);
+  padding: 12px 10px;
+  border-right: 1px solid rgba(174, 191, 181, 0.86);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(244, 248, 245, 0.92)),
+    var(--surface-raised);
+  box-shadow: 10px 0 32px rgba(18, 24, 21, 0.045);
+  backdrop-filter: blur(18px) saturate(1.08);
 }
 
 .sidebar-rail {
@@ -129,8 +154,8 @@ svg {
   gap: 8px;
   align-items: center;
   min-width: 0;
-  padding: 4px 2px 8px;
-  border-bottom: 1px solid var(--line);
+  padding: 4px 2px 10px;
+  border-bottom: 1px solid rgba(174, 191, 181, 0.74);
 }
 
 .brand-copy {
@@ -143,9 +168,11 @@ svg {
   height: 34px;
   min-height: 34px;
   place-items: center;
-  border: 1px solid var(--ink);
+  border: 1px solid #0b2c29;
   border-radius: var(--radius);
-  background: var(--ink);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.08), transparent 38%),
+    #0b2c29;
   color: #ffffff;
   font-family: var(--font-mono), monospace;
   font-size: 10px;
@@ -259,11 +286,11 @@ svg {
   gap: 4px;
   min-width: 0;
   min-height: 28px;
-  padding: 3px 6px;
+  padding: 4px 7px;
   border: 1px solid transparent;
   border-radius: var(--radius);
   background: transparent;
-  color: var(--ink-soft);
+  color: #35443d;
   font-size: 9.2px;
   font-weight: 650;
   line-height: 1.2;
@@ -278,11 +305,15 @@ svg {
 .nav-list button:hover,
 .nav-list a.auth-nav-action:focus-visible,
 .nav-list a.auth-nav-action:hover {
-  border-color: var(--line-strong);
-  outline: 2px solid var(--accent-soft);
+  border-color: rgba(11, 107, 99, 0.32);
+  outline: 2px solid rgba(11, 107, 99, 0.12);
   outline-offset: 2px;
-  background: var(--surface);
+  background: #ffffff;
   color: var(--ink);
+}
+
+.nav-list button.active {
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 
 .workflow-tabs {
@@ -386,15 +417,17 @@ svg {
 .auth-login-shell {
   display: grid;
   min-height: 100dvh;
-  background: var(--surface);
+  background:
+    radial-gradient(circle at 78% 12%, rgba(11, 107, 99, 0.14), transparent 25rem),
+    linear-gradient(135deg, #f7faf7 0%, #eef4f0 52%, #e8efeb 100%);
 }
 
 .auth-login-panel {
   display: grid;
-  grid-template-columns: minmax(0, 0.56fr) minmax(420px, 0.44fr);
+  grid-template-columns: minmax(0, 0.58fr) minmax(430px, 0.42fr);
   width: 100%;
   min-height: 100dvh;
-  background: var(--surface);
+  background: transparent;
 }
 
 .auth-login-copy,
@@ -412,11 +445,12 @@ svg {
   gap: 14px;
   min-width: 0;
   width: fit-content;
-  padding: 18px 24px;
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  padding: 16px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: var(--radius);
-  background: rgba(255, 255, 255, 0.94);
-  color: var(--ink);
+  background: rgba(255, 255, 255, 0.08);
+  color: #f8faf9;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .auth-login-brand .brand-mark {
@@ -438,28 +472,29 @@ svg {
   margin-top: 1px;
   font-size: 21px;
   line-height: 1;
-  text-transform: uppercase;
 }
 
 .auth-login-copy {
   position: relative;
-  gap: 30px;
+  gap: 28px;
   min-height: 100dvh;
-  padding: clamp(48px, 6vw, 80px);
+  padding: clamp(44px, 5.4vw, 76px);
   background:
-    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-    #101714;
-  background-size: 80px 80px;
+    radial-gradient(circle at 78% 18%, rgba(77, 208, 191, 0.18), transparent 22rem),
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(145deg, #0d1714 0%, #14241f 58%, #0a1210 100%);
+  background-size: auto, 72px 72px, 72px 72px, auto;
   color: #f8faf9;
 }
 
 .auth-login-copy h1 {
-  max-width: 14ch;
+  max-width: 15ch;
   color: #ffffff;
-  font-size: clamp(48px, 4.5vw, 88px);
-  font-weight: 800;
-  line-height: 0.96;
+  font-size: clamp(46px, 4.6vw, 82px);
+  font-weight: 850;
+  line-height: 0.98;
+  text-wrap: balance;
 }
 
 .auth-login-copy h1 span {
@@ -477,8 +512,9 @@ svg {
 
 .auth-info-list {
   display: grid;
-  gap: 10px;
-  width: min(100%, 1360px);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  width: min(100%, 1120px);
   max-width: 100%;
 }
 
@@ -486,19 +522,21 @@ svg {
   display: inline-grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 9px;
-  align-items: center;
+  align-items: start;
   width: 100%;
   max-width: none;
-  min-height: 44px;
-  padding: 8px 13px;
+  min-height: 74px;
+  padding: 11px 12px;
   border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(248, 250, 249, 0.78);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.065);
+  color: rgba(248, 250, 249, 0.82);
+  backdrop-filter: blur(10px);
 }
 
 .auth-info-list svg {
-  color: #58d7c6;
+  margin-top: 1px;
+  color: #7be1d3;
 }
 
 .auth-info-list p,
@@ -509,8 +547,8 @@ svg {
 }
 
 .auth-info-list p {
-  font-size: 12.2px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 650;
 }
 
 .auth-info-list a {
@@ -530,16 +568,21 @@ svg {
 .auth-login-form {
   align-self: center;
   justify-self: center;
-  width: min(432px, calc(100% - 48px));
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: var(--surface);
+  width: min(452px, calc(100% - 48px));
+  padding: 30px;
+  border: 1px solid rgba(174, 191, 181, 0.8);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow:
+    0 24px 70px rgba(18, 24, 21, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(16px) saturate(1.05);
 }
 
 .auth-form-heading h2 {
   font-size: clamp(28px, 2.5vw, 40px);
   line-height: 1.15;
+  text-wrap: balance;
 }
 
 .auth-field {
@@ -554,9 +597,9 @@ svg {
   width: 100%;
   min-height: 52px;
   padding: 0 16px;
-  border: 1px solid var(--line-strong);
+  border: 1px solid #a9bab0;
   border-radius: var(--radius);
-  background: var(--surface);
+  background: #fbfdfb;
   color: var(--ink);
   font-size: 15px;
   line-height: 1.2;
@@ -739,11 +782,11 @@ svg {
   display: grid;
   gap: 10px;
   min-width: 0;
-  padding: 14px 0 10px;
-  background: rgba(245, 246, 244, 0.94);
-  border-bottom: 1px solid rgba(217, 222, 216, 0.82);
-  box-shadow: 0 8px 24px rgba(21, 24, 22, 0.06);
-  backdrop-filter: blur(16px);
+  padding: 12px 0 10px;
+  background: rgba(242, 245, 242, 0.91);
+  border-bottom: 1px solid rgba(174, 191, 181, 0.82);
+  box-shadow: 0 12px 30px rgba(18, 24, 21, 0.075);
+  backdrop-filter: blur(18px) saturate(1.08);
   transition:
     left 180ms ease,
     right 180ms ease;
@@ -772,21 +815,23 @@ svg {
 
 .autosave-header-note {
   display: flex;
-  flex: 1 1 280px;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  min-width: 220px;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
   min-height: 34px;
-  padding: 5px 12px;
-  border: 1px solid var(--line);
+  padding: 5px 14px;
+  border: 1px solid rgba(11, 107, 99, 0.22);
   border-radius: var(--radius);
-  background: rgba(255, 255, 255, 0.58);
+  background: rgba(220, 239, 235, 0.7);
   color: var(--accent-ink);
   font-size: 10px;
   font-weight: 800;
   line-height: 1.25;
   text-align: center;
-  white-space: normal;
+  white-space: nowrap;
 }
 
 .topbar.toolbar-only {
@@ -807,9 +852,9 @@ svg {
   max-width: min(360px, calc(100vw - 32px));
   min-height: 34px;
   padding: 5px 8px;
-  border: 1px solid var(--line-strong);
+  border: 1px solid rgba(174, 191, 181, 0.95);
   border-radius: var(--radius);
-  background: var(--surface);
+  background: rgba(255, 255, 255, 0.9);
   color: var(--ink);
   cursor: pointer;
   transition:
@@ -1014,9 +1059,9 @@ svg {
   min-height: 34px;
   min-width: 0;
   padding: 5px 8px;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(174, 191, 181, 0.86);
   border-radius: var(--radius);
-  background: var(--surface-raised);
+  background: rgba(255, 255, 255, 0.74);
   color: var(--ink-soft);
 }
 
@@ -1210,8 +1255,8 @@ svg {
   min-width: 0;
   min-height: 34px;
   padding: 0 10px;
-  border: 1px solid var(--ink);
-  background: var(--ink);
+  border: 1px solid #0b2c29;
+  background: #0b2c29;
   color: white;
   font-size: 10px;
   font-weight: 700;
@@ -1228,7 +1273,7 @@ svg {
 
 .button.ghost {
   border-color: var(--line-strong);
-  background: var(--surface);
+  background: rgba(255, 255, 255, 0.86);
   color: var(--ink);
 }
 
@@ -1575,9 +1620,9 @@ select:focus-visible,
 .review-band,
 .input-panel {
   min-width: 0;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(174, 191, 181, 0.78);
   border-radius: var(--radius);
-  background: rgba(255, 255, 255, 0.88);
+  background: rgba(255, 255, 255, 0.92);
 }
 
 .workflow-grid {
@@ -1702,6 +1747,12 @@ select:focus-visible,
   justify-content: flex-end;
   gap: 8px;
   min-width: 0;
+}
+
+.period-section-actions > .status-pill,
+.period-section-actions > .button {
+  flex: 0 0 auto;
+  width: fit-content;
 }
 
 .period-card {
@@ -5292,13 +5343,13 @@ table {
   min-width: 660px;
   table-layout: fixed;
   border-collapse: collapse;
-  background: var(--surface);
+  background: #ffffff;
 }
 
 th,
 td {
   padding: 7px 8px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid #dbe5df;
   text-align: left;
   vertical-align: top;
 }
@@ -5308,8 +5359,8 @@ thead th {
 }
 
 th {
-  background: var(--surface-muted);
-  color: var(--ink-soft);
+  background: #e8f0eb;
+  color: #33443b;
   font-family: var(--font-mono), monospace;
   font-size: 8.4px;
   font-weight: 500;
@@ -6661,13 +6712,17 @@ td span {
   }
 
   .data-awal-grid {
-    grid-template-columns: minmax(280px, 1fr) minmax(280px, 1fr) minmax(280px, 0.56fr);
+    grid-template-columns: repeat(2, minmax(360px, 1fr));
     align-items: start;
   }
 
   .data-awal-card.wide,
   .period-workflow-block {
-    grid-column: 1 / span 2;
+    grid-column: 1 / -1;
+  }
+
+  .data-awal-card.wide .case-transaction-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 }
 
@@ -6783,6 +6838,12 @@ td span {
     grid-template-columns: 1fr;
   }
 
+  .period-section-actions > .status-pill,
+  .period-section-actions > .button {
+    flex: 0 0 auto;
+    width: 100%;
+  }
+
   .sticky-workspace-header {
     position: sticky;
     right: auto;
@@ -6829,6 +6890,10 @@ td span {
   .auth-login-copy {
     min-height: auto;
     padding: 40px 24px 48px;
+  }
+
+  .auth-info-list {
+    grid-template-columns: 1fr;
   }
 
   .auth-login-copy h1 {
@@ -6919,6 +6984,10 @@ td span {
 
   .auth-login-copy {
     padding: 28px 18px 32px;
+  }
+
+  .auth-info-list div {
+    min-height: auto;
   }
 
   .auth-login-brand {
@@ -7581,6 +7650,17 @@ td span {
   font-size: var(--workbench-font-md);
 }
 
+.app-shell::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 88% 8%, rgba(11, 107, 99, 0.09), transparent 24rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.38), transparent 40%);
+}
+
 .app-shell a {
   text-decoration: underline;
   text-decoration-thickness: 1px;
@@ -7604,7 +7684,7 @@ td span {
 
 .app-shell .sticky-workspace-header {
   border-bottom-color: rgba(189, 199, 192, 0.92);
-  box-shadow: 0 8px 22px rgba(21, 24, 22, 0.075);
+  box-shadow: 0 10px 26px rgba(18, 24, 21, 0.085);
 }
 
 .app-shell .panel,
@@ -7616,7 +7696,9 @@ td span {
 .app-shell .assumption-calculator-card,
 .app-shell .fixed-asset-editor {
   background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 1px 0 rgba(23, 25, 24, 0.035);
+  box-shadow:
+    0 1px 0 rgba(23, 25, 24, 0.035),
+    0 10px 28px rgba(18, 24, 21, 0.035);
 }
 
 .app-shell .panel-heading {
@@ -7717,8 +7799,8 @@ td span {
 }
 
 .app-shell th {
-  background: #edf2ee;
-  color: #44504a;
+  background: #e8f0eb;
+  color: #33443b;
   font-size: var(--workbench-font-xs);
   font-weight: 750;
   line-height: 1.28;
@@ -7751,7 +7833,7 @@ td span {
 }
 
 .app-shell tbody tr:not(.total-row):not(.analysis-total-row):not(.income-total-row):not(.balance-section-row):not(.analysis-section-row):hover td {
-  background-color: #fbfdfb;
+  background-color: #f7fbf8;
 }
 
 .app-shell .total-row td,

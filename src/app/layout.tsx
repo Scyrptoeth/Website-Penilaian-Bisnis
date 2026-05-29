@@ -31,7 +31,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="id">
-      <body className={`${dmSans.variable} ${dmMono.variable}`}>{children}</body>
+      <body className={`${dmSans.variable} ${dmMono.variable}`}>
+        <a className="skip-link" href="#main-content">
+          Lewati ke konten utama
+        </a>
+        {children}
+      </body>
     </html>
   );
 }

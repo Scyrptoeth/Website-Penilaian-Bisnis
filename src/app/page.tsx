@@ -15,10 +15,10 @@ export default async function Home() {
   }
 
   return (
-    <>
+    <div id="main-content">
       <ValuationWorkbench authUserId={session.userId} isSuperAdmin={isSuperAdminSession(session)} />
       <SiteFooter />
       <ScrollToTopButton />
-    </>
+    </div>
   );
 }

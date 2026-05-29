@@ -42,7 +42,7 @@ export function AuthLoginPanel() {
   }
 
   return (
-    <main className="auth-login-shell" data-testid="auth-login-panel">
+    <main className="auth-login-shell" id="main-content" data-testid="auth-login-panel">
       <section className="auth-login-panel" aria-labelledby="auth-login-title">
         <div className="auth-login-copy">
           <div className="auth-login-brand">
@@ -107,11 +107,13 @@ export function AuthLoginPanel() {
             <span>NIP Pendek</span>
             <input
               id="auth-user-id"
+              name="userId"
               type="text"
               inputMode="numeric"
               value={userId}
               onChange={(event) => setUserId(event.target.value)}
               autoComplete="username"
+              spellCheck={false}
               required
             />
           </label>
@@ -125,7 +127,7 @@ export function AuthLoginPanel() {
           />
           {status ? <p className={`auth-status ${status.type}`}>{status.message}</p> : null}
           <button className="button primary auth-submit-button" type="submit" disabled={isPending}>
-            <span>{isPending ? "Membuka aplikasi..." : "Masuk"}</span>
+            <span>{isPending ? "Membuka aplikasi…" : "Masuk"}</span>
             <ArrowRight size={16} />
           </button>
         </form>

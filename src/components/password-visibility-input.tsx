@@ -31,11 +31,13 @@ export function PasswordVisibilityInput({
       <span className="password-input-wrap">
         <input
           id={id}
+          name={id}
           type={isVisible ? "text" : "password"}
           value={value}
           onChange={(event) => onChange(event.target.value)}
           autoComplete={autoComplete}
           placeholder={placeholder}
+          spellCheck={false}
           required={required}
         />
         <button
