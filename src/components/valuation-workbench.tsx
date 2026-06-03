@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties, type FormEvent } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -16,9 +16,11 @@ import {
   FileSpreadsheet,
   FileText,
   GitBranch,
+  MessageCircle,
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
+  Send,
   TableProperties,
   Trash2,
 } from "lucide-react";
@@ -1105,6 +1107,14 @@ type ValuationWorkbenchProps = {
   isSuperAdmin?: boolean;
 };
 
+type AnonymousFeedbackStatus =
+  | { tone: "idle"; message: "" }
+  | { tone: "success" | "error"; message: string };
+
+type ExportNoticeState = {
+  id: number;
+};
+
 type CalculationInputSection = "balance" | "income" | "fixedAssets";
 type PendingCalculationInputSections = Record<CalculationInputSection, boolean>;
 
@@ -1213,6 +1223,10 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   const [pendingConfirmation, setPendingConfirmation] = useState<ConfirmationDialogState | null>(null);
   const [guidanceTarget, setGuidanceTarget] = useState<GuidanceTarget | null>(null);
   const [sourceFocusTarget, setSourceFocusTarget] = useState<SourceFocusTarget | null>(null);
+  const [anonymousFeedbackDraft, setAnonymousFeedbackDraft] = useState("");
+  const [anonymousFeedbackStatus, setAnonymousFeedbackStatus] = useState<AnonymousFeedbackStatus>({ tone: "idle", message: "" });
+  const [isSubmittingAnonymousFeedback, setIsSubmittingAnonymousFeedback] = useState(false);
+  const [exportNotice, setExportNotice] = useState<ExportNoticeState | null>(null);
   const workspaceMenuRef = useRef<HTMLDivElement>(null);
   const pdfExportMenuRef = useRef<HTMLDivElement>(null);
   const xlsxExportMenuRef = useRef<HTMLDivElement>(null);
@@ -3619,6 +3633,73 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     };
   });
 
+  useEffect(() => {
+    if (!exportNotice) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => setExportNotice(null), 10_000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [exportNotice]);
+
+  async function submitAnonymousFeedback(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const feedback = anonymousFeedbackDraft.trim();
+
+    if (feedback.length < 4) {
+      setAnonymousFeedbackStatus({ tone: "error", message: "Tulis feedback minimal 4 karakter agar bisa kami tindak lanjuti." });
+      return;
+    }
+
+    setIsSubmittingAnonymousFeedback(true);
+    setAnonymousFeedbackStatus({ tone: "idle", message: "" });
+
+    try {
+      const response = await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ feedback }),
+      });
+      const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+
+      if (!response.ok) {
+        throw new Error(payload?.message || "Feedback belum berhasil dikirim.");
+      }
+
+      setAnonymousFeedbackDraft("");
+      setAnonymousFeedbackStatus({
+        tone: "success",
+        message: "Terima kasih. Feedback anonim Kamu sudah masuk ke storage developer.",
+      });
+    } catch (error) {
+      setAnonymousFeedbackStatus({
+        tone: "error",
+        message: error instanceof Error ? error.message : "Feedback belum berhasil dikirim.",
+      });
+    } finally {
+      setIsSubmittingAnonymousFeedback(false);
+    }
+  }
+
+  function acknowledgeExport(exportType: "pdf" | "xlsx" | "json", exportScope: string) {
+    setExportNotice((current) => ({ id: (current?.id ?? 0) + 1 }));
+    void recordExportTelemetry(exportType, exportScope);
+  }
+
+  async function recordExportTelemetry(exportType: "pdf" | "xlsx" | "json", exportScope: string) {
+    try {
+      await fetch("/api/telemetry/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ exportType, exportScope }),
+      });
+    } catch {
+      // Export must continue even when central telemetry is temporarily unavailable.
+    }
+  }
+
   function getExportInput() {
     return {
       periods,
@@ -3666,6 +3747,8 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   }
 
   function exportPdfReport(scopeId: ValuationPdfExportScopeId) {
+    acknowledgeExport("pdf", scopeId);
+
     try {
       const payload = saveValuationPdfExportPayload(getExportInput(), scopeId);
       const filename = buildPdfExportFilename(payload.input.caseProfile.objectTaxpayerName, payload.scope.id);
@@ -3679,6 +3762,8 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   }
 
   function exportXlsxReport(scopeId: ValuationXlsxExportScopeId) {
+    acknowledgeExport("xlsx", scopeId);
+
     try {
       const file = createValuationXlsxFile(getExportInput(), scopeId);
       const blob = buildValuationXlsxBlob(file);
@@ -3698,6 +3783,8 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   }
 
   function exportJsonDraft() {
+    acknowledgeExport("json", "workspace");
+
     try {
       downloadValuationJsonExport(getCurrentCoreState());
     } catch (error) {
@@ -3851,6 +3938,19 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               </button>
             </div>
           </section>
+        </div>
+      ) : null}
+      {exportNotice ? (
+        <div className="export-thank-you-toast" role="status" aria-live="polite">
+          <div>
+            <strong>Terima kasih telah menggunakan website kami.</strong>
+            <p>
+              Semoga pekerjaan Kamu berjalan lancar, sehingga Kamu dapat menikmati waktu bersama orang-orang yang paling Kamu sayang.
+            </p>
+          </div>
+          <button className="button ghost compact-button" type="button" onClick={() => setExportNotice(null)}>
+            Tutup
+          </button>
         </div>
       ) : null}
       {isSidebarCollapsed ? (
@@ -4276,6 +4376,45 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
                 })}
               </div>
             </div>
+            <form className="anonymous-feedback-panel" onSubmit={submitAnonymousFeedback}>
+              <div className="anonymous-feedback-copy">
+                <div className="anonymous-feedback-icon" aria-hidden="true">
+                  <MessageCircle size={17} />
+                </div>
+                <div>
+                  <p className="eyebrow">Feedback anonim</p>
+                  <h4>Beri feedback secara anonim di sini</h4>
+                  <p>
+                    Sampaikan kendala, saran tampilan, atau bagian perhitungan yang perlu dibuat lebih jelas.
+                    Feedback tidak menyertakan identitas pengguna.
+                  </p>
+                </div>
+              </div>
+              <label className="anonymous-feedback-field">
+                <span>Feedback</span>
+                <textarea
+                  value={anonymousFeedbackDraft}
+                  onChange={(event) => setAnonymousFeedbackDraft(event.target.value)}
+                  placeholder="Contoh: bagian input periode sudah jelas, tetapi tombol export bisa dibuat lebih informatif."
+                  rows={3}
+                  maxLength={1200}
+                  disabled={isSubmittingAnonymousFeedback}
+                />
+              </label>
+              <div className="anonymous-feedback-actions">
+                {anonymousFeedbackStatus.tone !== "idle" ? (
+                  <p className={`anonymous-feedback-status ${anonymousFeedbackStatus.tone}`} role="status">
+                    {anonymousFeedbackStatus.message}
+                  </p>
+                ) : (
+                  <p className="anonymous-feedback-hint">Maksimal 1.200 karakter. Data masuk ke dashboard developer.</p>
+                )}
+                <button className="button secondary" type="submit" disabled={isSubmittingAnonymousFeedback || anonymousFeedbackDraft.trim().length < 4}>
+                  <Send size={16} />
+                  {isSubmittingAnonymousFeedback ? "Mengirim..." : "Kirim Feedback"}
+                </button>
+              </div>
+            </form>
           </div>
         </section>
         ) : null}
