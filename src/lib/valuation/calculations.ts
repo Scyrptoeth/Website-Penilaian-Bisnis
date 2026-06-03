@@ -525,7 +525,7 @@ export function calculateEem(snapshot: FinancialStatementSnapshot, options: EemO
   const returnOnTangibleAssetLabel = options.returnOnTangibleAssetLabel ?? "Kalkulator required return on NTA";
   const isEquityCostReturnOnTangibleAsset = options.returnOnTangibleAssetSource === "equity-cost";
   const requiredReturn = netOperatingTangibleAssets * returnOnTangibleAsset;
-  const excessEarnings = 0;
+  const excessEarnings = freeCashFlow - requiredReturn;
   const capitalizationRate = options.capitalizationRate ?? snapshot.wacc;
   const capitalizedExcess = capitalizationRate > 0 ? excessEarnings / capitalizationRate : 0;
   const enterpriseValue = netOperatingTangibleAssets + capitalizedExcess;
