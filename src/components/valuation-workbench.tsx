@@ -1199,7 +1199,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
   const [workspaceNameDraft, setWorkspaceNameDraft] = useState("");
   const [activeWorkflowTab, setActiveWorkflowTab] = useState<WorkflowTabId>("periods");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [lastSavedAt, setLastSavedAt] = useState("");
+  const [, setLastSavedAt] = useState("");
   const [isSavingWorkspace, setIsSavingWorkspace] = useState(false);
   const [pendingCalculationInputSections, setPendingCalculationInputSections] = useState<PendingCalculationInputSections>(
     createEmptyPendingCalculationInputSections,

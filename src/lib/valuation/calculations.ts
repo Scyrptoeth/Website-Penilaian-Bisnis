@@ -355,15 +355,7 @@ function selectedForecastCurrentLiabilities(
 }
 
 export function nonOperatingAssets(snapshot: FinancialStatementSnapshot): number {
-  return (
-    snapshot.cashOnHand +
-    snapshot.cashOnBankDeposit +
-    snapshot.excessCash +
-    snapshot.surplusAssetCash +
-    snapshot.marketableSecurities +
-    snapshot.employeeReceivable +
-    snapshot.nonOperatingFixedAssets
-  );
+  return snapshot.cashOnHand + snapshot.cashOnBankDeposit;
 }
 
 export function interestBearingDebt(snapshot: FinancialStatementSnapshot): number {
@@ -399,12 +391,6 @@ const eemIncomeCategories: AccountCategory[] = [
 const eemNonOperatingAssetCategories: AccountCategory[] = [
   "CASH_ON_HAND",
   "CASH_ON_BANK",
-  "OTHER_RECEIVABLE",
-  "EMPLOYEE_RECEIVABLE",
-  "EXCESS_CASH",
-  "SURPLUS_ASSET_CASH",
-  "MARKETABLE_SECURITIES",
-  "NON_OPERATING_FIXED_ASSETS",
 ];
 
 const eemDebtCategories: AccountCategory[] = [
@@ -807,9 +793,9 @@ export function calculateEem(snapshot: FinancialStatementSnapshot, options: EemO
     {
       id: "eem-non-operating-asset",
       label: "Non Operating Asset",
-      formula: "Cash/deposit + surplus cash + marketable securities + employee receivable + non-operating fixed assets",
+      formula: "Kas di tangan + Bank dan deposito",
       value: nonOperatingAssetValue,
-      note: "Aset non-operasional ditambahkan setelah EV; minimum operating cash tetap area judgment reviewer.",
+      note: "Aset non-operasional ditambahkan setelah EV dari kategori utama Neraca: Kas di tangan dan Bank dan deposito.",
       sourceTabs: ["Neraca", "Kategorisasi Akun", "Penilaian EEM"],
       accountCategories: eemNonOperatingAssetCategories,
       workbookReference: "EEM!D33 / STAT_EEM!B11 / BALANCE SHEET!E8,E9,E11",
@@ -1254,9 +1240,9 @@ export function calculateDcf(
     },
     {
       label: "Aset non-operasional",
-      formula: "Surplus cash atau saldo kas + surat berharga + piutang karyawan + aset tetap non-operasional",
+      formula: "Kas di tangan + bank dan deposito",
       value: nonOperatingAssets(snapshot),
-      note: "Judgment berdampak tinggi; sensitivitas minimum operating cash diperlukan.",
+      note: "Bridge aset non-operasional mengikuti kategori utama Neraca: Kas di tangan dan Bank dan deposito.",
     },
     {
       label: "Nilai Ekuitas 100% - DCF",

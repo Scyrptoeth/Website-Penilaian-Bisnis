@@ -405,7 +405,7 @@ function buildCalculationModelRows(input: ValuationPdfExportInput, scope: Valuat
   add("otherPayable", "Source", "Other payable", input.snapshot.otherPayable, "Input", "Mapped source accounts.");
   add("taxPayable", "Source", "Tax payable", input.snapshot.taxPayable, "Input", "Mapped source accounts.");
   add("fixedAssetsNet", "Source", "Fixed assets net", input.snapshot.fixedAssetsNet, "Formula", input.fixedAssetSchedule.hasInput ? `SUM(${sheetCell(fixedAssetsSheetName, `I${fixedAssetFirstRow}:I${fixedAssetLastRow}`)}) for active period support.` : "Mapped source accounts.");
-  add("nonOperatingAssets", "Source", "Non-operating assets", input.results.nonOperatingAssets, "Formula", "Cash/deposit, marketable securities, employee receivable, and non-operating asset bridge.");
+  add("nonOperatingAssets", "Source", "Non-operating assets", input.results.nonOperatingAssets, "Formula", "Kas di tangan + Bank dan deposito from mapped Neraca categories.");
   add("interestBearingDebt", "Source", "Interest-bearing debt", input.results.interestBearingDebt, "Formula", "Short-term and long-term interest-bearing debt.");
   add("capitalBaseFull", "Tax", "Capital base full", input.caseProfileDerived.capitalBaseFullAmount ?? 0, "Input", "Data Awal capitalBaseFull.");
   add("capitalBaseValued", "Tax", "Capital base valued", input.caseProfileDerived.capitalBaseValuedAmount ?? 0, "Input", "Data Awal capitalBaseValued.");

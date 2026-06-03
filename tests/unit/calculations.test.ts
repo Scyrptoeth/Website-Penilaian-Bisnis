@@ -68,6 +68,21 @@ describe("valuation calculations", () => {
     assertAlmostEqual(eem.equityValue, expected, 0.01);
   });
 
+  it("uses only cash on hand and bank/deposit categories for non-operating assets", () => {
+    const targetSnapshot = {
+      ...snapshot,
+      cashOnHand: 125,
+      cashOnBankDeposit: 275,
+      excessCash: 1_000,
+      surplusAssetCash: 2_000,
+      marketableSecurities: 3_000,
+      employeeReceivable: 4_000,
+      nonOperatingFixedAssets: 5_000,
+    };
+
+    assert.equal(nonOperatingAssets(targetSnapshot), 400);
+  });
+
   it("allows EEM return on tangible asset to use equity cost instead of blended NTA return", () => {
     const equityCostReturn = snapshot.requiredReturnOnNta + 0.01;
     const eem = calculateEem(snapshot, {
@@ -147,6 +162,10 @@ describe("valuation calculations", () => {
     assertAlmostEqual(valueById("eem-enterprise-value"), nta + capitalizedExcess, 0.01);
     assertAlmostEqual(valueById("eem-interest-bearing-debt"), interestBearingDebt(snapshot), 0.01);
     assertAlmostEqual(valueById("eem-non-operating-asset"), nonOperatingAssets(snapshot), 0.01);
+    assert.equal(
+      eem.traces.find((trace) => trace.id === "eem-non-operating-asset")?.formula,
+      "Kas di tangan + Bank dan deposito",
+    );
     assertAlmostEqual(valueById("eem-equity-value-100"), eem.equityValue, 0.01);
     assert.ok(eem.traces.every((trace) => trace.workbookReference || trace.traceLevel === "final"));
     assert.ok(eem.traces.some((trace) => trace.accountCategories?.includes("ACCOUNT_RECEIVABLE")));

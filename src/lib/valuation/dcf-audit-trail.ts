@@ -144,7 +144,7 @@ export function buildDcfAuditTrail({
   const terminalValue = terminalResolution.terminalValue;
   const terminalPv = terminalValue * finalDiscountFactor;
   const enterpriseValue = explicitPv + terminalPv;
-  const surplusAssetCash = nonOperatingAssets(snapshot) - snapshot.nonOperatingFixedAssets;
+  const surplusAssetCash = nonOperatingAssets(snapshot);
   const bridgeDebt = interestBearingDebt(snapshot);
 
   return {
@@ -337,19 +337,11 @@ export function buildDcfAuditTrail({
       bridgeRow({
         id: "dcf-surplus-asset-cash",
         label: "Surplus Asset Cash",
-        formula: "Cash/deposit + excess cash + marketable securities + employee receivable",
+        formula: "Kas di tangan + bank dan deposito",
         workbookReference: "DCF!C31 -> ROIC!D10",
         sourceTabs: ["Neraca", "ROIC"],
-        accountCategories: [
-          "CASH_ON_HAND",
-          "CASH_ON_BANK",
-          "EXCESS_CASH",
-          "MARKETABLE_SECURITIES",
-          "OTHER_RECEIVABLE",
-          "EMPLOYEE_RECEIVABLE",
-          "SURPLUS_ASSET_CASH",
-        ],
-        note: "Aset kas/non-operasional yang ditambahkan kembali setelah enterprise value.",
+        accountCategories: ["CASH_ON_HAND", "CASH_ON_BANK"],
+        note: "Aset kas/non-operasional yang ditambahkan kembali setelah enterprise value mengikuti kategori utama Neraca.",
         value: surplusAssetCash,
       }),
       bridgeRow({
@@ -381,8 +373,8 @@ export function buildDcfAuditTrail({
         label: "Equity Value (100%)",
         formula:
           debtLikeTaxPayable > 0
-            ? "Enterprise value + surplus asset cash + idle non-operating asset - interest bearing debt - debt-like tax payable"
-            : "Enterprise value + surplus asset cash + idle non-operating asset - interest bearing debt",
+            ? "Enterprise value + surplus asset cash - interest bearing debt - debt-like tax payable"
+            : "Enterprise value + surplus asset cash - interest bearing debt",
         workbookReference: "DCF!C33",
         sourceTabs: ["Penilaian DCF"],
         accountCategories: [],

@@ -1486,6 +1486,14 @@ test("WACC and EEM/DCF assumptions expose source-backed suggestions, calculators
   await expect(page.getByTestId("eem-tax-payable-debt-like-equity-value")).toBeVisible();
   await expect(page.getByTestId("eem-tax-payable-difference-driver")).toContainText("Driver selisih");
   await expect(page.getByTestId("eem-trace-row")).toHaveCount(19);
+  const nonOperatingAssetTraceRow = page.getByTestId("eem-trace-row").filter({
+    has: page.locator(".eem-trace-component strong").filter({ hasText: /^Non Operating Asset$/ }),
+  });
+  await expect(nonOperatingAssetTraceRow).toContainText("Kas di tangan");
+  await expect(nonOperatingAssetTraceRow).toContainText("Bank dan deposito");
+  await expect(nonOperatingAssetTraceRow).not.toContainText("employee receivable");
+  await expect(nonOperatingAssetTraceRow).not.toContainText("marketable securities");
+  await expect(nonOperatingAssetTraceRow).not.toContainText("non-operating fixed assets");
   await expect(page.getByTestId("eem-trace-table").getByRole("columnheader")).toHaveText([
     "Komponen",
     "Nilai aktif",
