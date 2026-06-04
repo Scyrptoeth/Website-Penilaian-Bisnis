@@ -1344,9 +1344,13 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       calculatedDebtScheduleInputs,
     ],
   );
+  const balanceSheetView = useMemo(
+    () => buildBalanceSheetView(periods, mappedRows, fixedAssetSchedule),
+    [fixedAssetSchedule, mappedRows, periods],
+  );
   const aamAdjustmentModel = useMemo(
-    () => buildAamAdjustmentModel(snapshot, aamAdjustments, { fixedAssetSchedule, activePeriodId }),
-    [aamAdjustments, activePeriodId, fixedAssetSchedule, snapshot],
+    () => buildAamAdjustmentModel(snapshot, aamAdjustments, { fixedAssetSchedule, balanceSheetView, activePeriodId }),
+    [aamAdjustments, activePeriodId, balanceSheetView, fixedAssetSchedule, snapshot],
   );
   const dcfWorkingCapitalInclusionOptions = useMemo(
     () => buildDcfWorkingCapitalInclusionOptions(calculatedCashFlowAccountInclusions),
@@ -1562,10 +1566,6 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         snapshot,
       }),
     [activeDcf, activeEem, caseProfile, caseProfileDerived, draftDlocPfcCalculation, draftDlomCalculation, results.aam, snapshot, taxSimulation],
-  );
-  const balanceSheetView = useMemo(
-    () => buildBalanceSheetView(periods, mappedRows, fixedAssetSchedule),
-    [fixedAssetSchedule, mappedRows, periods],
   );
   const incomeStatementView = useMemo(
     () => buildIncomeStatementView(periods, calculatedIncomeStatementRows, fixedAssetSchedule),

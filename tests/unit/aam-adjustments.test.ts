@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { buildAamAdjustmentModel } from "../../src/lib/valuation/aam-adjustments";
+import { buildBalanceSheetView } from "../../src/lib/valuation/balance-sheet-view";
 import { calculateAllMethods } from "../../src/lib/valuation/calculations";
 import {
   buildFixedAssetScheduleSummary,
@@ -9,8 +10,11 @@ import {
   buildSamplePeriods,
   buildSampleRows,
   buildSnapshot,
+  emptyAssumptions,
+  mapRow,
+  type FixedAssetScheduleRow,
 } from "../../src/lib/valuation/case-model";
-import { assertAlmostEqual } from "./test-utils";
+import { assertAlmostEqual, basePeriods, rowFixture } from "./test-utils";
 
 const periods = buildSamplePeriods();
 const snapshot = buildSnapshot(periods, "p2021", buildSampleRows(), buildSampleAssumptions());
@@ -107,6 +111,43 @@ describe("AAM adjustments", () => {
     assert.equal(model.assetLines.find((line) => line.id === "inventory")?.requiresNote, true);
     assert.equal(model.equityLines.find((line) => line.id === "retained-earnings-current-profit")?.requiresNote, true);
     assert.equal(model.equityLines.find((line) => line.id === "changes-on-asset-revaluation")?.requiresNote, false);
+  });
+
+  it("limits asset adjustment rows to accounts shown in the active balance-sheet asset groups", () => {
+    const rows = [
+      rowFixture({ id: "cash", accountName: "Cash on Hand", category: "CASH_ON_HAND", values: { p0: "0", p1: "100" } }),
+      rowFixture({ id: "other-receivable", accountName: "Other Receivable", category: "CURRENT_ASSET", values: { p0: "0", p1: "25" } }),
+      rowFixture({ id: "other-current", accountName: "Others", category: "CURRENT_ASSET", values: { p0: "0", p1: "0" } }),
+      rowFixture({ id: "other-non-current", accountName: "Non Current Assets", category: "NON_CURRENT_ASSET", values: { p0: "0", p1: "0" } }),
+    ];
+    const fixedAssetScheduleRows: FixedAssetScheduleRow[] = [
+      {
+        id: "fa1",
+        assetName: "Vehicle",
+        values: {
+          p0: { acquisitionBeginning: "1.000", acquisitionAdditions: "0", depreciationBeginning: "100", depreciationAdditions: "0" },
+          p1: { acquisitionBeginning: "", acquisitionAdditions: "0", depreciationBeginning: "", depreciationAdditions: "0" },
+        },
+      },
+    ];
+    const snapshot = buildSnapshot(basePeriods, "p1", rows, emptyAssumptions, fixedAssetScheduleRows);
+    const fixedAssetSchedule = buildFixedAssetScheduleSummary(basePeriods, fixedAssetScheduleRows);
+    const balanceSheetView = buildBalanceSheetView(basePeriods, rows.map(mapRow), fixedAssetSchedule);
+    const model = buildAamAdjustmentModel(snapshot, {}, { balanceSheetView, activePeriodId: "p1" });
+    const assetLineIds = model.assetLines.map((line) => line.id);
+
+    assert.equal(assetLineIds.includes("cash-on-hand"), true);
+    assert.equal(assetLineIds.includes("other-current-assets"), false);
+    assert.equal(assetLineIds.includes("other-non-current-assets"), true);
+    assert.equal(assetLineIds.includes("fixed-assets-net"), true);
+    assert.deepEqual(
+      model.assetLines.filter((line) => line.id.startsWith("other-current-assets:")).map((line) => line.label),
+      ["Other Receivable", "Others"],
+    );
+    assert.equal(assetLineIds.includes("cash-on-bank-deposit"), false);
+    assert.equal(assetLineIds.includes("account-receivable"), false);
+    assert.equal(assetLineIds.includes("inventory"), false);
+    assert.equal(model.assetLines.find((line) => line.id === "fixed-assets-net")?.historical, 900);
   });
 
   it("lets EEM consume AAM adjusted asset and liability bases while DCF remains unchanged", () => {

@@ -1,5 +1,7 @@
 import { adjustedTotalAssets, adjustedTotalLiabilities } from "./calculations";
 import { parseInputNumber, type FixedAssetScheduleSummary } from "./case-model";
+import type { BalanceSheetLine, BalanceSheetView } from "./balance-sheet-view";
+import type { AccountCategory } from "./types";
 import type { FinancialStatementSnapshot } from "./types";
 
 export type AamAdjustmentEntry = {
@@ -67,10 +69,17 @@ type LineDefinition = {
   section: string;
   label: string;
   source: string;
+  categoryIds: Array<AccountCategory | "DERIVED_FIXED_ASSET">;
   value: (snapshot: FinancialStatementSnapshot) => number;
 };
 
 const fixedAssetScheduleLineIdPrefix = "fixed-asset-schedule:";
+
+type AamAdjustmentModelOptions = {
+  fixedAssetSchedule?: FixedAssetScheduleSummary;
+  balanceSheetView?: BalanceSheetView;
+  activePeriodId?: string;
+};
 
 const assetDefinitions: LineDefinition[] = [
   {
@@ -79,6 +88,7 @@ const assetDefinitions: LineDefinition[] = [
     section: "Aset lancar",
     label: "Kas di tangan",
     source: "Neraca: Kas di tangan",
+    categoryIds: ["CASH_ON_HAND"],
     value: (snapshot) => snapshot.cashOnHand,
   },
   {
@@ -87,6 +97,7 @@ const assetDefinitions: LineDefinition[] = [
     section: "Aset lancar",
     label: "Kas di bank / deposito",
     source: "Neraca: Kas di bank / deposito",
+    categoryIds: ["CASH_ON_BANK"],
     value: (snapshot) => snapshot.cashOnBankDeposit,
   },
   {
@@ -95,6 +106,7 @@ const assetDefinitions: LineDefinition[] = [
     section: "Aset lancar",
     label: "Piutang usaha",
     source: "Neraca: Piutang usaha",
+    categoryIds: ["ACCOUNT_RECEIVABLE"],
     value: (snapshot) => snapshot.accountReceivable,
   },
   {
@@ -103,6 +115,7 @@ const assetDefinitions: LineDefinition[] = [
     section: "Aset lancar",
     label: "Piutang karyawan / piutang lain-lain",
     source: "Neraca: Piutang karyawan / piutang lain-lain",
+    categoryIds: ["EMPLOYEE_RECEIVABLE", "OTHER_RECEIVABLE"],
     value: (snapshot) => snapshot.employeeReceivable,
   },
   {
@@ -111,6 +124,7 @@ const assetDefinitions: LineDefinition[] = [
     section: "Aset lancar",
     label: "Persediaan",
     source: "Neraca: Persediaan",
+    categoryIds: ["INVENTORY"],
     value: (snapshot) => snapshot.inventory,
   },
   {
@@ -119,6 +133,7 @@ const assetDefinitions: LineDefinition[] = [
     section: "Aset lancar",
     label: "Surat berharga",
     source: "Neraca: Surat berharga",
+    categoryIds: ["MARKETABLE_SECURITIES"],
     value: (snapshot) => snapshot.marketableSecurities,
   },
   {
@@ -127,6 +142,7 @@ const assetDefinitions: LineDefinition[] = [
     section: "Aset lancar",
     label: "Kas berlebih",
     source: "Neraca: Kas berlebih",
+    categoryIds: ["EXCESS_CASH"],
     value: (snapshot) => snapshot.excessCash,
   },
   {
@@ -135,6 +151,7 @@ const assetDefinitions: LineDefinition[] = [
     section: "Aset lancar",
     label: "Kas / aset surplus",
     source: "Neraca: Kas / aset surplus",
+    categoryIds: ["SURPLUS_ASSET_CASH"],
     value: (snapshot) => snapshot.surplusAssetCash,
   },
   {
@@ -143,6 +160,7 @@ const assetDefinitions: LineDefinition[] = [
     section: "Aset lancar",
     label: "Aset lancar lain-lain",
     source: "Neraca: Aset lancar yang belum terinci",
+    categoryIds: ["CURRENT_ASSET"],
     value: (snapshot) =>
       residual(
         snapshot.currentAssets,
@@ -162,6 +180,7 @@ const assetDefinitions: LineDefinition[] = [
     section: "Aset tidak lancar",
     label: "Aset tetap non-operasional",
     source: "Neraca: Aset tetap non-operasional",
+    categoryIds: ["NON_OPERATING_FIXED_ASSETS"],
     value: (snapshot) => snapshot.nonOperatingFixedAssets,
   },
   {
@@ -170,6 +189,7 @@ const assetDefinitions: LineDefinition[] = [
     section: "Aset tidak lancar",
     label: "Aset takberwujud",
     source: "Neraca: Aset takberwujud",
+    categoryIds: ["INTANGIBLE_ASSETS"],
     value: (snapshot) => snapshot.intangibleAssets,
   },
   {
@@ -178,6 +198,7 @@ const assetDefinitions: LineDefinition[] = [
     section: "Aset tidak lancar",
     label: "Aset tidak lancar lain-lain",
     source: "Neraca: Aset tidak lancar yang belum terinci",
+    categoryIds: ["NON_CURRENT_ASSET"],
     value: (snapshot) =>
       residual(snapshot.nonCurrentAssets, snapshot.fixedAssetsNet + snapshot.nonOperatingFixedAssets + snapshot.intangibleAssets),
   },
@@ -190,6 +211,7 @@ const liabilityDefinitions: LineDefinition[] = [
     section: "Liabilitas lancar",
     label: "Pinjaman bank jangka pendek",
     source: "Neraca: Pinjaman bank jangka pendek",
+    categoryIds: ["BANK_LOAN_SHORT_TERM"],
     value: (snapshot) => snapshot.bankLoanShortTerm,
   },
   {
@@ -198,6 +220,7 @@ const liabilityDefinitions: LineDefinition[] = [
     section: "Liabilitas lancar",
     label: "Utang usaha",
     source: "Neraca: Utang usaha",
+    categoryIds: ["ACCOUNT_PAYABLE"],
     value: (snapshot) => snapshot.accountPayable,
   },
   {
@@ -206,6 +229,7 @@ const liabilityDefinitions: LineDefinition[] = [
     section: "Liabilitas lancar",
     label: "Utang pajak",
     source: "Neraca: Utang pajak",
+    categoryIds: ["TAX_PAYABLE"],
     value: (snapshot) => snapshot.taxPayable,
   },
   {
@@ -214,6 +238,7 @@ const liabilityDefinitions: LineDefinition[] = [
     section: "Liabilitas lancar",
     label: "Utang lain-lain",
     source: "Neraca: Utang lain-lain",
+    categoryIds: ["OTHER_PAYABLE"],
     value: (snapshot) => snapshot.otherPayable,
   },
   {
@@ -222,6 +247,7 @@ const liabilityDefinitions: LineDefinition[] = [
     section: "Liabilitas lancar",
     label: "Utang bunga",
     source: "Neraca: Utang bunga",
+    categoryIds: ["INTEREST_PAYABLE"],
     value: (snapshot) => snapshot.interestPayable,
   },
   {
@@ -230,6 +256,7 @@ const liabilityDefinitions: LineDefinition[] = [
     section: "Liabilitas lancar",
     label: "Liabilitas lancar lain-lain",
     source: "Neraca: Liabilitas lancar yang belum terinci",
+    categoryIds: ["CURRENT_LIABILITIES"],
     value: (snapshot) =>
       residual(
         snapshot.currentLiabilities,
@@ -242,6 +269,7 @@ const liabilityDefinitions: LineDefinition[] = [
     section: "Liabilitas tidak lancar",
     label: "Pinjaman bank jangka panjang",
     source: "Neraca: Pinjaman bank jangka panjang / utang berbunga",
+    categoryIds: ["BANK_LOAN_LONG_TERM", "INTEREST_BEARING_DEBT"],
     value: (snapshot) => snapshot.bankLoanLongTerm,
   },
   {
@@ -250,6 +278,7 @@ const liabilityDefinitions: LineDefinition[] = [
     section: "Liabilitas tidak lancar",
     label: "Liabilitas tidak lancar lain-lain",
     source: "Neraca: Liabilitas tidak lancar yang belum terinci",
+    categoryIds: ["NON_CURRENT_LIABILITIES"],
     value: (snapshot) => residual(snapshot.nonCurrentLiabilities, snapshot.bankLoanLongTerm),
   },
 ];
@@ -261,6 +290,7 @@ const equityDefinitions: LineDefinition[] = [
     section: "Ekuitas",
     label: "Modal disetor",
     source: "Neraca: Modal disetor",
+    categoryIds: ["MODAL_DISETOR"],
     value: (snapshot) => snapshot.paidUpCapital,
   },
   {
@@ -269,6 +299,7 @@ const equityDefinitions: LineDefinition[] = [
     section: "Ekuitas",
     label: "Tambahan modal disetor",
     source: "Neraca: Tambahan modal disetor",
+    categoryIds: ["PENAMBAHAN_MODAL_DISETOR"],
     value: (snapshot) => snapshot.additionalPaidInCapital,
   },
   {
@@ -277,6 +308,7 @@ const equityDefinitions: LineDefinition[] = [
     section: "Ekuitas",
     label: "Saldo laba ditahan / defisit",
     source: "Neraca: Saldo laba ditahan / defisit",
+    categoryIds: ["RETAINED_EARNINGS_SURPLUS"],
     value: (snapshot) => snapshot.retainedEarningsSurplus,
   },
   {
@@ -285,6 +317,7 @@ const equityDefinitions: LineDefinition[] = [
     section: "Ekuitas",
     label: "Laba tahun berjalan",
     source: "Neraca: Laba tahun berjalan",
+    categoryIds: ["RETAINED_EARNINGS_CURRENT_PROFIT"],
     value: (snapshot) => snapshot.retainedEarningsCurrentProfit,
   },
 ];
@@ -296,17 +329,26 @@ export const aamAdjustmentLineIds = new Set([
   "liability-total-bridge",
 ]);
 
+const dynamicAamAdjustmentLineIdPrefixes = [...assetDefinitions, ...liabilityDefinitions].map((definition) => `${definition.id}:`);
+
 export function isAamAdjustmentLineId(lineId: string): boolean {
-  return aamAdjustmentLineIds.has(lineId) || lineId.startsWith(fixedAssetScheduleLineIdPrefix);
+  return (
+    aamAdjustmentLineIds.has(lineId) ||
+    lineId.startsWith(fixedAssetScheduleLineIdPrefix) ||
+    dynamicAamAdjustmentLineIdPrefixes.some((prefix) => lineId.startsWith(prefix))
+  );
 }
 
 export function buildAamAdjustmentModel(
   snapshot: FinancialStatementSnapshot,
   adjustments: AamAdjustmentState = {},
-  options: { fixedAssetSchedule?: FixedAssetScheduleSummary; activePeriodId?: string } = {},
+  options: AamAdjustmentModelOptions = {},
 ): AamAdjustmentModel {
-  const assetLines = buildLines(buildAssetDefinitions(snapshot, options), snapshot, adjustments);
-  const liabilityLines = buildLines(liabilityDefinitions, snapshot, adjustments);
+  const assetLineDefinitions = buildAssetDefinitions(snapshot, options);
+  const visibleAssetDefinitions = filterDefinitionsByBalanceSheetView(assetLineDefinitions, "asset", options);
+  const visibleLiabilityDefinitions = filterDefinitionsByBalanceSheetView(liabilityDefinitions, "liability", options);
+  const assetLines = buildLines(visibleAssetDefinitions, snapshot, adjustments);
+  const liabilityLines = buildLines(visibleLiabilityDefinitions, snapshot, adjustments);
   const manualEquityLines = buildLines(equityDefinitions, snapshot, adjustments);
   const componentAssetTotal = sumLines(assetLines, "historical");
   const componentLiabilityTotal = sumLines(liabilityLines, "historical");
@@ -401,21 +443,19 @@ function buildAssetDefinitions(
   { fixedAssetSchedule, activePeriodId }: { fixedAssetSchedule?: FixedAssetScheduleSummary; activePeriodId?: string },
 ): LineDefinition[] {
   const fixedAssetLines = buildFixedAssetScheduleDefinitions(fixedAssetSchedule, activePeriodId);
+  const fixedAssetNetDefinition: LineDefinition = {
+    id: "fixed-assets-net",
+    role: "asset",
+    section: "Aset tidak lancar",
+    label: "Aset tetap neto",
+    source: "Neraca / jadwal aset tetap: Aset tetap neto",
+    categoryIds: ["FIXED_ASSET", "FIXED_ASSET_ACQUISITION", "ACCUMULATED_DEPRECIATION", "DERIVED_FIXED_ASSET"],
+    value: () => snapshot.fixedAssetsNet,
+  };
 
   return [
     ...assetDefinitions.slice(0, 9),
-    ...(fixedAssetLines.length > 0
-      ? fixedAssetLines
-      : [
-          {
-            id: "fixed-assets-net",
-            role: "asset" as const,
-            section: "Aset tidak lancar",
-            label: "Aset tetap neto",
-            source: "Neraca / jadwal aset tetap: Aset tetap neto",
-            value: () => snapshot.fixedAssetsNet,
-          },
-        ]),
+    ...(fixedAssetLines.length > 0 ? fixedAssetLines : [fixedAssetNetDefinition]),
     ...assetDefinitions.slice(9),
   ];
 }
@@ -446,10 +486,70 @@ function buildFixedAssetScheduleDefinitions(
         section: "Aset tidak lancar",
         label: label || "Kelas aset tanpa nama",
         source: "Jadwal aset tetap: C. Nilai Buku Neto Aset Tetap",
+        categoryIds: ["DERIVED_FIXED_ASSET"],
         value: () => amount,
       },
     ];
   });
+}
+
+function filterDefinitionsByBalanceSheetView(
+  definitions: LineDefinition[],
+  role: "asset" | "liability",
+  options: AamAdjustmentModelOptions,
+): LineDefinition[] {
+  if (!options.balanceSheetView || !options.activePeriodId) {
+    return definitions;
+  }
+
+  const sectionTitle = role === "asset" ? "Aset" : "Liabilitas";
+  const sourceSection = options.balanceSheetView.sections.find((section) => section.title === sectionTitle);
+  const activePeriodId = options.activePeriodId;
+
+  if (!sourceSection || !activePeriodId) {
+    return definitions;
+  }
+
+  const sourceLines = sourceSection.lines.filter((line) => line.affectsTotal !== false);
+
+  return definitions.flatMap((definition) => {
+    const matchingLines = sourceLines.filter((line) => definition.categoryIds.includes(line.categoryId));
+
+    if (matchingLines.length === 0) {
+      return [];
+    }
+
+    if (matchingLines.length === 1) {
+      return [definition];
+    }
+
+    return matchingLines.map((line, index) => buildSourceLineDefinition(definition, line, activePeriodId, index));
+  });
+}
+
+function buildSourceLineDefinition(
+  definition: LineDefinition,
+  line: BalanceSheetLine,
+  activePeriodId: string,
+  index: number,
+): LineDefinition {
+  return {
+    ...definition,
+    id: `${definition.id}:${slugifyLineId(line.label)}:${index + 1}`,
+    label: line.label,
+    source: `${line.source}: ${line.category}`,
+    categoryIds: [line.categoryId],
+    value: () => line.values[activePeriodId] ?? 0,
+  };
+}
+
+function slugifyLineId(label: string): string {
+  const slug = label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return slug || "line";
 }
 
 function buildLines(
@@ -567,6 +667,7 @@ function withBridgeLine({
       section,
       label,
       source,
+      categoryIds: [],
       historical: difference,
       adjustments,
       isBridgeLine: true,
