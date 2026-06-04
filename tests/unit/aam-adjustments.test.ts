@@ -150,6 +150,36 @@ describe("AAM adjustments", () => {
     assert.equal(model.assetLines.find((line) => line.id === "fixed-assets-net")?.historical, 900);
   });
 
+  it("limits liability and equity adjustment rows to source balance-sheet groups while keeping revaluation", () => {
+    const rows = [
+      rowFixture({ id: "loan-st", accountName: "Bank loan-short term", category: "BANK_LOAN_SHORT_TERM", values: { p0: "0", p1: "100" } }),
+      rowFixture({ id: "payable", accountName: "Account payables", category: "ACCOUNT_PAYABLE", values: { p0: "0", p1: "50" } }),
+      rowFixture({ id: "other-liability", accountName: "Others", category: "CURRENT_LIABILITIES", values: { p0: "0", p1: "25" } }),
+      rowFixture({ id: "capital", accountName: "Paid up capital", category: "MODAL_DISETOR", values: { p0: "0", p1: "300" } }),
+      rowFixture({ id: "addition", accountName: "Addition", category: "PENAMBAHAN_MODAL_DISETOR", values: { p0: "0", p1: "40" } }),
+      rowFixture({ id: "surplus", accountName: "Surplus", category: "RETAINED_EARNINGS_SURPLUS", values: { p0: "0", p1: "30" } }),
+    ];
+    const snapshot = buildSnapshot(basePeriods, "p1", rows, emptyAssumptions);
+    const fixedAssetSchedule = buildFixedAssetScheduleSummary(basePeriods, []);
+    const balanceSheetView = buildBalanceSheetView(basePeriods, rows.map(mapRow), fixedAssetSchedule);
+    const model = buildAamAdjustmentModel(snapshot, {}, { balanceSheetView, activePeriodId: "p1" });
+    const revaluationLine = model.equityLines.find((line) => line.id === "changes-on-asset-revaluation");
+
+    assert.deepEqual(
+      model.liabilityLines.map((line) => line.label),
+      ["Bank loan-short term", "Account payables", "Others"],
+    );
+    assert.equal(model.liabilityLines.some((line) => line.id === "tax-payable"), false);
+    assert.equal(model.liabilityLines.some((line) => line.id === "bank-loan-long-term"), false);
+    assert.deepEqual(
+      model.equityLines.filter((line) => !line.isAutoRevaluationLine).map((line) => line.label),
+      ["Paid up capital", "Addition", "Surplus"],
+    );
+    assert.equal(model.equityLines.some((line) => line.id === "retained-earnings-current-profit"), false);
+    assert.equal(revaluationLine?.label, "Changes on Asset Revaluation");
+    assert.equal(revaluationLine?.isReadOnly, true);
+  });
+
   it("lets EEM consume AAM adjusted asset and liability bases while DCF remains unchanged", () => {
     const baseline = calculateAllMethods(snapshot);
     const model = buildAamAdjustmentModel(snapshot, {

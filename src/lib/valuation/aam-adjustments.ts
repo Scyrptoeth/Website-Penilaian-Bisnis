@@ -329,7 +329,9 @@ export const aamAdjustmentLineIds = new Set([
   "liability-total-bridge",
 ]);
 
-const dynamicAamAdjustmentLineIdPrefixes = [...assetDefinitions, ...liabilityDefinitions].map((definition) => `${definition.id}:`);
+const dynamicAamAdjustmentLineIdPrefixes = [...assetDefinitions, ...liabilityDefinitions, ...equityDefinitions].map(
+  (definition) => `${definition.id}:`,
+);
 
 export function isAamAdjustmentLineId(lineId: string): boolean {
   return (
@@ -347,9 +349,10 @@ export function buildAamAdjustmentModel(
   const assetLineDefinitions = buildAssetDefinitions(snapshot, options);
   const visibleAssetDefinitions = filterDefinitionsByBalanceSheetView(assetLineDefinitions, "asset", options);
   const visibleLiabilityDefinitions = filterDefinitionsByBalanceSheetView(liabilityDefinitions, "liability", options);
+  const visibleEquityDefinitions = filterDefinitionsByBalanceSheetView(equityDefinitions, "equity", options);
   const assetLines = buildLines(visibleAssetDefinitions, snapshot, adjustments);
   const liabilityLines = buildLines(visibleLiabilityDefinitions, snapshot, adjustments);
-  const manualEquityLines = buildLines(equityDefinitions, snapshot, adjustments);
+  const manualEquityLines = buildLines(visibleEquityDefinitions, snapshot, adjustments);
   const componentAssetTotal = sumLines(assetLines, "historical");
   const componentLiabilityTotal = sumLines(liabilityLines, "historical");
   const historicalAssetTotal = adjustedTotalAssets(snapshot);
@@ -495,14 +498,14 @@ function buildFixedAssetScheduleDefinitions(
 
 function filterDefinitionsByBalanceSheetView(
   definitions: LineDefinition[],
-  role: "asset" | "liability",
+  role: "asset" | "liability" | "equity",
   options: AamAdjustmentModelOptions,
 ): LineDefinition[] {
   if (!options.balanceSheetView || !options.activePeriodId) {
     return definitions;
   }
 
-  const sectionTitle = role === "asset" ? "Aset" : "Liabilitas";
+  const sectionTitle = role === "asset" ? "Aset" : role === "liability" ? "Liabilitas" : "Ekuitas";
   const sourceSection = options.balanceSheetView.sections.find((section) => section.title === sectionTitle);
   const activePeriodId = options.activePeriodId;
 
@@ -520,7 +523,7 @@ function filterDefinitionsByBalanceSheetView(
     }
 
     if (matchingLines.length === 1) {
-      return [definition];
+      return [shouldKeepDefinitionSourceLine(definition) ? definition : buildSourceLineDefinition(definition, matchingLines[0], activePeriodId)];
     }
 
     return matchingLines.map((line, index) => buildSourceLineDefinition(definition, line, activePeriodId, index));
@@ -531,16 +534,20 @@ function buildSourceLineDefinition(
   definition: LineDefinition,
   line: BalanceSheetLine,
   activePeriodId: string,
-  index: number,
+  index?: number,
 ): LineDefinition {
   return {
     ...definition,
-    id: `${definition.id}:${slugifyLineId(line.label)}:${index + 1}`,
+    id: index === undefined ? definition.id : `${definition.id}:${slugifyLineId(line.label)}:${index + 1}`,
     label: line.label,
     source: `${line.source}: ${line.category}`,
     categoryIds: [line.categoryId],
     value: () => line.values[activePeriodId] ?? 0,
   };
+}
+
+function shouldKeepDefinitionSourceLine(definition: LineDefinition): boolean {
+  return definition.id.startsWith(fixedAssetScheduleLineIdPrefix);
 }
 
 function slugifyLineId(label: string): string {
