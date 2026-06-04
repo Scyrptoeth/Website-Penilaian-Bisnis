@@ -3900,7 +3900,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     ? "Menyimpan..."
     : hasUnsavedChanges
       ? "Belum disimpan"
-      : "Tersimpan Otomatis di Browser - autosave setiap perubahan";
+      : "Tersimpan Otomatis di Browser";
 
   return (
     <main className={isSidebarCollapsed ? "app-shell sidebar-collapsed" : "app-shell"} data-testid="valuation-workbench">
