@@ -2,7 +2,14 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { buildAamAdjustmentModel } from "../../src/lib/valuation/aam-adjustments";
 import { calculateAllMethods } from "../../src/lib/valuation/calculations";
-import { buildSampleAssumptions, buildSamplePeriods, buildSampleRows, buildSnapshot } from "../../src/lib/valuation/case-model";
+import {
+  buildFixedAssetScheduleSummary,
+  buildSampleAssumptions,
+  buildSampleFixedAssetScheduleRows,
+  buildSamplePeriods,
+  buildSampleRows,
+  buildSnapshot,
+} from "../../src/lib/valuation/case-model";
 import { assertAlmostEqual } from "./test-utils";
 
 const periods = buildSamplePeriods();
@@ -33,6 +40,40 @@ describe("AAM adjustments", () => {
     assert.equal(model.adjustedLiabilityEquityTotal, model.historicalLiabilityEquityTotal + model.assetAdjustmentTotal);
     assert.equal(model.adjustedBalanceGap, model.historicalBalanceGap);
     assert.equal(model.missingNoteCount, 0);
+  });
+
+  it("details fixed assets net by active-year fixed asset schedule rows for granular AAM adjustments", () => {
+    const fixedAssetScheduleRows = buildSampleFixedAssetScheduleRows();
+    const fixedAssetSchedule = buildFixedAssetScheduleSummary(periods, fixedAssetScheduleRows);
+    const scheduleSnapshot = buildSnapshot(
+      periods,
+      "p2021",
+      buildSampleRows().filter((row) => row.id !== "sample-fixed-net"),
+      buildSampleAssumptions(),
+      fixedAssetScheduleRows,
+    );
+    const officeInventoryLineId = "fixed-asset-schedule:sample-fa-office-inventory";
+    const model = buildAamAdjustmentModel(
+      scheduleSnapshot,
+      {
+        [officeInventoryLineId]: { adjustment: "500.000", note: "Independent appraisal for office inventory" },
+      },
+      { fixedAssetSchedule, activePeriodId: "p2021" },
+    );
+
+    const fixedAssetLines = model.assetLines.filter((line) => line.id.startsWith("fixed-asset-schedule:"));
+    const officeInventoryLine = fixedAssetLines.find((line) => line.id === officeInventoryLineId);
+
+    assert.equal(fixedAssetLines.length, fixedAssetScheduleRows.length);
+    assert.equal(model.assetLines.some((line) => line.id === "fixed-assets-net"), false);
+    assert.equal(
+      fixedAssetLines.reduce((total, line) => total + line.historical, 0),
+      fixedAssetSchedule.totals.p2021.netValue,
+    );
+    assert.equal(scheduleSnapshot.fixedAssetsNet, fixedAssetSchedule.totals.p2021.netValue);
+    assert.equal(officeInventoryLine?.historical, fixedAssetSchedule.rows[0].amounts.p2021.netValue);
+    assert.equal(officeInventoryLine?.adjustment, 500_000);
+    assert.equal(model.assetAdjustmentTotal, 500_000);
   });
 
   it("builds read-only Changes on Asset Revaluation from asset, liability, and equity adjustment signs", () => {

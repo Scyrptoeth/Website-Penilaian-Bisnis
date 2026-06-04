@@ -1,5 +1,5 @@
 import { adjustedTotalAssets, adjustedTotalLiabilities } from "./calculations";
-import { parseInputNumber } from "./case-model";
+import { parseInputNumber, type FixedAssetScheduleSummary } from "./case-model";
 import type { FinancialStatementSnapshot } from "./types";
 
 export type AamAdjustmentEntry = {
@@ -69,6 +69,8 @@ type LineDefinition = {
   source: string;
   value: (snapshot: FinancialStatementSnapshot) => number;
 };
+
+const fixedAssetScheduleLineIdPrefix = "fixed-asset-schedule:";
 
 const assetDefinitions: LineDefinition[] = [
   {
@@ -153,14 +155,6 @@ const assetDefinitions: LineDefinition[] = [
           snapshot.excessCash +
           snapshot.surplusAssetCash,
       ),
-  },
-  {
-    id: "fixed-assets-net",
-    role: "asset",
-    section: "Aset tidak lancar",
-    label: "Aset tetap neto",
-    source: "Neraca / jadwal aset tetap: Aset tetap neto",
-    value: (snapshot) => snapshot.fixedAssetsNet,
   },
   {
     id: "non-operating-fixed-assets",
@@ -297,15 +291,21 @@ const equityDefinitions: LineDefinition[] = [
 
 export const aamAdjustmentLineIds = new Set([
   ...[...assetDefinitions, ...liabilityDefinitions, ...equityDefinitions].map((definition) => definition.id),
+  "fixed-assets-net",
   "asset-total-bridge",
   "liability-total-bridge",
 ]);
 
+export function isAamAdjustmentLineId(lineId: string): boolean {
+  return aamAdjustmentLineIds.has(lineId) || lineId.startsWith(fixedAssetScheduleLineIdPrefix);
+}
+
 export function buildAamAdjustmentModel(
   snapshot: FinancialStatementSnapshot,
   adjustments: AamAdjustmentState = {},
+  options: { fixedAssetSchedule?: FixedAssetScheduleSummary; activePeriodId?: string } = {},
 ): AamAdjustmentModel {
-  const assetLines = buildLines(assetDefinitions, snapshot, adjustments);
+  const assetLines = buildLines(buildAssetDefinitions(snapshot, options), snapshot, adjustments);
   const liabilityLines = buildLines(liabilityDefinitions, snapshot, adjustments);
   const manualEquityLines = buildLines(equityDefinitions, snapshot, adjustments);
   const componentAssetTotal = sumLines(assetLines, "historical");
@@ -394,6 +394,62 @@ export function buildAamAdjustmentModel(
     missingNoteCount: [...bridgedAssetLines, ...bridgedLiabilityLines, ...manualEquityLines].filter((line) => line.requiresNote)
       .length,
   };
+}
+
+function buildAssetDefinitions(
+  snapshot: FinancialStatementSnapshot,
+  { fixedAssetSchedule, activePeriodId }: { fixedAssetSchedule?: FixedAssetScheduleSummary; activePeriodId?: string },
+): LineDefinition[] {
+  const fixedAssetLines = buildFixedAssetScheduleDefinitions(fixedAssetSchedule, activePeriodId);
+
+  return [
+    ...assetDefinitions.slice(0, 9),
+    ...(fixedAssetLines.length > 0
+      ? fixedAssetLines
+      : [
+          {
+            id: "fixed-assets-net",
+            role: "asset" as const,
+            section: "Aset tidak lancar",
+            label: "Aset tetap neto",
+            source: "Neraca / jadwal aset tetap: Aset tetap neto",
+            value: () => snapshot.fixedAssetsNet,
+          },
+        ]),
+    ...assetDefinitions.slice(9),
+  ];
+}
+
+function buildFixedAssetScheduleDefinitions(
+  fixedAssetSchedule: FixedAssetScheduleSummary | undefined,
+  activePeriodId: string | undefined,
+): LineDefinition[] {
+  if (!fixedAssetSchedule?.hasInput || !activePeriodId) {
+    return [];
+  }
+
+  return fixedAssetSchedule.rows.flatMap((computedRow): LineDefinition[] => {
+    const label = computedRow.row.assetName.trim();
+    const amount = computedRow.amounts[activePeriodId]?.netValue ?? 0;
+    const hasRowInput = Object.values(computedRow.row.values).some((periodValues) =>
+      Object.values(periodValues).some((value) => value.trim() !== ""),
+    );
+
+    if (!label && !hasRowInput && amount === 0) {
+      return [];
+    }
+
+    return [
+      {
+        id: `${fixedAssetScheduleLineIdPrefix}${computedRow.row.id}`,
+        role: "asset",
+        section: "Aset tidak lancar",
+        label: label || "Kelas aset tanpa nama",
+        source: "Jadwal aset tetap: C. Nilai Buku Neto Aset Tetap",
+        value: () => amount,
+      },
+    ];
+  });
 }
 
 function buildLines(

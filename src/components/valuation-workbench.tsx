@@ -72,8 +72,8 @@ import {
   type ProjectionGovernanceMetric,
 } from "@/lib/valuation/calculations";
 import {
-  aamAdjustmentLineIds,
   buildAamAdjustmentModel,
+  isAamAdjustmentLineId,
   type AamAdjustmentLine,
   type AamAdjustmentModel,
   type AamAdjustmentState,
@@ -1344,7 +1344,10 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
       calculatedDebtScheduleInputs,
     ],
   );
-  const aamAdjustmentModel = useMemo(() => buildAamAdjustmentModel(snapshot, aamAdjustments), [aamAdjustments, snapshot]);
+  const aamAdjustmentModel = useMemo(
+    () => buildAamAdjustmentModel(snapshot, aamAdjustments, { fixedAssetSchedule, activePeriodId }),
+    [aamAdjustments, activePeriodId, fixedAssetSchedule, snapshot],
+  );
   const dcfWorkingCapitalInclusionOptions = useMemo(
     () => buildDcfWorkingCapitalInclusionOptions(calculatedCashFlowAccountInclusions),
     [calculatedCashFlowAccountInclusions],
@@ -3897,7 +3900,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     ? "Menyimpan..."
     : hasUnsavedChanges
       ? "Belum disimpan"
-      : "Tersimpan Otomatis di Browser";
+      : "Tersimpan Otomatis di Browser - autosave setiap perubahan";
 
   return (
     <main className={isSidebarCollapsed ? "app-shell sidebar-collapsed" : "app-shell"} data-testid="valuation-workbench">
@@ -11384,7 +11387,7 @@ function sanitizeAamAdjustments(value: unknown): AamAdjustmentState {
 
   return Object.fromEntries(
     Object.entries(value).flatMap(([lineId, entry]) => {
-      if (!aamAdjustmentLineIds.has(lineId) || !isRecord(entry)) {
+      if (!isAamAdjustmentLineId(lineId) || !isRecord(entry)) {
         return [];
       }
 
@@ -12715,6 +12718,7 @@ function KluSectorField({
   return (
     <label className={isInvalidFullCode ? "field derived-sector-field invalid" : "field derived-sector-field"} htmlFor={inputId}>
       <span>Sektor Perusahaan</span>
+      {selectedRecord && !isManualOverride ? <SmartSuggestionBadge label="Saran KLU otomatis" state="auto" /> : null}
       <select
         aria-invalid={isInvalidFullCode}
         data-testid="company-sector-derived"
