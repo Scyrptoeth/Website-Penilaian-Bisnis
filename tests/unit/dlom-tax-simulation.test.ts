@@ -57,6 +57,14 @@ describe("DLOM and tax simulation scenario layer", () => {
     assertAlmostEqual(dlom.dlomRate, 0.35, 1e-12);
   });
 
+  it("keeps DLOM recommendations disabled so reviewer answers are not flagged as smart-suggestion overrides", () => {
+    const dlom = calculateDlom(buildSampleDlomState(), snapshot, caseProfile);
+
+    assert.equal(dlom.factors.every((factor) => factor.recommendation.answer === ""), true);
+    assert.equal(dlom.factors.every((factor) => factor.recommendation.confidence === 0), true);
+    assert.equal(dlom.factors.every((factor) => factor.isOverride === false), true);
+  });
+
   it("keeps DLOM incomplete when the Data Awal basis is missing", () => {
     const manualDlomState = normalizeDlomState({ ...buildSampleDlomState(), basisOverride: null });
     const blankBasisDlom = calculateDlom(manualDlomState, snapshot, {

@@ -1079,7 +1079,7 @@ function buildDlomRows(input: ValuationPdfExportInput): XlsxCellValue[][] {
     ["Status", formulaCell(`IF(COUNTBLANK(C${factorStartRow}:C${factorEndRow})>0,"Belum lengkap",IF(IF(B6<=0,IF(B9<=B4,0,1),MAX(0,MIN(1,(B9-B4)/B6)))<=0.32,"Rendah",IF(IF(B6<=0,IF(B9<=B4,0,1),MAX(0,MIN(1,(B9-B4)/B6)))<=0.64,"Moderat","Tinggi")))`, calculation.status), "Formula", "Range-position classification.", ""],
     ["Taxpayer resistance", formulaCell('IF(B10="Belum lengkap","Belum lengkap",IF(B10="Rendah","Tinggi",IF(B10="Moderat","Moderat","Rendah")))', calculation.taxpayerResistance), "Formula", "Inverse resistance mapping.", ""],
     [],
-    ["No", "Factor", "Answer", "Score", "Recommendation", "Recommendation Source", "Evidence Basis", "Override Reason"],
+    ["No", "Factor", "Answer", "Score", "Evidence Basis", "Keterangan Tambahan"],
     ...calculation.factors.map((factor, index) => {
       const rowNumber = factorStartRow + index;
 
@@ -1088,10 +1088,8 @@ function buildDlomRows(input: ValuationPdfExportInput): XlsxCellValue[][] {
         factor.factor,
         factor.answer,
         formulaCell(buildOptionScoreFormula(`C${rowNumber}`, factor.options), factor.score),
-        factor.recommendation.answer || "",
-        factor.recommendation.source,
         factor.evidenceBasis,
-        factor.isOverride ? factor.recommendation.evidence : "",
+        factor.overrideReason,
       ];
     }),
   ];

@@ -938,6 +938,9 @@ test("DLOM and tax simulation render workbook-derived scenario layer after loadi
   await expect(page.getByTestId("dlom-summary")).toContainText("Tinggi");
   await expect(page.getByTestId("dlom-summary")).toContainText("Posisi DLOM dalam rentang: Rendah");
   await expect(page.getByTestId("dlom-factor-table")).toContainText("Keterangan Tambahan");
+  await expect(page.getByTestId("dlom-factor-table")).not.toContainText("Rekomendasi & evidence");
+  await expect(page.getByTestId("dlom-factor-table")).not.toContainText("Override rekomendasi");
+  await expect(page.getByTestId("dlom-factor-table")).not.toContainText("confidence");
   await expect(page.getByTestId("dlom-factor-table")).not.toContainText("Alasan override");
   await expect(page.getByTestId("dlom-factor-table")).toContainText("Entry Barrier Perijinan Usaha");
   await expect(page.getByTestId("dlom-factor-table")).toContainText("Terisi");

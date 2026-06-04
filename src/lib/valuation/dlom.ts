@@ -60,6 +60,7 @@ export type DlomRecommendation = {
 export type DlomFactorResult = DlomFactorDefinition & {
   answer: string;
   score: number;
+  overrideReason: string;
   recommendation: DlomRecommendation;
   isOverride: boolean;
   status: "answered" | "missing";
@@ -247,17 +248,19 @@ export function buildSampleDlomState(): DlomState {
 }
 
 export function calculateDlom(state: DlomState, snapshot: FinancialStatementSnapshot, basisInput: DlomBasisInput): DlomCalculation {
+  void snapshot;
+
   const factors = dlomFactorDefinitions.map((definition): DlomFactorResult => {
     const input = state.factors[definition.id] ?? { answer: "", overrideReason: "" };
     const option = definition.options.find((item) => item.label === input.answer);
-    const recommendation = buildRecommendation(definition.id, snapshot);
 
     return {
       ...definition,
       answer: input.answer,
       score: option?.score ?? 0,
-      recommendation,
-      isOverride: Boolean(input.answer && recommendation.answer && input.answer !== recommendation.answer),
+      overrideReason: input.overrideReason,
+      recommendation: emptyRecommendation,
+      isOverride: false,
       status: option ? "answered" : "missing",
     };
   });
@@ -381,69 +384,6 @@ function resolveDlomRange(
   }
 
   return { min: 0, max: 0.2 };
-}
-
-function buildRecommendation(id: DlomFactorId, snapshot: FinancialStatementSnapshot): DlomRecommendation {
-  if (id === "profitability") {
-    const ebitda = snapshot.ebit + Math.abs(snapshot.depreciation);
-    const margin = snapshot.revenue > 0 ? ebitda / snapshot.revenue : 0;
-    const answer = margin >= 0.15 ? "Diatas" : margin >= 0.05 ? "Rata-rata" : "Dibawah";
-
-    return {
-      answer,
-      confidence: snapshot.revenue > 0 ? 0.72 : 0.2,
-      evidence: `Proxy EBITDA margin ${formatRate(margin)} dari EBIT + depresiasi terhadap pendapatan.`,
-      source: "Income statement snapshot",
-    };
-  }
-
-  if (id === "capitalStructure") {
-    const debtToEquity = snapshot.bookEquity > 0 ? snapshot.totalLiabilities / snapshot.bookEquity : 0;
-    const answer = debtToEquity < 0.5 ? "Dibawah" : debtToEquity <= 1 ? "Rata-rata" : "Diatas";
-
-    return {
-      answer,
-      confidence: snapshot.bookEquity > 0 ? 0.68 : 0.2,
-      evidence: `DER proxy ${debtToEquity.toFixed(2)}x dari total liabilitas terhadap ekuitas buku.`,
-      source: "Balance sheet snapshot",
-    };
-  }
-
-  if (id === "liquidity") {
-    const currentRatio = snapshot.currentLiabilities > 0 ? snapshot.currentAssets / snapshot.currentLiabilities : 0;
-    const answer = currentRatio >= 1.5 ? "Diatas" : currentRatio >= 1 ? "Rata-rata" : "Dibawah";
-
-    return {
-      answer,
-      confidence: snapshot.currentLiabilities > 0 ? 0.68 : 0.2,
-      evidence: `Current ratio proxy ${currentRatio.toFixed(2)}x dari aset lancar terhadap liabilitas lancar.`,
-      source: "Balance sheet snapshot",
-    };
-  }
-
-  if (id === "salesGrowth") {
-    const answer = snapshot.revenueGrowth > 0.05 ? "Lebih Besar" : snapshot.revenueGrowth >= 0 ? "Rata-rata" : "Lebih Kecil";
-
-    return {
-      answer,
-      confidence: snapshot.revenueGrowth !== 0 ? 0.64 : 0.35,
-      evidence: `Revenue growth model ${formatRate(snapshot.revenueGrowth)} dari driver historis/asumsi.`,
-      source: "EEM/DCF driver",
-    };
-  }
-
-  if (id === "netIncomeVolatility") {
-    const answer = snapshot.commercialNpat > 0 ? "Sedang, Stabil" : "Ya, Menurun";
-
-    return {
-      answer,
-      confidence: snapshot.commercialNpat !== 0 ? 0.42 : 0.2,
-      evidence: "Hanya satu periode aktif tersedia di snapshot; tren multi-periode tetap perlu judgement reviewer.",
-      source: "Commercial NPAT snapshot",
-    };
-  }
-
-  return emptyRecommendation;
 }
 
 function formatRate(value: number): string {

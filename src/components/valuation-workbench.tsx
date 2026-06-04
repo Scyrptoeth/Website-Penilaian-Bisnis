@@ -5671,7 +5671,7 @@ function DlomSection({
         <div className="panel-heading">
           <div>
             <p className="eyebrow">Skoring model</p>
-            <h3>Faktor, rekomendasi, dan override</h3>
+            <h3>Faktor dan keterangan tambahan</h3>
           </div>
         </div>
         <div className="table-wrap dlom-table-wrap">
@@ -5681,7 +5681,6 @@ function DlomSection({
               <col className="dlom-factor-column" />
               <col className="dlom-answer-column" />
               <col className="dlom-score-column" />
-              <col className="dlom-evidence-column" />
               <col className="dlom-override-column" />
             </colgroup>
             <thead>
@@ -5690,7 +5689,6 @@ function DlomSection({
                 <th>Faktor</th>
                 <th>Jawaban final</th>
                 <th className="numeric-cell">Skor</th>
-                <th>Rekomendasi & evidence</th>
                 <th>Keterangan Tambahan</th>
               </tr>
             </thead>
@@ -5723,14 +5721,8 @@ function DlomSection({
                       </select>
                       {factor.id === guidanceFactorId ? <span className="action-guidance-badge">Aksi dibutuhkan</span> : null}
                       {factor.status === "missing" ? <span className="badge warning">Belum lengkap</span> : <span className="badge ok">Terisi</span>}
-                      {factor.isOverride ? <span className="badge warning">Override rekomendasi</span> : null}
                     </td>
                     <td className="numeric-cell">{formatNumber(factor.score)}</td>
-                    <td>
-                      <strong>{factor.recommendation.answer || "Manual"}</strong>
-                      <span>{formatScore(factor.recommendation.confidence)} confidence · {factor.recommendation.source}</span>
-                      <span>{factor.recommendation.evidence}</span>
-                    </td>
                     <td>
                       <textarea
                         aria-label={`Keterangan Tambahan ${factor.factor}`}
