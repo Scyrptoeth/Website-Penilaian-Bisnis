@@ -258,7 +258,7 @@ export function ValuationPdfReport() {
               { label: "DLOM Basis", value: input.dlomCalculation.companyMarketability || "-", note: input.dlomCalculation.interestBasis || "-" },
               { label: "DLOM Rate", value: formatPercent(input.dlomCalculation.dlomRate), note: `Resistensi WP: ${input.dlomCalculation.taxpayerResistance}; posisi: ${input.dlomCalculation.status}` },
               { label: "DLOC/PFC Basis", value: input.dlocPfcCalculation.adjustmentType || "-", note: input.dlocPfcCalculation.companyBasis || "-" },
-              { label: "DLOC/PFC Rate", value: formatPercent(input.dlocPfcCalculation.signedRate), note: `Resistensi WP: ${input.dlocPfcCalculation.taxpayerResistance}; posisi: ${input.dlocPfcCalculation.status}` },
+              { label: "DLOC/PFC Rate", value: input.dlocPfcCalculation.adjustmentType === "PFC" ? formatPercent(Math.abs(input.dlocPfcCalculation.signedRate)) : formatPercent(input.dlocPfcCalculation.signedRate), note: `Resistensi WP: ${input.dlocPfcCalculation.taxpayerResistance}; posisi: ${input.dlocPfcCalculation.status}` },
             ]}
           />
         </ReportSection>

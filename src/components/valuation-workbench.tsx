@@ -5768,7 +5768,7 @@ function DlocPfcSection({
             <Calculator size={20} />
             <span>DLOC/PFC Objek Penilaian</span>
           </div>
-          <strong>{calculation.isComplete ? formatPercent(calculation.signedRate) : "Belum lengkap"}</strong>
+          <strong>{calculation.isComplete ? (calculation.adjustmentType === "PFC" ? formatPercent(Math.abs(calculation.signedRate)) : formatPercent(calculation.signedRate)) : "Belum lengkap"}</strong>
           <p>{calculation.adjustmentType || "Status"} berasal dari Jenis Kepemilikan Saham di Data Awal.</p>
         </article>
         <article className="metric-card">
@@ -5944,7 +5944,7 @@ function TaxSimulationSection({
           <strong>{dlom.isComplete ? `DLOM ${formatPercent(dlom.dlomRate)}` : "DLOM 0%"}</strong>
           <p>
             DLOC/PFC:{" "}
-            {dlocPfc.isComplete ? `${dlocPfc.adjustmentType || "Adjustment"} ${formatPercent(dlocPfc.signedRate)}` : "Belum lengkap"}
+            {dlocPfc.isComplete ? `${dlocPfc.adjustmentType || "Adjustment"} ${dlocPfc.adjustmentType === "PFC" ? formatPercent(Math.abs(dlocPfc.signedRate)) : formatPercent(dlocPfc.signedRate)}` : "Belum lengkap"}
             .
           </p>
         </article>
@@ -5987,7 +5987,7 @@ function TaxSimulationSection({
           </label>
           <DerivedCaseField label="Tahun Cut Off" value={taxYearLabel} state={result.taxYearResolution.appliedYear === null ? "invalid" : "neutral"} />
           <DerivedCaseField label="DLOM baseline" value={dlom.isComplete ? formatPercent(dlom.dlomRate) : "Belum lengkap"} />
-          <DerivedCaseField label="DLOC/PFC baseline" value={dlocPfc.isComplete ? `${dlocPfc.adjustmentType} ${formatPercent(dlocPfc.signedRate)}` : "Belum lengkap"} />
+          <DerivedCaseField label="DLOC/PFC baseline" value={dlocPfc.isComplete ? `${dlocPfc.adjustmentType} ${dlocPfc.adjustmentType === "PFC" ? formatPercent(Math.abs(dlocPfc.signedRate)) : formatPercent(dlocPfc.signedRate)}` : "Belum lengkap"} />
           <DerivedCaseField label={caseProfileDerived.capitalProportionLabel} value={formatCaseProfileProportion(caseProfileDerived)} />
           <DerivedCaseField
             label="Nilai pengalihan dari Data Awal"
@@ -6051,7 +6051,7 @@ function TaxSimulationSection({
             metrics={[
               ["Potensi pajak", scenarioPrimaryRow ? formatIdr(scenarioPrimaryRow.potentialTax) : "Pilih Primary Method"],
               ["DLOM Skenario Manual", scenarioPrimaryRow ? formatPercent(scenarioPrimaryRow.dlomRate) : "Default baseline"],
-              ["DLOC/PFC Skenario Manual", scenarioPrimaryRow ? formatPercent(scenarioPrimaryRow.dlocPfcRate) : "Default baseline"],
+              ["DLOC/PFC Skenario Manual", scenarioPrimaryRow ? (dlocPfc.adjustmentType === "PFC" ? formatPercent(Math.abs(scenarioPrimaryRow.dlocPfcRate)) : formatPercent(scenarioPrimaryRow.dlocPfcRate)) : "Default baseline"],
               ["Basis final", result.finalBasis === "manualScenario" ? "Dipakai untuk summary" : "Pembanding saja"],
             ]}
           />
@@ -6103,7 +6103,7 @@ function TaxSimulationSection({
                   </td>
                   <td className="numeric-cell">{formatIdr(row.valueAfterDlom)}</td>
                   <td className="numeric-cell">
-                    {formatPercent(row.dlocPfcRate)}
+                    {dlocPfc.adjustmentType === "PFC" ? formatPercent(Math.abs(row.dlocPfcRate)) : formatPercent(row.dlocPfcRate)}
                     <span>{formatIdr(row.dlocPfcAdjustment)}</span>
                   </td>
                   <td className="numeric-cell">{formatIdr(row.marketValueOfEquity100)}</td>
@@ -11155,7 +11155,7 @@ function buildAuditDetailCards(input: AuditDetailCardsInput): AuditDetailCard[] 
     "dloc-pfc",
     "DLOC/PFC",
     input.dlocPfcCalculation.isComplete
-      ? `${input.dlocPfcCalculation.adjustmentType} ${formatPercent(input.dlocPfcCalculation.signedRate)}`
+      ? `${input.dlocPfcCalculation.adjustmentType} ${input.dlocPfcCalculation.adjustmentType === "PFC" ? formatPercent(Math.abs(input.dlocPfcCalculation.signedRate)) : formatPercent(input.dlocPfcCalculation.signedRate)}`
       : `${input.dlocPfcCalculation.adjustmentType || "Belum lengkap"} - Belum lengkap`,
     hasDlocPfcInput(input.dlocPfc) || input.dlocPfcCalculation.adjustmentType !== "" || input.dlocPfcCalculation.isComplete,
   );
