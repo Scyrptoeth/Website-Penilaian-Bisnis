@@ -482,7 +482,7 @@ const DEV_PREVIEW_FIXTURE_QUERY_VALUE = "tuwa";
 const DEV_PREVIEW_FIXTURE_URL = "/api/dev/preview-fixture?name=tuwa";
 const DEV_PREVIEW_FIXTURE_FILE_NAME = "penilaian-bisnis-pt-tuwa-tuwa-maju-mapan-12125758-2026-05-21.json";
 const DEV_PREVIEW_FIXTURE_WORKSPACE_ID = "workspace-preview-tuwa-tuwa-maju-mapan";
-const DEV_PREVIEW_FIXTURE_WORKSPACE_NAME = "Preview - PT Tuwa Tuwa Maju Mapan";
+const DEV_PREVIEW_FIXTURE_WORKSPACE_NAME = "Preview - Nama Perusahaan";
 const DEV_PREVIEW_FIXTURE_STORAGE_KEY = "penilaian-valuasi-bisnis.preview-fixture.tuwa.v1";
 const JSON_EXPORT_SCHEMA_ID = "penilaian-valuasi-bisnis.full-workbench-json";
 const JSON_EXPORT_SCHEMA_VERSION = 1;
@@ -11477,7 +11477,7 @@ function migrateWorkbookUpdateDlomBasisIfNeeded({
 
 function isLegacySampleWorkbookDraft(caseProfile: CaseProfile, dlom: DlomState, rows: AccountRow[]): boolean {
   if (
-    caseProfile.objectTaxpayerName !== "Makmur Jaya Sejati Raya" ||
+    caseProfile.objectTaxpayerName !== "Placeholder" ||
     caseProfile.companyType !== "Tertutup" ||
     caseProfile.shareOwnershipType !== "Minoritas"
   ) {

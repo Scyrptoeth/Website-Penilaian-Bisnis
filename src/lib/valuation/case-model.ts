@@ -715,7 +715,7 @@ export function buildSamplePeriods(): Period[] {
 
 export function buildSampleCaseProfile(): CaseProfile {
   return {
-    objectTaxpayerName: "Makmur Jaya Sejati Raya",
+    objectTaxpayerName: "Nama Perusahaan",
     objectBusinessKlu: "01262",
     objectTaxpayerNpwp: "211437892119000",
     companySector: "Consumer Non-Cyclicals",
