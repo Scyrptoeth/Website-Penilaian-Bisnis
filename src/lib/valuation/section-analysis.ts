@@ -267,7 +267,7 @@ export function buildSectionAnalysis(
     const scheduleAmounts = fixedAssetSchedule.totals[period.id];
     const depreciationAddback = Math.max(0, -snapshot.depreciation);
     const capitalExpenditure = fixedAssetSchedule.hasInput
-      ? Math.abs(scheduleAmounts?.acquisitionAdditions ?? 0)
+      ? (scheduleAmounts?.acquisitionAdditions ?? 0)
       : inferCapitalExpenditure(snapshot, previousSnapshot, depreciationAddback);
     const currentOperatingAssets = sumIncludedWorkingCapitalAccounts(workingCapitalAccountCandidates["oca-change"], period.id);
     const currentOperatingLiabilities = sumIncludedWorkingCapitalAccounts(workingCapitalAccountCandidates["ocl-change"], period.id);
@@ -1297,7 +1297,7 @@ function inferCapitalExpenditure(
     return 0;
   }
 
-  return Math.max(0, snapshot.fixedAssetsNet - previousSnapshot.fixedAssetsNet + depreciationAddback);
+  return snapshot.fixedAssetsNet - previousSnapshot.fixedAssetsNet + depreciationAddback;
 }
 
 function safeRatio(numerator: number, denominator: number): number | null {
