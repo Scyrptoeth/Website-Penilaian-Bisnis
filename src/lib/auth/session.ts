@@ -168,6 +168,6 @@ function hashSessionToken(token: string): string {
   return createHash("sha256").update(token).digest("base64url");
 }
 
-function isLocalAuthBypassEnabled(): boolean {
-  return process.env.PVB_AUTH_BYPASS === "1" && process.env.NODE_ENV !== "production";
+export function isLocalAuthBypassEnabled(): boolean {
+  return (process.env.PVB_AUTH_BYPASS === "1" || process.env.PVB_AUTH_BYPASS === "true") && process.env.NODE_ENV !== "production";
 }

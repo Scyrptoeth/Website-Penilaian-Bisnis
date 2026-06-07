@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { ensureAuthSchema, getAuthSql, isAuthDatabaseConfigured } from "@/lib/auth/database";
 import { verifyPassword } from "@/lib/auth/password";
-import { createAuthSession, pruneExpiredAuthSessions, setAuthSessionCookie } from "@/lib/auth/session";
+import { createAuthSession, pruneExpiredAuthSessions, setAuthSessionCookie, isLocalAuthBypassEnabled } from "@/lib/auth/session";
 
 export const runtime = "nodejs";
 
@@ -12,6 +12,12 @@ type LoginUserRow = {
 };
 
 export async function POST(request: Request) {
+  if (isLocalAuthBypassEnabled()) {
+    const response = NextResponse.json({ ok: true, userId: "E2E-LOCAL" });
+    setAuthSessionCookie(response, "local-auth-bypass-token");
+    return response;
+  }
+
   if (!isAuthDatabaseConfigured()) {
     return NextResponse.json(
       { message: "Database login belum terhubung. Hubungi administrator aplikasi." },

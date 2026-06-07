@@ -482,7 +482,7 @@ function buildCashFlowRows(periodAnalyses: PeriodAnalysis[]): AnalysisRow[] {
     ),
     valueRow(periodAnalyses, "non-operating-income", "Arus kas non-operasional", "Terpetakan pendapatan / beban non-operasional", "Pendapatan / beban non-operasional", (item) => item.snapshot.nonOperatingIncome),
     valueRow(periodAnalyses, "capex", "Arus kas investasi / capex", "Jadwal aset tetap atau mutasi terinferensi", "-capital expenditure", (item) =>
-      item.previousSnapshot ? -item.capitalExpenditure : null,
+      -item.capitalExpenditure,
     ),
     valueRow(periodAnalyses, "cf-before-financing", "Arus kas sebelum pendanaan", "Model terkoreksi", "CFO + pendapatan non-operasional - capex", (item) =>
       item.previousSnapshot ? item.cashFlowFromOperations + item.snapshot.nonOperatingIncome - item.capitalExpenditure : null,
@@ -624,9 +624,8 @@ const cashFlowStatementRowSpecs: CashFlowStatementRowSpec[] = [
     formula: "-capital expenditure",
     workbookReference: "CFS!17; FIXED ASSET!23",
     reliability: "review",
-    isOverridable: true,
-    requiresComparativePeriodOverride: true,
-    calculate: (item) => (item.previousSnapshot ? -item.capitalExpenditure : null),
+    isOverridable: false,
+    calculate: (item) => -item.capitalExpenditure,
   },
   {
     key: "cash-flow-before-financing",
@@ -903,7 +902,7 @@ function buildFcfRows(periodAnalyses: PeriodAnalysis[], cashFlowStatementRows: C
   const cashFlowValuesByRowKey = new Map(cashFlowStatementRows.map((row) => [row.key, row.values]));
   const cashFlowValue = (rowKey: string, periodId: string): AnalysisValue => cashFlowValuesByRowKey.get(rowKey)?.[periodId] ?? null;
   const grossCashFlow = (item: PeriodAnalysis): AnalysisValue => item.normalizedNoplat + item.depreciationAddback;
-  const capitalExpenditureCashFlow = (item: PeriodAnalysis): AnalysisValue => item.previousSnapshot ? -item.capitalExpenditure : null;
+  const capitalExpenditureCashFlow = (item: PeriodAnalysis): AnalysisValue => -item.capitalExpenditure;
   const grossInvestment = (item: PeriodAnalysis): AnalysisValue =>
     sumNullable(cashFlowValue("working-capital-effect", item.period.id), capitalExpenditureCashFlow(item));
   const freeCashFlow = (item: PeriodAnalysis): AnalysisValue =>
