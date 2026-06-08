@@ -34,8 +34,10 @@ export function buildInvestedCapitalGrowthRateSuggestion(
   analysis: SectionAnalysis,
   wacc: number,
 ): InvestedCapitalGrowthRateSuggestion | null {
+  const roicInvestedCapitalBeginningValues =
+    analysis.roicRows.find((row) => row.key === "invested-capital-beginning")?.values ?? {};
   const rows = analysis.periodAnalyses
-    .map(buildGrowthRateRow)
+    .map((item) => buildGrowthRateRow(item, roicInvestedCapitalBeginningValues[item.period.id] ?? null))
     .filter((row): row is InvestedCapitalGrowthRateRow => Boolean(row));
 
   if (rows.length === 0) {
@@ -64,8 +66,12 @@ export function buildInvestedCapitalGrowthRateSuggestion(
   };
 }
 
-function buildGrowthRateRow(item: PeriodAnalysis): InvestedCapitalGrowthRateRow | null {
-  if (!item.previousSnapshot || !item.investedCapitalBeginning || item.investedCapitalBeginning === 0) {
+function buildGrowthRateRow(item: PeriodAnalysis, investedCapitalBeginning: number | null): InvestedCapitalGrowthRateRow | null {
+  if (!item.previousSnapshot) {
+    return null;
+  }
+
+  if (!investedCapitalBeginning || investedCapitalBeginning === 0) {
     return null;
   }
 
@@ -78,7 +84,7 @@ function buildGrowthRateRow(item: PeriodAnalysis): InvestedCapitalGrowthRateRow 
     netCurrentAssetsEnd -
     netFixedAssetsBeginning -
     netCurrentAssetsBeginning;
-  const growthRate = totalNetInvestment / item.investedCapitalBeginning;
+  const growthRate = totalNetInvestment / investedCapitalBeginning;
 
   if (!Number.isFinite(growthRate)) {
     return null;
@@ -92,7 +98,7 @@ function buildGrowthRateRow(item: PeriodAnalysis): InvestedCapitalGrowthRateRow 
     netFixedAssetsBeginning,
     netCurrentAssetsBeginning,
     totalNetInvestment,
-    totalInvestedCapitalBeginning: item.investedCapitalBeginning,
+    totalInvestedCapitalBeginning: investedCapitalBeginning,
     growthRate,
   };
 }
