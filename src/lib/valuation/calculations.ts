@@ -177,7 +177,8 @@ export function resolveDcfTerminalValue({
   }
 
   const terminalDenominator = wacc - terminalGrowth;
-  const terminalValue = terminalDenominator > 0 ? (finalFcf * (1 + terminalGrowth)) / terminalDenominator : 0;
+  // Fallback if exactly zero to avoid infinity; otherwise compute regardless of WACC < g logic per user instruction
+  const terminalValue = Math.abs(terminalDenominator) > 1e-10 ? (finalFcf * (1 + terminalGrowth)) / terminalDenominator : 0;
 
   return {
     treatment,

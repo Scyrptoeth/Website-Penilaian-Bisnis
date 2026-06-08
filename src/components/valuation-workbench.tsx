@@ -13816,7 +13816,7 @@ function TerminalGrowthPanel({
           />
         </div>
       </details>
-      {hasInvalidSpread ? <small className="field-warning">Terminal growth base tidak boleh sama dengan atau lebih tinggi dari WACC.</small> : null}
+      {hasInvalidSpread ? <small className="field-warning">Peringatan: Terminal growth lebih tinggi atau sama dengan WACC. Hal ini akan menyebabkan terminal value menjadi negatif atau nilai tak terhingga.</small> : null}
     </article>
   );
 }
