@@ -46,10 +46,10 @@ export function buildInvestedCapitalGrowthRateSuggestion(
 
   const growthRates = rows.map((row) => row.growthRate);
   const rawAverageGrowth = growthRates.reduce((sum, value) => sum + value, 0) / growthRates.length;
-  const cappedAverageGrowth = capTerminalGrowthBelowWacc(rawAverageGrowth, wacc);
+  const cappedAverageGrowth = capTerminalGrowth(rawAverageGrowth, wacc);
   
   const rawLastYearGrowth = growthRates[growthRates.length - 1];
-  const cappedLastYearGrowth = capTerminalGrowthBelowWacc(rawLastYearGrowth, wacc);
+  const cappedLastYearGrowth = capTerminalGrowth(rawLastYearGrowth, wacc);
   
   const cappedByWacc = Math.abs(cappedAverageGrowth - rawAverageGrowth) > 1e-10 || Math.abs(cappedLastYearGrowth - rawLastYearGrowth) > 1e-10;
 
@@ -105,7 +105,7 @@ function buildGrowthRateRow(item: PeriodAnalysis, investedCapitalBeginning: numb
   };
 }
 
-function capTerminalGrowthBelowWacc(value: number, wacc: number): number {
+function capTerminalGrowth(value: number, wacc: number): number {
   if (!Number.isFinite(value)) {
     return 0;
   }
