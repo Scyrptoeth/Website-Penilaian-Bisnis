@@ -52,10 +52,12 @@ export function formatEditableNumber(input: string): string {
   const isNegative = value.startsWith("-");
   const withoutCurrency = value.replace(/\s/g, "").replace(/rp/gi, "");
   const normalizedSign = withoutCurrency.replace(/-/g, "");
-  const [integerPart = "", ...decimalParts] = normalizedSign.split(",");
+  const decimalSeparatorIndex = findEditableDecimalSeparatorIndex(normalizedSign);
+  const integerPart = decimalSeparatorIndex >= 0 ? normalizedSign.slice(0, decimalSeparatorIndex) : normalizedSign;
+  const decimalPart = decimalSeparatorIndex >= 0 ? normalizedSign.slice(decimalSeparatorIndex + 1) : "";
   const integerDigits = integerPart.replace(/\D/g, "");
-  const decimalDigits = decimalParts.join("").replace(/\D/g, "");
-  const hasDecimalSeparator = normalizedSign.includes(",");
+  const decimalDigits = decimalPart.replace(/\D/g, "");
+  const hasDecimalSeparator = decimalSeparatorIndex >= 0;
   const groupedInteger = integerDigits ? new Intl.NumberFormat("id-ID").format(Number(integerDigits)) : "";
   const sign = isNegative ? "-" : "";
 
@@ -64,6 +66,31 @@ export function formatEditableNumber(input: string): string {
   }
 
   return `${sign}${groupedInteger || "0"}${hasDecimalSeparator ? `,${decimalDigits}` : ""}`;
+}
+
+function findEditableDecimalSeparatorIndex(input: string): number {
+  const commaCount = input.split(",").length - 1;
+  const dotCount = input.split(".").length - 1;
+
+  if (commaCount > 0 && dotCount > 0) {
+    return Math.max(input.lastIndexOf(","), input.lastIndexOf("."));
+  }
+
+  if (commaCount > 0) {
+    return input.lastIndexOf(",");
+  }
+
+  if (dotCount === 1) {
+    const fractionalPart = input.split(".")[1] ?? "";
+    return fractionalPart.length === 3 ? -1 : input.lastIndexOf(".");
+  }
+
+  if (dotCount > 1) {
+    const fractionalPart = input.slice(input.lastIndexOf(".") + 1);
+    return fractionalPart.length === 3 ? -1 : input.lastIndexOf(".");
+  }
+
+  return -1;
 }
 
 export function formatEditableInteger(input: string): string {
