@@ -266,7 +266,7 @@ export function buildSectionAnalysis(
     const previousSnapshot = previousPeriod ? (snapshots.get(previousPeriod.id) ?? null) : null;
     const scheduleAmounts = fixedAssetSchedule.totals[period.id];
     const depreciationAddback = fixedAssetSchedule.hasInput
-      ? -(scheduleAmounts?.depreciationAdditions ?? 0)
+      ? (scheduleAmounts?.depreciationAdditions ?? 0)
       : Math.max(0, -snapshot.depreciation);
     const capitalExpenditure = fixedAssetSchedule.hasInput
       ? (scheduleAmounts?.acquisitionAdditions ?? 0)
