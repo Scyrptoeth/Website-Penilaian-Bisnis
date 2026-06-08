@@ -1263,14 +1263,6 @@ export function calculateDcf(
 export function calculateAllMethods(snapshot: FinancialStatementSnapshot, options: CalculationOptions = {}) {
   const dcfOptions = options.dcf ?? {};
   const dcf = calculateDcf(snapshot, dcfOptions);
-  const dcfTerminalDownside = calculateDcf(snapshot, {
-    ...dcfOptions,
-    terminalGrowth: snapshot.terminalGrowthDownside ?? snapshot.terminalGrowth,
-  });
-  const dcfTerminalUpside = calculateDcf(snapshot, {
-    ...dcfOptions,
-    terminalGrowth: snapshot.terminalGrowthUpside ?? snapshot.terminalGrowth,
-  });
   const dcfNoIncrementalWorkingCapital = calculateDcf(snapshot, { ...dcfOptions, includeWorkingCapitalChange: false });
   const dcfTaxPayableDebtLike = calculateDcf(snapshot, { ...dcfOptions, debtLikeTaxPayable: true });
   const dcfHistoricalDerivedProjection = calculateDcf(snapshot, { ...dcfOptions, projectionEngine: "historical-derived" });
@@ -1287,8 +1279,6 @@ export function calculateAllMethods(snapshot: FinancialStatementSnapshot, option
     eem,
     dcf,
     sensitivities: {
-      dcfTerminalDownside,
-      dcfTerminalUpside,
       dcfNoIncrementalWorkingCapital,
       dcfTaxPayableDebtLike,
       dcfHistoricalDerivedProjection,

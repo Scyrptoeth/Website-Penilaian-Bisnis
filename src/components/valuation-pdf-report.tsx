@@ -546,16 +546,6 @@ function DcfSensitivityReportTable({ payload }: { payload: ValuationPdfExportPay
     },
     { label: "DCF - skenario dasar", value: formatIdr(baseResults.dcf.equityValue), note: "Nilai dasar dari engine FCFF/WACC." },
     {
-      label: "DCF - terminal downside",
-      value: formatIdr(baseResults.sensitivities.dcfTerminalDownside.equityValue),
-      note: "Terminal growth downside.",
-    },
-    {
-      label: "DCF - terminal upside",
-      value: formatIdr(baseResults.sensitivities.dcfTerminalUpside.equityValue),
-      note: "Terminal growth upside.",
-    },
-    {
       label: "DCF tanpa WC incremental",
       value: formatIdr(baseResults.sensitivities.dcfNoIncrementalWorkingCapital.equityValue),
       note: "Perubahan modal kerja dinonaktifkan.",

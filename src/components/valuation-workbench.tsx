@@ -494,8 +494,6 @@ type EemReturnOnTangibleAssetBasis = "requiredReturnOnNta" | "equityCost";
 
 type ActiveDcfBasis =
   | "base"
-  | "terminalDownside"
-  | "terminalUpside"
   | "noIncrementalWorkingCapital"
   | "taxPayableDebtLike"
   | "historicalDerivedProjection";
@@ -777,8 +775,6 @@ const eemDcfMethods: ValuationMethod[] = ["EEM", "DCF"];
 const allValuationMethods: ValuationMethod[] = ["AAM", "EEM", "DCF"];
 const dcfSensitivityContext = {
   base: "Skenario utama memakai WACC, terminal growth, modal kerja incremental, dan struktur utang aktif.",
-  terminalDownside: "Mengganti terminal growth ke downside; pembeda utama ada pada nilai terminal yang lebih konservatif.",
-  terminalUpside: "Mengganti terminal growth ke upside; pembeda utama ada pada nilai terminal yang lebih tinggi.",
   noIncrementalWorkingCapital: "Menghilangkan perubahan modal kerja incremental untuk membaca dampak kebutuhan atau release working capital.",
   taxPayableDebtLike: "Memperlakukan utang pajak sebagai kewajiban debt-like yang dikurangkan dari enterprise value.",
   historicalDerivedProjection: "Menguji proyeksi neraca historis: kas, utang pajak, dan ekuitas di-roll-forward dari data historis user.",
@@ -842,18 +838,6 @@ const activeDcfBasisOptions: Array<{
     label: "DCF - skenario dasar",
     shortLabel: "Skenario dasar",
     summary: dcfSensitivityContext.base,
-  },
-  {
-    value: "terminalDownside",
-    label: "DCF - terminal downside",
-    shortLabel: "Terminal downside",
-    summary: dcfSensitivityContext.terminalDownside,
-  },
-  {
-    value: "terminalUpside",
-    label: "DCF - terminal upside",
-    shortLabel: "Terminal upside",
-    summary: dcfSensitivityContext.terminalUpside,
   },
   {
     value: "noIncrementalWorkingCapital",
@@ -1495,7 +1479,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         controls: calculatedIncomeProjectionControls,
         activeDcfOptions: {
           ...projectionPlanningDcfOptions,
-          ...buildActiveDcfBasisDcfOptions(calculatedActiveDcfBasis, snapshot),
+          ...buildActiveDcfBasisDcfOptions(calculatedActiveDcfBasis),
           workingCapitalInclusions: dcfWorkingCapitalInclusionOptions,
         },
         fixedAssetProjection: dcfFixedAssetProjection,
@@ -5221,16 +5205,6 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
               <strong data-testid="dcf-base-equity-value">{formatIdr(results.dcf.equityValue)}</strong>
               <small>{dcfSensitivityContext.base}</small>
             </div>
-            <div className={activeDcfBasis === "terminalDownside" ? "active-sensitivity" : ""} data-testid="dcf-sensitivity-terminal-downside">
-              <span>DCF - terminal downside</span>
-              <strong data-testid="dcf-terminal-downside-equity-value">{formatIdr(results.sensitivities.dcfTerminalDownside.equityValue)}</strong>
-              <small>{dcfSensitivityContext.terminalDownside}</small>
-            </div>
-            <div className={activeDcfBasis === "terminalUpside" ? "active-sensitivity" : ""} data-testid="dcf-sensitivity-terminal-upside">
-              <span>DCF - terminal upside</span>
-              <strong data-testid="dcf-terminal-upside-equity-value">{formatIdr(results.sensitivities.dcfTerminalUpside.equityValue)}</strong>
-              <small>{dcfSensitivityContext.terminalUpside}</small>
-            </div>
             <div className={activeDcfBasis === "noIncrementalWorkingCapital" ? "active-sensitivity" : ""} data-testid="dcf-sensitivity-no-incremental-wc">
               <span>DCF tanpa WC incremental</span>
               <strong data-testid="dcf-no-incremental-wc-equity-value">{formatIdr(results.sensitivities.dcfNoIncrementalWorkingCapital.equityValue)}</strong>
@@ -8886,12 +8860,7 @@ function buildActiveDcfSelection(
 ): ActiveDcfSelection {
   const option = activeDcfBasisLabels[basis] ?? activeDcfBasisLabels[defaultActiveDcfBasis];
   const dcf = resolveActiveDcf(results, basis);
-  const terminalGrowth =
-    basis === "terminalDownside"
-      ? snapshot.terminalGrowthDownside ?? snapshot.terminalGrowth
-      : basis === "terminalUpside"
-        ? snapshot.terminalGrowthUpside ?? snapshot.terminalGrowth
-        : snapshot.terminalGrowth;
+  const terminalGrowth = snapshot.terminalGrowth;
   const includeWorkingCapitalChange = basis !== "noIncrementalWorkingCapital";
   const terminalTreatment = normalizeDcfTerminalTreatment(options.terminalTreatment);
   const projectionEngineLabel =
@@ -8966,15 +8935,7 @@ function buildEemReturnOnTangibleAssetSelection({
   };
 }
 
-function buildActiveDcfBasisDcfOptions(basis: ActiveDcfBasis, snapshot: FinancialStatementSnapshot): DcfOptions {
-  if (basis === "terminalDownside") {
-    return { terminalGrowth: snapshot.terminalGrowthDownside ?? snapshot.terminalGrowth };
-  }
-
-  if (basis === "terminalUpside") {
-    return { terminalGrowth: snapshot.terminalGrowthUpside ?? snapshot.terminalGrowth };
-  }
-
+function buildActiveDcfBasisDcfOptions(basis: ActiveDcfBasis): DcfOptions {
   if (basis === "noIncrementalWorkingCapital") {
     return { includeWorkingCapitalChange: false };
   }
@@ -9018,14 +8979,6 @@ function resolveActiveEem(results: CalculationResults, basis: ActiveEemBasis, sn
 }
 
 function resolveActiveDcf(results: CalculationResults, basis: ActiveDcfBasis): DcfOutput {
-  if (basis === "terminalDownside") {
-    return results.sensitivities.dcfTerminalDownside;
-  }
-
-  if (basis === "terminalUpside") {
-    return results.sensitivities.dcfTerminalUpside;
-  }
-
   if (basis === "noIncrementalWorkingCapital") {
     return results.sensitivities.dcfNoIncrementalWorkingCapital;
   }
