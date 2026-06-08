@@ -5404,7 +5404,11 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
 
         {activeWorkflowTab === "noplatFcf" ? (
           readiness.noplatFcf.isReady ? (
-            <NoplatFcfSection analysis={sectionAnalysis} onUpdateOverride={updateCashFlowOverride} />
+            <NoplatFcfSection
+              analysis={sectionAnalysis}
+              cashFlowStatementRows={cashFlowStatementRows}
+              onUpdateOverride={updateCashFlowOverride}
+            />
           ) : (
             <ReadinessPanel status={readiness.noplatFcf} onNavigate={navigateToWorkflowTab} onAction={handleReadinessAction} force />
           )
@@ -9707,9 +9711,11 @@ function formatDebtScheduleValue(value: AnalysisValue, valueFormat: AnalysisRow[
 
 function NoplatFcfSection({
   analysis,
+  cashFlowStatementRows,
   onUpdateOverride,
 }: {
   analysis: SectionAnalysis;
+  cashFlowStatementRows: CashFlowStatementRow[];
   onUpdateOverride: (rowKey: string, periodId: string, patch: Partial<CashFlowOverrideEntry>) => void;
 }) {
   return (
@@ -9736,7 +9742,7 @@ function NoplatFcfSection({
         <FcfTable
           rows={analysis.fcfRows}
           periods={analysis.periods}
-          cashFlowStatementRows={analysis.cashFlowStatementRows}
+          cashFlowStatementRows={cashFlowStatementRows}
           onUpdateOverride={onUpdateOverride}
         />
       </section>
