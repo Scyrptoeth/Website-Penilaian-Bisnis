@@ -3574,17 +3574,19 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     }));
   }
 
-  function applyInvestedCapitalGrowthSuggestion(suggestion: InvestedCapitalGrowthRateSuggestion) {
+  function applyInvestedCapitalGrowthSuggestion(suggestion: InvestedCapitalGrowthRateSuggestion, type: "average" | "lastYear") {
     clearGuidanceTarget("terminal-growth-suggestion");
+    const appliedGrowth = type === "average" ? suggestion.cappedAverageGrowth : suggestion.cappedLastYearGrowth;
+    const sourceSuffix = type === "average" ? " (Average)" : " (Tahun Terakhir)";
     commitCoreState((current) => ({
       ...current,
       assumptions: {
         ...current.assumptions,
-        terminalGrowth: formatRateInputNumber(suggestion.baseGrowth),
-        terminalGrowthDownside: formatRateInputNumber(suggestion.downsideGrowth),
-        terminalGrowthUpside: formatRateInputNumber(suggestion.upsideGrowth),
-        terminalGrowthSource: suggestion.sourceId,
-        terminalGrowthOverrideReason: suggestion.reason,
+        terminalGrowth: formatRateInputNumber(appliedGrowth),
+        terminalGrowthDownside: "",
+        terminalGrowthUpside: "",
+        terminalGrowthSource: suggestion.sourceId + sourceSuffix,
+        terminalGrowthOverrideReason: suggestion.reason + ` Basis yang dipilih: ${type === "average" ? "Average" : "Tahun Terakhir"}.`,
       },
     }));
   }
@@ -13745,7 +13747,7 @@ function TerminalGrowthPanel({
   guidanceTarget?: GuidanceTarget;
   onChange: (key: keyof AssumptionState, value: string) => void;
   onApplySuggestion: (suggestion: TerminalGrowthSuggestion) => void;
-  onApplyInvestedCapitalSuggestion: (suggestion: InvestedCapitalGrowthRateSuggestion) => void;
+  onApplyInvestedCapitalSuggestion: (suggestion: InvestedCapitalGrowthRateSuggestion, type: "average" | "lastYear") => void;
   onReasonChange: (value: string) => void;
   onGuidanceComplete?: (target: GuidanceTarget) => void;
 }) {
@@ -13828,7 +13830,7 @@ function InvestedCapitalGrowthSuggestionBlock({
   activeSourceId: string;
   guidanceTarget?: GuidanceTarget;
   suggestion: InvestedCapitalGrowthRateSuggestion | null;
-  onApply: (suggestion: InvestedCapitalGrowthRateSuggestion) => void;
+  onApply: (suggestion: InvestedCapitalGrowthRateSuggestion, type: "average" | "lastYear") => void;
 }) {
   const isGuidanceTarget = guidanceTarget === "terminal-growth-suggestion";
 
@@ -13849,7 +13851,8 @@ function InvestedCapitalGrowthSuggestionBlock({
     );
   }
 
-  const isApplied = activeSourceId === suggestion.sourceId;
+  const isAppliedAverage = activeSourceId.includes(suggestion.sourceId) && activeSourceId.includes("(Average)");
+  const isAppliedLastYear = activeSourceId.includes(suggestion.sourceId) && activeSourceId.includes("(Tahun Terakhir)");
 
   return (
     <div
@@ -13862,8 +13865,8 @@ function InvestedCapitalGrowthSuggestionBlock({
           <span>Referensi utama baru</span>
           <strong>Growth Rate berbasis invested capital</strong>
         </div>
-        <em className={`source-badge ${isApplied ? "smart" : "recommended"}`}>
-          {isApplied ? "dipakai" : "primary evidence"}
+        <em className={`source-badge ${isAppliedAverage || isAppliedLastYear ? "smart" : "recommended"}`}>
+          {isAppliedAverage || isAppliedLastYear ? "dipakai" : "primary evidence"}
         </em>
       </div>
       <p className="assumption-empty-note">
@@ -13871,16 +13874,14 @@ function InvestedCapitalGrowthSuggestionBlock({
       </p>
       <div className="terminal-growth-suggestion-grid invested-growth-summary" aria-label="Ringkasan growth rate invested capital">
         <div>
-          <span>Base growth</span>
-          <strong>{formatPercentFixed(suggestion.baseGrowth, 2)}</strong>
-          <small>Average growth rate historis{suggestion.cappedByWacc ? ", dibatasi di bawah WACC" : ""}</small>
+          <span>Average Growth</span>
+          <strong>{formatPercentFixed(suggestion.cappedAverageGrowth, 2)}</strong>
+          <small>Rata-rata historis{suggestion.cappedAverageGrowth !== suggestion.rawAverageGrowth ? ", dibatasi di bawah WACC" : ""}</small>
         </div>
         <div>
-          <span>Downside / upside</span>
-          <strong>
-            {formatPercentFixed(suggestion.downsideGrowth, 2)} / {formatPercentFixed(suggestion.upsideGrowth, 2)}
-          </strong>
-          <small>Rentang dari observasi historis valid</small>
+          <span>Last Year Growth</span>
+          <strong>{formatPercentFixed(suggestion.cappedLastYearGrowth, 2)}</strong>
+          <small>Tahun terakhir{suggestion.cappedLastYearGrowth !== suggestion.rawLastYearGrowth ? ", dibatasi di bawah WACC" : ""}</small>
         </div>
         <div>
           <span>Interoperabilitas</span>
@@ -13918,15 +13919,28 @@ function InvestedCapitalGrowthSuggestionBlock({
           </tbody>
         </table>
       </div>
-      <button
-        className="button secondary full-width"
-        type="button"
-        onClick={() => onApply(suggestion)}
-        disabled={isApplied}
-      >
-        <CheckCircle2 aria-hidden="true" size={14} />
-        {isApplied ? "Growth rate invested capital dipakai" : "Gunakan growth rate invested capital"}
-      </button>
+      <div style={{ display: "flex", gap: "12px", marginTop: "16px" }}>
+        <button
+          className="button secondary"
+          style={{ flex: 1 }}
+          type="button"
+          onClick={() => onApply(suggestion, "average")}
+          disabled={isAppliedAverage}
+        >
+          <CheckCircle2 aria-hidden="true" size={14} />
+          {isAppliedAverage ? "Average Growth dipakai" : "Gunakan Average Growth Rate"}
+        </button>
+        <button
+          className="button secondary"
+          style={{ flex: 1 }}
+          type="button"
+          onClick={() => onApply(suggestion, "lastYear")}
+          disabled={isAppliedLastYear}
+        >
+          <CheckCircle2 aria-hidden="true" size={14} />
+          {isAppliedLastYear ? "Last Year Growth dipakai" : "Gunakan Growth Rate Tahun Terakhir"}
+        </button>
+      </div>
     </div>
   );
 }

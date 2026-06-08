@@ -16,10 +16,10 @@ export type InvestedCapitalGrowthRateSuggestion = {
   sourceId: string;
   source: string;
   sourceArtifact: string;
-  baseGrowth: number;
-  downsideGrowth: number;
-  upsideGrowth: number;
   rawAverageGrowth: number;
+  cappedAverageGrowth: number;
+  rawLastYearGrowth: number;
+  cappedLastYearGrowth: number;
   rows: InvestedCapitalGrowthRateRow[];
   interoperabilityTabs: string[];
   reason: string;
@@ -46,23 +46,25 @@ export function buildInvestedCapitalGrowthRateSuggestion(
 
   const growthRates = rows.map((row) => row.growthRate);
   const rawAverageGrowth = growthRates.reduce((sum, value) => sum + value, 0) / growthRates.length;
-  const baseGrowth = capTerminalGrowthBelowWacc(rawAverageGrowth, wacc);
-  const downsideGrowth = Math.min(baseGrowth, Math.min(...growthRates));
-  const upsideGrowth = Math.max(baseGrowth, capTerminalGrowthBelowWacc(Math.max(...growthRates), wacc));
-  const cappedByWacc = Math.abs(baseGrowth - rawAverageGrowth) > 1e-10 || Math.max(...growthRates) !== upsideGrowth;
+  const cappedAverageGrowth = capTerminalGrowthBelowWacc(rawAverageGrowth, wacc);
+  
+  const rawLastYearGrowth = growthRates[growthRates.length - 1];
+  const cappedLastYearGrowth = capTerminalGrowthBelowWacc(rawLastYearGrowth, wacc);
+  
+  const cappedByWacc = Math.abs(cappedAverageGrowth - rawAverageGrowth) > 1e-10 || Math.abs(cappedLastYearGrowth - rawLastYearGrowth) > 1e-10;
 
   return {
     sourceId,
     source: "Growth Rate berbasis invested capital",
     sourceArtifact,
-    baseGrowth,
-    downsideGrowth,
-    upsideGrowth,
     rawAverageGrowth,
+    cappedAverageGrowth,
+    rawLastYearGrowth,
+    cappedLastYearGrowth,
     rows,
     interoperabilityTabs,
     cappedByWacc,
-    reason: buildReason(rows, rawAverageGrowth, baseGrowth, cappedByWacc),
+    reason: buildReason(rows, rawAverageGrowth, cappedAverageGrowth, cappedByWacc),
   };
 }
 
