@@ -774,7 +774,7 @@ function resolveAnalysisFormula(
 
   if (sectionTitle === "ROIC") {
     if (key === "invested-capital-end") {
-      return sum("fixed-assets-net", "operating-nwc");
+      return sum("total-assets", "non-operating-assets");
     }
 
     if (key === "invested-capital-beginning") {

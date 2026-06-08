@@ -1046,13 +1046,19 @@ function buildRoicRows(
   fcfRows: AnalysisRow[],
 ): AnalysisRow[] {
   const fcfValues = fcfRows.find((row) => row.key === "fcf")?.values ?? {};
+  const investedCapitalEndValues = Object.fromEntries(
+    periodAnalyses.map((item) => [item.period.id, item.snapshot.totalAssets - nonOperatingAssets(item.snapshot)]),
+  );
   const investedCapitalBeginning = valueRow(
     periodAnalyses,
     "invested-capital-beginning",
     "Invested capital awal tahun",
     "Model terkoreksi",
     "Invested capital akhir periode sebelumnya",
-    (item) => item.investedCapitalBeginning,
+    (item, index) => {
+      const previousPeriodId = periodAnalyses[index - 1]?.period.id;
+      return previousPeriodId ? investedCapitalEndValues[previousPeriodId] ?? null : null;
+    },
     undefined,
     undefined,
     {},
@@ -1082,6 +1088,7 @@ function buildRoicRows(
       display: "percent",
       overrides: analysisValueOverrides,
       comparativeOverride: true,
+      allowFirstPeriodOverride: true,
     },
   );
 
@@ -1091,9 +1098,10 @@ function buildRoicRows(
     valueRow(periodAnalyses, "non-operating-assets", "Kurang: aset non-operasional", "Klasifikasi terkoreksi", "Kas/deposito + piutang karyawan + aset surplus + aset tetap non-operasional", (item) =>
       -nonOperatingAssets(item.snapshot),
     ),
-    valueRow(periodAnalyses, "operating-nwc", "Operating working capital", "Klasifikasi CFS terkoreksi", "OCA terpilih - OCL terpilih", (item) => item.operatingWorkingCapital),
-    valueRow(periodAnalyses, "fixed-assets-net", "Aset tetap operasional neto", "Model aset tetap", "Aset tetap neto kecuali aset idle teridentifikasi", (item) => item.snapshot.fixedAssetsNet),
-    valueRow(periodAnalyses, "invested-capital-end", "Invested capital akhir tahun", "Model terkoreksi", "Aset tetap neto + operating working capital", (item) => item.investedCapitalEnd, "subtotal"),
+    valueRow(periodAnalyses, "invested-capital-end", "Invested capital akhir tahun", "Model terkoreksi", "Total aset dalam neraca + Kurang: aset non-operasional", (item) =>
+      investedCapitalEndValues[item.period.id] ?? null,
+      "subtotal",
+    ),
     investedCapitalBeginning,
     roic,
   ];
@@ -1105,7 +1113,7 @@ function valueRow(
   label: string,
   source: string,
   formula: string,
-  value: (item: PeriodAnalysis) => AnalysisValue,
+  value: (item: PeriodAnalysis, index: number) => AnalysisValue,
   kind?: AnalysisRow["kind"],
   note?: string,
   extra: Partial<Omit<AnalysisRow, "key" | "label" | "source" | "formula" | "values" | "kind" | "note">> = {},
@@ -1114,10 +1122,11 @@ function valueRow(
     display: "currency" | "percent" | "multiple";
     overrides: AnalysisValueOverrideState;
     comparativeOverride: boolean;
+    allowFirstPeriodOverride?: boolean;
   },
 ): AnalysisRow {
   const overrideKey = overrideConfig ? buildAnalysisValueOverrideKey(overrideConfig.section, key) : "";
-  const calculatedValues = Object.fromEntries(periodAnalyses.map((item) => [item.period.id, value(item)]));
+  const calculatedValues = Object.fromEntries(periodAnalyses.map((item, index) => [item.period.id, value(item, index)]));
   const overrideInputs: Record<string, string> = {};
   const overrideAllowedByPeriod: Record<string, boolean> = {};
   const overrideStatuses: Record<string, CashFlowOverrideStatus> = {};
@@ -1131,7 +1140,7 @@ function valueRow(
       const isCellOverridable = Boolean(
         overrideConfig?.comparativeOverride &&
           !item.previousSnapshot &&
-          (calculatedValue === null || !Number.isFinite(calculatedValue)),
+          (overrideConfig.allowFirstPeriodOverride || calculatedValue === null || !Number.isFinite(calculatedValue)),
       );
       const overrideValue =
         hasOverrideInput && overrideConfig ? parseAnalysisOverrideInput(overrideInput, overrideConfig.display) : null;
