@@ -9916,7 +9916,7 @@ function RoicSection({
               <p className="eyebrow">ROIC</p>
               <h3>Bridge efisiensi modal</h3>
             </div>
-            <span className="status-pill muted">Basis NOPLAT terkoreksi</span>
+            <span className="status-pill muted">Basis FCF terkoreksi</span>
           </div>
           <AnalysisTable
             rows={analysis.roicRows}

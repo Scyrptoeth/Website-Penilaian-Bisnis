@@ -782,7 +782,7 @@ function resolveAnalysisFormula(
     }
 
     if (key === "roic") {
-      return `IF(${cellFor("invested-capital-beginning")}<>0,${cellFor("noplat")}/${cellFor("invested-capital-beginning")},0)`;
+      return `IF(${cellFor("invested-capital-beginning")}<>0,${cellFor("fcf")}/${cellFor("invested-capital-beginning")},0)`;
     }
   }
 

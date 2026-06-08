@@ -329,7 +329,7 @@ export function buildSectionAnalysis(
       freeCashFlow,
       investedCapitalEnd,
       investedCapitalBeginning: previousInvestedCapitalEnd,
-      roic: previousInvestedCapitalEnd ? noplat / previousInvestedCapitalEnd : null,
+      roic: previousInvestedCapitalEnd ? freeCashFlow / previousInvestedCapitalEnd : null,
       cashMovement,
       correctedNetCashFlow,
       cashFlowRollforwardGap,
@@ -339,6 +339,7 @@ export function buildSectionAnalysis(
   });
 
   const cashFlowStatementRows = buildCashFlowStatementRows(periodAnalyses, cashFlowOverrides);
+  const fcfRows = buildFcfRows(periodAnalyses, cashFlowStatementRows);
 
   return {
     periods: chronologicalPeriods,
@@ -347,9 +348,9 @@ export function buildSectionAnalysis(
     cashFlowRows: buildCashFlowRows(periodAnalyses),
     cashFlowStatementRows,
     noplatRows: buildNoplatRows(periodAnalyses),
-    fcfRows: buildFcfRows(periodAnalyses, cashFlowStatementRows),
+    fcfRows,
     ratioRows: buildRatioRows(periodAnalyses, analysisValueOverrides),
-    roicRows: buildRoicRows(periodAnalyses, analysisValueOverrides),
+    roicRows: buildRoicRows(periodAnalyses, analysisValueOverrides, fcfRows),
   };
 }
 
@@ -1039,7 +1040,12 @@ function buildRatioRows(periodAnalyses: PeriodAnalysis[], analysisValueOverrides
   return rows;
 }
 
-function buildRoicRows(periodAnalyses: PeriodAnalysis[], analysisValueOverrides: AnalysisValueOverrideState): AnalysisRow[] {
+function buildRoicRows(
+  periodAnalyses: PeriodAnalysis[],
+  analysisValueOverrides: AnalysisValueOverrideState,
+  fcfRows: AnalysisRow[],
+): AnalysisRow[] {
+  const fcfValues = fcfRows.find((row) => row.key === "fcf")?.values ?? {};
   const investedCapitalBeginning = valueRow(
     periodAnalyses,
     "invested-capital-beginning",
@@ -1062,10 +1068,11 @@ function buildRoicRows(periodAnalyses: PeriodAnalysis[], analysisValueOverrides:
     "roic",
     "ROIC",
     "Model terkoreksi",
-    "NOPLAT / invested capital awal",
+    "FCF / invested capital awal",
     (item) => {
       const beginning = investedCapitalBeginning.values[item.period.id];
-      return beginning ? item.normalizedNoplat / beginning : null;
+      const fcf = fcfValues[item.period.id];
+      return beginning && fcf !== null && Number.isFinite(fcf) ? fcf / beginning : null;
     },
     "subtotal",
     undefined,
@@ -1079,7 +1086,7 @@ function buildRoicRows(periodAnalyses: PeriodAnalysis[], analysisValueOverrides:
   );
 
   return [
-    valueRow(periodAnalyses, "noplat", "NOPLAT", "NOPLAT terkoreksi", "EBIT komersial x (1 - tarif pajak)", (item) => item.normalizedNoplat),
+    valueRow(periodAnalyses, "fcf", "Free Cash Flow (FCF)", "NOPLAT & FCF", "Arus kas bruto + investasi bruto", (item) => fcfValues[item.period.id] ?? null),
     valueRow(periodAnalyses, "total-assets", "Total aset dalam neraca", "Neraca", "Total aset terpetakan atau total komponen turunan", (item) => item.snapshot.totalAssets),
     valueRow(periodAnalyses, "non-operating-assets", "Kurang: aset non-operasional", "Klasifikasi terkoreksi", "Kas/deposito + piutang karyawan + aset surplus + aset tetap non-operasional", (item) =>
       -nonOperatingAssets(item.snapshot),
