@@ -265,7 +265,9 @@ export function buildSectionAnalysis(
     const previousPeriod = chronologicalPeriods[index - 1];
     const previousSnapshot = previousPeriod ? (snapshots.get(previousPeriod.id) ?? null) : null;
     const scheduleAmounts = fixedAssetSchedule.totals[period.id];
-    const depreciationAddback = Math.max(0, -snapshot.depreciation);
+    const depreciationAddback = fixedAssetSchedule.hasInput
+      ? (scheduleAmounts?.depreciationAdditions ?? 0)
+      : Math.max(0, -snapshot.depreciation);
     const capitalExpenditure = fixedAssetSchedule.hasInput
       ? (scheduleAmounts?.acquisitionAdditions ?? 0)
       : inferCapitalExpenditure(snapshot, previousSnapshot, depreciationAddback);
@@ -913,7 +915,7 @@ function buildFcfRows(periodAnalyses: PeriodAnalysis[], cashFlowStatementRows: C
       sourceType: "interoperable",
       lockReason: "Mengikuti sub-bagian NOPLAT.",
     }),
-    valueRow(periodAnalyses, "depreciation", "Tambah: penyusutan", "Penyusutan terpetakan / jadwal aset tetap", "-beban penyusutan", (item) => item.depreciationAddback, undefined, undefined, {
+    valueRow(periodAnalyses, "depreciation", "Tambah: penyusutan", "Penyusutan terpetakan / jadwal aset tetap", "beban penyusutan", (item) => item.depreciationAddback, undefined, undefined, {
       sourceType: "interoperable",
       lockReason: "Mengikuti Aset Tetap atau jadwal aset tetap.",
     }),
