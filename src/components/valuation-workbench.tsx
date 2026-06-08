@@ -3576,7 +3576,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
 
   function applyInvestedCapitalGrowthSuggestion(suggestion: InvestedCapitalGrowthRateSuggestion, type: "average" | "lastYear") {
     clearGuidanceTarget("terminal-growth-suggestion");
-    const appliedGrowth = type === "average" ? suggestion.cappedAverageGrowth : suggestion.cappedLastYearGrowth;
+    const appliedGrowth = type === "average" ? suggestion.averageGrowth : suggestion.lastYearGrowth;
     const sourceSuffix = type === "average" ? " (Average)" : " (Tahun Terakhir)";
     commitCoreState((current) => ({
       ...current,
@@ -13875,13 +13875,13 @@ function InvestedCapitalGrowthSuggestionBlock({
       <div className="terminal-growth-suggestion-grid invested-growth-summary" aria-label="Ringkasan growth rate invested capital">
         <div>
           <span>Average Growth</span>
-          <strong>{formatPercentFixed(suggestion.cappedAverageGrowth, 2)}</strong>
-          <small>Rata-rata historis{suggestion.cappedAverageGrowth !== suggestion.rawAverageGrowth ? ", dibatasi di bawah WACC" : ""}</small>
+          <strong>{formatPercentFixed(suggestion.averageGrowth, 2)}</strong>
+          <small>Rata-rata historis</small>
         </div>
         <div>
           <span>Last Year Growth</span>
-          <strong>{formatPercentFixed(suggestion.cappedLastYearGrowth, 2)}</strong>
-          <small>Tahun terakhir{suggestion.cappedLastYearGrowth !== suggestion.rawLastYearGrowth ? ", dibatasi di bawah WACC" : ""}</small>
+          <strong>{formatPercentFixed(suggestion.lastYearGrowth, 2)}</strong>
+          <small>Tahun terakhir</small>
         </div>
         <div>
           <span>Interoperabilitas</span>

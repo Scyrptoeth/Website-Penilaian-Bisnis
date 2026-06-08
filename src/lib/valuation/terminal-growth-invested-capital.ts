@@ -16,14 +16,11 @@ export type InvestedCapitalGrowthRateSuggestion = {
   sourceId: string;
   source: string;
   sourceArtifact: string;
-  rawAverageGrowth: number;
-  cappedAverageGrowth: number;
-  rawLastYearGrowth: number;
-  cappedLastYearGrowth: number;
+  averageGrowth: number;
+  lastYearGrowth: number;
   rows: InvestedCapitalGrowthRateRow[];
   interoperabilityTabs: string[];
   reason: string;
-  cappedByWacc: boolean;
 };
 
 const sourceId = "invested-capital-growth-rate";
@@ -32,7 +29,7 @@ const interoperabilityTabs = ["Aset Tetap", "Neraca", "ROIC", "Asumsi EEM/DCF"];
 
 export function buildInvestedCapitalGrowthRateSuggestion(
   analysis: SectionAnalysis,
-  wacc: number,
+  _wacc: number, // Intentionally kept for backwards compatibility but unused
 ): InvestedCapitalGrowthRateSuggestion | null {
   const roicInvestedCapitalBeginningValues =
     analysis.roicRows.find((row) => row.key === "invested-capital-beginning")?.values ?? {};
@@ -45,26 +42,18 @@ export function buildInvestedCapitalGrowthRateSuggestion(
   }
 
   const growthRates = rows.map((row) => row.growthRate);
-  const rawAverageGrowth = growthRates.reduce((sum, value) => sum + value, 0) / growthRates.length;
-  const cappedAverageGrowth = capTerminalGrowthBelowWacc(rawAverageGrowth, wacc);
-  
-  const rawLastYearGrowth = growthRates[growthRates.length - 1];
-  const cappedLastYearGrowth = capTerminalGrowthBelowWacc(rawLastYearGrowth, wacc);
-  
-  const cappedByWacc = Math.abs(cappedAverageGrowth - rawAverageGrowth) > 1e-10 || Math.abs(cappedLastYearGrowth - rawLastYearGrowth) > 1e-10;
+  const averageGrowth = growthRates.reduce((sum, value) => sum + value, 0) / growthRates.length;
+  const lastYearGrowth = growthRates[growthRates.length - 1];
 
   return {
     sourceId,
     source: "Growth Rate berbasis invested capital",
     sourceArtifact,
-    rawAverageGrowth,
-    cappedAverageGrowth,
-    rawLastYearGrowth,
-    cappedLastYearGrowth,
+    averageGrowth,
+    lastYearGrowth,
     rows,
     interoperabilityTabs,
-    cappedByWacc,
-    reason: buildReason(rows, rawAverageGrowth, cappedAverageGrowth, cappedByWacc),
+    reason: buildReason(rows, averageGrowth),
   };
 }
 
@@ -105,28 +94,11 @@ function buildGrowthRateRow(item: PeriodAnalysis, investedCapitalBeginning: numb
   };
 }
 
-function capTerminalGrowthBelowWacc(value: number, wacc: number): number {
-  if (!Number.isFinite(value)) {
-    return 0;
-  }
-
-  if (!Number.isFinite(wacc) || wacc <= 0 || value < wacc) {
-    return value;
-  }
-
-  return Math.max(Math.min(wacc - 0.005, value), -0.2);
-}
-
 function buildReason(
   rows: InvestedCapitalGrowthRateRow[],
-  rawAverageGrowth: number,
-  baseGrowth: number,
-  cappedByWacc: boolean,
+  averageGrowth: number,
 ): string {
   const periodList = rows.map((row) => row.periodLabel).join(", ");
-  const capNote = cappedByWacc
-    ? " Nilai aktif dibatasi agar tetap lebih rendah dari WACC."
-    : "";
 
-  return `Growth rate dihitung otomatis dari ${rows.length} periode historis (${periodList}) dengan formula Total Net Investment / Total Invested Capital Beginning. Total Net Investment mengambil net fixed assets dan current assets dari Aset Tetap/Neraca; denominator mengikuti invested capital awal dari ROIC. Average mentah ${(rawAverageGrowth * 100).toFixed(2)}%, base growth aktif ${(baseGrowth * 100).toFixed(2)}%.${capNote}`;
+  return `Growth rate dihitung otomatis dari ${rows.length} periode historis (${periodList}) dengan formula Total Net Investment / Total Invested Capital Beginning. Total Net Investment mengambil net fixed assets dan current assets dari Aset Tetap/Neraca; denominator mengikuti invested capital awal dari ROIC. Average ${(averageGrowth * 100).toFixed(2)}%.`;
 }
