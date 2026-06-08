@@ -34,7 +34,7 @@ export function buildEemDriverSummary({
   const periodAnalysis = sectionAnalysis.periodAnalyses.find((item) => item.period.id === activePeriodId);
   const fixedAssetAmounts = fixedAssetSchedule.totals[activePeriodId];
   const depreciationAddBack = fixedAssetSchedule.hasInput
-    ? (fixedAssetAmounts?.depreciationAdditions ?? 0)
+    ? -(fixedAssetAmounts?.depreciationAdditions ?? 0)
     : periodAnalysis?.depreciationAddback ?? 0;
   const acquisitionAdditions = fixedAssetSchedule.hasInput
     ? Math.abs(fixedAssetAmounts?.acquisitionAdditions ?? 0)
