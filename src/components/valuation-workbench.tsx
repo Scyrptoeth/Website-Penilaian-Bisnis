@@ -3138,9 +3138,9 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     display: "currency" | "percent" | "multiple",
     patch: Partial<CashFlowOverrideEntry>,
   ) {
-    commitCoreState((current) => {
-      const overrideKey = buildAnalysisValueOverrideKey(section, rowKey);
-      const currentEntry = current.analysisValueOverrides[overrideKey]?.[periodId] ?? { value: "", reason: "", updatedAt: "" };
+    const overrideKey = buildAnalysisValueOverrideKey(section, rowKey);
+    const nextAnalysisValueOverrides = (current: AnalysisValueOverrideState): AnalysisValueOverrideState => {
+      const currentEntry = current[overrideKey]?.[periodId] ?? { value: "", reason: "", updatedAt: "" };
       const nextEntry: CashFlowOverrideEntry = {
         ...currentEntry,
         ...patch,
@@ -3152,7 +3152,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
             : currentEntry.value,
         updatedAt: new Date().toISOString(),
       };
-      const nextOverrides = { ...current.analysisValueOverrides };
+      const nextOverrides = { ...current };
       const nextRowOverrides = { ...(nextOverrides[overrideKey] ?? {}) };
 
       if (!nextEntry.value.trim()) {
@@ -3167,11 +3167,16 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         nextOverrides[overrideKey] = nextRowOverrides;
       }
 
+      return nextOverrides;
+    };
+
+    commitCoreState((current) => {
       return {
         ...current,
-        analysisValueOverrides: nextOverrides,
+        analysisValueOverrides: nextAnalysisValueOverrides(current.analysisValueOverrides),
       };
     });
+    setCalculatedAnalysisValueOverrides(nextAnalysisValueOverrides);
   }
 
   function toggleCashFlowAccountInclusion(rowKey: CashFlowWorkingCapitalRowKey, accountRowId: string, included: boolean) {
