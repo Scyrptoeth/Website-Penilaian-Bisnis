@@ -10,6 +10,7 @@ import { SuperAdminUserManagement } from "./super-admin-user-management";
 type AuthSidebarActionsProps = {
   userId: string;
   isSuperAdmin?: boolean;
+  includeManual?: boolean;
 };
 
 type ActionStatus = {
@@ -44,23 +45,10 @@ const userManualOptions = [
   },
 ] as const;
 
-export function AuthSidebarActions({ userId, isSuperAdmin = false }: AuthSidebarActionsProps) {
-  const router = useRouter();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+export function UserManualMenu() {
   const [isManualMenuOpen, setIsManualMenuOpen] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [status, setStatus] = useState<ActionStatus>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
-  const [isPending, startTransition] = useTransition();
   const manualMenuRef = useRef<HTMLDivElement>(null);
   const manualPanelRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
 
   useEffect(() => {
     if (!isManualMenuOpen) {
@@ -91,6 +79,73 @@ export function AuthSidebarActions({ userId, isSuperAdmin = false }: AuthSidebar
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [isManualMenuOpen]);
+
+  return (
+    <div className="manual-menu" ref={manualMenuRef}>
+      <button
+        className="auth-nav-action manual"
+        type="button"
+        aria-label="Buku Panduan"
+        aria-haspopup="menu"
+        aria-expanded={isManualMenuOpen}
+        onClick={() => setIsManualMenuOpen((isOpen) => !isOpen)}
+      >
+        <BookOpen size={14} aria-hidden="true" />
+        <span>Buku Panduan</span>
+        <ChevronDown size={13} aria-hidden="true" />
+      </button>
+      {isManualMenuOpen ? (
+        <div className="manual-menu-panel" role="menu" aria-label="Pilihan Buku Panduan" ref={manualPanelRef}>
+          {userManualOptions.map((option) => (
+            <a
+              className="manual-menu-item"
+              href={option.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              role="menuitem"
+              aria-label={`${option.label}. ${option.description}. Buka PDF di tab baru.`}
+              onClick={() => setIsManualMenuOpen(false)}
+              key={option.href}
+            >
+              <span className="manual-menu-icon" aria-hidden="true">
+                <FileText size={13} aria-hidden="true" />
+              </span>
+              <span className="manual-menu-copy">
+                <span className="manual-menu-title">{option.label}</span>
+                <span className="manual-menu-description">{option.description}</span>
+                <span className="manual-menu-methods" aria-label={`Cakupan metode ${option.methods.join(", ")}`}>
+                  {option.methods.map((method) => (
+                    <span className={`manual-method-badge method-${method.toLowerCase()}`} key={method}>
+                      {method}
+                    </span>
+                  ))}
+                </span>
+              </span>
+              <span className="manual-menu-filetype" aria-hidden="true">
+                PDF
+              </span>
+            </a>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export function AuthSidebarActions({ userId, isSuperAdmin = false, includeManual = true }: AuthSidebarActionsProps) {
+  const router = useRouter();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [status, setStatus] = useState<ActionStatus>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -141,52 +196,7 @@ export function AuthSidebarActions({ userId, isSuperAdmin = false }: AuthSidebar
   return (
     <div className="auth-sidebar-actions">
       <p className="auth-user-chip">Login sebagai {userId}</p>
-      <div className="manual-menu" ref={manualMenuRef}>
-        <button
-          className="auth-nav-action manual"
-          type="button"
-          aria-label="Buku Panduan"
-          aria-haspopup="menu"
-          aria-expanded={isManualMenuOpen}
-          onClick={() => setIsManualMenuOpen((isOpen) => !isOpen)}
-        >
-          <BookOpen size={14} aria-hidden="true" />
-          <span>Buku Panduan</span>
-          <ChevronDown size={13} aria-hidden="true" />
-        </button>
-        {isManualMenuOpen ? (
-          <div className="manual-menu-panel" role="menu" aria-label="Pilihan Buku Panduan" ref={manualPanelRef}>
-            {userManualOptions.map((option) => (
-              <a
-                className="manual-menu-item"
-                href={option.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                role="menuitem"
-                aria-label={`${option.label}. ${option.description}. Buka PDF di tab baru.`}
-                onClick={() => setIsManualMenuOpen(false)}
-                key={option.href}
-              >
-                <span className="manual-menu-icon" aria-hidden="true">
-                  <FileText size={13} aria-hidden="true" />
-                </span>
-                <span className="manual-menu-copy">
-                  <span className="manual-menu-title">{option.label}</span>
-                  <span className="manual-menu-description">{option.description}</span>
-                  <span className="manual-menu-methods" aria-label={`Cakupan metode ${option.methods.join(", ")}`}>
-                    {option.methods.map((method) => (
-                      <span className={`manual-method-badge method-${method.toLowerCase()}`} key={method}>
-                        {method}
-                      </span>
-                    ))}
-                  </span>
-                </span>
-                <span className="manual-menu-filetype" aria-hidden="true">PDF</span>
-              </a>
-            ))}
-          </div>
-        ) : null}
-      </div>
+      {includeManual ? <UserManualMenu /> : null}
       <button className="auth-nav-action" type="button" aria-label="Ganti Password" onClick={() => {
         setStatus(null);
         setIsDialogOpen(true);

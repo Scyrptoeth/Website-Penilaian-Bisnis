@@ -24,7 +24,7 @@ import {
   TableProperties,
   Trash2,
 } from "lucide-react";
-import { AuthSidebarActions } from "@/components/auth-sidebar-actions";
+import { AuthSidebarActions, UserManualMenu } from "@/components/auth-sidebar-actions";
 import { accountMappingRules } from "@/lib/valuation/account-taxonomy";
 import {
   applyBalanceSheetClassificationToDisplayLabels,
@@ -3979,6 +3979,11 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
             </button>
           </div>
           <nav className="nav-list" aria-label="Bagian model">
+            <div className="nav-group" role="group" aria-label="Panduan">
+              <div className="nav-group-items">
+                <UserManualMenu />
+              </div>
+            </div>
             {workflowNavigationGroups.map((group) => (
               <div className="nav-group" role="group" aria-label={group.label} key={group.label}>
                 <p className="nav-group-label">{group.label}</p>
@@ -4002,7 +4007,9 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
                       <WorkflowMethodBadges methods={item.methods} />
                     </button>
                   ))}
-                  {group.label === "Review" && authUserId ? <AuthSidebarActions userId={authUserId} isSuperAdmin={isSuperAdmin} /> : null}
+                  {group.label === "Review" && authUserId ? (
+                    <AuthSidebarActions userId={authUserId} isSuperAdmin={isSuperAdmin} includeManual={false} />
+                  ) : null}
                 </div>
               </div>
             ))}

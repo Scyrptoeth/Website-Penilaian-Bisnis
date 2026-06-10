@@ -408,14 +408,17 @@ svg {
   color: #1d4ed8;
 }
 
+.nav-list .manual-menu .auth-nav-action.manual {
+  width: 100%;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  border-color: rgba(37, 99, 235, 0.22);
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
 .manual-menu {
   position: relative;
   min-width: 0;
-}
-
-.nav-list .auth-sidebar-actions .manual-menu .auth-nav-action.manual {
-  width: 100%;
-  grid-template-columns: auto minmax(0, 1fr) auto;
 }
 
 .manual-menu-panel {
