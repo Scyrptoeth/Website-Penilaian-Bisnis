@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { BookOpen, ChevronDown, KeyRound, LogOut, X } from "lucide-react";
+import { BookOpen, ChevronDown, FileText, KeyRound, LogOut, X } from "lucide-react";
 import { PasswordVisibilityInput } from "./password-visibility-input";
 import { SuperAdminUserManagement } from "./super-admin-user-management";
 
@@ -20,18 +20,26 @@ type ActionStatus = {
 const userManualOptions = [
   {
     label: "Penilaian AAM + EEM + DCF",
+    description: "Panduan lengkap untuk tiga metode",
+    methods: ["AAM", "EEM", "DCF"],
     href: "/buku-panduan-penilaian-aam-eem-dcf.pdf",
   },
   {
     label: "Penilaian AAM",
+    description: "Asset-based approach",
+    methods: ["AAM"],
     href: "/buku-panduan-penilaian-aam.pdf",
   },
   {
     label: "Penilaian EEM",
+    description: "Excess earnings method",
+    methods: ["EEM"],
     href: "/buku-panduan-penilaian-eem.pdf",
   },
   {
     label: "Penilaian DCF",
+    description: "Discounted cash flow",
+    methods: ["DCF"],
     href: "/buku-panduan-penilaian-dcf.pdf",
   },
 ] as const;
@@ -48,6 +56,7 @@ export function AuthSidebarActions({ userId, isSuperAdmin = false }: AuthSidebar
   const [isMounted, setIsMounted] = useState(false);
   const [isPending, startTransition] = useTransition();
   const manualMenuRef = useRef<HTMLDivElement>(null);
+  const manualPanelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setIsMounted(true);
@@ -57,6 +66,10 @@ export function AuthSidebarActions({ userId, isSuperAdmin = false }: AuthSidebar
     if (!isManualMenuOpen) {
       return;
     }
+
+    window.requestAnimationFrame(() => {
+      manualPanelRef.current?.scrollIntoView({ block: "nearest" });
+    });
 
     function handlePointerDown(event: PointerEvent) {
       if (!manualMenuRef.current?.contains(event.target as Node)) {
@@ -137,12 +150,12 @@ export function AuthSidebarActions({ userId, isSuperAdmin = false }: AuthSidebar
           aria-expanded={isManualMenuOpen}
           onClick={() => setIsManualMenuOpen((isOpen) => !isOpen)}
         >
-          <BookOpen size={14} />
+          <BookOpen size={14} aria-hidden="true" />
           <span>Buku Panduan</span>
           <ChevronDown size={13} aria-hidden="true" />
         </button>
         {isManualMenuOpen ? (
-          <div className="manual-menu-panel" role="menu" aria-label="Pilihan Buku Panduan">
+          <div className="manual-menu-panel" role="menu" aria-label="Pilihan Buku Panduan" ref={manualPanelRef}>
             {userManualOptions.map((option) => (
               <a
                 className="manual-menu-item"
@@ -150,10 +163,25 @@ export function AuthSidebarActions({ userId, isSuperAdmin = false }: AuthSidebar
                 target="_blank"
                 rel="noopener noreferrer"
                 role="menuitem"
+                aria-label={`${option.label}. ${option.description}. Buka PDF di tab baru.`}
                 onClick={() => setIsManualMenuOpen(false)}
                 key={option.href}
               >
-                <span>{option.label}</span>
+                <span className="manual-menu-icon" aria-hidden="true">
+                  <FileText size={13} aria-hidden="true" />
+                </span>
+                <span className="manual-menu-copy">
+                  <span className="manual-menu-title">{option.label}</span>
+                  <span className="manual-menu-description">{option.description}</span>
+                  <span className="manual-menu-methods" aria-label={`Cakupan metode ${option.methods.join(", ")}`}>
+                    {option.methods.map((method) => (
+                      <span className={`manual-method-badge method-${method.toLowerCase()}`} key={method}>
+                        {method}
+                      </span>
+                    ))}
+                  </span>
+                </span>
+                <span className="manual-menu-filetype" aria-hidden="true">PDF</span>
               </a>
             ))}
           </div>
@@ -163,12 +191,12 @@ export function AuthSidebarActions({ userId, isSuperAdmin = false }: AuthSidebar
         setStatus(null);
         setIsDialogOpen(true);
       }}>
-        <KeyRound size={14} />
+        <KeyRound size={14} aria-hidden="true" />
         <span>Ganti Password</span>
       </button>
       {isSuperAdmin ? <SuperAdminUserManagement currentUserId={userId} /> : null}
       <button className="auth-nav-action danger" type="button" onClick={handleLogout} disabled={isPending} aria-label="Keluar">
-        <LogOut size={14} />
+        <LogOut size={14} aria-hidden="true" />
         <span>{isPending ? "Keluar..." : "Keluar"}</span>
       </button>
 
@@ -196,7 +224,7 @@ export function AuthSidebarActions({ userId, isSuperAdmin = false }: AuthSidebar
               aria-label="Tutup dialog ganti password"
               title="Tutup"
             >
-              <X size={16} />
+              <X size={16} aria-hidden="true" />
             </button>
           </div>
           <form className="auth-dialog-form" onSubmit={handlePasswordChange}>
