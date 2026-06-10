@@ -1,9 +1,9 @@
 "use client";
 
-import { FormEvent, useEffect, useState, useTransition } from "react";
+import { FormEvent, useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { BookOpen, KeyRound, LogOut, X } from "lucide-react";
+import { BookOpen, ChevronDown, KeyRound, LogOut, X } from "lucide-react";
 import { PasswordVisibilityInput } from "./password-visibility-input";
 import { SuperAdminUserManagement } from "./super-admin-user-management";
 
@@ -17,9 +17,29 @@ type ActionStatus = {
   message: string;
 } | null;
 
+const userManualOptions = [
+  {
+    label: "Penilaian AAM + EEM + DCF",
+    href: "/buku-panduan-penilaian-aam-eem-dcf.pdf",
+  },
+  {
+    label: "Penilaian AAM",
+    href: "/buku-panduan-penilaian-aam.pdf",
+  },
+  {
+    label: "Penilaian EEM",
+    href: "/buku-panduan-penilaian-eem.pdf",
+  },
+  {
+    label: "Penilaian DCF",
+    href: "/buku-panduan-penilaian-dcf.pdf",
+  },
+] as const;
+
 export function AuthSidebarActions({ userId, isSuperAdmin = false }: AuthSidebarActionsProps) {
   const router = useRouter();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isManualMenuOpen, setIsManualMenuOpen] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -27,10 +47,37 @@ export function AuthSidebarActions({ userId, isSuperAdmin = false }: AuthSidebar
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const manualMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!isManualMenuOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      if (!manualMenuRef.current?.contains(event.target as Node)) {
+        setIsManualMenuOpen(false);
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsManualMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isManualMenuOpen]);
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -81,16 +128,37 @@ export function AuthSidebarActions({ userId, isSuperAdmin = false }: AuthSidebar
   return (
     <div className="auth-sidebar-actions">
       <p className="auth-user-chip">Login sebagai {userId}</p>
-      <a
-        className="auth-nav-action manual"
-        href="/buku-panduan-penggunaan-aplikasi-penilaian-bisnis-ii.pdf"
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="Buku Panduan"
-      >
-        <BookOpen size={14} />
-        <span>Buku Panduan</span>
-      </a>
+      <div className="manual-menu" ref={manualMenuRef}>
+        <button
+          className="auth-nav-action manual"
+          type="button"
+          aria-label="Buku Panduan"
+          aria-haspopup="menu"
+          aria-expanded={isManualMenuOpen}
+          onClick={() => setIsManualMenuOpen((isOpen) => !isOpen)}
+        >
+          <BookOpen size={14} />
+          <span>Buku Panduan</span>
+          <ChevronDown size={13} aria-hidden="true" />
+        </button>
+        {isManualMenuOpen ? (
+          <div className="manual-menu-panel" role="menu" aria-label="Pilihan Buku Panduan">
+            {userManualOptions.map((option) => (
+              <a
+                className="manual-menu-item"
+                href={option.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                role="menuitem"
+                onClick={() => setIsManualMenuOpen(false)}
+                key={option.href}
+              >
+                <span>{option.label}</span>
+              </a>
+            ))}
+          </div>
+        ) : null}
+      </div>
       <button className="auth-nav-action" type="button" aria-label="Ganti Password" onClick={() => {
         setStatus(null);
         setIsDialogOpen(true);

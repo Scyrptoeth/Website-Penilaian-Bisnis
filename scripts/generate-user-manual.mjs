@@ -26,7 +26,7 @@ const screenshotPlan = [
     id: "manual-button",
     file: "02-buku-panduan-button.png",
     title: "Tombol Buku Panduan",
-    caption: "Tombol Buku Panduan berada di atas Ganti Password dan membuka PDF statis pada tab baru.",
+    caption: "Tombol Buku Panduan berada di atas Ganti Password dan menampilkan pilihan PDF panduan sesuai metode penilaian.",
   },
   {
     id: "data-awal",
@@ -538,7 +538,7 @@ async function imageToDataUri(absolutePath) {
 function renderFeatureSummary() {
   const rows = [
     ["Login", "Masuk memakai NIP Pendek dan Password Pengguna."],
-    ["Buku Panduan", "Membuka file PDF statis pada tab baru dari sidebar atau area aksi akun."],
+    ["Buku Panduan", "Menampilkan pilihan panduan AAM + EEM + DCF, AAM, EEM, atau DCF lalu membuka PDF terkait pada tab baru."],
     ["Ganti Password", "Mengubah password pengguna sendiri dengan validasi panjang dan konfirmasi."],
     ["Keluar", "Mengakhiri sesi dan kembali ke halaman login."],
     ["Workspace lokal", "Membuat, menduplikasi, mengganti nama, menghapus, dan berpindah workspace lokal."],
@@ -563,7 +563,7 @@ function renderFeatureSummary() {
 function renderUsageSteps() {
   const steps = [
     ["1", "Login ke aplikasi memakai NIP Pendek dan Password Pengguna."],
-    ["2", "Buka tombol Buku Panduan bila perlu membaca instruksi di tab baru."],
+    ["2", "Buka tombol Buku Panduan lalu pilih metode penilaian yang sesuai bila perlu membaca instruksi di tab baru."],
     ["3", "Isi Data Awal sesuai tabel Profil Kasus, termasuk objek pajak, subjek pajak, jenis perusahaan, jenis pengalihan, nilai saham, dan tahun transaksi."],
     ["4", "Atur periode laporan keuangan. Pastikan tahun penilaian aktif dan periode historis sudah sesuai label yang dibutuhkan."],
     ["5", "Masuk ke tab Neraca. Tambahkan seluruh akun neraca satu per satu, pilih kategori utama atau override bila perlu, lalu isi nilai per periode."],

@@ -408,6 +408,57 @@ svg {
   color: #1d4ed8;
 }
 
+.manual-menu {
+  position: relative;
+  min-width: 0;
+}
+
+.nav-list .auth-sidebar-actions .manual-menu .auth-nav-action.manual {
+  width: 100%;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.manual-menu-panel {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 0;
+  z-index: 55;
+  display: grid;
+  gap: 3px;
+  width: min(260px, calc(100vw - 32px));
+  padding: 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: #ffffff;
+  box-shadow: var(--shadow);
+}
+
+.manual-menu-item {
+  display: grid;
+  min-height: 38px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.manual-menu-item:hover,
+.manual-menu-item:focus-visible {
+  border-color: rgba(37, 99, 235, 0.38);
+  outline: 2px solid rgba(37, 99, 235, 0.14);
+  outline-offset: 1px;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.manual-menu-item span {
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
 .nav-list .auth-sidebar-actions .auth-nav-action.danger {
   border-color: rgba(180, 35, 24, 0.18);
   background: var(--danger-soft);
@@ -7072,6 +7123,19 @@ td span {
     border-color: rgba(37, 99, 235, 0.22);
     background: #eff6ff;
     color: #1d4ed8;
+  }
+
+  .mobile-auth-actions .manual-menu {
+    min-width: 0;
+  }
+
+  .mobile-auth-actions .manual-menu .auth-nav-action.manual {
+    width: 100%;
+  }
+
+  .mobile-auth-actions .manual-menu-panel {
+    left: auto;
+    right: 0;
   }
 
   .mobile-auth-actions .auth-nav-action.danger {
