@@ -4,6 +4,7 @@ import { parseInputNumber, type BalanceSheetClassification, type FixedAssetPerio
 import type { AccountCategory } from "./types";
 
 export type BalanceSheetLine = {
+  accountRowId?: string;
   label: string;
   categoryId: AccountCategory | "DERIVED_FIXED_ASSET";
   category: string;
@@ -72,6 +73,7 @@ export function buildBalanceSheetView(periods: Period[], mappedRows: MappedRow[]
     }
 
     const line: BalanceSheetLine = {
+      accountRowId: item.row.id,
       label: item.row.accountName || categoryLabelMap.get(item.effectiveCategory) || item.effectiveCategory,
       categoryId: item.effectiveCategory,
       category: categoryLabelMap.get(item.effectiveCategory) || item.effectiveCategory,

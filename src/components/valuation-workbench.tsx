@@ -10,12 +10,14 @@ import {
   CalendarDays,
   CheckCircle2,
   ChevronDown,
+  ChevronUp,
   Eraser,
   FileBraces,
   FileSearch,
   FileSpreadsheet,
   FileText,
   GitBranch,
+  GripVertical,
   MessageCircle,
   PanelLeftClose,
   PanelLeftOpen,
@@ -35,7 +37,12 @@ import {
   getEffectiveBalanceSheetClassification,
   inferBalanceSheetClassification,
 } from "@/lib/valuation/balance-sheet-classification";
-import { buildBalanceSheetView, groupBalanceSheetLines, type BalanceSheetView } from "@/lib/valuation/balance-sheet-view";
+import { buildBalanceSheetView, type BalanceSheetView } from "@/lib/valuation/balance-sheet-view";
+import {
+  applyAccountRowOrder,
+  moveAccountRowByOffset,
+  moveAccountRowToTarget,
+} from "@/lib/valuation/balance-sheet-row-order";
 import {
   buildIncomeStatementView,
   formatIncomeStatementInputValue,
@@ -2978,6 +2985,16 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     }));
   }
 
+  function reorderBalanceSheetRows(orderedRowIds: string[]) {
+    if (orderedRowIds.length < 2) {
+      return;
+    }
+
+    setRows((current) => applyAccountRowOrder(current, orderedRowIds));
+    setCalculatedRows((current) => applyAccountRowOrder(current, orderedRowIds));
+    setHasUnsavedChanges(true);
+  }
+
   function removeRow(id: string) {
     const row = rows.find((item) => item.id === id);
     const accountName = row?.accountName.trim() || "baris akun ini";
@@ -4483,7 +4500,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
             )}
           </div>
 
-          <BalanceSheetPositionTable periods={periods} view={balanceSheetView} />
+          <BalanceSheetPositionTable periods={periods} view={balanceSheetView} onReorderRows={reorderBalanceSheetRows} />
         </section>
         ) : null}
 
@@ -11879,7 +11896,17 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function BalanceSheetPositionTable({ periods, view }: { periods: Period[]; view: BalanceSheetView }) {
+function BalanceSheetPositionTable({
+  periods,
+  view,
+  onReorderRows,
+}: {
+  periods: Period[];
+  view: BalanceSheetView;
+  onReorderRows: (orderedRowIds: string[]) => void;
+}) {
+  const [draggedRowId, setDraggedRowId] = useState<string | null>(null);
+
   if (!view.hasRows) {
     return null;
   }
@@ -11891,12 +11918,16 @@ function BalanceSheetPositionTable({ periods, view }: { periods: Period[]; view:
           <p className="eyebrow">Neraca</p>
           <h4>Posisi Aset · Liabilitas · Ekuitas</h4>
         </div>
-        <span className="status-pill muted">{view.hasFixedAssetScheduleLines ? "Termasuk fixed asset otomatis" : "Dikelompokkan otomatis"}</span>
+        <span className="status-pill muted">Re-order manual aktif</span>
       </div>
+      <p className="balance-reorder-hint">
+        Seret akun atau gunakan tombol panah. Urutan tersimpan otomatis dan tetap dibatasi pada kelas Aset, Liabilitas, atau Ekuitas yang sama.
+      </p>
       <div className="table-wrap">
         <table className="balance-sheet-table" data-testid="balance-sheet-position-table">
           <thead>
             <tr>
+              <th className="balance-reorder-column">Urut</th>
               <th>Pos</th>
               <th>Detail</th>
               <th>Akun / komponen</th>
@@ -11910,48 +11941,113 @@ function BalanceSheetPositionTable({ periods, view }: { periods: Period[]; view:
             </tr>
           </thead>
           <tbody>
-            {view.sections.map((section) => (
-              <Fragment key={section.title}>
+            {view.sections.map((section) => {
+              const orderedRowIds = section.lines.flatMap((line) => (line.accountRowId ? [line.accountRowId] : []));
+
+              return (
+                <Fragment key={section.title}>
                 <tr className="balance-section-row">
-                  <td colSpan={periods.length + 5}>{section.title}</td>
+                  <td colSpan={periods.length + 6}>{section.title}</td>
                 </tr>
                 {section.lines.length === 0 ? (
                   <tr>
+                    <td className="balance-reorder-column" />
                     <td>{section.title}</td>
                     <td colSpan={periods.length + 4}>Belum ada akun pada kelompok ini.</td>
                   </tr>
                 ) : (
-                  groupBalanceSheetLines(section.lines).map((group) => (
-                    <Fragment key={`${section.title}-${group.key}`}>
-                      <tr className="balance-detail-row">
-                        <td>{section.title}</td>
-                        <td colSpan={periods.length + 4}>{group.label}</td>
-                      </tr>
-                      {group.lines.map((line, index) => (
-                        <tr key={`${section.title}-${group.key}-${line.label}-${index}`}>
-                          <td>{section.title}</td>
-                          <td>{balanceSheetClassificationLabelMap.get(line.balanceSheetClassification as BalanceSheetClassification) ?? group.label}</td>
-                          <td>
-                            <strong>{line.label}</strong>
-                            <span>{line.category}</span>
-                          </td>
-                          <td>{line.source}</td>
-                          {periods.map((period) => (
-                            <td className="numeric-cell period-column" key={period.id}>
-                              {formatInputNumber(line.values[period.id] ?? 0)}
-                            </td>
-                          ))}
-                          <td>
-                            <span className={line.isDerived ? "badge ok" : line.isOverride ? "badge warning" : "badge muted"}>
-                              {line.isDerived ? "Otomatis" : line.isOverride ? "Override" : "Input"}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </Fragment>
-                  ))
+                  section.lines.map((line, index) => {
+                          const rowIndex = line.accountRowId ? orderedRowIds.indexOf(line.accountRowId) : -1;
+                          const canMoveUp = rowIndex > 0;
+                          const canMoveDown = rowIndex >= 0 && rowIndex < orderedRowIds.length - 1;
+                          const canAcceptDrop = Boolean(line.accountRowId && draggedRowId && orderedRowIds.includes(draggedRowId));
+
+                          return (
+                            <tr
+                              className={draggedRowId === line.accountRowId ? "balance-account-row dragging" : "balance-account-row"}
+                              data-account-row-id={line.accountRowId}
+                              key={`${section.title}-${line.accountRowId ?? `${line.label}-${index}`}`}
+                              onDragOver={(event) => {
+                                if (canAcceptDrop) {
+                                  event.preventDefault();
+                                  event.dataTransfer.dropEffect = "move";
+                                }
+                              }}
+                              onDrop={(event) => {
+                                if (!line.accountRowId || !draggedRowId || !canAcceptDrop) {
+                                  return;
+                                }
+
+                                event.preventDefault();
+                                onReorderRows(moveAccountRowToTarget(orderedRowIds, draggedRowId, line.accountRowId));
+                                setDraggedRowId(null);
+                              }}
+                            >
+                              <td className="balance-reorder-column">
+                                {line.accountRowId ? (
+                                  <div className="balance-reorder-controls">
+                                    <span
+                                      aria-hidden="true"
+                                      className="balance-drag-handle"
+                                      draggable
+                                      title={`Seret untuk memindahkan ${line.label}`}
+                                      onDragEnd={() => setDraggedRowId(null)}
+                                      onDragStart={(event) => {
+                                        event.dataTransfer.effectAllowed = "move";
+                                        event.dataTransfer.setData("text/plain", line.accountRowId ?? "");
+                                        setDraggedRowId(line.accountRowId ?? null);
+                                      }}
+                                    >
+                                      <GripVertical size={16} />
+                                    </span>
+                                    <button
+                                      aria-label={`Pindahkan ${line.label} ke atas`}
+                                      className="balance-reorder-button"
+                                      disabled={!canMoveUp}
+                                      type="button"
+                                      onClick={() => onReorderRows(moveAccountRowByOffset(orderedRowIds, line.accountRowId ?? "", -1))}
+                                    >
+                                      <ChevronUp aria-hidden="true" size={15} />
+                                    </button>
+                                    <button
+                                      aria-label={`Pindahkan ${line.label} ke bawah`}
+                                      className="balance-reorder-button"
+                                      disabled={!canMoveDown}
+                                      type="button"
+                                      onClick={() => onReorderRows(moveAccountRowByOffset(orderedRowIds, line.accountRowId ?? "", 1))}
+                                    >
+                                      <ChevronDown aria-hidden="true" size={15} />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <span className="balance-system-order">Sistem</span>
+                                )}
+                              </td>
+                              <td>{section.title}</td>
+                              <td>
+                                {balanceSheetClassificationLabelMap.get(line.balanceSheetClassification as BalanceSheetClassification) ?? "Belum diklasifikasi"}
+                              </td>
+                              <td>
+                                <strong>{line.label}</strong>
+                                <span>{line.category}</span>
+                              </td>
+                              <td>{line.source}</td>
+                              {periods.map((period) => (
+                                <td className="numeric-cell period-column" key={period.id}>
+                                  {formatInputNumber(line.values[period.id] ?? 0)}
+                                </td>
+                              ))}
+                              <td>
+                                <span className={line.isDerived ? "badge ok" : line.isOverride ? "badge warning" : "badge muted"}>
+                                  {line.isDerived ? "Otomatis" : line.isOverride ? "Override" : "Input"}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                  })
                 )}
                 <tr className="total-row">
+                  <td className="balance-reorder-column" />
                   <td>{section.title}</td>
                   <td>Total</td>
                   <td>{section.totalLabel}</td>
@@ -11963,9 +12059,11 @@ function BalanceSheetPositionTable({ periods, view }: { periods: Period[]; view:
                   ))}
                   <td />
                 </tr>
-              </Fragment>
-            ))}
+                </Fragment>
+              );
+            })}
             <tr className="total-row balance-liabilities-equity-row">
+              <td className="balance-reorder-column" />
               <td>Liabilitas + Ekuitas</td>
               <td>Total</td>
               <td>Total Liabilitas + Ekuitas</td>
@@ -11978,6 +12076,7 @@ function BalanceSheetPositionTable({ periods, view }: { periods: Period[]; view:
               <td />
             </tr>
             <tr className="balance-check-row">
+              <td className="balance-reorder-column" />
               <td>Cek Kesesuaian</td>
               <td>Model</td>
               <td>Aset - (Liabilitas + Ekuitas)</td>
