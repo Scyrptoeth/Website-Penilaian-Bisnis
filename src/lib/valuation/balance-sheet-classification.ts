@@ -15,6 +15,38 @@ export const balanceSheetClassificationOptions: Array<{ value: BalanceSheetClass
 export const balanceSheetClassificationLabelMap = new Map(balanceSheetClassificationOptions.map((option) => [option.value, option.label]));
 export const balanceSheetClassificationValueSet = new Set<BalanceSheetClassification>(balanceSheetClassificationOptions.map((option) => option.value));
 
+export type BalanceSheetPositionGroupKey = "asset" | "liability" | "equity" | "unclassified";
+
+export type BalanceSheetPositionGroup = {
+  key: BalanceSheetPositionGroupKey;
+  label: string;
+  description: string;
+  rows: MappedRow[];
+};
+
+const balanceSheetPositionGroupDefinitions: Array<Omit<BalanceSheetPositionGroup, "rows">> = [
+  {
+    key: "asset",
+    label: "Aset",
+    description: "Sumber daya ekonomi yang dikendalikan entitas",
+  },
+  {
+    key: "liability",
+    label: "Liabilitas",
+    description: "Kewajiban kini dan sumber pendanaan berbasis utang",
+  },
+  {
+    key: "equity",
+    label: "Ekuitas",
+    description: "Hak residual pemilik setelah dikurangi liabilitas",
+  },
+  {
+    key: "unclassified",
+    label: "Perlu klasifikasi",
+    description: "Akun belum memiliki posisi neraca yang valid",
+  },
+];
+
 export const assetCategories = new Set<AccountCategory>([
   "CASH_ON_HAND",
   "CASH_ON_BANK",
@@ -169,6 +201,46 @@ export function getEffectiveBalanceSheetClassification(item: MappedRow): Balance
   }
 
   return inferBalanceSheetClassification(item.effectiveCategory);
+}
+
+export function getBalanceSheetPositionGroupKey(item: MappedRow): BalanceSheetPositionGroupKey {
+  const classification = getEffectiveBalanceSheetClassification(item);
+
+  if (classification === "current_asset" || classification === "non_current_asset" || classification === "asset_total") {
+    return "asset";
+  }
+
+  if (
+    classification === "current_liability" ||
+    classification === "non_current_liability" ||
+    classification === "liability_total"
+  ) {
+    return "liability";
+  }
+
+  if (classification === "equity") {
+    return "equity";
+  }
+
+  return "unclassified";
+}
+
+export function groupBalanceSheetInputRows(mappedRows: MappedRow[]): BalanceSheetPositionGroup[] {
+  const groupedRows = new Map<BalanceSheetPositionGroupKey, MappedRow[]>(
+    balanceSheetPositionGroupDefinitions.map(({ key }) => [key, []]),
+  );
+
+  mappedRows.forEach((item) => {
+    const key = getBalanceSheetPositionGroupKey(item);
+    groupedRows.get(key)?.push(item);
+  });
+
+  return balanceSheetPositionGroupDefinitions
+    .map((definition) => ({
+      ...definition,
+      rows: groupedRows.get(definition.key) ?? [],
+    }))
+    .filter((group) => group.rows.length > 0);
 }
 
 export function applyBalanceSheetClassificationToDisplayLabels(

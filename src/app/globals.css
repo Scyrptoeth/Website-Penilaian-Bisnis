@@ -3159,6 +3159,74 @@ select {
   width: 80px;
 }
 
+.account-entry-table .balance-input-group-row th {
+  position: relative;
+  padding: 9px 12px;
+  border-top: 2px solid var(--line-strong);
+  border-bottom: 1px solid var(--line);
+  background: #edf5f1;
+  color: var(--ink);
+  text-align: left;
+}
+
+.account-entry-table .balance-input-group-row:first-child th {
+  border-top: 0;
+}
+
+.account-entry-table .balance-input-group-row th::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--accent);
+  content: "";
+}
+
+.account-entry-table .balance-input-group-row.liability th {
+  background: #f2f4f1;
+}
+
+.account-entry-table .balance-input-group-row.liability th::before {
+  background: #69786f;
+}
+
+.account-entry-table .balance-input-group-row.equity th {
+  background: #eef3ea;
+}
+
+.account-entry-table .balance-input-group-row.equity th::before {
+  background: #58705c;
+}
+
+.account-entry-table .balance-input-group-row.unclassified th {
+  background: var(--warning-soft);
+}
+
+.account-entry-table .balance-input-group-row.unclassified th::before {
+  background: var(--warning);
+}
+
+.balance-input-group-name {
+  display: inline-block;
+  margin-right: 8px;
+  font-size: 10.8px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.balance-input-group-description {
+  color: var(--muted);
+  font-size: 9.2px;
+  font-weight: 600;
+}
+
+.balance-input-group-count {
+  float: right;
+  color: var(--ink-soft);
+  font-family: var(--font-mono), monospace;
+  font-size: 8.8px;
+  font-weight: 700;
+}
+
 .account-entry-table .label-impact-column input[type="checkbox"] {
   width: auto;
   height: auto;
