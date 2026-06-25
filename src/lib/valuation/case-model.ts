@@ -1055,8 +1055,10 @@ export function buildSnapshot(
   const depreciationInput = activeAggregate("DEPRECIATION_EXPENSE");
   const depreciation = depreciationInput || fixedAssetScheduleDepreciation;
   const ebitOverride = activeAggregate("EBIT");
-  const computedEbit = revenue + cogsAmount + sellingExpense + gaOverheads + depreciation;
+  const computedEbitda = revenue + cogsAmount + sellingExpense + gaOverheads;
+  const computedEbit = computedEbitda + depreciation;
   const ebit = ebitOverride ? ebitOverride : computedEbit;
+  const ebitda = computedEbitda;
   const corporateTax = activeAggregate("CORPORATE_TAX");
   const hasCorporateTaxInput = hasAggregateInputForPeriod(mappedRows, activePeriodId, ["CORPORATE_TAX"]);
 
@@ -1155,6 +1157,7 @@ export function buildSnapshot(
     sellingExpense,
     gaOverheads,
     depreciation,
+    ebitda,
     ebit,
     corporateTax,
     hasCorporateTaxInput,

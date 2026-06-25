@@ -158,6 +158,7 @@ export interface FinancialStatementSnapshot {
   sellingExpense: number;
   gaOverheads: number;
   depreciation: number;
+  ebitda: number;
   ebit: number;
   corporateTax: number;
   hasCorporateTaxInput: boolean;

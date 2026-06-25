@@ -60,6 +60,7 @@ export const sampleCase: FinancialStatementSnapshot = {
   sellingExpense: 0,
   gaOverheads: -2_641_095_104,
   depreciation: -981_730_341,
+  ebitda: 3_243_162_782,
   ebit: 2_261_432_441,
   corporateTax: -436_128_347,
   hasCorporateTaxInput: true,

@@ -284,7 +284,7 @@ export function buildSectionAnalysis(
     const workingCapitalCashFlowEffect = changeInOperatingCurrentAssets + changeInOperatingCurrentLiabilities;
     const normalizedTaxOnEbit = corporateTaxExpenseForNoplat(snapshot);
     const noplat = normalizedNoplat(snapshot);
-    const ebitda = snapshot.ebit + depreciationAddback;
+    const ebitda = snapshot.ebitda;
     const operatingTaxCashFlow = snapshot.corporateTax || -normalizedTaxOnEbit;
     const cashFlowFromOperations = ebitda + operatingTaxCashFlow + workingCapitalCashFlowEffect;
     const capitalExpenditureCashFlow = -capitalExpenditure;
@@ -466,7 +466,7 @@ function buildPayablesRows(periodAnalyses: PeriodAnalysis[]): AnalysisRow[] {
 
 function buildCashFlowRows(periodAnalyses: PeriodAnalysis[]): AnalysisRow[] {
   return [
-    valueRow(periodAnalyses, "ebitda", "EBITDA", "Model terkoreksi", "EBIT komersial + add-back penyusutan", (item) => item.ebitda),
+    valueRow(periodAnalyses, "ebitda", "EBITDA", "Model terkoreksi", "Laba kotor + beban operasional", (item) => item.ebitda),
     valueRow(periodAnalyses, "operating-tax", "Arus kas pajak operasional", "Input atau fallback ternormalisasi", "Input pajak badan, jika kosong -(EBIT x tarif pajak)", (item) => item.snapshot.corporateTax || -item.normalizedTaxOnEbit),
     sectionRow("wc-section", "Perubahan Operating Working Capital"),
     valueRow(periodAnalyses, "oca-change", "Aset lancar operasional", "Mutasi akun aset lancar terpilih", "-(OCA terpilih kini - OCA terpilih sebelumnya)", (item) =>
@@ -541,8 +541,8 @@ const cashFlowStatementRowSpecs: CashFlowStatementRowSpec[] = [
     key: "ebitda",
     label: "EBITDA",
     section: "operating",
-    source: "Laba Rugi + add-back penyusutan",
-    formula: "EBIT komersial + penyusutan",
+    source: "Laba Rugi",
+    formula: "Laba kotor + beban operasional",
     workbookReference: "CFS!5; INCOME STATEMENT!18",
     reliability: "derived",
     isOverridable: false,
