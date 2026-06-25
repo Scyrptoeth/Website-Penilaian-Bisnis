@@ -1064,8 +1064,8 @@ export function buildSnapshot(
 
   const paidUpCapital = amount(activeAggregate("MODAL_DISETOR"));
   const additionalPaidInCapital = amount(activeAggregate("PENAMBAHAN_MODAL_DISETOR"));
-  const retainedEarningsSurplus = amount(activeAggregate("RETAINED_EARNINGS_SURPLUS"));
-  const retainedEarningsCurrentProfit = amount(activeAggregate("RETAINED_EARNINGS_CURRENT_PROFIT"));
+  const retainedEarningsSurplus = activeAggregate("RETAINED_EARNINGS_SURPLUS");
+  const retainedEarningsCurrentProfit = activeAggregate("RETAINED_EARNINGS_CURRENT_PROFIT");
   const waccCalculation = calculateWaccAssumption(assumptions);
   const governedWaccCalculation = resolveGovernedWaccCalculation(assumptions, waccCalculation);
   const explicitWacc = readRateInput(assumptions.wacc);
@@ -1261,8 +1261,8 @@ export function deriveHistoricalDrivers(periods: Period[], mappedRows: MappedRow
     const interestIncome = aggregate("INTEREST_INCOME");
     const interestExpense = aggregate("INTEREST_EXPENSE");
     const nonOperatingIncome = aggregate("NON_OPERATING_INCOME");
-    const retainedEarningsSurplus = amount(aggregate("RETAINED_EARNINGS_SURPLUS"));
-    const retainedEarningsCurrentProfit = amount(aggregate("RETAINED_EARNINGS_CURRENT_PROFIT"));
+    const retainedEarningsSurplus = aggregate("RETAINED_EARNINGS_SURPLUS");
+    const retainedEarningsCurrentProfit = aggregate("RETAINED_EARNINGS_CURRENT_PROFIT");
 
     return {
       revenue,
