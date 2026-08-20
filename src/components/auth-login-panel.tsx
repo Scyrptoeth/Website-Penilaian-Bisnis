@@ -93,7 +93,7 @@ export function AuthLoginPanel() {
             </div>
             <div>
               <BadgeCheck size={16} />
-              <p>Terimakasih kepada seluruh Penilai yang telah berpartisipasi mengisi Survei Kebutuhan Aplikasi dan berperan aktif memberikan feedback dalam pengembangan aplikasi ini.</p>
+              <p>Terimakasih kepada seluruh Penilai yang telah berpartisipasi mengisi Survei Kebutuhan Aplikasi dan berperan aktif memberikan feedback dalam pengembangan aplikasi ini, terkhusus Penilai Kanwil Sumatera Utara I.</p>
             </div>
           </div>
         </div>
