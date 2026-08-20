@@ -6284,7 +6284,7 @@ function TaxSimulationSection({
             <h3>{primaryRow ? `${primaryRow.method} primary method` : "Primary Method belum dipilih"}</h3>
           </div>
         </div>
-        {primaryRow ? <FormulaList traces={primaryRow.traces} /> : <div className="empty-state">Pilih Primary Method untuk melihat jejak formula final.</div>}
+        {primaryRow ? <FormulaList traces={isMajority ? primaryRow.traces.filter((trace) => trace.label !== "DLOC/PFC adjustment") : primaryRow.traces} /> : <div className="empty-state">Pilih Primary Method untuk melihat jejak formula final.</div>}
       </section>
 
       {primaryRow?.taxBrackets.length ? (
