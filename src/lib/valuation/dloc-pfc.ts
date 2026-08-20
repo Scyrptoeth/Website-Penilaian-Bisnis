@@ -145,10 +145,15 @@ export function buildSampleDlocPfcState(): DlocPfcState {
   };
 }
 
+export function isMajorityShareOwnership(shareOwnershipType: string): boolean {
+  return shareOwnershipType === "Mayoritas";
+}
+
 export function calculateDlocPfc(state: DlocPfcState, caseProfile: CaseProfile): DlocPfcCalculation {
   const companyBasis = resolveCompanyBasis(caseProfile.companyType);
   const adjustmentType = resolveAdjustmentType(caseProfile.shareOwnershipType);
   const range = resolveRange(companyBasis);
+  const isMajorityBypass = isMajorityShareOwnership(caseProfile.shareOwnershipType);
   const factors = dlocPfcFactorDefinitions.map((definition): DlocPfcFactorResult => {
     const input = state.factors[definition.id] ?? { answer: "", overrideReason: "" };
     const option = definition.options.find((item) => item.label === input.answer);
@@ -164,12 +169,14 @@ export function calculateDlocPfc(state: DlocPfcState, caseProfile: CaseProfile):
   });
   const totalScore = factors.reduce((sum, factor) => sum + factor.score, 0);
   const maxScore = dlocPfcFactorDefinitions.length;
-  const isComplete = Boolean(companyBasis && adjustmentType && range && factors.every((factor) => factor.status === "answered"));
+  const isComplete = isMajorityBypass
+    ? false
+    : Boolean(companyBasis && adjustmentType && range && factors.every((factor) => factor.status === "answered"));
   const rangeMin = range?.min ?? 0;
   const rangeMax = range?.max ?? 0;
   const rangeSpread = Math.max(rangeMax - rangeMin, 0);
   const unsignedRate = isComplete ? rangeMin + (totalScore / maxScore) * rangeSpread : 0;
-  const signedRate = adjustmentType === "PFC" ? -unsignedRate : unsignedRate;
+  const signedRate = isMajorityBypass ? 0 : adjustmentType === "PFC" ? -unsignedRate : unsignedRate;
   const adjustmentMultiplier = -signedRate;
   const status = isComplete ? classifyRangePositionStatus(unsignedRate, rangeMin, rangeMax) : "Belum lengkap";
   const taxpayerResistance = isComplete ? classifyTaxpayerResistanceByRangePosition(unsignedRate, rangeMin, rangeMax) : "Belum lengkap";
@@ -196,25 +203,33 @@ export function calculateDlocPfc(state: DlocPfcState, caseProfile: CaseProfile):
         formula: "Jenis Kepemilikan Saham: Minoritas = DLOC; Mayoritas = PFC",
         value: signedRate,
         valueFormat: "percent",
-        note: adjustmentType
-          ? `${caseProfile.shareOwnershipType} menghasilkan ${adjustmentType}; base AAM/EEM/DCF tetap sebelum DLOC/PFC.`
-          : "Jenis Kepemilikan Saham di Data Awal belum lengkap.",
+        note: isMajorityBypass
+          ? "Saham Mayoritas: PFC tidak diperhitungkan. Penilaian hanya memerlukan DLOM."
+          : adjustmentType
+            ? `${caseProfile.shareOwnershipType} menghasilkan ${adjustmentType}; base AAM/EEM/DCF tetap sebelum DLOC/PFC.`
+            : "Jenis Kepemilikan Saham di Data Awal belum lengkap.",
       },
       {
         label: "Rentang DLOC/PFC",
         formula: "Jenis Perusahaan: Tertutup = 30%-70%; Terbuka (Tbk) = 20%-35%",
         value: rangeSpread,
         valueFormat: "percent",
-        note: range ? `${caseProfile.companyType} menghasilkan rentang ${formatRate(range.min)} - ${formatRate(range.max)}.` : "Jenis Perusahaan di Data Awal belum lengkap.",
+        note: isMajorityBypass
+          ? "Rentang tidak dipakai untuk Saham Mayoritas; PFC dibypass."
+          : range
+            ? `${caseProfile.companyType} menghasilkan rentang ${formatRate(range.min)} - ${formatRate(range.max)}.`
+            : "Jenis Perusahaan di Data Awal belum lengkap.",
       },
       {
         label: "DLOC/PFC Objek Penilaian",
         formula: "Batas bawah + (jumlah skor / maksimum skor x selisih rentang)",
         value: signedRate,
         valueFormat: "percent",
-        note: isComplete
-          ? `${adjustmentType} ditampilkan sebagai signed rate ${formatRate(signedRate)}; tax simulation memakai multiplier ${formatRate(adjustmentMultiplier)}.`
-          : "Rate belum diterapkan sampai Data Awal dan seluruh questionnaire DLOC/PFC lengkap.",
+        note: isMajorityBypass
+          ? "Rate 0% untuk Saham Mayoritas; nilai akhir hanya dikurangi DLOM."
+          : isComplete
+            ? `${adjustmentType} ditampilkan sebagai signed rate ${formatRate(signedRate)}; tax simulation memakai multiplier ${formatRate(adjustmentMultiplier)}.`
+            : "Rate belum diterapkan sampai Data Awal dan seluruh questionnaire DLOC/PFC lengkap.",
       },
     ],
   };

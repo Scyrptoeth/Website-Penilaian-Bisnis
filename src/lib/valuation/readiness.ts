@@ -9,7 +9,7 @@ import type {
 } from "./case-model";
 import { calculateRequiredReturnOnNtaAssumption, calculateWaccAssumption } from "./assumption-calculators";
 import type { DlomCalculation } from "./dlom";
-import type { DlocPfcCalculation } from "./dloc-pfc";
+import { isMajorityShareOwnership, type DlocPfcCalculation } from "./dloc-pfc";
 import type { TaxSimulationState } from "./tax-simulation";
 import type { AccountCategory, FinancialStatementSnapshot } from "./types";
 
@@ -171,7 +171,15 @@ export function buildWorkbenchReadiness({
     "periods",
     "Isi Data Awal",
   );
-  const hasDlocPfcAnswers = criterion(dlocPfc.factors.every((factor) => factor.status === "answered"), "Questionnaire DLOC/PFC lengkap", "dlocPfc", "Isi DLOC/PFC");
+  const majorityBypass = isMajorityShareOwnership(caseProfile.shareOwnershipType);
+  const hasDlocPfcAnswers = criterion(
+    majorityBypass || dlocPfc.factors.every((factor) => factor.status === "answered"),
+    majorityBypass
+      ? "Saham Mayoritas: PFC tidak diperhitungkan; penilaian hanya memerlukan DLOM"
+      : "Questionnaire DLOC/PFC lengkap",
+    "dlocPfc",
+    "Isi DLOC/PFC",
+  );
   const hasDlomAnswers = criterion(dlom.factors.every((factor) => factor.status === "answered"), "Questionnaire DLOM lengkap", "dlom", "Isi DLOM");
   const primaryMethod = criterion(taxSimulation.primaryMethod !== "", "Primary Method simulasi pajak dipilih", "taxSimulation", "Pilih Primary Method");
   const reportedTransferValue = criterion(
@@ -193,8 +201,12 @@ export function buildWorkbenchReadiness({
     "Isi Data Awal",
   );
   const dlocPfcReadyForTax = criterion(
-    dlocPfc.isComplete || (taxSimulation.finalBasis === "manualScenario" && taxSimulation.scenarioDlocPfcRate.trim() !== ""),
-    "DLOC/PFC otomatis tersedia atau skenario manual memiliki rate pembanding",
+    majorityBypass ||
+      dlocPfc.isComplete ||
+      (taxSimulation.finalBasis === "manualScenario" && taxSimulation.scenarioDlocPfcRate.trim() !== ""),
+    majorityBypass
+      ? "Saham Mayoritas: PFC dibypass; nilai akhir hanya dikurangi DLOM"
+      : "DLOC/PFC otomatis tersedia atau skenario manual memiliki rate pembanding",
     "dlocPfc",
     "Lengkapi DLOC/PFC",
   );

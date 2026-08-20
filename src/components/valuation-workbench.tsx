@@ -228,6 +228,7 @@ import {
   calculateDlocPfc,
   createEmptyDlocPfcState,
   dlocPfcFactorDefinitions,
+  isMajorityShareOwnership,
   normalizeDlocPfcState,
   type DlocPfcCalculation,
   type DlocPfcFactorId,
@@ -2783,12 +2784,17 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         shouldRefreshSectorSuggestions
           ? applyIdxComparableSuggestions(current.assumptions, nextCaseProfile.companySector, "empty-only", nextComparableValuationDate)
           : current.assumptions;
+      const shouldResetDlocPfc =
+        key === "shareOwnershipType" &&
+        isMajorityShareOwnership(nextCaseProfile.shareOwnershipType) &&
+        hasDlocPfcInput(current.dlocPfc);
 
       return {
         ...current,
         periods: nextPeriods,
         caseProfile: nextCaseProfile,
         assumptions: nextAssumptions,
+        dlocPfc: shouldResetDlocPfc ? createEmptyDlocPfcState() : current.dlocPfc,
       };
     });
   }
@@ -5356,6 +5362,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
         {activeWorkflowTab === "dlocPfc" ? (
           <DlocPfcSection
             calculation={draftDlocPfcCalculation}
+            shareOwnershipType={caseProfile.shareOwnershipType}
             guidanceTarget={guidanceTarget === "dloc-pfc-questionnaire" ? "dloc-pfc-questionnaire" : undefined}
             readiness={readiness.dlocPfc}
             onNavigate={navigateToWorkflowTab}
@@ -5370,6 +5377,7 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
             result={draftTaxSimulationResult}
             dlom={draftDlomCalculation}
             dlocPfc={draftDlocPfcCalculation}
+            shareOwnershipType={caseProfile.shareOwnershipType}
             caseProfileDerived={caseProfileDerived}
             guidanceTarget={guidanceTarget === "tax-primary-method" ? "tax-primary-method" : undefined}
             readiness={readiness.taxSimulation}
@@ -5754,6 +5762,7 @@ function DlomSection({
 
 function DlocPfcSection({
   calculation,
+  shareOwnershipType,
   guidanceTarget,
   readiness,
   onNavigate,
@@ -5761,14 +5770,132 @@ function DlocPfcSection({
   onUpdateFactor,
 }: {
   calculation: DlocPfcCalculation;
+  shareOwnershipType: string;
   guidanceTarget?: GuidanceTarget;
   readiness: SectionReadiness;
   onNavigate: (tabId: WorkflowTabId) => void;
   onAction: (item: ReadinessItem) => boolean;
   onUpdateFactor: (id: DlocPfcFactorId, patch: Partial<DlocPfcState["factors"][DlocPfcFactorId]>) => void;
 }) {
+  const isMajority = isMajorityShareOwnership(shareOwnershipType);
   const guidanceFactorId =
     guidanceTarget === "dloc-pfc-questionnaire" ? calculation.factors.find((factor) => factor.status === "missing")?.id : undefined;
+
+  if (isMajority) {
+    return (
+      <>
+        <section className="panel" data-testid="dloc-pfc-majority-note">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Discount Lack of Control / Premium for Control</p>
+              <h3>CATATAN PENTING</h3>
+            </div>
+            <AlertTriangle size={22} />
+          </div>
+          <ol className="dloc-pfc-majority-note-list">
+            <li>Pendekatan Aset dengan Metode Penilaian AAM dan EEM akan menghasilkan Indikasi Nilai berupa Mayoritas.</li>
+            <li>Selain itu, Pendekatan Pendapatan dengan Metode DCF juga akan menghasilkan Indikasi Nilai berupa Mayoritas.</li>
+            <li>Bisa disimpulkan, baik AAM, EEM maupun DCF akan menghasilkan Indikasi Nilai berupa Mayoritas.</li>
+            <li>
+              Sebagai implikasi dari Indikasi Nilai berupa Mayoritas:
+              <ol type="a">
+                <li>Dalam hal Saham yang Dinilai adalah Saham Minoritas, maka Penilaian memerlukan DLOM dan DLOC</li>
+                <li>Dalam hal Saham yang Dinilai adalah Saham Mayoritas, maka Penilaian hanya memerlukan DLOM</li>
+              </ol>
+            </li>
+            <li>
+              Dengan kata lain, apabila Anda sedang melakukan Penilaian atas Saham Mayoritas, maka sistem akan secara otomatis
+              mengunci sidebar &quot;DLOC/PFC&quot; sebab, sesuai dengan poin 4 huruf b di atas, Penilaian hanya memerlukan DLOM
+              tanpa perlu memperhitungkan PFC.
+            </li>
+            <li>
+              Sistem akan secara otomatis membuka sidebar &quot;DLOC/PFC&quot; hanya jika Anda sedang melakukan Penilaian atas
+              Saham Minoritas, untuk memunculkan DLOC.
+            </li>
+          </ol>
+        </section>
+
+        <section className="section-grid dlom-summary-grid" data-testid="dloc-pfc-summary">
+          <article className="metric-card">
+            <div className="card-title">
+              <Calculator size={20} />
+              <span>DLOC/PFC Objek Penilaian</span>
+            </div>
+            <strong>Tidak berlaku</strong>
+            <p>Saham Mayoritas — PFC tidak diperhitungkan; penilaian hanya memerlukan DLOM.</p>
+          </article>
+        </section>
+
+        <section className="panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Kuesioner model</p>
+              <h3>Faktor kendali dan skor</h3>
+            </div>
+          </div>
+          <ReadinessPanel status={readiness} onNavigate={onNavigate} onAction={onAction} />
+          <fieldset className="dloc-pfc-locked" disabled data-testid="dloc-pfc-locked-fieldset">
+            <div className="table-wrap dlom-table-wrap">
+              <table className="dlom-table dloc-pfc-table" data-testid="dloc-pfc-factor-table">
+                <colgroup>
+                  <col className="dloc-pfc-no-column" />
+                  <col className="dloc-pfc-factor-column" />
+                  <col className="dloc-pfc-answer-column" />
+                  <col className="dloc-pfc-score-column" />
+                  <col className="dloc-pfc-evidence-column" />
+                  <col className="dloc-pfc-reviewer-column" />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th>No.</th>
+                    <th>Faktor</th>
+                    <th>Jawaban final</th>
+                    <th className="numeric-cell">Skor</th>
+                    <th>Basis bukti</th>
+                    <th>Keterangan Tambahan</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {calculation.factors.map((factor) => (
+                    <tr key={factor.id}>
+                      <td>{factor.no}</td>
+                      <td>
+                        <strong>{factor.factor}</strong>
+                        <span>{factor.prompt}</span>
+                      </td>
+                      <td>
+                        <select aria-label={`Jawaban DLOC/PFC ${factor.factor}`} value={factor.answer} onChange={() => undefined}>
+                          <option value="">Pilih</option>
+                          {factor.options.map((option) => (
+                            <option value={option.label} key={option.label}>
+                              {option.label} · skor {formatNumber(option.score)}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="badge muted">Terkunci — Saham Mayoritas</span>
+                      </td>
+                      <td className="numeric-cell">-</td>
+                      <td>
+                        <span>{factor.evidenceBasis}</span>
+                      </td>
+                      <td>
+                        <textarea
+                          aria-label={`Keterangan Tambahan DLOC/PFC ${factor.factor}`}
+                          value=""
+                          onChange={() => undefined}
+                          placeholder="Tidak berlaku untuk Saham Mayoritas."
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </fieldset>
+        </section>
+      </>
+    );
+  }
 
   return (
     <>
@@ -5897,6 +6024,7 @@ function TaxSimulationSection({
   result,
   dlom,
   dlocPfc,
+  shareOwnershipType,
   caseProfileDerived,
   guidanceTarget,
   readiness,
@@ -5908,6 +6036,7 @@ function TaxSimulationSection({
   result: TaxSimulationResult;
   dlom: DlomCalculation;
   dlocPfc: DlocPfcCalculation;
+  shareOwnershipType: string;
   caseProfileDerived: CaseProfileDerived;
   guidanceTarget?: GuidanceTarget;
   readiness: SectionReadiness;
@@ -5918,6 +6047,7 @@ function TaxSimulationSection({
   const primaryRow = result.primaryRow;
   const baselinePrimaryRow = result.baselinePrimaryRow;
   const scenarioPrimaryRow = result.scenarioPrimaryRow;
+  const isMajority = isMajorityShareOwnership(shareOwnershipType);
   const taxYearLabel =
     result.taxYearResolution.appliedYear === null
       ? "Belum tersedia"
@@ -5954,8 +6084,11 @@ function TaxSimulationSection({
           <strong>{dlom.isComplete ? `DLOM ${formatPercent(dlom.dlomRate)}` : "DLOM 0%"}</strong>
           <p>
             DLOC/PFC:{" "}
-            {dlocPfc.isComplete ? `${dlocPfc.adjustmentType || "Adjustment"} ${dlocPfc.adjustmentType === "PFC" ? formatPercent(Math.abs(dlocPfc.signedRate)) : formatPercent(dlocPfc.signedRate)}` : "Belum lengkap"}
-            .
+            {isMajority
+              ? "Tidak berlaku — Saham Mayoritas; penilaian hanya memerlukan DLOM."
+              : dlocPfc.isComplete
+                ? `${dlocPfc.adjustmentType || "Adjustment"} ${dlocPfc.adjustmentType === "PFC" ? formatPercent(Math.abs(dlocPfc.signedRate)) : formatPercent(dlocPfc.signedRate)}.`
+                : "Belum lengkap."}
           </p>
         </article>
         <article className="metric-card">
@@ -5997,7 +6130,9 @@ function TaxSimulationSection({
           </label>
           <DerivedCaseField label="Tahun Cut Off" value={taxYearLabel} state={result.taxYearResolution.appliedYear === null ? "invalid" : "neutral"} />
           <DerivedCaseField label="DLOM baseline" value={dlom.isComplete ? formatPercent(dlom.dlomRate) : "Belum lengkap"} />
-          <DerivedCaseField label="DLOC/PFC baseline" value={dlocPfc.isComplete ? `${dlocPfc.adjustmentType} ${dlocPfc.adjustmentType === "PFC" ? formatPercent(Math.abs(dlocPfc.signedRate)) : formatPercent(dlocPfc.signedRate)}` : "Belum lengkap"} />
+          {isMajority ? null : (
+            <DerivedCaseField label="DLOC/PFC baseline" value={dlocPfc.isComplete ? `${dlocPfc.adjustmentType} ${dlocPfc.adjustmentType === "PFC" ? formatPercent(Math.abs(dlocPfc.signedRate)) : formatPercent(dlocPfc.signedRate)}` : "Belum lengkap"} />
+          )}
           <DerivedCaseField label={caseProfileDerived.capitalProportionLabel} value={formatCaseProfileProportion(caseProfileDerived)} />
           <DerivedCaseField
             label="Nilai pengalihan dari Data Awal"
@@ -6009,10 +6144,12 @@ function TaxSimulationSection({
             <span>DLOM Skenario Manual</span>
             <input inputMode="decimal" value={state.scenarioDlomRate} onChange={(event) => onUpdate({ scenarioDlomRate: event.target.value })} placeholder="Default baseline" />
           </label>
-          <label className="field">
-            <span>DLOC/PFC Skenario Manual</span>
-            <input inputMode="decimal" value={state.scenarioDlocPfcRate} onChange={(event) => onUpdate({ scenarioDlocPfcRate: event.target.value })} placeholder="Input positif; sistem tentukan DLOC/PFC" />
-          </label>
+          {isMajority ? null : (
+            <label className="field">
+              <span>DLOC/PFC Skenario Manual</span>
+              <input inputMode="decimal" value={state.scenarioDlocPfcRate} onChange={(event) => onUpdate({ scenarioDlocPfcRate: event.target.value })} placeholder="Input positif; sistem tentukan DLOC/PFC" />
+            </label>
+          )}
         </div>
       </section>
 
@@ -6061,7 +6198,11 @@ function TaxSimulationSection({
             metrics={[
               ["Potensi pajak", scenarioPrimaryRow ? formatIdr(scenarioPrimaryRow.potentialTax) : "Pilih Primary Method"],
               ["DLOM Skenario Manual", scenarioPrimaryRow ? formatPercent(scenarioPrimaryRow.dlomRate) : "Default baseline"],
-              ["DLOC/PFC Skenario Manual", scenarioPrimaryRow ? (dlocPfc.adjustmentType === "PFC" ? formatPercent(Math.abs(scenarioPrimaryRow.dlocPfcRate)) : formatPercent(scenarioPrimaryRow.dlocPfcRate)) : "Default baseline"],
+              ...(isMajority
+                ? []
+                : ([
+                    ["DLOC/PFC Skenario Manual", scenarioPrimaryRow ? (dlocPfc.adjustmentType === "PFC" ? formatPercent(Math.abs(scenarioPrimaryRow.dlocPfcRate)) : formatPercent(scenarioPrimaryRow.dlocPfcRate)) : "Default baseline"],
+                  ] as Array<[string, string]>)),
               ["Basis final", result.finalBasis === "manualScenario" ? "Dipakai untuk summary" : "Pembanding saja"],
             ]}
           />
@@ -6085,7 +6226,7 @@ function TaxSimulationSection({
                 <th className="numeric-cell">Base equity</th>
                 <th className="numeric-cell">DLOM</th>
                 <th className="numeric-cell">After DLOM</th>
-                <th className="numeric-cell">DLOC/PFC</th>
+                {isMajority ? null : <th className="numeric-cell">DLOC/PFC</th>}
                 <th className="numeric-cell">Market value 100%</th>
                 <th className="numeric-cell">Porsi</th>
                 <th className="numeric-cell">Nilai pengalihan wajar</th>
@@ -6112,10 +6253,12 @@ function TaxSimulationSection({
                     <span>{formatIdr(row.dlomAdjustment)}</span>
                   </td>
                   <td className="numeric-cell">{formatIdr(row.valueAfterDlom)}</td>
-                  <td className="numeric-cell">
-                    {dlocPfc.adjustmentType === "PFC" ? formatPercent(Math.abs(row.dlocPfcRate)) : formatPercent(row.dlocPfcRate)}
-                    <span>{formatIdr(row.dlocPfcAdjustment)}</span>
-                  </td>
+                  {isMajority ? null : (
+                    <td className="numeric-cell">
+                      {dlocPfc.adjustmentType === "PFC" ? formatPercent(Math.abs(row.dlocPfcRate)) : formatPercent(row.dlocPfcRate)}
+                      <span>{formatIdr(row.dlocPfcAdjustment)}</span>
+                    </td>
+                  )}
                   <td className="numeric-cell">{formatIdr(row.marketValueOfEquity100)}</td>
                   <td className="numeric-cell">{formatPercent(row.sharePercentage)}</td>
                   <td className="numeric-cell">{formatIdr(row.marketValueOfTransferredInterest)}</td>
@@ -11145,9 +11288,11 @@ function buildAuditDetailCards(input: AuditDetailCardsInput): AuditDetailCard[] 
   add(
     "dloc-pfc",
     "DLOC/PFC",
-    input.dlocPfcCalculation.isComplete
-      ? `${input.dlocPfcCalculation.adjustmentType} ${input.dlocPfcCalculation.adjustmentType === "PFC" ? formatPercent(Math.abs(input.dlocPfcCalculation.signedRate)) : formatPercent(input.dlocPfcCalculation.signedRate)}`
-      : `${input.dlocPfcCalculation.adjustmentType || "Belum lengkap"} - Belum lengkap`,
+    isMajorityShareOwnership(input.caseProfile.shareOwnershipType)
+      ? "Tidak berlaku — Saham Mayoritas; penilaian hanya memerlukan DLOM"
+      : input.dlocPfcCalculation.isComplete
+        ? `${input.dlocPfcCalculation.adjustmentType} ${input.dlocPfcCalculation.adjustmentType === "PFC" ? formatPercent(Math.abs(input.dlocPfcCalculation.signedRate)) : formatPercent(input.dlocPfcCalculation.signedRate)}`
+        : `${input.dlocPfcCalculation.adjustmentType || "Belum lengkap"} - Belum lengkap`,
     hasDlocPfcInput(input.dlocPfc) || input.dlocPfcCalculation.adjustmentType !== "" || input.dlocPfcCalculation.isComplete,
   );
   addCurrency(

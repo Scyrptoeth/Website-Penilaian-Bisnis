@@ -57,6 +57,18 @@ export function combineTaxpayerResistanceByMatrix(
   return "Tinggi";
 }
 
+export function combineTaxpayerResistanceForOwnership(
+  dlomResistance: TaxpayerResistanceLevel,
+  dlocPfcResistance: TaxpayerResistanceLevel,
+  shareOwnershipType: string,
+): TaxpayerResistanceLevel {
+  if (shareOwnershipType === "Mayoritas") {
+    return dlomResistance;
+  }
+
+  return combineTaxpayerResistanceByMatrix(dlomResistance, dlocPfcResistance);
+}
+
 function calculateRelativeRangePosition(rate: number, min: number, max: number): number {
   const spread = max - min;
 

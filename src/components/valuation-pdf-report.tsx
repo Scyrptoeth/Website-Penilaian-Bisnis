@@ -5,6 +5,7 @@ import { Banknote, Calculator, FileSearch, Printer, type LucideIcon } from "luci
 import { buildBalanceSheetView, groupBalanceSheetLines, type BalanceSheetLine } from "@/lib/valuation/balance-sheet-view";
 import { categoryLabelMap } from "@/lib/valuation/category-options";
 import { parseInputNumber, type CaseProfileDerived, type MappedRow, type Period } from "@/lib/valuation/case-model";
+import { isMajorityShareOwnership } from "@/lib/valuation/dloc-pfc";
 import { formatDisplayDate, formatIdr, formatInputNumber, formatPercent, formatPercentFixed } from "@/lib/valuation/format";
 import { formatKluOptionLabel, getKluSectorRecord } from "@/lib/valuation/klu-sector";
 import {
@@ -257,8 +258,18 @@ export function ValuationPdfReport() {
             metrics={[
               { label: "DLOM Basis", value: input.dlomCalculation.companyMarketability || "-", note: input.dlomCalculation.interestBasis || "-" },
               { label: "DLOM Rate", value: formatPercent(input.dlomCalculation.dlomRate), note: `Resistensi WP: ${input.dlomCalculation.taxpayerResistance}; posisi: ${input.dlomCalculation.status}` },
-              { label: "DLOC/PFC Basis", value: input.dlocPfcCalculation.adjustmentType || "-", note: input.dlocPfcCalculation.companyBasis || "-" },
-              { label: "DLOC/PFC Rate", value: input.dlocPfcCalculation.adjustmentType === "PFC" ? formatPercent(Math.abs(input.dlocPfcCalculation.signedRate)) : formatPercent(input.dlocPfcCalculation.signedRate), note: `Resistensi WP: ${input.dlocPfcCalculation.taxpayerResistance}; posisi: ${input.dlocPfcCalculation.status}` },
+              ...(isMajorityShareOwnership(input.caseProfile.shareOwnershipType)
+                ? [
+                    {
+                      label: "DLOC/PFC",
+                      value: "Tidak berlaku — Saham Mayoritas",
+                      note: "PFC tidak diperhitungkan; penilaian hanya memerlukan DLOM.",
+                    },
+                  ]
+                : [
+                    { label: "DLOC/PFC Basis", value: input.dlocPfcCalculation.adjustmentType || "-", note: input.dlocPfcCalculation.companyBasis || "-" },
+                    { label: "DLOC/PFC Rate", value: input.dlocPfcCalculation.adjustmentType === "PFC" ? formatPercent(Math.abs(input.dlocPfcCalculation.signedRate)) : formatPercent(input.dlocPfcCalculation.signedRate), note: `Resistensi WP: ${input.dlocPfcCalculation.taxpayerResistance}; posisi: ${input.dlocPfcCalculation.status}` },
+                  ]),
             ]}
           />
         </ReportSection>

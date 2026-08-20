@@ -1,8 +1,8 @@
 import type { CaseProfile, CaseProfileDerived } from "./case-model";
 import { parseInputNumber } from "./case-model";
-import type { DlocPfcCalculation } from "./dloc-pfc";
+import { isMajorityShareOwnership, type DlocPfcCalculation } from "./dloc-pfc";
 import type { DlomCalculation } from "./dlom";
-import { combineTaxpayerResistanceByMatrix, type TaxpayerResistanceLevel } from "./resistance";
+import { combineTaxpayerResistanceForOwnership, type TaxpayerResistanceLevel } from "./resistance";
 import {
   calculateTaxByRegime,
   resolveTaxRateRegime,
@@ -142,9 +142,10 @@ export function calculateTaxSimulation({
   const reportedTransferValue = readReportedTransferValue(state, caseProfileDerived);
   const requestedTaxYear = resolveRequestedTaxYear(caseProfile, caseProfileDerived);
   const taxYearResolution = resolveTaxRateRegime(requestedTaxYear);
-  const baselineBasis = buildBaselineBasis(dlom, dlocPfc);
-  const scenarioBasis = buildScenarioBasis(state, dlocPfc, baselineBasis);
-  const overallResistance = combineTaxpayerResistance(dlom.taxpayerResistance, dlocPfc.taxpayerResistance);
+  const majorityBypass = isMajorityShareOwnership(caseProfile.shareOwnershipType);
+  const baselineBasis = buildBaselineBasis(dlom, dlocPfc, majorityBypass);
+  const scenarioBasis = buildScenarioBasis(state, dlocPfc, baselineBasis, majorityBypass);
+  const overallResistance = combineTaxpayerResistance(dlom.taxpayerResistance, dlocPfc.taxpayerResistance, caseProfile.shareOwnershipType);
   const baselineRows = buildRows({
     methods,
     basis: baselineBasis,
@@ -237,8 +238,8 @@ export function resolveDlocPfcRate(
   };
 }
 
-export function combineTaxpayerResistance(dlomResistance: TaxpayerResistance, dlocPfcResistance: TaxpayerResistance): TaxpayerResistance {
-  return combineTaxpayerResistanceByMatrix(dlomResistance, dlocPfcResistance);
+export function combineTaxpayerResistance(dlomResistance: TaxpayerResistance, dlocPfcResistance: TaxpayerResistance, shareOwnershipType: string): TaxpayerResistance {
+  return combineTaxpayerResistanceForOwnership(dlomResistance, dlocPfcResistance, shareOwnershipType);
 }
 
 function buildRows({
@@ -345,7 +346,7 @@ function buildTraces({
       label: "DLOC/PFC adjustment",
       formula: "Equity value after DLOM x DLOC/PFC signed rate x -1",
       value: rowValues.dlocPfcAdjustment,
-      note: basis.dlocPfcSource,
+      note: rowValues.dlocPfcAdjustment === 0 && basis.dlocPfcRate === 0 ? `${basis.dlocPfcSource} Nilai akhir hanya dikurangi DLOM.` : basis.dlocPfcSource,
     },
     {
       label: "Market value of transferred interest",
@@ -368,23 +369,25 @@ function buildTraces({
   ];
 }
 
-function buildBaselineBasis(dlom: DlomCalculation, dlocPfc: DlocPfcCalculation): TaxSimulationBasis {
+function buildBaselineBasis(dlom: DlomCalculation, dlocPfc: DlocPfcCalculation, majorityBypass: boolean): TaxSimulationBasis {
   return {
     id: "baseline",
     label: "Baseline otomatis",
     dlomRate: dlom.isComplete ? dlom.dlomRate : 0,
     dlomSource: dlom.isComplete ? "DLOM otomatis dari tab DLOM." : "DLOM belum lengkap; baseline otomatis memakai 0% sementara.",
     dlocPfcRate: dlocPfc.isComplete ? dlocPfc.signedRate : 0,
-    dlocPfcSource: dlocPfc.isComplete
-      ? `DLOC/PFC otomatis dari tab DLOC/PFC (${dlocPfc.adjustmentType}).`
-      : "DLOC/PFC belum lengkap; baseline otomatis memakai 0% sementara.",
+    dlocPfcSource: majorityBypass
+      ? "Saham Mayoritas: PFC tidak diperhitungkan; baseline otomatis memakai 0%."
+      : dlocPfc.isComplete
+        ? `DLOC/PFC otomatis dari tab DLOC/PFC (${dlocPfc.adjustmentType}).`
+        : "DLOC/PFC belum lengkap; baseline otomatis memakai 0% sementara.",
     isManual: false,
   };
 }
 
-function buildScenarioBasis(state: TaxSimulationState, dlocPfc: DlocPfcCalculation, baseline: TaxSimulationBasis): TaxSimulationBasis {
+function buildScenarioBasis(state: TaxSimulationState, dlocPfc: DlocPfcCalculation, baseline: TaxSimulationBasis, majorityBypass: boolean): TaxSimulationBasis {
   const scenarioDlomRate = readOptionalRate(state.scenarioDlomRate);
-  const scenarioDlocPfcRate = readOptionalRate(state.scenarioDlocPfcRate);
+  const scenarioDlocPfcRate = majorityBypass ? null : readOptionalRate(state.scenarioDlocPfcRate);
   const dlocPfcAdjustmentType = dlocPfc.adjustmentType || "DLOC";
   const signedDlocPfcRate =
     scenarioDlocPfcRate === null
@@ -402,8 +405,9 @@ function buildScenarioBasis(state: TaxSimulationState, dlocPfc: DlocPfcCalculati
         ? "Belum ada override skenario; memakai DLOM baseline otomatis."
         : "Override skenario di tab Simulasi Potensi Pajak; tidak mengubah tab DLOM.",
     dlocPfcRate: signedDlocPfcRate,
-    dlocPfcSource:
-      scenarioDlocPfcRate === null
+    dlocPfcSource: majorityBypass
+      ? "Saham Mayoritas: skenario DLOC/PFC tidak berlaku; PFC tetap 0%."
+      : scenarioDlocPfcRate === null
         ? "Belum ada override skenario; memakai DLOC/PFC baseline otomatis."
         : `Override skenario di tab Simulasi Potensi Pajak; input positif diperlakukan sebagai ${dlocPfcAdjustmentType}.`,
     isManual: true,
@@ -440,6 +444,7 @@ function buildWarnings({
   caseProfile: CaseProfile;
 }): string[] {
   const warnings: string[] = [];
+  const majorityBypass = isMajorityShareOwnership(caseProfile.shareOwnershipType);
 
   if (!state.primaryMethod) {
     warnings.push("Primary Method belum dipilih; summary final tidak akan mengunci angka potensi pajak.");
@@ -449,7 +454,7 @@ function buildWarnings({
     warnings.push("Baseline otomatis wajib mengambil DLOM dari tab DLOM, tetapi modul DLOM belum lengkap sehingga rate sementara 0%.");
   }
 
-  if (!dlocPfc.isComplete) {
+  if (!majorityBypass && !dlocPfc.isComplete) {
     warnings.push("Baseline otomatis wajib mengambil DLOC/PFC dari tab DLOC/PFC, tetapi questionnaire belum lengkap sehingga rate sementara 0%.");
   }
 
