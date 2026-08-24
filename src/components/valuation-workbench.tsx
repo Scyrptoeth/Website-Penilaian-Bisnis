@@ -207,6 +207,10 @@ import {
   type ValuationXlsxExportScopeId,
 } from "@/lib/valuation/xlsx-export";
 import {
+  buildWorkspaceBundleFilename,
+  buildWorkspaceBundlePayload,
+} from "@/lib/valuation/workspace-bundle";
+import {
   buildFixedAssetProjection,
   type FixedAssetProjectionMode,
   type FixedAssetProjectionSummary,
@@ -3812,6 +3816,42 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
     }
   }
 
+  function exportAllWorkspaces() {
+    acknowledgeExport("json", "all-workspaces");
+
+    try {
+      const activeState = saveActiveWorkspaceNow();
+      const exportedAt = new Date().toISOString();
+      const updatedWorkspaces = markWorkspaceSaved(workspaces, activeWorkspaceId, activeState.savedAt);
+      const bundleEntries = updatedWorkspaces.map((workspace) => {
+        const state = workspace.id === activeWorkspaceId ? activeState : readWorkspaceState(workspace.id);
+
+        if (!state) {
+          throw new Error(`Workspace ${workspace.name} tidak dapat dibaca. Export dibatalkan agar bundle tidak parsial.`);
+        }
+
+        return {
+          id: workspace.id,
+          name: workspace.name,
+          createdAt: workspace.createdAt,
+          updatedAt: workspace.updatedAt,
+          data: state,
+        };
+      });
+      const payload = buildWorkspaceBundlePayload({
+        sourceAppStorageVersion: WORKBENCH_STORAGE_VERSION,
+        exportedAt,
+        activeWorkspaceId,
+        workspaces: bundleEntries,
+      });
+      downloadJsonFile(payload, buildWorkspaceBundleFilename(exportedAt));
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Export seluruh workspace gagal dijalankan.");
+    } finally {
+      setIsJsonMenuOpen(false);
+    }
+  }
+
   function requestJsonImport() {
     setIsJsonMenuOpen(false);
     jsonImportInputRef.current?.click();
@@ -4258,22 +4298,32 @@ export function ValuationWorkbench({ authUserId, isSuperAdmin = false }: Valuati
                       className="export-menu-item"
                       type="button"
                       role="menuitem"
-                      aria-label="Export JSON"
+                      aria-label="Export Workspace Tunggal"
                       onClick={exportJsonDraft}
                     >
-                      <span>Export</span>
-                      <small>Simpan seluruh workspace aktif sebagai file JSON.</small>
+                      <span>Export Workspace Tunggal</span>
+                      <small>Workspace yang sedang aktif</small>
                     </button>
                     <button
                       className="export-menu-item"
                       type="button"
                       role="menuitem"
-                      aria-label="Import JSON"
+                      aria-label="Import Workspace Tunggal"
                       onClick={requestJsonImport}
                       disabled={isJsonImporting}
                     >
-                      <span>{isJsonImporting ? "Membaca" : "Import"}</span>
-                      <small>Muat file JSON sebagai workspace baru.</small>
+                      <span>{isJsonImporting ? "Membaca Workspace Tunggal" : "Import Workspace Tunggal"}</span>
+                      <small>Tambahkan satu workspace dari file JSON</small>
+                    </button>
+                    <button
+                      className="export-menu-item"
+                      type="button"
+                      role="menuitem"
+                      aria-label="Export Seluruh Workspace"
+                      onClick={exportAllWorkspaces}
+                    >
+                      <span>Export Seluruh Workspace</span>
+                      <small>Semua workspace dalam satu file</small>
                     </button>
                   </div>
                 ) : null}
@@ -10809,17 +10859,21 @@ function buildValuationJsonExportPayload(coreState: WorkbenchCoreState, exported
 }
 
 function downloadValuationJsonExport(coreState: WorkbenchCoreState) {
+  const payload = buildValuationJsonExportPayload(coreState);
+  downloadJsonFile(payload, buildJsonExportFilename(payload.data.caseProfile.objectTaxpayerName, payload.exportedAt));
+}
+
+function downloadJsonFile(payload: unknown, filename: string) {
   if (typeof window === "undefined" || typeof document === "undefined") {
     return;
   }
 
-  const payload = buildValuationJsonExportPayload(coreState);
   const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], { type: "application/json;charset=utf-8" });
   const url = window.URL.createObjectURL(blob);
   const link = document.createElement("a");
 
   link.href = url;
-  link.download = buildJsonExportFilename(payload.data.caseProfile.objectTaxpayerName, payload.exportedAt);
+  link.download = filename;
   document.body.appendChild(link);
   link.click();
   link.remove();
